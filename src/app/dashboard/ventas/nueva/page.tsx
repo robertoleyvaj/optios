@@ -17,7 +17,6 @@ import {
   Clock,
   CheckCircle2,
   Package,
-  ScanLine,
   X,
   ChevronDown,
   FileText,
@@ -87,6 +86,8 @@ export default function NuevaVentaPage() {
   const [errorGuardado, setErrorGuardado] = useState('')
   const [busquedaProducto, setBusquedaProducto] = useState('')
   const [showBuscadorProducto, setShowBuscadorProducto] = useState(false)
+  const [showProductoLibre, setShowProductoLibre] = useState(false)
+  const [productoLibre, setProductoLibre] = useState({ descripcion: '', precio: '', cantidad: '1' })
 
   // Búsqueda de clientes — muestra todos al enfocar, filtra al escribir
   const clientesFiltrados = busquedaCliente.length >= 1
@@ -768,10 +769,13 @@ ${entregaHtml}
                 onClick={() => { setBusquedaProducto(''); setShowBuscadorProducto(true) }}
                 className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-600 border border-dashed border-slate-200 rounded-md px-4 py-2 hover:border-slate-300 transition-all"
               >
-                <Plus className="w-4 h-4" /> Agregar otro producto
+                <Plus className="w-4 h-4" /> Agregar producto
               </button>
-              <button className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-600 border border-dashed border-slate-200 rounded-md px-4 py-2 hover:border-slate-300 transition-all">
-                <ScanLine className="w-4 h-4" /> Escanear código
+              <button
+                onClick={() => { setProductoLibre({ descripcion: '', precio: '', cantidad: '1' }); setShowProductoLibre(true) }}
+                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-600 border border-dashed border-slate-200 rounded-md px-4 py-2 hover:border-slate-300 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Producto libre
               </button>
             </div>
             <div className="flex items-center gap-6">
@@ -814,6 +818,88 @@ ${entregaHtml}
           </button>
         </div>
       </div>
+
+      {/* Modal producto libre */}
+      {showProductoLibre && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-800">Agregar producto no inventariado</h3>
+              <button onClick={() => setShowProductoLibre(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+                <input
+                  type="text"
+                  placeholder="Descripción del producto o servicio"
+                  value={productoLibre.descripcion}
+                  onChange={e => setProductoLibre(p => ({ ...p, descripcion: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Precio</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={productoLibre.precio}
+                      onChange={e => setProductoLibre(p => ({ ...p, precio: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-md pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+                    />
+                  </div>
+                </div>
+                <div className="w-24">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Cantidad</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={productoLibre.cantidad}
+                    onChange={e => setProductoLibre(p => ({ ...p, cantidad: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-5">
+              <button
+                onClick={() => setShowProductoLibre(false)}
+                className="flex-1 border border-slate-200 text-slate-600 rounded-md py-2 text-sm hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  const precio = parseFloat(productoLibre.precio) || 0
+                  const cantidad = parseInt(productoLibre.cantidad) || 1
+                  if (!productoLibre.descripcion.trim() || precio <= 0) return
+                  const id = Date.now()
+                  setCarrito(prev => [...prev, {
+                    id,
+                    nombre: productoLibre.descripcion.trim(),
+                    precio,
+                    cantidad,
+                    sku: 'LIBRE',
+                    stock: 999,
+                    descuento: 0,
+                  }])
+                  setShowProductoLibre(false)
+                }}
+                className="flex-1 bg-[#2BBFB3] text-white rounded-md py-2 text-sm font-medium hover:bg-[#24a89d] transition-colors"
+              >
+                Agregar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de pago */}
       {showModal && (
