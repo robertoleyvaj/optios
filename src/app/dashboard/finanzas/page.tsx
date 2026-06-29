@@ -215,7 +215,7 @@ export default function FinanzasPage() {
               <XAxis dataKey="semana" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false}
                 tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => [`$${v.toLocaleString('es-MX')}`, '']}
+              <Tooltip formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, '']}
                 contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }} />
               <Area type="monotone" dataKey="ingresos" name="Ingresos" stroke="#2BBFB3" strokeWidth={2} fill="url(#gIngresos)" />
               <Area type="monotone" dataKey="gastos"   name="Gastos"   stroke="#EF4444" strokeWidth={2} fill="url(#gGastos)" />
@@ -228,7 +228,7 @@ export default function FinanzasPage() {
               <XAxis dataKey="nombre" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false}
                 tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => [`$${v.toLocaleString('es-MX')}`, '']}
+              <Tooltip formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, '']}
                 contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
               <Bar dataKey="ingresos" name="Ingresos" fill="#2BBFB3" radius={[4, 4, 0, 0]} />
