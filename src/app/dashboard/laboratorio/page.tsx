@@ -1247,9 +1247,9 @@ export default function LaboratorioPage() {
 
     const nueva: OrdenLab = {
       id: Date.now(),
-      supabaseId: inserted?.id ?? '',
       folio,
       ...form,
+      supabaseId: inserted?.id ?? '',
     }
     setOrdenes(prev => [nueva, ...prev])
     setModal(false)
