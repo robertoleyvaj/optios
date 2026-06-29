@@ -133,7 +133,7 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
               <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => [`$${v.toLocaleString('es-MX')}`, '']} contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }} />
+              <Tooltip formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, '']} contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
               <Bar dataKey="baja"  name="Baja Visión"    fill="#2BBFB3" radius={[3,3,0,0]} />
               <Bar dataKey="mayo"  name="5 de Mayo"      fill="#0B1A35" radius={[3,3,0,0]} opacity={0.8} />
@@ -152,7 +152,7 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
               <Pie data={DATA_PRODUCTOS} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
                 {DATA_PRODUCTOS.map((_, i) => <Cell key={i} fill={COLORES_PIE[i % COLORES_PIE.length]} />)}
               </Pie>
-              <Tooltip formatter={(v: number) => [`${v}%`, '']} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+              <Tooltip formatter={(v: unknown) => [`${Number(v)}%`, '']} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
             </PieChart>
           </ResponsiveContainer>
           <div className="mt-2 space-y-1.5">

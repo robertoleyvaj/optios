@@ -721,7 +721,7 @@ export default function DashboardPage() {
               <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
               <Tooltip
                 contentStyle={{ background: '#0B1A35', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12 }}
-                formatter={(v: number) => [`$${v.toLocaleString('es-MX')}`, 'Ventas']}
+                formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, 'Ventas']}
               />
               <Area type="monotone" dataKey="ventas" stroke="#2BBFB3" strokeWidth={2.5} fill="url(#salesGrad)" dot={{ fill: '#2BBFB3', r: 4, strokeWidth: 0 }} />
             </AreaChart>
