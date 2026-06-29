@@ -35,6 +35,8 @@ import {
   Search,
   UserPlus,
   FlaskConical,
+  Award,
+  Zap,
 } from 'lucide-react'
 
 // --- Mock data ---
@@ -383,6 +385,36 @@ const LISTOS_HOY = [
 // ─────────────────────────────────────────
 // Vista dashboard activo para vendedor
 // ─────────────────────────────────────────
+// ── Comisiones y bonos ───────────────────────────────────────────
+const BONOS_TABLA = [
+  { meta: 50000,  bono: 500  },
+  { meta: 100000, bono: 800  },
+  { meta: 150000, bono: 1200 },
+  { meta: 200000, bono: 4050 },
+  { meta: 230000, bono: 5100 },
+  { meta: 250000, bono: 5800 },
+  { meta: 265000, bono: 6325 },
+  { meta: 300000, bono: 7550 },
+]
+
+function calcularComision(ventas: number): number {
+  if (ventas <= 0) return 0
+  if (ventas <= 100000) return ventas * 0.015
+  if (ventas <= 150000) return 1500 + (ventas - 100000) * 0.02
+  return 1500 + 1000 + (ventas - 150000) * 0.025
+}
+
+function calcularBono(ventas: number): { actual: number; siguiente: { meta: number; bono: number } | null } {
+  let actual = 0
+  let siguiente = null
+  for (const b of BONOS_TABLA) {
+    if (ventas >= b.meta) actual = b.bono
+    else { siguiente = b; break }
+  }
+  return { actual, siguiente }
+}
+
+// ─────────────────────────────────────────
 function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string }) {
   const router = useRouter()
   const [query, setQuery]             = useState('')
@@ -390,6 +422,36 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
   const [nuevoForm, setNuevoForm]     = useState({ nombre: '', telefono: '' })
   const [mostrarNuevo, setMostrarNuevo] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [ventasMes, setVentasMes] = useState(0)
+  const META_MES = 200000
+
+  useEffect(() => {
+    const fetchVentasMes = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const sb = createClient()
+        const ahora = new Date()
+        const inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString()
+        const fin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23, 59, 59).toISOString()
+        const { data } = await sb
+          .from('ventas')
+          .select('total')
+          .eq('atendido_por', nombre)
+          .eq('es_cotizacion', false)
+          .eq('estado', 'activa')
+          .gte('created_at', inicio)
+          .lte('created_at', fin)
+        if (data) setVentasMes(data.reduce((s, v) => s + Number(v.total), 0))
+      } catch { /* usa 0 */ }
+    }
+    fetchVentasMes()
+  }, [nombre])
+
+  // Cálculos de desempeño
+  const comision = calcularComision(ventasMes)
+  const { actual: bonoActual, siguiente: bonoSiguiente } = calcularBono(ventasMes)
+  const totalExtra = comision + bonoActual
+  const pctMeta = Math.min((ventasMes / META_MES) * 100, 100)
 
   // Pacientes recientes: ordenados por fecha más reciente
   const recientes = [...PACIENTES_BUSQUEDA]
@@ -618,6 +680,94 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
             <UserPlus className="w-4 h-4" />
             Paciente nuevo
           </button>
+        </div>
+      )}
+
+      {/* ── Mi desempeño del mes ── */}
+      {inIdle && (
+        <div className="bg-[#0B1A35] rounded-2xl p-5 text-white space-y-4">
+
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Award className="w-4 h-4 text-[#2BBFB3]" />
+              <span className="text-sm font-semibold">Mi desempeño</span>
+            </div>
+            <span className="text-xs text-white/40 capitalize">
+              {new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          {/* Ventas + barra de progreso */}
+          <div className="space-y-2">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs text-white/50">Ventas del mes</p>
+                <p className="text-2xl font-bold tracking-tight">
+                  ${ventasMes.toLocaleString('es-MX')}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-white/50">Meta</p>
+                <p className="text-sm font-semibold text-white/80">
+                  ${META_MES.toLocaleString('es-MX')}
+                </p>
+              </div>
+            </div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-[#2BBFB3] to-emerald-400 rounded-full transition-all duration-700"
+                style={{ width: `${pctMeta}%` }}
+              />
+            </div>
+            <p className="text-xs text-white/40">{pctMeta.toFixed(0)}% de la meta mensual</p>
+          </div>
+
+          {/* Métricas */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white/5 rounded-xl p-3">
+              <p className="text-xs text-white/50 mb-1">Comisión</p>
+              <p className="text-base font-bold text-[#2BBFB3]">
+                ${comision.toLocaleString('es-MX', { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3">
+              <p className="text-xs text-white/50 mb-1">Bono</p>
+              <p className="text-base font-bold text-amber-400">
+                ${bonoActual.toLocaleString('es-MX')}
+              </p>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3">
+              <p className="text-xs text-white/50 mb-1">Total extra</p>
+              <p className="text-base font-bold text-white">
+                ${totalExtra.toLocaleString('es-MX', { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+          </div>
+
+          {/* Mensaje motivacional */}
+          <div className="flex items-start gap-2 bg-white/5 rounded-xl px-4 py-3">
+            <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            {bonoSiguiente ? (
+              <p className="text-xs text-white/70 leading-relaxed">
+                Te faltan{' '}
+                <span className="text-white font-semibold">
+                  ${(bonoSiguiente.meta - ventasMes).toLocaleString('es-MX')}
+                </span>{' '}
+                para el bono de{' '}
+                <span className="text-amber-400 font-semibold">
+                  ${bonoSiguiente.bono.toLocaleString('es-MX')}
+                </span>
+                . ¡Tú puedes!
+              </p>
+            ) : (
+              <p className="text-xs text-white/70 leading-relaxed">
+                <span className="text-amber-400 font-semibold">¡Alcanzaste el bono máximo!</span>{' '}
+                Eres la mejor vendedora del mes 🏆
+              </p>
+            )}
+          </div>
+
         </div>
       )}
 
