@@ -27,18 +27,34 @@ import {
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 
-// --- Mock data ---
+// --- Catálogo GON ---
 const catalogo = [
-  { id: 1, nombre: 'Armazón Ray-Ban RB5154', categoria: 'Armazones', precio: 2800, sku: 'ARZ-001', stock: 5 },
-  { id: 2, nombre: 'Armazón Oakley OX8046', categoria: 'Armazones', precio: 3200, sku: 'ARZ-002', stock: 2 },
-  { id: 3, nombre: 'Armazón básico acetato', categoria: 'Armazones', precio: 950, sku: 'ARZ-003', stock: 8 },
-  { id: 4, nombre: 'Micas monofocales CR-39', categoria: 'Micas', precio: 800, sku: 'MCR39', stock: 999 },
-  { id: 5, nombre: 'Micas antirreflejantes', categoria: 'Micas', precio: 1200, sku: 'MIC-002', stock: 999 },
-  { id: 6, nombre: 'Micas progresivas Essilor', categoria: 'Micas', precio: 3500, sku: 'MIC-003', stock: 999 },
-  { id: 7, nombre: 'Micas transitions', categoria: 'Micas', precio: 2800, sku: 'MIC-004', stock: 999 },
-  { id: 8, nombre: 'Lentes contacto Acuvue 1 día', categoria: 'Lentes de contacto', precio: 320, sku: 'LC-001', stock: 24 },
-  { id: 9, nombre: 'Lentes contacto Acuvue mensual', categoria: 'Lentes de contacto', precio: 580, sku: 'LC-002', stock: 12 },
-  { id: 10, nombre: 'Solución Renu 120ml', categoria: 'Accesorios', precio: 180, sku: 'ACC-001', stock: 3 },
+  // ── Micas Monofocal ──────────────────────────────────────────
+  { id:  1, nombre: 'Mica Monofocal Essential 1.50',      categoria: 'Micas', precio:  749, sku: 'MON-ESS',  stock: 999 },
+  { id:  2, nombre: 'Mica Monofocal Slim HD 1.60',        categoria: 'Micas', precio: 1146, sku: 'MON-SHD',  stock: 999 },
+  { id:  3, nombre: 'Mica Monofocal Poly Plus 1.58',      categoria: 'Micas', precio: 1746, sku: 'MON-PPL',  stock: 999 },
+  { id:  4, nombre: 'Mica Monofocal Ultra Slim 1.67',     categoria: 'Micas', precio: 3946, sku: 'MON-USL',  stock: 999 },
+  { id:  5, nombre: 'Mica Monofocal Ultra Slim Pro 1.74', categoria: 'Micas', precio: 5446, sku: 'MON-USP',  stock: 999 },
+  // ── Micas Bifocal ────────────────────────────────────────────
+  { id:  6, nombre: 'Mica Bifocal Essential 1.50',        categoria: 'Micas', precio: 1149, sku: 'BIF-ESS',  stock: 999 },
+  { id:  7, nombre: 'Mica Bifocal Slim HD 1.60',          categoria: 'Micas', precio: 1546, sku: 'BIF-SHD',  stock: 999 },
+  { id:  8, nombre: 'Mica Bifocal Poly Plus 1.58',        categoria: 'Micas', precio: 2146, sku: 'BIF-PPL',  stock: 999 },
+  { id:  9, nombre: 'Mica Bifocal Ultra Slim 1.67',       categoria: 'Micas', precio: 4346, sku: 'BIF-USL',  stock: 999 },
+  // ── Micas Progresivo ─────────────────────────────────────────
+  { id: 10, nombre: 'Mica Progresivo Essential 1.50',     categoria: 'Micas', precio: 1899, sku: 'PRO-ESS',  stock: 999 },
+  { id: 11, nombre: 'Mica Progresivo Slim HD 1.60',       categoria: 'Micas', precio: 2296, sku: 'PRO-SHD',  stock: 999 },
+  { id: 12, nombre: 'Mica Progresivo Poly Plus 1.58',     categoria: 'Micas', precio: 2896, sku: 'PRO-PPL',  stock: 999 },
+  { id: 13, nombre: 'Mica Progresivo Ultra Slim 1.67',    categoria: 'Micas', precio: 5096, sku: 'PRO-USL',  stock: 999 },
+  { id: 14, nombre: 'Mica Progresivo Ultra Slim Pro 1.74',categoria: 'Micas', precio: 6596, sku: 'PRO-USP',  stock: 999 },
+  // ── Filtros ──────────────────────────────────────────────────
+  { id: 20, nombre: 'Filtro Antirreflejo',                categoria: 'Filtros', precio:  279, sku: 'FIL-AR',  stock: 999 },
+  { id: 21, nombre: 'Filtro Blue Light',                  categoria: 'Filtros', precio:  549, sku: 'FIL-BL',  stock: 999 },
+  { id: 22, nombre: 'Filtro Fotocromático',               categoria: 'Filtros', precio:  949, sku: 'FIL-FC',  stock: 999 },
+  { id: 23, nombre: 'Filtro Polarizado',                  categoria: 'Filtros', precio: 1699, sku: 'FIL-POL', stock: 999 },
+  { id: 24, nombre: 'Filtro Tinte',                       categoria: 'Filtros', precio:  549, sku: 'FIL-TIN', stock: 999 },
+  // ── Servicios ─────────────────────────────────────────────────
+  { id: 40, nombre: 'Examen de la vista',                 categoria: 'Servicios', precio:  200, sku: 'SRV-EXA', stock: 999 },
+  { id: 41, nombre: 'Ajuste de armazón',                  categoria: 'Servicios', precio:   80, sku: 'SRV-AJU', stock: 999 },
 ]
 
 const clientesMock = [
