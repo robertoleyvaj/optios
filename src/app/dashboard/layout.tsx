@@ -1,5 +1,8 @@
+export const dynamic = 'force-dynamic'
+
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
+import CheckInModal from '@/components/CheckInModal'
 
 export default function DashboardLayout({
   children,
@@ -15,6 +18,7 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+      <CheckInModal />
     </div>
   )
 }
