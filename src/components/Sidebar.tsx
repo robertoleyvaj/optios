@@ -48,7 +48,7 @@ type SubItem = { href: string; label: string; icon: React.ElementType }
 type MenuItem = { href: string; label: string; icon: React.ElementType; key: string; subItems?: SubItem[] }
 
 const MENU_ITEMS: MenuItem[] = [
-  { href: '/dashboard',                  label: 'Dashboard',    icon: LayoutDashboard, key: 'dashboard' },
+  { href: '/dashboard',                  label: 'Inicio',       icon: LayoutDashboard, key: 'dashboard' },
   {
     href: '/dashboard/ventas',           label: 'Ventas',       icon: ShoppingCart,    key: 'ventas',
     subItems: [
