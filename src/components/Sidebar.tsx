@@ -8,7 +8,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   DollarSign, BarChart3, CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, ChevronUp,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, ChevronUp, TrendingUp,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -27,7 +27,7 @@ const ROL_LABEL: Record<Rol, string> = {
 const PERMISOS: Record<Rol, string[]> = {
   administrador: ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','finanzas','reportes','usuarios','ajustes'],
   gerente:       ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','finanzas','reportes'],
-  vendedor:      ['dashboard','ventas','agenda','expedientes','laboratorio','caja'],
+  vendedor:      ['dashboard','ventas','agenda','expedientes','laboratorio','caja','mi-desempeno'],
   repartidor:    ['laboratorio'],
 }
 
@@ -61,6 +61,7 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard/inventario',       label: 'Inventario',   icon: Package,         key: 'inventario' },
   { href: '/dashboard/laboratorio',      label: 'Laboratorio',  icon: FlaskConical,    key: 'laboratorio' },
   { href: '/dashboard/caja',             label: 'Caja',         icon: Wallet,          key: 'caja' },
+  { href: '/dashboard/mi-desempeno',    label: 'Mi desempeño', icon: TrendingUp,      key: 'mi-desempeno' },
   { href: '/dashboard/finanzas',         label: 'Finanzas',     icon: DollarSign,      key: 'finanzas' },
   { href: '/dashboard/reportes',         label: 'Reportes',     icon: BarChart3,       key: 'reportes' },
   { href: '/dashboard/usuarios',         label: 'Usuarios',     icon: Users,           key: 'usuarios' },
