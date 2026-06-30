@@ -2,13 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   DollarSign, BarChart3, CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, ChevronUp, TrendingUp,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -30,16 +29,6 @@ const PERMISOS: Record<Rol, string[]> = {
   vendedor:      ['dashboard','ventas','agenda','expedientes','laboratorio','caja','mi-desempeno'],
   repartidor:    ['laboratorio'],
 }
-
-// ─────────────────────────────────────────
-// Usuarios demo (mientras no hay auth real)
-// ─────────────────────────────────────────
-const USUARIOS_DEMO = [
-  { nombre: 'Roberto Leyva', iniciales: 'RL', rol: 'administrador' as Rol, sucursal: 'Todas',        nombreReceta: 'Dr. Leyva' },
-  { nombre: 'Ana Castillo',  iniciales: 'AC', rol: 'gerente'       as Rol, sucursal: 'Baja Visión', nombreReceta: 'Dra. Castillo' },
-  { nombre: 'Karina López',  iniciales: 'KL', rol: 'vendedor'      as Rol, sucursal: 'Baja Visión', nombreReceta: 'Karina López' },
-  { nombre: 'Sergio',        iniciales: 'SG', rol: 'repartidor'    as Rol, sucursal: 'Todas',        nombreReceta: 'Sergio' },
-]
 
 // ─────────────────────────────────────────
 // Definición del menú completo
@@ -68,20 +57,32 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard/ajustes',          label: 'Ajustes',      icon: Settings,        key: 'ajustes' },
 ]
 
+const USUARIO_DEFAULT = { nombre: 'Usuario', iniciales: 'U', rol: 'vendedor' as Rol, sucursal: '' }
+
 export default function Sidebar() {
   const pathname = usePathname()
   const router   = useRouter()
-  const supabase = createClient()
+  const [usuario, setUsuario] = useState(USUARIO_DEFAULT)
 
-  // Usuario activo (demo — luego viene de Supabase session)
-  const [usuarioIdx, setUsuarioIdx] = useState(0)
-  const [showUserSwitch, setShowUserSwitch] = useState(false)
-  const usuario = USUARIOS_DEMO[usuarioIdx]
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('optios_demo_user')
+      if (raw) {
+        const u = JSON.parse(raw)
+        setUsuario({
+          nombre:    u.nombre    ?? 'Usuario',
+          iniciales: u.nombre ? u.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U',
+          rol:       (u.rol ?? 'vendedor') as Rol,
+          sucursal:  u.sucursal  ?? '',
+        })
+      }
+    } catch { /* noop */ }
+  }, [])
 
-  const puedeVer = (key: string) => PERMISOS[usuario.rol].includes(key)
+  const puedeVer = (key: string) => PERMISOS[usuario.rol]?.includes(key) ?? false
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
+  const handleLogout = () => {
+    localStorage.removeItem('optios_demo_user')
     router.push('/login')
   }
 
@@ -150,47 +151,19 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Usuario activo + switcher de demo */}
+      {/* Usuario activo */}
       <div className="px-3 py-4 border-t border-white/5">
-
-        {/* Switcher de usuario — solo para demo/desarrollo */}
-        {showUserSwitch && (
-          <div className="mb-2 bg-white/5 rounded-lg overflow-hidden border border-white/10">
-            <div className="px-3 py-2 border-b border-white/10">
-              <p className="text-xs text-white/30 font-semibold uppercase tracking-wider">Demo — cambiar usuario</p>
-            </div>
-            {USUARIOS_DEMO.map((u, i) => (
-              <button key={i} onClick={() => { setUsuarioIdx(i); setShowUserSwitch(false); if (typeof window !== 'undefined') localStorage.setItem('optios_demo_user', JSON.stringify(USUARIOS_DEMO[i])) }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 transition-colors ${usuarioIdx === i ? 'bg-[#2BBFB3]/10' : ''}`}>
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#2BBFB3] to-[#1B3A6B] flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs font-bold leading-none">{u.iniciales[0]}</span>
-                </div>
-                <div className="text-left min-w-0">
-                  <p className="text-xs text-white font-medium truncate">{u.nombre}</p>
-                  <p className="text-xs text-white/40">{ROL_LABEL[u.rol]}</p>
-                </div>
-                {usuarioIdx === i && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#2BBFB3]" />}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Info del usuario actual */}
-        <button
-          onClick={() => setShowUserSwitch(v => !v)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors group mb-1">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2BBFB3] to-[#1B3A6B] flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-bold">{usuario.iniciales}</span>
           </div>
-          <div className="flex-1 min-w-0 text-left">
+          <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-medium truncate">{usuario.nombre}</p>
-            <p className="text-white/40 text-xs">{ROL_LABEL[usuario.rol]}{usuario.sucursal !== 'Todas' ? ` · ${usuario.sucursal}` : ''}</p>
+            <p className="text-white/40 text-xs">
+              {ROL_LABEL[usuario.rol]}{usuario.sucursal && usuario.sucursal !== 'Todas' ? ` · ${usuario.sucursal}` : ''}
+            </p>
           </div>
-          {showUserSwitch
-            ? <ChevronUp className="w-3.5 h-3.5 text-white/30" />
-            : <ChevronDown className="w-3.5 h-3.5 text-white/30" />}
-        </button>
-
+        </div>
         <button onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/5 transition-all">
           <LogOut className="w-4 h-4" />
