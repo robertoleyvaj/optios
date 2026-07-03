@@ -304,10 +304,10 @@ function ExpedientesContent() {
         const q = busqueda.trim()
         const { data } = await supabase
           .from('historial_bv')
-          .select('id, nombre, telefono, sucursal, año, material, total')
+          .select('id, nombre, telefono, sucursal, material, total')
           .or(`nombre.ilike.%${q}%,telefono.ilike.%${q}%`)
           .limit(5)
-        setHistorialResultados(data ?? [])
+        setHistorialResultados((data ?? []) as unknown as HistorialBV[])
       } catch { setHistorialResultados([]) }
       finally { setBuscandoHistorial(false) }
     }, 400)
@@ -489,7 +489,7 @@ function ExpedientesContent() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-zinc-600 truncate">{h.nombre}</p>
-                        <p className="text-xs text-zinc-400 truncate">{h.sucursal} · {h.año} · ${h.total.toLocaleString('es-MX')}</p>
+                        <p className="text-xs text-zinc-400 truncate">{h.sucursal} · ${h.total.toLocaleString('es-MX')}</p>
                       </div>
                       <span className="text-xs text-amber-600 font-medium flex-shrink-0">Crear →</span>
                     </button>
