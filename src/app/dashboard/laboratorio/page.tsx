@@ -792,7 +792,42 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           )}
         </div>
 
-        {/* Botones */}
+        {/* Acciones rápidas */}
+        {!editMode && (
+          <div className="space-y-2">
+            {o.estado === 'recibido' && (
+              <button
+                onClick={() => { onUpdate(o.id, { estado: 'en_laboratorio', fechaEnvioLab: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)); setEditMode(false); setDraft(null) }}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors"
+              >
+                <ArrowRight className="w-4 h-4" /> ✓ Llevé la orden al laboratorio
+              </button>
+            )}
+            {o.estado === 'en_laboratorio' && (
+              <div className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-50 text-zinc-400 text-sm rounded-xl border border-zinc-200">
+                <Clock className="w-4 h-4" /> En fabricación...
+              </div>
+            )}
+            {(o.estado === 'en_camino' || o.estado === 'en_laboratorio') && o.estado !== 'recibido' && (
+              <button
+                onClick={() => { onUpdate(o.id, { estado: 'listo', fechaRecogidaLab: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)); setEditMode(false); setDraft(null) }}
+                className={`w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors ${o.estado === 'en_laboratorio' ? 'mt-1' : ''}`}
+              >
+                <CheckCircle2 className="w-4 h-4" /> ✓ Recogí la orden del laboratorio
+              </button>
+            )}
+            {o.estado === 'listo' && (
+              <button
+                onClick={() => { onUpdate(o.id, { estado: 'entregado', fechaEntrega: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)); setEditMode(false); setDraft(null) }}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-[#0B0E14] text-white text-sm font-bold rounded-xl hover:bg-zinc-700 transition-colors"
+              >
+                <CheckCircle2 className="w-4 h-4" /> ✓ Entregué al cliente
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Botones edición */}
         {editMode && draft ? (
           <div className="flex gap-2">
             <button onClick={() => { setEditMode(false); setDraft(null) }}
@@ -806,8 +841,8 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           </div>
         ) : (
           <button onClick={() => startEdit(o)}
-            className="w-full py-3.5 bg-[#0B0E14] text-white text-sm font-bold rounded-xl hover:bg-zinc-700 transition-colors">
-            Editar estado
+            className="w-full py-3.5 border border-zinc-200 text-zinc-600 text-sm font-semibold rounded-xl hover:bg-zinc-50 transition-colors">
+            Editar detalles
           </button>
         )}
       </div>
@@ -961,8 +996,38 @@ function VistaVendedor({ ordenes, sucursal, onCambiarEstado, onPrint }: {
             </div>
           )}
 
+          {/* Pipeline de 4 pasos */}
+          <div className="flex items-center gap-0 pt-1 border-t border-zinc-100">
+            {[
+              { label: 'Creada',   done: true },
+              { label: 'En lab',   done: ['en_laboratorio','en_camino','listo','entregado'].includes(o.estado) },
+              { label: 'Recibida', done: ['listo','entregado'].includes(o.estado) },
+              { label: 'Entregada',done: o.estado === 'entregado' },
+            ].map((step, i) => (
+              <React.Fragment key={step.label}>
+                {i > 0 && (
+                  <div className={`flex-1 h-0.5 mb-3 ${step.done ? 'bg-emerald-400' : 'bg-zinc-200'}`} />
+                )}
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                    step.done ? 'bg-emerald-500' : 'bg-zinc-200'
+                  }`}>
+                    {step.done && (
+                      <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" fill="none" stroke="white" strokeWidth="1.8">
+                        <polyline points="1.5,5 4,7.5 8.5,2.5"/>
+                      </svg>
+                    )}
+                  </div>
+                  <span className={`text-[10px] leading-tight text-center ${step.done ? 'text-emerald-600' : 'text-zinc-400'}`}>
+                    {step.label}
+                  </span>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+
           {/* Acciones */}
-          <div className="flex items-center gap-2 pt-1 border-t border-zinc-100">
+          <div className="flex items-center gap-2 border-t border-zinc-100">
             {o.estado === 'en_camino' && (
               <button
                 onClick={() => onCambiarEstado(o.id, 'listo')}
@@ -1208,12 +1273,16 @@ export default function LaboratorioPage() {
     }))
   }
 
-  const cambiarEstado = (id: number, estado: EstadoOrden) => {
-    setOrdenes(prev => prev.map(o => o.id === id
-      ? { ...o, estado, ...(estado === 'entregado' ? { fechaEntrega: dias(0) } : {}) }
-      : o
-    ))
-    if (detalle?.id === id) setDetalle(prev => prev ? { ...prev, estado } : null)
+  const cambiarEstado = async (id: number, estado: EstadoOrden) => {
+    const hoy = new Date().toISOString().split('T')[0]
+    const orden = ordenes.find(o => o.id === id)
+    const changes: Partial<OrdenLab> = { estado }
+    if (estado === 'en_laboratorio' && orden && !orden.fechaEnvioLab)    changes.fechaEnvioLab    = hoy
+    if (estado === 'listo'          && orden && !orden.fechaRecogidaLab)  changes.fechaRecogidaLab = hoy
+    if (estado === 'entregado'      && orden && !orden.fechaEntrega)      changes.fechaEntrega     = hoy
+    setOrdenes(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o))
+    if (detalle?.id === id) setDetalle(prev => prev ? { ...prev, ...changes } : null)
+    if (orden?.supabaseId) await updateEnSupabase(orden.supabaseId, changes)
   }
 
   const guardar = async () => {

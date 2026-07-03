@@ -100,6 +100,9 @@ export default function NuevaVentaPage() {
   const [esCotizacion, setEsCotizacion] = useState(false)
   const [folioGuardado, setFolioGuardado] = useState('')
   const [errorGuardado, setErrorGuardado] = useState('')
+  const [folioLabGuardado, setFolioLabGuardado] = useState('')
+  const [notaImpresa, setNotaImpresa] = useState(false)
+  const [ordenLabImpresa, setOrdenLabImpresa] = useState(false)
   const [busquedaProducto, setBusquedaProducto] = useState('')
   const [showBuscadorProducto, setShowBuscadorProducto] = useState(false)
   const [showProductoLibre, setShowProductoLibre] = useState(false)
@@ -155,6 +158,9 @@ export default function NuevaVentaPage() {
     setClienteTelefono('')
     setFechaEntrega('')
     setBusquedaCliente('')
+    setFolioLabGuardado('')
+    setNotaImpresa(false)
+    setOrdenLabImpresa(false)
   }
 
   const subtotal = carrito.reduce((s, i) => {
@@ -265,6 +271,7 @@ export default function NuevaVentaPage() {
           precio_cliente: total,
           anticipo:       anticoNum,
         })
+        setFolioLabGuardado(folioLab ?? 'L-0001')
       }
 
       setFolioGuardado(folio)
@@ -287,6 +294,7 @@ export default function NuevaVentaPage() {
     const horaHoy = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 
     const handleImprimirTicket = () => {
+      setNotaImpresa(true)
       // Usuario que atendió
       let atendioPor = ''
       try { atendioPor = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')?.nombre || '' } catch {}
@@ -402,6 +410,81 @@ ${entregaHtml}
       setTimeout(() => { win.print() }, 300)
     }
 
+    // ── Imprimir orden de laboratorio (placeholder — sin graduación) ──
+    const tieneMicasGuardado = carrito.some(i =>
+      i.nombre.toLowerCase().includes('mica') ||
+      i.nombre.toLowerCase().includes('progres') ||
+      i.nombre.toLowerCase().includes('bifocal') ||
+      i.nombre.toLowerCase().includes('monofocal') ||
+      i.nombre.toLowerCase().includes('transitions')
+    )
+
+    const handleImprimirOrdenLab = () => {
+      setOrdenLabImpresa(true)
+      const fechaFmt = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      const sucursalNombre = SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal
+      const sucursalSub    = SUCURSAL_CONFIG[sucursal]?.nombreLinea2 ?? ''
+      const nombreCompleto = `${clienteNombre} ${clienteApellido}`.trim()
+      const win = window.open('', '_blank', 'width=420,height=640')
+      if (!win) return
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${folioLabGuardado}</title>
+<style>
+  @page { size: 4in 6in; margin: 5mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 11px; color: #000; width: 100%; }
+  .hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
+  .hdr h1 { font-size: 15px; font-weight: 900; }
+  .folio { font-size: 14px; font-weight: 900; font-family: monospace; }
+  .paciente { font-size: 14px; font-weight: 900; margin: 6px 0 2px; }
+  .sep { border: none; border-top: 1px dashed #bbb; margin: 7px 0; }
+  .grad-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  .grad-table th { background: #f0f0f0; font-size: 9px; font-weight: 700; text-align: center; padding: 4px 3px; border: 1px solid #ccc; }
+  .grad-table th:first-child { text-align: left; }
+  .grad-table td { border: 1px solid #ddd; padding: 10px 3px; font-size: 10px; }
+  .lbl { font-weight: 700; font-family: sans-serif; font-size: 9px; background: #f8f8f8; }
+  .field { font-size: 10px; margin: 6px 0; display: flex; gap: 4px; align-items: flex-end; }
+  .fl { font-weight: 700; flex-shrink: 0; }
+  .fv { border-bottom: 1px solid #aaa; flex: 1; min-width: 80px; }
+  .notice { border: 1px dashed #bbb; border-radius: 2px; padding: 5px 8px; font-size: 9px; margin-bottom: 8px; color: #888; text-align:center; }
+  .firma { border-top: 1px solid #000; margin-top: 15px; padding-top: 4px; text-align: right; font-size: 9px; color: #777; }
+</style></head><body>
+<div class="hdr">
+  <div>
+    <h1>${sucursalNombre}</h1>
+    ${sucursalSub ? `<p style="font-size:9px;color:#555">${sucursalSub}</p>` : ''}
+    <p style="font-size:9px;color:#555">Orden de laboratorio</p>
+  </div>
+  <div style="text-align:right">
+    <div class="folio">${folioLabGuardado}</div>
+    <div style="font-size:9px;color:#555">${folio}</div>
+    <div style="font-size:9px;color:#555">${fechaFmt}</div>
+  </div>
+</div>
+<div class="notice">Completar datos de graduación en el módulo de laboratorio</div>
+<div class="paciente">${nombreCompleto || 'Sin nombre'}</div>
+${clienteTelefono ? `<p style="font-size:10px;color:#555;margin-bottom:8px">${clienteTelefono}</p>` : ''}
+<hr class="sep">
+<table class="grad-table">
+  <thead><tr><th></th><th>Esfera</th><th>Cilindro</th><th>Eje</th><th>ADD</th></tr></thead>
+  <tbody>
+    <tr><td class="lbl">OD</td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="lbl">OI</td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="lbl">D.P.</td><td colspan="4"></td></tr>
+  </tbody>
+</table>
+<hr class="sep">
+<div class="field"><span class="fl">Tipo de mica:</span><span class="fv"></span></div>
+<div class="field"><span class="fl">Tratamiento:</span><span class="fv"></span></div>
+<div class="field"><span class="fl">Armazón:</span><span class="fv"></span></div>
+<div class="field"><span class="fl">Laboratorio:</span><span class="fv"></span></div>
+<div class="field"><span class="fl">Fecha entrega:</span><span class="fv"></span></div>
+<div class="firma">Recibido por: _________________________</div>
+</body></html>`)
+      win.document.close()
+      setTimeout(() => { win.print() }, 300)
+    }
+
     return (
       <div className="max-w-lg mx-auto py-8 space-y-5">
         {/* Header */}
@@ -483,13 +566,62 @@ ${entregaHtml}
           </div>
         </div>
 
+        {/* Checklist de proceso (solo cuando hay micas) */}
+        {tieneMicasGuardado && (
+          <div className="bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-zinc-100">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Checklist de orden</p>
+            </div>
+            <div className="divide-y divide-zinc-50">
+              {[
+                { done: true,              label: 'Venta registrada',        sub: folio },
+                { done: !!folioLabGuardado,label: 'Orden de lab creada',     sub: folioLabGuardado },
+                { done: notaImpresa,       label: 'Nota de venta impresa',   sub: '' },
+                { done: ordenLabImpresa,   label: 'Orden de lab impresa',    sub: '' },
+              ].map((step, i) => (
+                <div key={i} className="flex items-center gap-3 px-5 py-2.5">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${step.done ? 'bg-emerald-500' : 'border-2 border-zinc-200'}`}>
+                    {step.done && <CheckCircle2 className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className={`text-sm ${step.done ? 'text-zinc-700' : 'text-zinc-400'}`}>{step.label}</span>
+                  {step.sub && <span className="ml-auto text-xs font-mono text-zinc-400">{step.sub}</span>}
+                </div>
+              ))}
+              <div className="flex items-center gap-3 px-5 py-2.5">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-zinc-200" />
+                <span className="text-sm text-zinc-400">Completar y enviar al laboratorio</span>
+                <Link href="/dashboard/laboratorio" className="ml-auto text-xs text-[#0D9488] font-semibold hover:underline whitespace-nowrap">
+                  Ir al lab →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Acciones */}
+        {tieneMicasGuardado && (
+          <button
+            onClick={handleImprimirOrdenLab}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-colors ${
+              ordenLabImpresa
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-[#0D9488] text-white hover:bg-[#0B7A70]'
+            }`}
+          >
+            <Printer className="w-4 h-4" />
+            {ordenLabImpresa ? '✓ Orden de lab impresa' : `Imprimir orden de laboratorio (${folioLabGuardado})`}
+          </button>
+        )}
         <div className="grid grid-cols-3 gap-3">
           <button
             onClick={handleImprimirTicket}
-            className="flex items-center justify-center gap-2 py-3 border border-zinc-200 text-zinc-600 rounded-lg text-sm hover:bg-zinc-50 transition-colors"
+            className={`flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-colors ${
+              notaImpresa
+                ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+            }`}
           >
-            <Printer className="w-4 h-4" /> Imprimir
+            <Printer className="w-4 h-4" /> {notaImpresa ? '✓ Nota' : 'Nota de venta'}
           </button>
           <Link
             href="/dashboard/ventas"
