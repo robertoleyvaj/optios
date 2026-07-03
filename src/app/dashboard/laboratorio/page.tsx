@@ -808,7 +808,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
                 <Clock className="w-4 h-4" /> En fabricación...
               </div>
             )}
-            {(o.estado === 'en_camino' || o.estado === 'en_laboratorio') && o.estado !== 'recibido' && (
+            {(o.estado === 'en_camino' || o.estado === 'en_laboratorio') && (
               <button
                 onClick={() => { onUpdate(o.id, { estado: 'listo', fechaRecogidaLab: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)); setEditMode(false); setDraft(null) }}
                 className={`w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors ${o.estado === 'en_laboratorio' ? 'mt-1' : ''}`}
