@@ -90,23 +90,23 @@ export default function Sidebar() {
   const itemsVisibles = MENU_ITEMS.filter(item => puedeVer(item.key))
 
   return (
-    <aside className="w-64 bg-[#0B1A35] flex flex-col h-screen flex-shrink-0">
+    <aside className="w-64 bg-[#0B0E14] flex flex-col h-screen flex-shrink-0">
 
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-md bg-gradient-to-br from-[#2BBFB3] to-[#1B3A6B] flex items-center justify-center flex-shrink-0">
-            <Glasses className="w-5 h-5 text-white" />
+      <div className="px-5 py-5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#0D9488] flex items-center justify-center flex-shrink-0">
+            <Glasses className="w-4 h-4 text-white" />
           </div>
           <div>
-            <p className="text-white font-bold text-lg leading-none">OptiOS</p>
-            <p className="text-white/40 text-xs mt-0.5">Sistema de Gestión</p>
+            <p className="text-white font-semibold text-[15px] leading-none tracking-tight">OptiOS</p>
+            <p className="text-white/35 text-[11px] mt-1">Sistema de Gestión</p>
           </div>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
         {itemsVisibles.map((item) => {
           const Icon = item.icon
           const isParentActive = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -117,28 +117,28 @@ export default function Sidebar() {
             <div key={item.href}>
               <Link
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100 ${
                   isParentActive
-                    ? 'bg-[#2BBFB3]/15 text-[#2BBFB3] border border-[#2BBFB3]/20'
-                    : 'text-white/50 hover:text-white hover:bg-white/5 border border-transparent'
+                    ? 'bg-white/[0.07] text-white'
+                    : 'text-white/45 hover:text-white/90 hover:bg-white/[0.04]'
                 }`}
               >
-                <Icon className={`w-4 h-4 flex-shrink-0 ${isParentActive ? 'text-[#2BBFB3]' : ''}`} />
+                <Icon className={`w-[15px] h-[15px] flex-shrink-0 ${isParentActive ? 'text-[#2DD4BF]' : ''}`} />
                 <span className="flex-1">{item.label}</span>
                 {hasSubItems && (
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showSub ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showSub ? 'rotate-180' : ''}`} />
                 )}
               </Link>
 
               {showSub && item.subItems && (
-                <div className="ml-3 mt-0.5 pl-4 border-l border-white/10 space-y-0.5">
+                <div className="ml-[18px] mt-0.5 pl-3.5 border-l border-white/10 space-y-0.5">
                   {item.subItems.map((sub) => {
                     const SubIcon = sub.icon
                     const isSubActive = pathname === sub.href
                     return (
                       <Link key={sub.href} href={sub.href}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                          isSubActive ? 'text-[#2BBFB3] bg-[#2BBFB3]/10' : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12.5px] font-medium transition-colors ${
+                          isSubActive ? 'text-[#2DD4BF] bg-white/[0.06]' : 'text-white/35 hover:text-white/70 hover:bg-white/[0.04]'
                         }`}>
                         <SubIcon className="w-3.5 h-3.5 flex-shrink-0" />
                         {sub.label}
@@ -153,21 +153,21 @@ export default function Sidebar() {
       </nav>
 
       {/* Usuario activo */}
-      <div className="px-3 py-4 border-t border-white/5">
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2BBFB3] to-[#1B3A6B] flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-bold">{usuario.iniciales}</span>
+      <div className="px-3 py-3 border-t border-white/[0.06]">
+        <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg mb-0.5">
+          <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+            <span className="text-white text-[11px] font-semibold">{usuario.iniciales}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-sm font-medium truncate">{usuario.nombre}</p>
-            <p className="text-white/40 text-xs">
+            <p className="text-white text-[13px] font-medium truncate leading-tight">{usuario.nombre}</p>
+            <p className="text-white/35 text-[11px] leading-tight mt-0.5">
               {ROL_LABEL[usuario.rol]}{usuario.sucursal && usuario.sucursal !== 'Todas' ? ` · ${usuario.sucursal}` : ''}
             </p>
           </div>
         </div>
         <button onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/5 transition-all">
-          <LogOut className="w-4 h-4" />
+          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] text-white/35 hover:text-white/80 hover:bg-white/[0.04] transition-colors">
+          <LogOut className="w-3.5 h-3.5" />
           <span>Cerrar sesión</span>
         </button>
       </div>

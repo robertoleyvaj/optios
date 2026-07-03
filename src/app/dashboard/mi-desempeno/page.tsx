@@ -61,7 +61,7 @@ function DonutProgress({ pct }: { pct: number }) {
 // ── Barra de progreso ─────────────────────────────────────────────
 function ProgressBar({ pct, color }: { pct: number; color: string }) {
   return (
-    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+    <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
       <div
         className={`h-full rounded-full transition-all duration-700 ${color}`}
         style={{ width: `${Math.min(pct, 100)}%` }}
@@ -164,18 +164,18 @@ export default function MiDesempenoPage() {
       {/* ── Header ── */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Mi desempeño</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Resumen de comisiones y bonos</p>
+          <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Mi desempeño</h1>
+          <p className="text-sm text-zinc-400 mt-0.5">Resumen de comisiones y bonos</p>
         </div>
-        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
-          <button onClick={irMesAnterior} className="text-slate-400 hover:text-slate-700 transition-colors">
+        <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-xl px-4 py-2 shadow-sm">
+          <button onClick={irMesAnterior} className="text-zinc-400 hover:text-zinc-700 transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-sm font-semibold text-slate-800 capitalize w-32 text-center">{nombreMes}</span>
+          <span className="text-sm font-semibold text-zinc-800 capitalize w-32 text-center">{nombreMes}</span>
           <button
             onClick={irMesSiguiente}
             disabled={esMesActual}
-            className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+            className="text-zinc-400 hover:text-zinc-700 disabled:opacity-30 transition-colors"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -185,62 +185,62 @@ export default function MiDesempenoPage() {
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-4 gap-4">
         {/* Comisión */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-slate-500">Comisión</p>
+            <p className="text-sm text-zinc-500">Comisión</p>
             <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
               <TrendingUp className="w-4 h-4 text-indigo-500" />
             </div>
           </div>
           <p className="text-2xl font-bold text-indigo-600">{fmt(comision)}</p>
-          <p className="text-xs text-slate-400 mt-1">Escalonada por ventas</p>
+          <p className="text-xs text-zinc-400 mt-1">Escalonada por ventas</p>
         </div>
 
         {/* Bono */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-slate-500">Bono</p>
+            <p className="text-sm text-zinc-500">Bono</p>
             <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
               <Award className="w-4 h-4 text-emerald-500" />
             </div>
           </div>
           <p className="text-2xl font-bold text-emerald-600">{fmt(bonoActual)}</p>
-          <p className="text-xs text-slate-400 mt-1">Metas alcanzadas</p>
+          <p className="text-xs text-zinc-400 mt-1">Metas alcanzadas</p>
         </div>
 
         {/* Total acumulado */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-slate-500">Total acumulado</p>
+            <p className="text-sm text-zinc-500">Total acumulado</p>
             <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
               <Zap className="w-4 h-4 text-blue-500" />
             </div>
           </div>
           <p className="text-2xl font-bold text-blue-600">{fmt(totalExtra)}</p>
-          <p className="text-xs text-slate-400 mt-1">Comisión + Bono</p>
+          <p className="text-xs text-zinc-400 mt-1">Comisión + Bono</p>
         </div>
 
         {/* Meta mensual con donut */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-slate-500 mb-1">Meta mensual</p>
-              <p className="text-xl font-bold text-slate-800">{fmt(metaMes)}</p>
-              <p className="text-xs text-slate-400 mt-1">Objetivo de ventas</p>
+              <p className="text-sm text-zinc-500 mb-1">Meta mensual</p>
+              <p className="text-xl font-bold text-zinc-800">{fmt(metaMes)}</p>
+              <p className="text-xs text-zinc-400 mt-1">Objetivo de ventas</p>
             </div>
             <div className="relative flex items-center justify-center">
               <DonutProgress pct={pctMeta} />
-              <span className="absolute text-xs font-bold text-slate-700">{Math.round(pctMeta)}%</span>
+              <span className="absolute text-xs font-bold text-zinc-700">{Math.round(pctMeta)}%</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* ── Progreso ── */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-slate-500" />
-          <h2 className="text-sm font-semibold text-slate-700">Tu progreso este mes</h2>
+          <TrendingUp className="w-4 h-4 text-zinc-500" />
+          <h2 className="text-sm font-semibold text-zinc-700">Tu progreso este mes</h2>
         </div>
 
         <div className="grid grid-cols-2 gap-6">
@@ -250,7 +250,7 @@ export default function MiDesempenoPage() {
               <div className="w-5 h-5 rounded bg-emerald-50 flex items-center justify-center">
                 <Award className="w-3 h-3 text-emerald-500" />
               </div>
-              <p className="text-sm text-slate-500">Para el siguiente bono</p>
+              <p className="text-sm text-zinc-500">Para el siguiente bono</p>
               {bonoSiguiente && (
                 <span className="ml-auto text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                   {Math.round(pctBono)}%
@@ -259,15 +259,15 @@ export default function MiDesempenoPage() {
             </div>
             {bonoSiguiente ? (
               <>
-                <p className="text-2xl font-bold text-slate-900">{fmt(bonoSiguiente.bono)}</p>
+                <p className="text-2xl font-semibold text-zinc-900 tracking-tight">{fmt(bonoSiguiente.bono)}</p>
                 <ProgressBar pct={pctBono} color="bg-emerald-500" />
-                <div className="flex justify-between text-xs text-slate-400">
+                <div className="flex justify-between text-xs text-zinc-400">
                   <span>{fmt(ventasMes)}</span>
                   <span>{fmt(bonoSiguiente.meta)}</span>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-zinc-500">
                   Te faltan{' '}
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-semibold text-zinc-700">
                     {fmt(bonoSiguiente.meta - ventasMes)}
                   </span>{' '}
                   para el siguiente bono
@@ -277,7 +277,7 @@ export default function MiDesempenoPage() {
               <>
                 <p className="text-2xl font-bold text-emerald-600">¡Máximo!</p>
                 <ProgressBar pct={100} color="bg-emerald-500" />
-                <p className="text-xs text-slate-500 font-semibold text-emerald-600">
+                <p className="text-xs text-zinc-500 font-semibold text-emerald-600">
                   Alcanzaste el bono máximo del mes 🏆
                 </p>
               </>
@@ -290,23 +290,23 @@ export default function MiDesempenoPage() {
               <div className="w-5 h-5 rounded bg-indigo-50 flex items-center justify-center">
                 <TrendingUp className="w-3 h-3 text-indigo-500" />
               </div>
-              <p className="text-sm text-slate-500">Para alcanzar tu meta mensual</p>
+              <p className="text-sm text-zinc-500">Para alcanzar tu meta mensual</p>
               <span className="ml-auto text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
                 {Math.round(pctMeta)}%
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-900">
+            <p className="text-2xl font-semibold text-zinc-900 tracking-tight">
               {pctMeta >= 100 ? '¡Lograda!' : fmt(metaMes - ventasMes)}
             </p>
             <ProgressBar pct={pctMeta} color="bg-indigo-500" />
-            <div className="flex justify-between text-xs text-slate-400">
+            <div className="flex justify-between text-xs text-zinc-400">
               <span>{fmt(ventasMes)}</span>
               <span>{fmt(metaMes)}</span>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-zinc-500">
               {pctMeta >= 100
                 ? <span className="font-semibold text-indigo-600">¡Meta superada este mes! 🎉</span>
-                : <>Te faltan <span className="font-semibold text-slate-700">{fmt(metaMes - ventasMes)}</span> para alcanzar tu meta</>
+                : <>Te faltan <span className="font-semibold text-zinc-700">{fmt(metaMes - ventasMes)}</span> para alcanzar tu meta</>
               }
             </p>
           </div>
@@ -314,25 +314,25 @@ export default function MiDesempenoPage() {
       </div>
 
       {/* ── Resumen de ventas ── */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-6">
         <div className="flex items-center gap-2 mb-5">
-          <TrendingUp className="w-4 h-4 text-slate-500" />
-          <h2 className="text-sm font-semibold text-slate-700">Resumen de ventas</h2>
+          <TrendingUp className="w-4 h-4 text-zinc-500" />
+          <h2 className="text-sm font-semibold text-zinc-700">Resumen de ventas</h2>
         </div>
         <div className="flex items-center gap-8">
           <div>
-            <p className="text-xs text-slate-400 mb-1">Ventas del mes</p>
-            <p className="text-2xl font-bold text-slate-900">{fmt(ventasMes)}</p>
+            <p className="text-xs text-zinc-400 mb-1">Ventas del mes</p>
+            <p className="text-2xl font-semibold text-zinc-900 tracking-tight">{fmt(ventasMes)}</p>
           </div>
-          <div className="w-px h-10 bg-slate-100" />
+          <div className="w-px h-10 bg-zinc-100" />
           <div>
-            <p className="text-xs text-slate-400 mb-1">Promedio por día</p>
-            <p className="text-2xl font-bold text-slate-900">{fmt(promedioDia)}</p>
+            <p className="text-xs text-zinc-400 mb-1">Promedio por día</p>
+            <p className="text-2xl font-semibold text-zinc-900 tracking-tight">{fmt(promedioDia)}</p>
           </div>
-          <div className="w-px h-10 bg-slate-100" />
+          <div className="w-px h-10 bg-zinc-100" />
           <div>
-            <p className="text-xs text-slate-400 mb-1">Órdenes realizadas</p>
-            <p className="text-2xl font-bold text-slate-900">{ordenes}</p>
+            <p className="text-xs text-zinc-400 mb-1">Órdenes realizadas</p>
+            <p className="text-2xl font-semibold text-zinc-900 tracking-tight">{ordenes}</p>
           </div>
           <div className="ml-auto">
             <Link
@@ -347,7 +347,7 @@ export default function MiDesempenoPage() {
       </div>
 
       {/* ── Banner motivacional ── */}
-      <div className="bg-[#0B1A35] rounded-2xl px-6 py-4 flex items-center gap-4">
+      <div className="bg-[#0B0E14] rounded-2xl px-6 py-4 flex items-center gap-4">
         <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center flex-shrink-0">
           <Zap className="w-5 h-5 text-white" />
         </div>

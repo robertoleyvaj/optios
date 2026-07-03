@@ -122,6 +122,34 @@ create table if not exists caja_movimientos (
   registrado_por  text default ''
 );
 
+-- ── CORTES DE CAJA ───────────────────────────────────────────
+create table if not exists cortes_caja (
+  id                  uuid primary key default gen_random_uuid(),
+  created_at          timestamptz default now(),
+  fecha               date not null,
+  sucursal            text not null,
+  usuario             text not null default '',
+  total_ventas        numeric(10,2) default 0,
+  efectivo_sistema    numeric(10,2) default 0,
+  efectivo_contado    numeric(10,2) default 0,
+  diferencia          numeric(10,2) default 0,
+  fondo               numeric(10,2) default 0,
+  entrega             numeric(10,2) default 0,
+  notas               text default '',
+  cerrado             boolean default false,
+  unique(fecha, sucursal)
+);
+
+-- ── CHECK-INS DIARIOS ────────────────────────────────────────
+create table if not exists check_ins (
+  id              uuid primary key default gen_random_uuid(),
+  created_at      timestamptz default now(),
+  usuario_nombre  text not null,
+  sucursal        text not null,
+  fecha           date not null,
+  unique(usuario_nombre, fecha)
+);
+
 -- ── ÍNDICES ──────────────────────────────────────────────────
 create index if not exists idx_recetas_paciente     on recetas(paciente_id);
 create index if not exists idx_ventas_items_venta   on ventas_items(venta_id);
@@ -137,6 +165,8 @@ alter table ventas             disable row level security;
 alter table ventas_items       disable row level security;
 alter table ordenes_lab        disable row level security;
 alter table caja_movimientos   disable row level security;
+alter table cortes_caja        disable row level security;
+alter table check_ins          disable row level security;
 
 -- ── FUNCIÓN: siguiente folio ──────────────────────────────────
 -- Uso: select siguiente_folio('V') → 'V-0042'

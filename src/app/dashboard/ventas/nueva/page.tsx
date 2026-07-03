@@ -410,17 +410,17 @@ ${entregaHtml}
             <CheckCircle2 className="w-7 h-7 text-emerald-500" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800">
+            <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">
               {esCotizacion ? 'Cotización generada' : 'Venta registrada'}
             </h2>
-            <p className="text-slate-400 text-sm mt-0.5">{folio} · {sucursal}</p>
+            <p className="text-zinc-400 text-sm mt-0.5">{folio} · {sucursal}</p>
           </div>
         </div>
 
         {/* Ticket card */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden">
           {/* Header del ticket */}
-          <div className="bg-[#0B1A35] px-5 py-4 text-center">
+          <div className="bg-[#0B0E14] px-5 py-4 text-center">
             <p className="text-white font-bold text-base">{SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal}</p>
             {SUCURSAL_CONFIG[sucursal]?.nombreLinea2 && (
               <p className="text-white/70 text-xs mt-0.5">{SUCURSAL_CONFIG[sucursal].nombreLinea2}</p>
@@ -430,9 +430,9 @@ ${entregaHtml}
 
           {/* Cliente */}
           {(clienteNombre || clienteApellido) && (
-            <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center">
-              <span className="text-xs text-slate-400">Cliente</span>
-              <span className="text-sm font-semibold text-slate-700">{clienteNombre} {clienteApellido}</span>
+            <div className="px-5 py-3 border-b border-zinc-100 flex justify-between items-center">
+              <span className="text-xs text-zinc-400">Cliente</span>
+              <span className="text-sm font-semibold text-zinc-700">{clienteNombre} {clienteApellido}</span>
             </div>
           )}
 
@@ -444,38 +444,38 @@ ${entregaHtml}
               return (
                 <div key={item.id} className="flex justify-between items-start">
                   <div>
-                    <p className="text-sm font-medium text-slate-700">{item.nombre}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-sm font-medium text-zinc-700">{item.nombre}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">
                       {item.cantidad > 1 ? `${item.cantidad} × $${precio.toLocaleString('es-MX')}` : ''}
                       {item.descuento > 0 ? `${item.cantidad > 1 ? ' · ' : ''}Desc. ${item.descuento}%` : ''}
                     </p>
                   </div>
-                  <span className="text-sm font-bold text-slate-800 ml-4 flex-shrink-0">${sub.toLocaleString('es-MX')}</span>
+                  <span className="text-sm font-bold text-zinc-800 ml-4 flex-shrink-0">${sub.toLocaleString('es-MX')}</span>
                 </div>
               )
             })}
           </div>
 
           {/* Total + método de pago */}
-          <div className="px-5 py-4 bg-slate-50 border-t border-slate-200 space-y-3">
+          <div className="px-5 py-4 bg-zinc-50 border-t border-zinc-200 space-y-3">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-xs text-slate-400">Método de pago</p>
-                <p className="text-sm font-semibold text-slate-600 mt-0.5">{metodoPagoLabel}{modoPago === 'diferir' ? ' · Diferido' : ''}</p>
+                <p className="text-xs text-zinc-400">Método de pago</p>
+                <p className="text-sm font-semibold text-zinc-600 mt-0.5">{metodoPagoLabel}{modoPago === 'diferir' ? ' · Diferido' : ''}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-slate-400">Total venta</p>
-                <p className="text-2xl font-bold text-[#0B1A35]">${total.toLocaleString('es-MX')}</p>
+                <p className="text-xs text-zinc-400">Total venta</p>
+                <p className="text-2xl font-bold text-[#0B0E14]">${total.toLocaleString('es-MX')}</p>
               </div>
             </div>
             {modoPago === 'diferir' && (
-              <div className="border-t border-slate-200 pt-3 space-y-1.5">
+              <div className="border-t border-zinc-200 pt-3 space-y-1.5">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Anticipo recibido</span>
+                  <span className="text-zinc-500">Anticipo recibido</span>
                   <span className="font-bold text-emerald-700">${Number(anticipo || 0).toLocaleString('es-MX')}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600 font-semibold">Saldo pendiente</span>
+                  <span className="text-zinc-600 font-semibold">Saldo pendiente</span>
                   <span className="font-bold text-red-600">${(total - Number(anticipo || 0)).toLocaleString('es-MX')}</span>
                 </div>
               </div>
@@ -487,19 +487,19 @@ ${entregaHtml}
         <div className="grid grid-cols-3 gap-3">
           <button
             onClick={handleImprimirTicket}
-            className="flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition-colors"
+            className="flex items-center justify-center gap-2 py-3 border border-zinc-200 text-zinc-600 rounded-lg text-sm hover:bg-zinc-50 transition-colors"
           >
             <Printer className="w-4 h-4" /> Imprimir
           </button>
           <Link
             href="/dashboard/ventas"
-            className="flex items-center justify-center gap-2 py-3 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors text-center"
+            className="flex items-center justify-center gap-2 py-3 bg-zinc-100 text-zinc-600 rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors text-center"
           >
             Ver historial
           </Link>
           <button
             onClick={() => { limpiar(); setGuardado(false) }}
-            className="flex items-center justify-center gap-2 py-3 bg-[#0B1A35] text-white rounded-lg text-sm font-bold hover:bg-[#0d2145] transition-colors"
+            className="flex items-center justify-center gap-2 py-3 bg-[#0B0E14] text-white rounded-lg text-sm font-bold hover:bg-[#1A1D27] transition-colors"
           >
             Nueva venta
           </button>
@@ -513,76 +513,76 @@ ${entregaHtml}
 
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/ventas" className="w-9 h-9 flex items-center justify-center rounded-md bg-white border border-slate-200 hover:bg-slate-50 transition-colors flex-shrink-0">
-          <ArrowLeft className="w-4 h-4 text-slate-500" />
+        <Link href="/dashboard/ventas" className="w-9 h-9 flex items-center justify-center rounded-md bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors flex-shrink-0">
+          <ArrowLeft className="w-4 h-4 text-zinc-500" />
         </Link>
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Nueva venta</h1>
-          <p className="text-sm text-slate-400">Completa los datos y genera la venta o cotización</p>
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Nueva venta</h1>
+          <p className="text-sm text-zinc-400">Completa los datos y genera la venta o cotización</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <div className="relative">
             <select
               value={sucursal}
               onChange={e => setSucursal(e.target.value)}
-              className="appearance-none bg-white border border-slate-200 rounded-md pl-4 pr-8 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+              className="appearance-none bg-white border border-zinc-200 rounded-md pl-4 pr-8 py-2.5 text-sm font-medium text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
             >
               {sucursales.map(s => <option key={s}>{s}</option>)}
             </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2.5 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
           </div>
         </div>
       </div>
 
       {/* Cliente + Fecha */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-100 p-6">
+      <div className="bg-white rounded-lg border border-zinc-200/80 p-6">
         <div className="grid grid-cols-4 gap-4">
           {/* Buscar cliente */}
           <div className="col-span-2 relative">
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">Buscar cliente *</label>
+            <label className="block text-xs font-medium text-zinc-500 mb-1.5">Buscar cliente *</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
               <input
                 value={busquedaCliente}
                 onChange={e => setBusquedaCliente(e.target.value)}
                 onFocus={() => setShowClienteDropdown(true)}
                 onBlur={() => setTimeout(() => setShowClienteDropdown(false), 200)}
                 placeholder="Busca por nombre o teléfono..."
-                className="w-full pl-9 pr-10 py-2.5 text-sm border border-slate-200 rounded-md bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30 placeholder:text-slate-400"
+                className="w-full pl-9 pr-10 py-2.5 text-sm border border-zinc-200 rounded-md bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
               />
               {cliente && (
-                <button onClick={() => { setCliente(null); setBusquedaCliente('') }} className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+                <button onClick={() => { setCliente(null); setBusquedaCliente('') }} className="absolute right-3 top-1/2 -tranzinc-y-1/2">
+                  <X className="w-4 h-4 text-zinc-400 hover:text-zinc-600" />
                 </button>
               )}
             </div>
             {showClienteDropdown && !cliente && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-md shadow-xl z-20 divide-y divide-slate-50 overflow-hidden">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-100 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden">
                 {clientesFiltrados.length > 0
                   ? clientesFiltrados.slice(0, 6).map(c => (
                     <button
                       key={c.id}
                       onMouseDown={() => seleccionarCliente(c)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 transition-colors text-left"
                     >
-                      <div className="w-8 h-8 rounded-full bg-[#2BBFB3]/10 flex items-center justify-center flex-shrink-0">
-                        <User className="w-4 h-4 text-[#2BBFB3]" />
+                      <div className="w-8 h-8 rounded-full bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-[#0D9488]" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-slate-700">{c.nombre} {c.apellido}</p>
-                        <p className="text-xs text-slate-400">{c.telefono}</p>
+                        <p className="text-sm font-semibold text-zinc-700">{c.nombre} {c.apellido}</p>
+                        <p className="text-xs text-zinc-400">{c.telefono}</p>
                       </div>
                     </button>
                   ))
                   : (
-                    <div className="px-4 py-3 text-sm text-slate-400 text-center">
+                    <div className="px-4 py-3 text-sm text-zinc-400 text-center">
                       Sin resultados para "{busquedaCliente}"
                     </div>
                   )
                 }
                 <button
                   onMouseDown={() => setShowClienteDropdown(false)}
-                  className="w-full flex items-center gap-2 px-4 py-3 text-sm text-[#2BBFB3] hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm text-[#0D9488] hover:bg-zinc-50 transition-colors"
                 >
                   <UserPlus className="w-4 h-4" />
                   Registrar nuevo cliente
@@ -593,106 +593,106 @@ ${entregaHtml}
 
           {/* Fecha de entrega */}
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">
+            <label className="block text-xs font-medium text-zinc-500 mb-1.5">
               <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> Fecha sugerida de entrega</span>
             </label>
             <input
               type="date"
               value={fechaEntrega}
               onChange={e => setFechaEntrega(e.target.value)}
-              className="w-full py-2.5 px-4 text-sm border border-slate-200 rounded-md bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30 text-slate-700"
+              className="w-full py-2.5 px-4 text-sm border border-zinc-200 rounded-md bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 text-zinc-700"
             />
           </div>
 
           {/* Nombre */}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">Nombre *</label>
+            <label className="block text-xs font-medium text-zinc-500 mb-1.5">Nombre *</label>
             <input
               value={clienteNombre}
               onChange={e => setClienteNombre(e.target.value)}
               placeholder="Nombre"
-              className="w-full py-2.5 px-4 text-sm border border-slate-200 rounded-md bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30 placeholder:text-slate-400"
+              className="w-full py-2.5 px-4 text-sm border border-zinc-200 rounded-md bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
             />
           </div>
 
           {/* Apellido */}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">Apellido *</label>
+            <label className="block text-xs font-medium text-zinc-500 mb-1.5">Apellido *</label>
             <input
               value={clienteApellido}
               onChange={e => setClienteApellido(e.target.value)}
               placeholder="Apellido"
-              className="w-full py-2.5 px-4 text-sm border border-slate-200 rounded-md bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30 placeholder:text-slate-400"
+              className="w-full py-2.5 px-4 text-sm border border-zinc-200 rounded-md bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
             />
           </div>
 
           {/* Teléfono */}
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-slate-500 mb-1.5">
+            <label className="block text-xs font-medium text-zinc-500 mb-1.5">
               <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> Teléfono de contacto</span>
             </label>
             <input
               value={clienteTelefono}
               onChange={e => setClienteTelefono(e.target.value)}
               placeholder="686 000 0000"
-              className="w-full py-2.5 px-4 text-sm border border-slate-200 rounded-md bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30 placeholder:text-slate-400"
+              className="w-full py-2.5 px-4 text-sm border border-zinc-200 rounded-md bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
             />
           </div>
         </div>
       </div>
 
       {/* Productos */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-100">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-800">Productos</h2>
+      <div className="bg-white rounded-lg border border-zinc-200/80">
+        <div className="px-6 py-4 border-b border-zinc-100">
+          <h2 className="text-sm font-semibold text-zinc-800">Productos</h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100">
-                <th className="text-left text-xs text-slate-400 font-medium px-6 py-3 w-28">Código</th>
-                <th className="text-left text-xs text-slate-400 font-medium px-4 py-3">Descripción</th>
-                <th className="text-center text-xs text-slate-400 font-medium px-4 py-3 w-32">Cantidad</th>
-                <th className="text-center text-xs text-slate-400 font-medium px-4 py-3 w-24">Existencias</th>
-                <th className="text-right text-xs text-slate-400 font-medium px-4 py-3 w-32">Precio</th>
-                <th className="text-center text-xs text-slate-400 font-medium px-4 py-3 w-28">Desc. %</th>
-                <th className="text-right text-xs text-slate-400 font-medium px-4 py-3 w-32">Subtotal</th>
+              <tr className="border-b border-zinc-100">
+                <th className="text-left text-xs text-zinc-400 font-medium px-6 py-3 w-28">Código</th>
+                <th className="text-left text-xs text-zinc-400 font-medium px-4 py-3">Descripción</th>
+                <th className="text-center text-xs text-zinc-400 font-medium px-4 py-3 w-32">Cantidad</th>
+                <th className="text-center text-xs text-zinc-400 font-medium px-4 py-3 w-24">Existencias</th>
+                <th className="text-right text-xs text-zinc-400 font-medium px-4 py-3 w-32">Precio</th>
+                <th className="text-center text-xs text-zinc-400 font-medium px-4 py-3 w-28">Desc. %</th>
+                <th className="text-right text-xs text-zinc-400 font-medium px-4 py-3 w-32">Subtotal</th>
                 <th className="w-10 px-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-zinc-50">
               <tr>
                 <td colSpan={8} className="px-6 py-2">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
                     <input
                       value={busquedaProducto}
                       onChange={e => { setBusquedaProducto(e.target.value); setShowBuscadorProducto(true) }}
                       onFocus={() => setShowBuscadorProducto(true)}
                       placeholder="Buscar por código o descripción del producto..."
-                      className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30 placeholder:text-slate-400"
+                      className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
                     />
                     {showBuscadorProducto && busquedaProducto && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-md shadow-xl z-20 divide-y divide-slate-50 overflow-hidden max-h-64 overflow-y-auto">
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-100 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
                         {productosFiltrados.slice(0, 8).map(p => (
                           <button
                             key={p.id}
                             onClick={() => agregar(p)}
-                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-50 transition-colors text-left"
                           >
                             <div>
-                              <span className="text-xs font-mono text-slate-400 mr-3">{p.sku}</span>
-                              <span className="text-sm font-medium text-slate-700">{p.nombre}</span>
+                              <span className="text-xs font-mono text-zinc-400 mr-3">{p.sku}</span>
+                              <span className="text-sm font-medium text-zinc-700">{p.nombre}</span>
                             </div>
                             <div className="flex items-center gap-4">
-                              <span className="text-xs text-slate-400">Stock: {p.stock === 999 ? '∞' : p.stock}</span>
-                              <span className="text-sm font-bold text-slate-800">${p.precio.toLocaleString('es-MX')}</span>
+                              <span className="text-xs text-zinc-400">Stock: {p.stock === 999 ? '∞' : p.stock}</span>
+                              <span className="text-sm font-bold text-zinc-800">${p.precio.toLocaleString('es-MX')}</span>
                             </div>
                           </button>
                         ))}
                         {productosFiltrados.length === 0 && (
-                          <div className="px-4 py-4 text-sm text-slate-400 text-center">Sin resultados</div>
+                          <div className="px-4 py-4 text-sm text-zinc-400 text-center">Sin resultados</div>
                         )}
                       </div>
                     )}
@@ -703,7 +703,7 @@ ${entregaHtml}
               {carrito.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-6 py-10 text-center">
-                    <div className="flex flex-col items-center gap-2 text-slate-300">
+                    <div className="flex flex-col items-center gap-2 text-zinc-300">
                       <Package className="w-10 h-10" />
                       <p className="text-sm">Busca y agrega productos arriba</p>
                     </div>
@@ -718,12 +718,12 @@ ${entregaHtml}
                 const stockBajo = item.stock !== 999 && item.cantidad > item.stock
 
                 return (
-                  <tr key={item.id} className="hover:bg-slate-50/50 group">
+                  <tr key={item.id} className="hover:bg-zinc-50/50 group">
                     <td className="px-6 py-3">
-                      <span className="text-xs font-mono text-slate-500">{item.sku}</span>
+                      <span className="text-xs font-mono text-zinc-500">{item.sku}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-slate-700">{item.nombre}</p>
+                      <p className="text-sm font-medium text-zinc-700">{item.nombre}</p>
                       {stockBajo && (
                         <p className="text-xs text-amber-500 flex items-center gap-1 mt-0.5">
                           <AlertCircle className="w-3 h-3" /> Stock insuficiente
@@ -732,22 +732,22 @@ ${entregaHtml}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => cambiarCantidad(item.id, -1)} className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors">
-                          <Minus className="w-3 h-3 text-slate-600" />
+                        <button onClick={() => cambiarCantidad(item.id, -1)} className="w-6 h-6 rounded bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-colors">
+                          <Minus className="w-3 h-3 text-zinc-600" />
                         </button>
-                        <span className="w-8 text-center text-sm font-bold text-slate-700">{item.cantidad}</span>
-                        <button onClick={() => cambiarCantidad(item.id, 1)} className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors">
-                          <Plus className="w-3 h-3 text-slate-600" />
+                        <span className="w-8 text-center text-sm font-bold text-zinc-700">{item.cantidad}</span>
+                        <button onClick={() => cambiarCantidad(item.id, 1)} className="w-6 h-6 rounded bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-colors">
+                          <Plus className="w-3 h-3 text-zinc-600" />
                         </button>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`text-xs font-medium ${item.stock === 999 ? 'text-slate-400' : item.stock < 5 ? 'text-amber-500' : 'text-slate-500'}`}>
+                      <span className={`text-xs font-medium ${item.stock === 999 ? 'text-zinc-400' : item.stock < 5 ? 'text-amber-500' : 'text-zinc-500'}`}>
                         {item.stock === 999 ? '∞' : item.stock}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm text-slate-700">${item.precio.toLocaleString('es-MX')}</span>
+                      <span className="text-sm text-zinc-700">${item.precio.toLocaleString('es-MX')}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
@@ -758,16 +758,16 @@ ${entregaHtml}
                           value={item.descuento || ''}
                           onChange={e => cambiarDescuento(item.id, e.target.value)}
                           placeholder="0"
-                          className="w-14 text-center text-sm border border-slate-200 rounded-lg py-1 px-2 focus:outline-none focus:ring-1 focus:ring-[#2BBFB3] bg-slate-50"
+                          className="w-14 text-center text-sm border border-zinc-200 rounded-lg py-1 px-2 focus:outline-none focus:ring-1 focus:ring-[#0D9488] bg-zinc-50"
                         />
-                        <span className="text-slate-400 text-xs">%</span>
+                        <span className="text-zinc-400 text-xs">%</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm font-bold text-slate-800">${subtotalItem.toLocaleString('es-MX')}</span>
+                      <span className="text-sm font-bold text-zinc-800">${subtotalItem.toLocaleString('es-MX')}</span>
                     </td>
                     <td className="px-2 py-3">
-                      <button onClick={() => eliminar(item.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-400">
+                      <button onClick={() => eliminar(item.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-300 hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -779,27 +779,27 @@ ${entregaHtml}
         </div>
 
         {carrito.length > 0 && (
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+          <div className="px-6 py-4 border-t border-zinc-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setBusquedaProducto(''); setShowBuscadorProducto(true) }}
-                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-600 border border-dashed border-slate-200 rounded-md px-4 py-2 hover:border-slate-300 transition-all"
+                className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-600 border border-dashed border-zinc-200 rounded-md px-4 py-2 hover:border-zinc-300 transition-all"
               >
                 <Plus className="w-4 h-4" /> Agregar producto
               </button>
               <button
                 onClick={() => { setProductoLibre({ descripcion: '', precio: '', cantidad: '1' }); setShowProductoLibre(true) }}
-                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-600 border border-dashed border-slate-200 rounded-md px-4 py-2 hover:border-slate-300 transition-all"
+                className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-600 border border-dashed border-zinc-200 rounded-md px-4 py-2 hover:border-zinc-300 transition-all"
               >
                 <Plus className="w-4 h-4" /> Producto libre
               </button>
             </div>
             <div className="flex items-center gap-6">
               <div className="text-right">
-                <span className="text-sm text-slate-400">Total</span>
+                <span className="text-sm text-zinc-400">Total</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">$</span>
-                  <span className="text-2xl font-bold text-slate-800">{subtotal.toLocaleString('es-MX')}</span>
+                  <span className="text-xs text-zinc-400">$</span>
+                  <span className="text-2xl font-bold text-zinc-800">{subtotal.toLocaleString('es-MX')}</span>
                 </div>
               </div>
             </div>
@@ -811,7 +811,7 @@ ${entregaHtml}
       <div className="flex items-center justify-between">
         <button
           onClick={limpiar}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-500 hover:text-slate-700 border border-slate-200 rounded-md hover:bg-slate-50 transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-500 hover:text-zinc-700 border border-zinc-200 rounded-md hover:bg-zinc-50 transition-all"
         >
           <X className="w-4 h-4" /> Limpiar
         </button>
@@ -819,7 +819,7 @@ ${entregaHtml}
           <button
             onClick={() => { setEsCotizacion(true); setShowModal(true) }}
             disabled={carrito.length === 0}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-md text-sm font-semibold hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-md text-sm font-semibold hover:bg-zinc-50 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <FileText className="w-4 h-4" />
             Generar cotización
@@ -827,7 +827,7 @@ ${entregaHtml}
           <button
             onClick={() => { setEsCotizacion(false); setShowModal(true) }}
             disabled={carrito.length === 0 || !clienteNombre}
-            className="flex items-center gap-2 px-6 py-2.5 bg-[#0B1A35] text-white rounded-md text-sm font-bold hover:bg-[#0d2145] active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-2.5 bg-[#0B0E14] text-white rounded-md text-sm font-bold hover:bg-[#1A1D27] active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <CheckCircle2 className="w-4 h-4" />
             Generar venta
@@ -839,47 +839,47 @@ ${entregaHtml}
       {showProductoLibre && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h3 className="font-semibold text-slate-800">Agregar producto no inventariado</h3>
-              <button onClick={() => setShowProductoLibre(false)} className="text-slate-400 hover:text-slate-600">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+              <h3 className="font-semibold text-zinc-800">Agregar producto no inventariado</h3>
+              <button onClick={() => setShowProductoLibre(false)} className="text-zinc-400 hover:text-zinc-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-1">Descripción</label>
                 <input
                   type="text"
                   placeholder="Descripción del producto o servicio"
                   value={productoLibre.descripcion}
                   onChange={e => setProductoLibre(p => ({ ...p, descripcion: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+                  className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                   autoFocus
                 />
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Precio</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1">Precio</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
+                    <span className="absolute left-3 top-2 text-zinc-400 text-sm">$</span>
                     <input
                       type="number"
                       min="0"
                       placeholder="0"
                       value={productoLibre.precio}
                       onChange={e => setProductoLibre(p => ({ ...p, precio: e.target.value }))}
-                      className="w-full border border-slate-200 rounded-md pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+                      className="w-full border border-zinc-200 rounded-md pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                     />
                   </div>
                 </div>
                 <div className="w-24">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Cantidad</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1">Cantidad</label>
                   <input
                     type="number"
                     min="1"
                     value={productoLibre.cantidad}
                     onChange={e => setProductoLibre(p => ({ ...p, cantidad: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+                    className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                   />
                 </div>
               </div>
@@ -887,7 +887,7 @@ ${entregaHtml}
             <div className="flex gap-3 px-6 pb-5">
               <button
                 onClick={() => setShowProductoLibre(false)}
-                className="flex-1 border border-slate-200 text-slate-600 rounded-md py-2 text-sm hover:bg-slate-50 transition-colors"
+                className="flex-1 border border-zinc-200 text-zinc-600 rounded-md py-2 text-sm hover:bg-zinc-50 transition-colors"
               >
                 Cancelar
               </button>
@@ -908,7 +908,7 @@ ${entregaHtml}
                   }])
                   setShowProductoLibre(false)
                 }}
-                className="flex-1 bg-[#2BBFB3] text-white rounded-md py-2 text-sm font-medium hover:bg-[#24a89d] transition-colors"
+                className="flex-1 bg-[#0D9488] text-white rounded-md py-2 text-sm font-medium hover:bg-[#24a89d] transition-colors"
               >
                 Agregar
               </button>
@@ -921,11 +921,11 @@ ${entregaHtml}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-              <h2 className="text-base font-bold text-slate-800">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+              <h2 className="text-base font-bold text-zinc-800">
                 {esCotizacion ? 'Confirmar cotización' : 'Opciones de pago'}
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-zinc-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -935,17 +935,17 @@ ${entregaHtml}
                 <>
                   {/* Modo de pago */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-2">Modo de pago</label>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-2">Modo de pago</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setModoPago('liquidar')}
-                        className={`py-3 rounded-md text-sm font-semibold border transition-all ${modoPago === 'liquidar' ? 'border-[#0B1A35] bg-[#0B1A35] text-white' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                        className={`py-3 rounded-md text-sm font-semibold border transition-all ${modoPago === 'liquidar' ? 'border-[#0B0E14] bg-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}
                       >
                         Liquidar total
                       </button>
                       <button
                         onClick={() => setModoPago('diferir')}
-                        className={`py-3 rounded-md text-sm font-semibold border transition-all ${modoPago === 'diferir' ? 'border-[#0B1A35] bg-[#0B1A35] text-white' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                        className={`py-3 rounded-md text-sm font-semibold border transition-all ${modoPago === 'diferir' ? 'border-[#0B0E14] bg-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}
                       >
                         Diferir pagos
                       </button>
@@ -954,41 +954,41 @@ ${entregaHtml}
 
                   {/* Método de pago */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-2">Método de pago</label>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-2">Método de pago</label>
                     <div className="relative">
                       <select
                         value={metodoPago}
                         onChange={e => setMetodoPago(e.target.value)}
-                        className="w-full appearance-none border border-slate-200 rounded-md px-4 py-3 text-sm text-slate-700 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30 pr-10"
+                        className="w-full appearance-none border border-zinc-200 rounded-md px-4 py-3 text-sm text-zinc-700 bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 pr-10"
                       >
                         {metodosPago.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                     </div>
                   </div>
 
                   {/* Anticipo — solo cuando se difiere */}
                   {modoPago === 'diferir' && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-2">
+                      <label className="block text-xs font-semibold text-zinc-500 mb-2">
                         Anticipo recibido <span className="text-red-400">*</span>
                       </label>
                       <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">$</span>
+                        <span className="absolute left-4 top-1/2 -tranzinc-y-1/2 text-zinc-400 font-semibold text-sm">$</span>
                         <input
                           type="number"
                           min={0}
                           max={total}
                           value={anticipo}
                           onChange={e => setAnticipo(e.target.value === '' ? '' : Math.min(total, Math.max(0, parseFloat(e.target.value) || 0)))}
-                          className="w-full border-2 border-[#2BBFB3] rounded-md pl-8 pr-4 py-3 text-lg font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+                          className="w-full border-2 border-[#0D9488] rounded-md pl-8 pr-4 py-3 text-lg font-bold text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                           placeholder="0"
                           autoFocus
                         />
                       </div>
                       {anticipo !== '' && anticipo > 0 && (
-                        <p className="text-xs text-slate-500 mt-1.5">
-                          Saldo pendiente: <span className="font-bold text-slate-700">${(total - Number(anticipo)).toLocaleString('es-MX')}</span>
+                        <p className="text-xs text-zinc-500 mt-1.5">
+                          Saldo pendiente: <span className="font-bold text-zinc-700">${(total - Number(anticipo)).toLocaleString('es-MX')}</span>
                         </p>
                       )}
                     </div>
@@ -997,10 +997,10 @@ ${entregaHtml}
               )}
 
               {/* Total */}
-              <div className="bg-slate-50 rounded-lg px-5 py-4">
+              <div className="bg-zinc-50 rounded-lg px-5 py-4">
                 {modoPago === 'diferir' && anticipo !== '' && Number(anticipo) > 0 ? (
                   <div className="space-y-2">
-                    <div className="flex justify-between text-sm text-slate-500">
+                    <div className="flex justify-between text-sm text-zinc-500">
                       <span>Total venta</span>
                       <span className="font-semibold">${total.toLocaleString('es-MX')}</span>
                     </div>
@@ -1008,21 +1008,21 @@ ${entregaHtml}
                       <span>Anticipo</span>
                       <span className="font-bold">− ${Number(anticipo).toLocaleString('es-MX')}</span>
                     </div>
-                    <div className="border-t border-slate-200 pt-2 flex justify-between">
-                      <span className="text-sm font-semibold text-slate-700">Saldo pendiente</span>
+                    <div className="border-t border-zinc-200 pt-2 flex justify-between">
+                      <span className="text-sm font-semibold text-zinc-700">Saldo pendiente</span>
                       <span className="text-xl font-bold text-red-600">${(total - Number(anticipo)).toLocaleString('es-MX')}</span>
                     </div>
                   </div>
                 ) : (
                   <div className="text-center">
-                    <p className="text-xs text-slate-400 mb-1">
+                    <p className="text-xs text-zinc-400 mb-1">
                       {esCotizacion ? 'Total estimado' : (modoPago === 'diferir' ? 'Total (pendiente de anticipo)' : 'Total a cobrar')}
                     </p>
-                    <p className="text-3xl font-bold text-[#0B1A35]">${total.toLocaleString('es-MX')}</p>
+                    <p className="text-3xl font-bold text-[#0B0E14]">${total.toLocaleString('es-MX')}</p>
                   </div>
                 )}
                 {clienteNombre && (
-                  <p className="text-xs text-slate-400 mt-2 text-center">{clienteNombre} {clienteApellido}</p>
+                  <p className="text-xs text-zinc-400 mt-2 text-center">{clienteNombre} {clienteApellido}</p>
                 )}
               </div>
             </div>
@@ -1035,14 +1035,14 @@ ${entregaHtml}
             <div className="px-6 pb-5 flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-md text-sm font-semibold hover:bg-slate-50 transition-colors"
+                className="flex-1 py-3 border border-zinc-200 text-zinc-600 rounded-md text-sm font-semibold hover:bg-zinc-50 transition-colors"
               >
                 Volver
               </button>
               <button
                 onClick={() => handleFinalizar(esCotizacion)}
                 disabled={guardando}
-                className="flex-1 py-3 bg-[#2BBFB3] text-white rounded-md text-sm font-bold hover:bg-teal-500 active:scale-[0.99] transition-all disabled:opacity-50"
+                className="flex-1 py-3 bg-[#0D9488] text-white rounded-md text-sm font-bold hover:bg-teal-500 active:scale-[0.99] transition-all disabled:opacity-50"
               >
                 {guardando ? 'Guardando...' : esCotizacion ? 'Generar cotización' : 'Finalizar venta'}
               </button>

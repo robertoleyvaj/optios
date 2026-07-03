@@ -134,11 +134,11 @@ export default function FinanzasPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Finanzas</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Ingresos, gastos y flujo de caja — Junio 2026</p>
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Finanzas</h1>
+          <p className="text-sm text-zinc-400 mt-0.5">Ingresos, gastos y flujo de caja — Junio 2026</p>
         </div>
         <button onClick={() => { setForm(formVacio()); setModal(true) }}
-          className="flex items-center gap-2 bg-[#0B1A35] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#0d2145] active:scale-[0.98] transition-all">
+          className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27] active:scale-[0.98] transition-all">
           <Plus className="w-4 h-4" /> Registrar movimiento
         </button>
       </div>
@@ -155,8 +155,8 @@ export default function FinanzasPage() {
             bg: 'bg-red-50', icon: ArrowDownRight, trend: '-3% vs mayo',
           },
           {
-            label: 'Utilidad neta', value: utilidad, color: utilidad >= 0 ? 'text-slate-800' : 'text-red-600',
-            bg: 'bg-slate-100', icon: DollarSign, trend: `Margen ${Math.round((utilidad / totalIngresos) * 100)}%`,
+            label: 'Utilidad neta', value: utilidad, color: utilidad >= 0 ? 'text-zinc-800' : 'text-red-600',
+            bg: 'bg-zinc-100', icon: DollarSign, trend: `Margen ${Math.round((utilidad / totalIngresos) * 100)}%`,
           },
           {
             label: 'Comisiones bancarias', value: comisiones, color: 'text-amber-600',
@@ -165,9 +165,9 @@ export default function FinanzasPage() {
         ].map(k => {
           const Icon = k.icon
           return (
-            <div key={k.label} className="bg-white rounded-lg px-5 py-4 shadow-sm border border-slate-100">
+            <div key={k.label} className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-slate-400">{k.label}</p>
+                <p className="text-xs font-medium text-zinc-400">{k.label}</p>
                 <div className={`w-8 h-8 rounded ${k.bg} flex items-center justify-center`}>
                   <Icon className={`w-4 h-4 ${k.color}`} />
                 </div>
@@ -175,23 +175,23 @@ export default function FinanzasPage() {
               <p className={`text-2xl font-bold mt-2 ${k.color}`}>
                 ${Math.abs(k.value).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </p>
-              <p className="text-xs text-slate-400 mt-0.5">{k.trend}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{k.trend}</p>
             </div>
           )
         })}
       </div>
 
       {/* Gráficas */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-100 p-5">
+      <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-sm font-bold text-slate-700">Flujo del mes</h3>
-          <div className="flex items-center border border-slate-200 rounded overflow-hidden">
+          <h3 className="text-sm font-bold text-zinc-700">Flujo del mes</h3>
+          <div className="flex items-center border border-zinc-200 rounded overflow-hidden">
             {[
               { key: 'tendencia', label: 'Por semana' },
               { key: 'sucursal',  label: 'Por sucursal' },
             ].map(v => (
               <button key={v.key} onClick={() => setGraficaVista(v.key as typeof graficaVista)}
-                className={`px-4 py-2 text-xs font-medium transition-colors ${graficaVista === v.key ? 'bg-[#0B1A35] text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                className={`px-4 py-2 text-xs font-medium transition-colors ${graficaVista === v.key ? 'bg-[#0B0E14] text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>
                 {v.label}
               </button>
             ))}
@@ -203,8 +203,8 @@ export default function FinanzasPage() {
             <AreaChart data={DATA_SEMANAL} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gIngresos" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2BBFB3" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#2BBFB3" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#0D9488" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#0D9488" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gGastos" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#EF4444" stopOpacity={0.1} />
@@ -217,7 +217,7 @@ export default function FinanzasPage() {
                 tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, '']}
                 contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }} />
-              <Area type="monotone" dataKey="ingresos" name="Ingresos" stroke="#2BBFB3" strokeWidth={2} fill="url(#gIngresos)" />
+              <Area type="monotone" dataKey="ingresos" name="Ingresos" stroke="#0D9488" strokeWidth={2} fill="url(#gIngresos)" />
               <Area type="monotone" dataKey="gastos"   name="Gastos"   stroke="#EF4444" strokeWidth={2} fill="url(#gGastos)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -231,8 +231,8 @@ export default function FinanzasPage() {
               <Tooltip formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, '']}
                 contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-              <Bar dataKey="ingresos" name="Ingresos" fill="#2BBFB3" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="gastos"   name="Gastos"   fill="#0B1A35" radius={[4, 4, 0, 0]} opacity={0.7} />
+              <Bar dataKey="ingresos" name="Ingresos" fill="#0D9488" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="gastos"   name="Gastos"   fill="#0B0E14" radius={[4, 4, 0, 0]} opacity={0.7} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -244,18 +244,18 @@ export default function FinanzasPage() {
           { metodo: 'Efectivo',         icon: Banknote,  color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { metodo: 'Tarjeta débito',   icon: CreditCard, color: 'text-blue-600',   bg: 'bg-blue-50' },
           { metodo: 'Tarjeta crédito',  icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50' },
-          { metodo: 'Transferencia',    icon: Building2,  color: 'text-slate-600',  bg: 'bg-slate-100' },
+          { metodo: 'Transferencia',    icon: Building2,  color: 'text-zinc-600',  bg: 'bg-zinc-100' },
         ].map(({ metodo, icon: Icon, color, bg }) => {
           const total = movimientos.filter(m => m.tipo === 'ingreso' && m.metodo === metodo).reduce((s, m) => s + m.monto, 0)
           const comision = comisionBancaria(total, metodo)
           return (
-            <div key={metodo} className="bg-white rounded-lg px-4 py-4 shadow-sm border border-slate-100 flex items-center gap-4">
+            <div key={metodo} className="bg-white rounded-lg px-4 py-4 border border-zinc-200/80 flex items-center gap-4">
               <div className={`w-10 h-10 rounded ${bg} flex items-center justify-center flex-shrink-0`}>
                 <Icon className={`w-4 h-4 ${color}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-400">{metodo}</p>
-                <p className="text-base font-bold text-slate-800">${total.toLocaleString('es-MX')}</p>
+                <p className="text-xs text-zinc-400">{metodo}</p>
+                <p className="text-base font-bold text-zinc-800">${total.toLocaleString('es-MX')}</p>
                 {comision > 0 && (
                   <p className="text-xs text-amber-500">Comisión: ${comision.toLocaleString('es-MX', { maximumFractionDigits: 0 })}</p>
                 )}
@@ -266,34 +266,34 @@ export default function FinanzasPage() {
       </div>
 
       {/* Tabla de movimientos */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-100 overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+      <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-100">
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
             <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30 placeholder:text-slate-400"
+              className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
               placeholder="Buscar movimiento..." />
           </div>
-          <div className="flex items-center border border-slate-200 rounded overflow-hidden">
+          <div className="flex items-center border border-zinc-200 rounded overflow-hidden">
             {[
               { key: 'todos',    label: 'Todos' },
               { key: 'ingreso',  label: 'Ingresos' },
               { key: 'gasto',    label: 'Gastos' },
             ].map(v => (
               <button key={v.key} onClick={() => setFiltroTipo(v.key as typeof filtroTipo)}
-                className={`px-3 py-2 text-xs font-medium transition-colors ${filtroTipo === v.key ? 'bg-[#0B1A35] text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                className={`px-3 py-2 text-xs font-medium transition-colors ${filtroTipo === v.key ? 'bg-[#0B0E14] text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>
                 {v.label}
               </button>
             ))}
           </div>
           <div className="relative">
             <select value={filtroSucursal} onChange={e => setFiltroSucursal(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 text-sm bg-slate-50 border border-slate-200 rounded text-slate-600 focus:outline-none">
+              className="appearance-none pl-3 pr-8 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded text-zinc-600 focus:outline-none">
               {['Todas', ...SUCURSALES].map(s => <option key={s}>{s}</option>)}
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
           </div>
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-slate-400">
+          <div className="ml-auto flex items-center gap-1.5 text-xs text-zinc-400">
             <Filter className="w-3.5 h-3.5" />
             {filtrados.length} movimientos
           </div>
@@ -302,29 +302,29 @@ export default function FinanzasPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100">
+              <tr className="border-b border-zinc-100">
                 {['Fecha', 'Concepto', 'Categoría', 'Sucursal', 'Método', 'Monto'].map(h => (
-                  <th key={h} className="text-left text-xs text-slate-400 font-medium px-5 py-3">{h}</th>
+                  <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-zinc-50">
               {filtrados.map(m => {
                 const comision = comisionBancaria(m.monto, m.metodo)
                 return (
-                  <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3.5 text-xs text-slate-400 whitespace-nowrap">{m.fecha}</td>
+                  <tr key={m.id} className="hover:bg-zinc-50 transition-colors">
+                    <td className="px-5 py-3.5 text-xs text-zinc-400 whitespace-nowrap">{m.fecha}</td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${m.tipo === 'ingreso' ? 'bg-emerald-500' : 'bg-red-400'}`} />
-                        <span className="text-sm text-slate-700 font-medium">{m.concepto}</span>
+                        <span className="text-sm text-zinc-700 font-medium">{m.concepto}</span>
                       </div>
-                      {m.notas && <p className="text-xs text-slate-400 ml-3.5 mt-0.5">{m.notas}</p>}
+                      {m.notas && <p className="text-xs text-zinc-400 ml-3.5 mt-0.5">{m.notas}</p>}
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-slate-500">{m.categoria}</td>
-                    <td className="px-5 py-3.5 text-xs text-slate-500">{m.sucursal}</td>
+                    <td className="px-5 py-3.5 text-xs text-zinc-500">{m.categoria}</td>
+                    <td className="px-5 py-3.5 text-xs text-zinc-500">{m.sucursal}</td>
                     <td className="px-5 py-3.5">
-                      <span className="text-xs text-slate-500">{m.metodo}</span>
+                      <span className="text-xs text-zinc-500">{m.metodo}</span>
                       {comision > 0 && (
                         <p className="text-xs text-amber-500">-${comision.toFixed(0)}</p>
                       )}
@@ -340,13 +340,13 @@ export default function FinanzasPage() {
             </tbody>
           </table>
           {filtrados.length === 0 && (
-            <div className="text-center py-16 text-slate-400 text-sm">Sin movimientos con ese criterio</div>
+            <div className="text-center py-16 text-zinc-400 text-sm">Sin movimientos con ese criterio</div>
           )}
         </div>
 
         {/* Totales del filtro */}
-        <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-between bg-slate-50">
-          <span className="text-xs text-slate-400">{filtrados.length} movimientos mostrados</span>
+        <div className="border-t border-zinc-100 px-5 py-3 flex items-center justify-between bg-zinc-50">
+          <span className="text-xs text-zinc-400">{filtrados.length} movimientos mostrados</span>
           <div className="flex items-center gap-6 text-sm">
             <span className="text-emerald-600 font-semibold">
               +${filtrados.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0).toLocaleString('es-MX')}
@@ -362,22 +362,22 @@ export default function FinanzasPage() {
       {modal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-              <h2 className="text-base font-bold text-slate-800">Registrar movimiento</h2>
-              <button onClick={() => setModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+              <h2 className="text-base font-bold text-zinc-800">Registrar movimiento</h2>
+              <button onClick={() => setModal(false)}><X className="w-5 h-5 text-zinc-400" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
 
               {/* Tipo */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Tipo</label>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { v: 'ingreso', l: 'Ingreso', c: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
                     { v: 'gasto',   l: 'Gasto',   c: 'text-red-600 bg-red-50 border-red-200' },
                   ].map(opt => (
                     <button key={opt.v} onClick={() => { f('tipo', opt.v as TipoMovimiento); f('categoria', opt.v === 'ingreso' ? CATEGORIAS_INGRESO[0] : CATEGORIAS_GASTO[0]) }}
-                      className={`py-2.5 rounded text-sm font-bold border transition-all ${form.tipo === opt.v ? opt.c : 'border-slate-200 text-slate-400 hover:bg-slate-50'}`}>
+                      className={`py-2.5 rounded text-sm font-bold border transition-all ${form.tipo === opt.v ? opt.c : 'border-zinc-200 text-zinc-400 hover:bg-zinc-50'}`}>
                       {opt.l}
                     </button>
                   ))}
@@ -385,59 +385,59 @@ export default function FinanzasPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Concepto *</label>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Concepto *</label>
                 <input value={form.concepto} onChange={e => f('concepto', e.target.value)}
-                  className="w-full border border-slate-200 rounded px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+                  className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                   placeholder="Descripción del movimiento" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Categoría</label>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Categoría</label>
                   <div className="relative">
                     <select value={form.categoria} onChange={e => f('categoria', e.target.value)}
-                      className="w-full appearance-none border border-slate-200 rounded px-3 py-2.5 text-sm bg-slate-50 focus:outline-none pr-8">
+                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {cats.map(c => <option key={c}>{c}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Sucursal</label>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sucursal</label>
                   <div className="relative">
                     <select value={form.sucursal} onChange={e => f('sucursal', e.target.value)}
-                      className="w-full appearance-none border border-slate-200 rounded px-3 py-2.5 text-sm bg-slate-50 focus:outline-none pr-8">
+                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {SUCURSALES.map(s => <option key={s}>{s}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Método de pago</label>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Método de pago</label>
                   <div className="relative">
                     <select value={form.metodo} onChange={e => f('metodo', e.target.value)}
-                      className="w-full appearance-none border border-slate-200 rounded px-3 py-2.5 text-sm bg-slate-50 focus:outline-none pr-8">
+                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {METODOS_PAGO.map(m => <option key={m}>{m}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Fecha</label>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Fecha</label>
                   <input type="date" value={form.fecha} onChange={e => f('fecha', e.target.value)}
-                    className="w-full border border-slate-200 rounded px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30" />
+                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Monto *</label>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Monto *</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">$</span>
+                  <span className="absolute left-3 top-1/2 -tranzinc-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
                   <input type="number" value={form.monto || ''} onChange={e => f('monto', parseFloat(e.target.value) || 0)}
-                    className="w-full border border-slate-200 rounded pl-7 pr-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30"
+                    className="w-full border border-zinc-200 rounded pl-7 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                     placeholder="0.00" />
                 </div>
                 {comisionBancaria(form.monto, form.metodo) > 0 && (
@@ -450,19 +450,19 @@ export default function FinanzasPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Notas</label>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Notas</label>
                 <textarea value={form.notas} onChange={e => f('notas', e.target.value)} rows={3}
-                  className="w-full border border-slate-200 rounded px-3 py-3 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2BBFB3]/30 resize-none placeholder:text-slate-400"
+                  className="w-full border border-zinc-200 rounded px-3 py-3 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none placeholder:text-zinc-400"
                   placeholder="Referencia, número de factura, observaciones..." />
               </div>
             </div>
             <div className="px-6 pb-5 flex gap-3">
               <button onClick={() => setModal(false)}
-                className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded text-sm font-semibold hover:bg-slate-50">
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
                 Cancelar
               </button>
               <button onClick={guardar} disabled={!form.concepto || !form.monto}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B1A35] text-white rounded text-sm font-bold hover:bg-[#0d2145] disabled:opacity-40">
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40">
                 <Save className="w-4 h-4" /> Guardar
               </button>
             </div>

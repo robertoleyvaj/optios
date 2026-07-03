@@ -1,13 +1,46 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────
+   OptiOS — design tokens
+   Paleta casi monocromática (zinc) + un solo acento (teal).
+   Inspirado en Linear/Stripe: superficies planas, bordes nítidos,
+   sombras casi imperceptibles, tipografía con jerarquía clara.
+   ───────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #F1F5F9;
-  --foreground: #1E293B;
+  --background: #FAFAFA;
+  --foreground: #18181B;
+
+  /* Marca */
+  --ink: #0B0E14;          /* superficies oscuras: sidebar, headers de ticket */
+  --ink-hover: #1A1D27;
+  --accent: #0D9488;        /* teal-600 — acento único, usar con moderación */
+  --accent-soft: #0D948814;
+  --accent-strong: #0B7A70;
+
+  /* Semántico (estados) — un tono por significado, nada más */
+  --success: #059669;
+  --success-soft: #ECFDF5;
+  --warning: #D97706;
+  --warning-soft: #FFFBEB;
+  --danger: #DC2626;
+  --danger-soft: #FEF2F2;
+  --info: #2563EB;
+  --info-soft: #EFF6FF;
+
+  /* Sombra de elevación — sutil, nunca shadow-lg por defecto */
+  --shadow-xs: 0 1px 2px 0 rgba(24, 24, 27, 0.04);
+  --shadow-sm: 0 1px 2px 0 rgba(24, 24, 27, 0.05), 0 1px 1px 0 rgba(24, 24, 27, 0.03);
+  --shadow-md: 0 4px 12px -2px rgba(24, 24, 27, 0.08), 0 2px 4px -2px rgba(24, 24, 27, 0.04);
+  --shadow-lg: 0 12px 32px -8px rgba(24, 24, 27, 0.14), 0 4px 8px -4px rgba(24, 24, 27, 0.06);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-ink: var(--ink);
+  --color-ink-hover: var(--ink-hover);
+  --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -17,8 +50,59 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01', 'cv01';
+  text-rendering: optimizeLegibility;
+}
+
+/* Cifras (precios, totales, KPIs) alineadas en ancho fijo — se ven más "de sistema" */
+.tabular-nums, .font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2 {
+  letter-spacing: -0.01em;
 }
 
 * {
   box-sizing: border-box;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* Scrollbars discretos, estilo app de escritorio */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #D4D4D8 transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #D4D4D8; border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: #A1A1AA; }
+
+@layer components {
+  /* Tarjeta base — borde nítido + sombra casi imperceptible, sin azul */
+  .surface {
+    background: #fff;
+    border: 1px solid #E4E4E7;
+    border-radius: 0.875rem;
+    box-shadow: var(--shadow-xs);
+  }
+
+  .btn-ink {
+    background: var(--ink);
+    color: #fff;
+    transition: background-color 150ms ease;
+  }
+  .btn-ink:hover { background: var(--ink-hover); }
+
+  .btn-accent {
+    background: var(--accent);
+    color: #fff;
+    transition: background-color 150ms ease;
+  }
+  .btn-accent:hover { background: var(--accent-strong); }
 }

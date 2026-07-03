@@ -59,7 +59,7 @@ const categoryData = [
   { name: 'Accesorios', value: 12 },
 ]
 
-const COLORS = ['#2BBFB3', '#1B3A6B', '#6366F1', '#F59E0B']
+const COLORS = ['#0D9488', '#1B3A6B', '#6366F1', '#F59E0B']
 
 const appointments = [
   { name: 'María González', time: '10:00', type: 'Examen visual', status: 'confirmada' },
@@ -84,7 +84,7 @@ const lowStock = [
 ]
 
 const cajaData = [
-  { sucursal: 'Baja Visión', efectivo: 4250, color: '#2BBFB3' },
+  { sucursal: 'Baja Visión', efectivo: 4250, color: '#0D9488' },
   { sucursal: '5 de Mayo', efectivo: 3180, color: '#1B3A6B' },
   { sucursal: 'Plaza Laureles', efectivo: 5620, color: '#6366F1' },
 ]
@@ -116,11 +116,11 @@ function StatCard({
   trendLabel: string
 }) {
   return (
-    <div className="bg-white rounded-lg p-5 shadow-sm border border-slate-100">
+    <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-slate-500 font-medium">{label}</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{value}</p>
+          <p className="text-sm text-zinc-500 font-medium">{label}</p>
+          <p className="text-2xl font-bold text-zinc-800 mt-1">{value}</p>
         </div>
         <div className={`w-11 h-11 rounded-md ${iconBg} flex items-center justify-center`}>
           <Icon className={`w-5 h-5 ${iconColor}`} />
@@ -133,7 +133,7 @@ function StatCard({
           <TrendingDown className="w-3.5 h-3.5 text-red-400" />
         ) : null}
         <span className={`text-xs font-medium ${
-          trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-red-400' : 'text-slate-400'
+          trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-red-400' : 'text-zinc-400'
         }`}>
           {trendLabel}
         </span>
@@ -152,20 +152,20 @@ function CajaCard({ sucursalFiltro }: { sucursalFiltro: string | null }) {
   const total = datos.reduce((s, c) => s + c.efectivo, 0)
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-100 overflow-hidden">
+    <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
       <button
         onClick={() => !sucursalFiltro && setOpen(!open)}
-        className={`w-full p-5 flex items-start justify-between text-left ${!sucursalFiltro ? 'hover:bg-slate-50 transition-colors' : ''}`}
+        className={`w-full p-5 flex items-start justify-between text-left ${!sucursalFiltro ? 'hover:bg-zinc-50 transition-colors' : ''}`}
       >
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm text-slate-500 font-medium">Efectivo en caja</p>
+            <p className="text-sm text-zinc-500 font-medium">Efectivo en caja</p>
             {!sucursalFiltro && (open
-              ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
-              : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              ? <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+              : <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
             )}
           </div>
-          <p className="text-2xl font-bold text-slate-800 mt-1">
+          <p className="text-2xl font-bold text-zinc-800 mt-1">
             ${total.toLocaleString('es-MX')}
           </p>
         </div>
@@ -175,7 +175,7 @@ function CajaCard({ sucursalFiltro }: { sucursalFiltro: string | null }) {
       </button>
 
       {!sucursalFiltro && open && (
-        <div className="border-t border-slate-100 px-5 pb-4 pt-3 space-y-3">
+        <div className="border-t border-zinc-100 px-5 pb-4 pt-3 space-y-3">
           {cajaData.map((c) => (
             <div key={c.sucursal} className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${c.color}18` }}>
@@ -183,10 +183,10 @@ function CajaCard({ sucursalFiltro }: { sucursalFiltro: string | null }) {
               </div>
               <div className="flex-1">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs font-medium text-slate-600">{c.sucursal}</span>
-                  <span className="text-xs font-bold text-slate-800">${c.efectivo.toLocaleString('es-MX')}</span>
+                  <span className="text-xs font-medium text-zinc-600">{c.sucursal}</span>
+                  <span className="text-xs font-bold text-zinc-800">${c.efectivo.toLocaleString('es-MX')}</span>
                 </div>
-                <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full"
                     style={{
@@ -231,7 +231,7 @@ function MetasCard({ sucursalFiltro, esAdmin }: { sucursalFiltro: string | null;
 
   const [editando, setEditando] = useState(false)
   const [metas, setMetas] = useState([
-    { sucursal: 'Baja Visión', meta: 150000, color: '#2BBFB3' },
+    { sucursal: 'Baja Visión', meta: 150000, color: '#0D9488' },
     { sucursal: '5 de Mayo', meta: 120000, color: '#1B3A6B' },
     { sucursal: 'Plaza Laureles', meta: 130000, color: '#6366F1' },
   ])
@@ -256,29 +256,29 @@ function MetasCard({ sucursalFiltro, esAdmin }: { sucursalFiltro: string | null;
   }
 
   return (
-    <div className="bg-white rounded-lg p-5 shadow-sm border border-slate-100">
+    <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Target className="w-4 h-4 text-[#2BBFB3]" />
-          <h2 className="text-sm font-semibold text-slate-800">Metas del mes</h2>
-          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+          <Target className="w-4 h-4 text-[#0D9488]" />
+          <h2 className="text-sm font-semibold text-zinc-800">Metas del mes</h2>
+          <span className="text-xs text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">
             Día {diaActual} de {diasEnMes}
           </span>
         </div>
         {esAdmin && (!editando ? (
           <button
             onClick={() => setEditando(true)}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
           >
             <Pencil className="w-3 h-3" />
             Editar metas
           </button>
         ) : (
           <div className="flex items-center gap-2">
-            <button onClick={cancelar} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
+            <button onClick={cancelar} className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600">
               <X className="w-3 h-3" /> Cancelar
             </button>
-            <button onClick={guardar} className="flex items-center gap-1 text-xs text-[#2BBFB3] font-medium hover:text-teal-600">
+            <button onClick={guardar} className="flex items-center gap-1 text-xs text-[#0D9488] font-medium hover:text-teal-600">
               <Check className="w-3 h-3" /> Guardar
             </button>
           </div>
@@ -298,10 +298,10 @@ function MetasCard({ sucursalFiltro, esAdmin }: { sucursalFiltro: string | null;
           return (
             <div key={s.sucursal} className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700">{s.sucursal}</span>
+                <span className="text-xs font-semibold text-zinc-700">{s.sucursal}</span>
                 {editando ? (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-slate-400">$</span>
+                    <span className="text-xs text-zinc-400">$</span>
                     <input
                       type="number"
                       value={draft[draftIdx].meta}
@@ -310,16 +310,16 @@ function MetasCard({ sucursalFiltro, esAdmin }: { sucursalFiltro: string | null;
                         next[draftIdx] = { ...next[draftIdx], meta: Number(e.target.value) }
                         setDraft(next)
                       }}
-                      className="w-24 text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#2BBFB3] text-right"
+                      className="w-24 text-xs border border-zinc-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#0D9488] text-right"
                     />
                   </div>
                 ) : (
-                  <span className="text-xs text-slate-400">Meta: ${s.meta.toLocaleString('es-MX')}</span>
+                  <span className="text-xs text-zinc-400">Meta: ${s.meta.toLocaleString('es-MX')}</span>
                 )}
               </div>
 
               {/* Barra con marcador de esperado */}
-              <div className="relative h-2 bg-slate-100 rounded-full overflow-visible">
+              <div className="relative h-2 bg-zinc-100 rounded-full overflow-visible">
                 {/* Progreso actual */}
                 <div
                   className="absolute top-0 left-0 h-full rounded-full transition-all"
@@ -327,7 +327,7 @@ function MetasCard({ sucursalFiltro, esAdmin }: { sucursalFiltro: string | null;
                 />
                 {/* Línea de esperado */}
                 <div
-                  className="absolute top-[-3px] h-[14px] w-0.5 bg-slate-400 rounded-full z-10"
+                  className="absolute top-[-3px] h-[14px] w-0.5 bg-zinc-400 rounded-full z-10"
                   style={{ left: `${pctEsperado}%` }}
                   title={`Esperado al día ${diaActual}: $${esperado.toLocaleString('es-MX')}`}
                 />
@@ -336,8 +336,8 @@ function MetasCard({ sucursalFiltro, esAdmin }: { sucursalFiltro: string | null;
               {/* Números */}
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-slate-800">${actual.toLocaleString('es-MX')}</p>
-                  <p className="text-xs text-slate-400">de ${s.meta.toLocaleString('es-MX')}</p>
+                  <p className="text-sm font-bold text-zinc-800">${actual.toLocaleString('es-MX')}</p>
+                  <p className="text-xs text-zinc-400">de ${s.meta.toLocaleString('es-MX')}</p>
                 </div>
                 <div className={`text-right ${adelante ? 'text-emerald-500' : 'text-red-400'}`}>
                   <p className="text-xs font-bold">
@@ -493,16 +493,16 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
       {/* ── Header ── */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Hola, {nombre.split(' ')[0]}</h1>
-          <p className="text-sm text-slate-400 mt-0.5 capitalize">{fechaHoy} · {sucursal}</p>
+          <h1 className="text-xl font-semibold text-zinc-900">Hola, {nombre.split(' ')[0]}</h1>
+          <p className="text-sm text-zinc-400 mt-0.5 capitalize">{fechaHoy} · {sucursal}</p>
         </div>
         <div className="flex items-center gap-5 text-right">
           <div>
-            <p className="text-xs text-slate-400">Ventas hoy</p>
-            <p className="text-sm font-bold text-slate-800">$3,200</p>
+            <p className="text-xs text-zinc-400">Ventas hoy</p>
+            <p className="text-sm font-bold text-zinc-800">$3,200</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Listos</p>
+            <p className="text-xs text-zinc-400">Listos</p>
             <p className="text-sm font-bold text-emerald-600">{LISTOS_HOY.length}</p>
           </div>
         </div>
@@ -510,17 +510,17 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
 
       {/* ── Barra de búsqueda ── */}
       <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-3.5 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
         <input
           ref={inputRef}
           value={query}
           onChange={e => { setQuery(e.target.value); setPaciente(null) }}
           placeholder="Buscar paciente por nombre o teléfono..."
-          className="w-full border border-slate-200 rounded-xl pl-10 pr-10 py-3.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-200 placeholder:text-slate-400 shadow-sm"
+          className="w-full border border-zinc-200 rounded-xl pl-10 pr-10 py-3.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-200 placeholder:text-zinc-400 shadow-sm"
         />
         {query && (
           <button onClick={() => setQuery('')}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 text-lg leading-none">
+            className="absolute right-3.5 top-1/2 -tranzinc-y-1/2 text-zinc-300 hover:text-zinc-500 text-lg leading-none">
             ×
           </button>
         )}
@@ -528,29 +528,29 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
 
       {/* ── Resultados de búsqueda ── */}
       {query.trim().length > 0 && (
-        <div className="border border-slate-100 rounded-xl overflow-hidden bg-white shadow-sm divide-y divide-slate-50">
+        <div className="border border-zinc-100 rounded-xl overflow-hidden bg-white shadow-sm divide-y divide-zinc-50">
           {resultados.length > 0
             ? resultados.map(p => (
                 <button key={p.id} onClick={() => seleccionar(p)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 transition-colors group">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-slate-500 group-hover:bg-slate-200 transition-colors">
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-zinc-50 transition-colors group">
+                  <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-zinc-500 group-hover:bg-zinc-200 transition-colors">
                     {p.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800">{p.nombre}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{p.telefono} · Última visita {p.ultimaVisita}</p>
+                    <p className="text-sm font-semibold text-zinc-800">{p.nombre}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">{p.telefono} · Última visita {p.ultimaVisita}</p>
                   </div>
-                  <span className="text-slate-300 text-sm">›</span>
+                  <span className="text-zinc-300 text-sm">›</span>
                 </button>
               ))
             : (
               <div className="px-4 py-4 text-center">
-                <p className="text-sm text-slate-500 mb-3">No se encontró &ldquo;{query}&rdquo;</p>
+                <p className="text-sm text-zinc-500 mb-3">No se encontró &ldquo;{query}&rdquo;</p>
                 <button onClick={() => {
                   setNuevoForm({ nombre: query, telefono: '' })
                   setMostrarNuevo(true)
                   setQuery('')
-                }} className="text-sm font-medium text-slate-900 underline underline-offset-2">
+                }} className="text-sm font-medium text-zinc-900 underline underline-offset-2">
                   Registrar &ldquo;{query}&rdquo; como nuevo
                 </button>
               </div>
@@ -561,30 +561,30 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
 
       {/* ── Paciente seleccionado ── */}
       {paciente && !query && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+        <div className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600 flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-sm font-bold text-zinc-600 flex-shrink-0">
                 {paciente.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </div>
               <div>
-                <p className="text-base font-semibold text-slate-900">{paciente.nombre}</p>
-                {paciente.telefono && <p className="text-xs text-slate-400">{paciente.telefono}</p>}
+                <p className="text-base font-semibold text-zinc-900">{paciente.nombre}</p>
+                {paciente.telefono && <p className="text-xs text-zinc-400">{paciente.telefono}</p>}
               </div>
             </div>
             <button onClick={limpiar}
-              className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
+              className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors">
               Cambiar ×
             </button>
           </div>
           {paciente.receta !== 'Sin receta' && (
-            <div className="border-t border-slate-50 pt-3">
-              <p className="text-xs font-medium text-slate-400 mb-1.5">Última receta · {paciente.ultimaVisita}</p>
-              <p className="text-xs text-slate-600 font-mono leading-relaxed">{paciente.receta}</p>
+            <div className="border-t border-zinc-50 pt-3">
+              <p className="text-xs font-medium text-zinc-400 mb-1.5">Última receta · {paciente.ultimaVisita}</p>
+              <p className="text-xs text-zinc-600 font-mono leading-relaxed">{paciente.receta}</p>
             </div>
           )}
           <button onClick={() => irAVenta()}
-            className="w-full py-3.5 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 active:scale-[0.98] transition-all">
+            className="w-full py-3.5 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 active:scale-[0.98] transition-all">
             Crear venta →
           </button>
         </div>
@@ -592,24 +592,24 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
 
       {/* ── Formulario paciente nuevo ── */}
       {mostrarNuevo && (
-        <div className="border border-slate-200 rounded-xl bg-white p-4 space-y-3">
-          <p className="text-sm font-semibold text-slate-700">Datos del paciente nuevo</p>
+        <div className="border border-zinc-200 rounded-xl bg-white p-4 space-y-3">
+          <p className="text-sm font-semibold text-zinc-700">Datos del paciente nuevo</p>
           <input autoFocus value={nuevoForm.nombre}
             onChange={e => setNuevoForm(f => ({ ...f, nombre: e.target.value }))}
             placeholder="Nombre completo *"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 placeholder:text-slate-400" />
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-200 placeholder:text-zinc-400" />
           <input value={nuevoForm.telefono}
             onChange={e => setNuevoForm(f => ({ ...f, telefono: e.target.value }))}
             placeholder="Teléfono (opcional)"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 placeholder:text-slate-400" />
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-200 placeholder:text-zinc-400" />
           <div className="flex gap-2 pt-1">
             <button onClick={limpiar}
-              className="flex-1 py-2 border border-slate-200 rounded-lg text-sm text-slate-500 hover:bg-slate-50">
+              className="flex-1 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-500 hover:bg-zinc-50">
               Cancelar
             </button>
             <button disabled={!nuevoForm.nombre.trim()}
               onClick={() => seleccionar({ id: Date.now(), nombre: nuevoForm.nombre.trim(), telefono: nuevoForm.telefono, ultimaVisita: 'Hoy', receta: 'Sin receta' })}
-              className="flex-1 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 disabled:opacity-40 transition-colors">
+              className="flex-1 py-2 bg-zinc-900 text-white rounded-lg text-sm font-semibold hover:bg-zinc-800 disabled:opacity-40 transition-colors">
               Continuar →
             </button>
           </div>
@@ -621,28 +621,28 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
         <div className="grid grid-cols-2 gap-4">
 
           {/* Recientes */}
-          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Recientes</h2>
+          <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
+            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Recientes</h2>
             <div className="space-y-0.5">
               {recientes.map(p => (
                 <button key={p.id} onClick={() => seleccionar(p)}
-                  className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-slate-50 transition-colors text-left group">
-                  <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0 group-hover:bg-slate-200 transition-colors">
+                  className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-zinc-50 transition-colors text-left group">
+                  <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 flex-shrink-0 group-hover:bg-zinc-200 transition-colors">
                     {p.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{p.nombre}</p>
-                    <p className="text-xs text-slate-400 truncate">{p.ultimaVisita}</p>
+                    <p className="text-sm font-medium text-zinc-800 truncate">{p.nombre}</p>
+                    <p className="text-xs text-zinc-400 truncate">{p.ultimaVisita}</p>
                   </div>
-                  <span className="text-slate-200 group-hover:text-slate-400 text-sm transition-colors">›</span>
+                  <span className="text-zinc-200 group-hover:text-zinc-400 text-sm transition-colors">›</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Listos para entregar */}
-          <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Listos para entregar</h2>
+          <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
+            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Listos para entregar</h2>
             {LISTOS_HOY.length > 0 ? (
               <div className="space-y-0.5">
                 {LISTOS_HOY.map(l => (
@@ -650,8 +650,8 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
                     className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
                     <FlaskConical className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate">{l.nombre}</p>
-                      <p className="text-xs text-slate-400">{l.folio}</p>
+                      <p className="text-sm font-medium text-zinc-800 truncate">{l.nombre}</p>
+                      <p className="text-xs text-zinc-400">{l.folio}</p>
                     </div>
                     <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex-shrink-0">
                       Listo
@@ -660,7 +660,7 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-slate-400 px-2 py-2">Sin lentes listos por ahora.</p>
+              <p className="text-xs text-zinc-400 px-2 py-2">Sin lentes listos por ahora.</p>
             )}
           </div>
 
@@ -671,12 +671,12 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
       {inIdle && (
         <div className="grid grid-cols-2 gap-3">
           <button onClick={() => irAVenta()}
-            className="flex items-center justify-center gap-2 py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 active:scale-[0.98] transition-all">
+            className="flex items-center justify-center gap-2 py-3 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 active:scale-[0.98] transition-all">
             <ShoppingCart className="w-4 h-4" />
             Nueva venta
           </button>
           <button onClick={() => router.push('/dashboard/expedientes?nuevo=true')}
-            className="flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all">
+            className="flex items-center justify-center gap-2 py-3 border border-zinc-200 text-zinc-700 text-sm font-medium rounded-xl hover:bg-zinc-50 active:scale-[0.98] transition-all">
             <UserPlus className="w-4 h-4" />
             Paciente nuevo
           </button>
@@ -713,8 +713,8 @@ export default function DashboardPage() {
 
       {/* Greeting */}
       <div>
-        <h1 className="text-xl font-bold text-slate-800">Hola, {nombreUsuario}</h1>
-        <p className="text-sm text-slate-400 mt-0.5">
+        <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Hola, {nombreUsuario}</h1>
+        <p className="text-sm text-zinc-400 mt-0.5">
           {esAdmin
             ? 'Aquí está el resumen de hoy en todas tus sucursales.'
             : `Aquí está el resumen de hoy en ${sucursalFiltro}.`}
@@ -727,8 +727,8 @@ export default function DashboardPage() {
           label="Ventas del día"
           value="$8,450"
           icon={ShoppingCart}
-          iconBg="bg-[#2BBFB3]/10"
-          iconColor="text-[#2BBFB3]"
+          iconBg="bg-[#0D9488]/10"
+          iconColor="text-[#0D9488]"
           trend="up"
           trendLabel="+18% vs ayer"
         />
@@ -760,13 +760,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-3 gap-4">
 
         {/* Sales chart — spans 2 cols */}
-        <div className="col-span-2 bg-white rounded-lg p-5 shadow-sm border border-slate-100">
+        <div className="col-span-2 bg-white rounded-lg p-5 border border-zinc-200/80">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-sm font-semibold text-slate-800">Ventas del mes — {monthLabel}</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Total acumulado: $94,000 MXN</p>
+              <h2 className="text-sm font-semibold text-zinc-800">Ventas del mes — {monthLabel}</h2>
+              <p className="text-xs text-zinc-400 mt-0.5">Total acumulado: $94,000 MXN</p>
             </div>
-            <span className="text-xs font-medium text-[#2BBFB3] bg-[#2BBFB3]/10 px-3 py-1 rounded-full">
+            <span className="text-xs font-medium text-[#0D9488] bg-[#0D9488]/10 px-3 py-1 rounded-full">
               Mes actual
             </span>
           </div>
@@ -774,27 +774,27 @@ export default function DashboardPage() {
             <AreaChart data={salesData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2BBFB3" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#2BBFB3" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#0D9488" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#0D9488" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
               <XAxis dataKey="semana" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
               <Tooltip
-                contentStyle={{ background: '#0B1A35', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12 }}
+                contentStyle={{ background: '#0B0E14', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12 }}
                 formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, 'Ventas']}
               />
-              <Area type="monotone" dataKey="ventas" stroke="#2BBFB3" strokeWidth={2.5} fill="url(#salesGrad)" dot={{ fill: '#2BBFB3', r: 4, strokeWidth: 0 }} />
+              <Area type="monotone" dataKey="ventas" stroke="#0D9488" strokeWidth={2.5} fill="url(#salesGrad)" dot={{ fill: '#0D9488', r: 4, strokeWidth: 0 }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
         {/* Upcoming appointments */}
-        <div className="bg-white rounded-lg p-5 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-800">Próximas citas</h2>
-            <span className="text-xs text-[#2BBFB3] font-medium cursor-pointer hover:underline">Ver todas</span>
+            <h2 className="text-sm font-semibold text-zinc-800">Próximas citas</h2>
+            <span className="text-xs text-[#0D9488] font-medium cursor-pointer hover:underline">Ver todas</span>
           </div>
           <div className="space-y-3">
             {appointments.map((a, i) => {
@@ -802,12 +802,12 @@ export default function DashboardPage() {
               const StatusIcon = s.icon
               return (
                 <div key={i} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-slate-500">{a.time}</span>
+                  <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-zinc-500">{a.time}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-700 truncate">{a.name}</p>
-                    <p className="text-xs text-slate-400">{a.type}</p>
+                    <p className="text-xs font-semibold text-zinc-700 truncate">{a.name}</p>
+                    <p className="text-xs text-zinc-400">{a.type}</p>
                   </div>
                   <StatusIcon className={`w-4 h-4 flex-shrink-0 ${s.color}`} />
                 </div>
@@ -821,28 +821,28 @@ export default function DashboardPage() {
       <div className="grid grid-cols-3 gap-4">
 
         {/* Top products */}
-        <div className="col-span-2 bg-white rounded-lg p-5 shadow-sm border border-slate-100">
+        <div className="col-span-2 bg-white rounded-lg p-5 border border-zinc-200/80">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-800">Productos más vendidos</h2>
-            <span className="text-xs text-[#2BBFB3] font-medium cursor-pointer hover:underline">Ver inventario</span>
+            <h2 className="text-sm font-semibold text-zinc-800">Productos más vendidos</h2>
+            <span className="text-xs text-[#0D9488] font-medium cursor-pointer hover:underline">Ver inventario</span>
           </div>
           <div className="overflow-hidden">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left text-slate-400 font-medium pb-2">Producto</th>
-                  <th className="text-left text-slate-400 font-medium pb-2">Categoría</th>
-                  <th className="text-right text-slate-400 font-medium pb-2">Unidades</th>
-                  <th className="text-right text-slate-400 font-medium pb-2">Total</th>
+                <tr className="border-b border-zinc-100">
+                  <th className="text-left text-zinc-400 font-medium pb-2">Producto</th>
+                  <th className="text-left text-zinc-400 font-medium pb-2">Categoría</th>
+                  <th className="text-right text-zinc-400 font-medium pb-2">Unidades</th>
+                  <th className="text-right text-zinc-400 font-medium pb-2">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-zinc-50">
                 {topProducts.map((p, i) => (
-                  <tr key={i} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-2.5 text-slate-700 font-medium">{p.name}</td>
-                    <td className="py-2.5 text-slate-400">{p.category}</td>
-                    <td className="py-2.5 text-right text-slate-600">{p.units}</td>
-                    <td className="py-2.5 text-right font-semibold text-slate-800">
+                  <tr key={i} className="hover:bg-zinc-50 transition-colors">
+                    <td className="py-2.5 text-zinc-700 font-medium">{p.name}</td>
+                    <td className="py-2.5 text-zinc-400">{p.category}</td>
+                    <td className="py-2.5 text-right text-zinc-600">{p.units}</td>
+                    <td className="py-2.5 text-right font-semibold text-zinc-800">
                       ${p.revenue.toLocaleString('es-MX')}
                     </td>
                   </tr>
@@ -856,8 +856,8 @@ export default function DashboardPage() {
         <div className="space-y-4">
 
           {/* Category pie */}
-          <div className="bg-white rounded-lg p-5 shadow-sm border border-slate-100">
-            <h2 className="text-sm font-semibold text-slate-800 mb-3">Ventas por categoría</h2>
+          <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
+            <h2 className="text-sm font-semibold text-zinc-800 mb-3">Ventas por categoría</h2>
             <div className="flex items-center gap-3">
               <ResponsiveContainer width={90} height={90}>
                 <PieChart>
@@ -872,8 +872,8 @@ export default function DashboardPage() {
                 {categoryData.map((c, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: COLORS[i] }} />
-                    <span className="text-xs text-slate-500 flex-1 truncate">{c.name}</span>
-                    <span className="text-xs font-semibold text-slate-700">{c.value}%</span>
+                    <span className="text-xs text-zinc-500 flex-1 truncate">{c.name}</span>
+                    <span className="text-xs font-semibold text-zinc-700">{c.value}%</span>
                   </div>
                 ))}
               </div>
@@ -881,19 +881,19 @@ export default function DashboardPage() {
           </div>
 
           {/* Low stock */}
-          <div className="bg-white rounded-lg p-5 shadow-sm border border-slate-100">
+          <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle className="w-4 h-4 text-amber-500" />
-              <h2 className="text-sm font-semibold text-slate-800">Inventario bajo</h2>
+              <h2 className="text-sm font-semibold text-zinc-800">Inventario bajo</h2>
             </div>
             <div className="space-y-3">
               {lowStock.map((item, i) => (
                 <div key={i}>
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-slate-600 font-medium truncate pr-2">{item.name}</span>
+                    <span className="text-xs text-zinc-600 font-medium truncate pr-2">{item.name}</span>
                     <span className="text-xs font-bold text-red-500 flex-shrink-0">{item.stock} uds</span>
                   </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-red-400 rounded-full"
                       style={{ width: `${Math.round((item.stock / item.min) * 100)}%` }}

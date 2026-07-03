@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const COLORES_PIE = ['#2BBFB3', '#0B1A35', '#6366F1', '#F97316', '#10B981']
+const COLORES_PIE = ['#0D9488', '#0B0E14', '#6366F1', '#F97316', '#10B981']
 
 const DATA_MENSUAL = [
   { mes: 'Ene', baja: 82000, mayo: 61000, plaza: 74000 },
@@ -71,25 +71,25 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Reportes</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Análisis de desempeño y métricas clave</p>
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Reportes</h1>
+          <p className="text-sm text-zinc-400 mt-0.5">Análisis de desempeño y métricas clave</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
             <select value={mes} onChange={e => setMes(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2.5 text-sm bg-white border border-slate-200 rounded text-slate-600 focus:outline-none">
+              className="appearance-none pl-3 pr-8 py-2.5 text-sm bg-white border border-zinc-200 rounded text-zinc-600 focus:outline-none">
               {MESES.map(m => <option key={m}>{m}</option>)}
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
           </div>
           <div className="relative">
             <select value={sucursal} onChange={e => setSucursal(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2.5 text-sm bg-white border border-slate-200 rounded text-slate-600 focus:outline-none">
+              className="appearance-none pl-3 pr-8 py-2.5 text-sm bg-white border border-zinc-200 rounded text-zinc-600 focus:outline-none">
               {['Todas', 'Baja Visión', '5 de Mayo', 'Plaza Laureles'].map(s => <option key={s}>{s}</option>)}
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white rounded text-sm text-slate-600 hover:bg-slate-50">
+          <button className="flex items-center gap-2 px-4 py-2.5 border border-zinc-200 bg-white rounded text-sm text-zinc-600 hover:bg-zinc-50">
             <Download className="w-4 h-4" /> Exportar PDF
           </button>
         </div>
@@ -105,15 +105,15 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
         ].map(k => {
           const Icon = k.icon
           return (
-            <div key={k.label} className="bg-white rounded-lg px-5 py-4 shadow-sm border border-slate-100">
+            <div key={k.label} className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-slate-400">{k.label}</p>
+                <p className="text-xs font-medium text-zinc-400">{k.label}</p>
                 <div className={`w-8 h-8 rounded ${k.bg} flex items-center justify-center`}>
                   <Icon className={`w-4 h-4 ${k.color}`} />
                 </div>
               </div>
               <p className={`text-2xl font-bold mt-2 ${k.color}`}>{k.value}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{k.sub}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{k.sub}</p>
             </div>
           )
         })}
@@ -122,10 +122,10 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
       {/* Gráficas */}
       <div className="grid grid-cols-3 gap-5">
         {/* Ventas por sucursal mensual */}
-        <div className="col-span-2 bg-white rounded-lg shadow-sm border border-slate-100 p-5">
+        <div className="col-span-2 bg-white rounded-lg border border-zinc-200/80 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-              <Store className="w-4 h-4 text-slate-400" /> Ventas por sucursal (6 meses)
+            <h3 className="text-sm font-bold text-zinc-700 flex items-center gap-2">
+              <Store className="w-4 h-4 text-zinc-400" /> Ventas por sucursal (6 meses)
             </h3>
           </div>
           <ResponsiveContainer width="100%" height={220}>
@@ -135,17 +135,17 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
               <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, '']} contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
-              <Bar dataKey="baja"  name="Baja Visión"    fill="#2BBFB3" radius={[3,3,0,0]} />
-              <Bar dataKey="mayo"  name="5 de Mayo"      fill="#0B1A35" radius={[3,3,0,0]} opacity={0.8} />
+              <Bar dataKey="baja"  name="Baja Visión"    fill="#0D9488" radius={[3,3,0,0]} />
+              <Bar dataKey="mayo"  name="5 de Mayo"      fill="#0B0E14" radius={[3,3,0,0]} opacity={0.8} />
               <Bar dataKey="plaza" name="Plaza Laureles"  fill="#6366F1" radius={[3,3,0,0]} opacity={0.7} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* Categorías de venta */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-100 p-5">
-          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-            <Package className="w-4 h-4 text-slate-400" /> Por categoría
+        <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
+          <h3 className="text-sm font-bold text-zinc-700 mb-4 flex items-center gap-2">
+            <Package className="w-4 h-4 text-zinc-400" /> Por categoría
           </h3>
           <ResponsiveContainer width="100%" height={180}>
             <PieChart>
@@ -159,8 +159,8 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
             {DATA_PRODUCTOS.map((d, i) => (
               <div key={d.name} className="flex items-center gap-2 text-xs">
                 <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: COLORES_PIE[i] }} />
-                <span className="text-slate-600 flex-1">{d.name}</span>
-                <span className="font-semibold text-slate-700">{d.value}%</span>
+                <span className="text-zinc-600 flex-1">{d.name}</span>
+                <span className="font-semibold text-zinc-700">{d.value}%</span>
               </div>
             ))}
           </div>
@@ -170,19 +170,19 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
       {/* Top productos + Reporte IA */}
       <div className="grid grid-cols-2 gap-5">
         {/* Top productos */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-100 p-5">
-          <h3 className="text-sm font-bold text-slate-700 mb-4">Top 5 productos del mes</h3>
+        <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
+          <h3 className="text-sm font-bold text-zinc-700 mb-4">Top 5 productos del mes</h3>
           <div className="space-y-3">
             {TOP_PRODUCTOS.map((p, i) => {
               const pct = Math.round((p.total / TOP_PRODUCTOS[0].total) * 100)
               return (
                 <div key={p.nombre}>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-600 font-medium">{i + 1}. {p.nombre}</span>
-                    <span className="text-slate-500">{p.vendidos} uds · ${p.total.toLocaleString('es-MX')}</span>
+                    <span className="text-zinc-600 font-medium">{i + 1}. {p.nombre}</span>
+                    <span className="text-zinc-500">{p.vendidos} uds · ${p.total.toLocaleString('es-MX')}</span>
                   </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-[#2BBFB3]" style={{ width: `${pct}%` }} />
+                  <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-[#0D9488]" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               )
@@ -191,21 +191,21 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
         </div>
 
         {/* Reporte IA */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-100 p-5 flex flex-col">
+        <div className="bg-white rounded-lg border border-zinc-200/80 p-5 flex flex-col">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#2BBFB3]" /> Análisis de IA
+            <h3 className="text-sm font-bold text-zinc-700 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#0D9488]" /> Análisis de IA
             </h3>
-            <span className="text-xs text-slate-400">Powered by Claude</span>
+            <span className="text-xs text-zinc-400">Powered by Claude</span>
           </div>
           {!reporteIA && !generandoIA && (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-              <div className="w-12 h-12 rounded-full bg-[#2BBFB3]/10 flex items-center justify-center mb-3">
-                <Sparkles className="w-5 h-5 text-[#2BBFB3]" />
+              <div className="w-12 h-12 rounded-full bg-[#0D9488]/10 flex items-center justify-center mb-3">
+                <Sparkles className="w-5 h-5 text-[#0D9488]" />
               </div>
-              <p className="text-sm text-slate-500 mb-4">Genera un análisis automático del mes con recomendaciones para tu negocio</p>
+              <p className="text-sm text-zinc-500 mb-4">Genera un análisis automático del mes con recomendaciones para tu negocio</p>
               <button onClick={generarReporteIA}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#0B1A35] text-white rounded text-sm font-semibold hover:bg-[#0d2145]">
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-[#1A1D27]">
                 <Sparkles className="w-4 h-4" /> Generar reporte del mes
               </button>
             </div>
@@ -213,16 +213,16 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
           {generandoIA && (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <div className="w-8 h-8 border-2 border-[#2BBFB3] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-sm text-slate-400">Analizando datos del mes...</p>
+                <div className="w-8 h-8 border-2 border-[#0D9488] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-zinc-400">Analizando datos del mes...</p>
               </div>
             </div>
           )}
           {reporteIA && (
             <div className="flex-1 overflow-y-auto">
-              <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{reporteIA}</div>
+              <div className="text-xs text-zinc-600 leading-relaxed whitespace-pre-line">{reporteIA}</div>
               <button onClick={() => setReporteIA('')}
-                className="mt-4 text-xs text-slate-400 hover:text-slate-600 underline">
+                className="mt-4 text-xs text-zinc-400 hover:text-zinc-600 underline">
                 Regenerar
               </button>
             </div>
