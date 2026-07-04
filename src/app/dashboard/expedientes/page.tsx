@@ -47,11 +47,26 @@ type HistorialCita = {
   estado: string
 }
 
+type VentaItem = {
+  id: string
+  nombre: string
+  sku: string
+  precio_unitario: number
+  cantidad: number
+  descuento: number
+  subtotal: number
+}
+
 type HistorialVenta = {
+  id: string
   fecha: string
   folio: string
-  productos: string
   total: number
+  notas: string
+  estado: string
+  metodo_pago: string
+  atendido_por: string
+  items: VentaItem[]
 }
 
 type Paciente = {
@@ -232,6 +247,9 @@ function ExpedientesContent() {
   const [seleccionado, setSeleccionado] = useState<Paciente | null>(PACIENTES_MOCK[0])
   const [tabActiva, setTabActiva] = useState<'recetas' | 'citas' | 'ventas'>('recetas')
 
+  // Modal detalle compra
+  const [ventaAbierta, setVentaAbierta] = useState<HistorialVenta | null>(null)
+
   // Modal nueva receta
   const [modalReceta, setModalReceta] = useState(false)
   const [formReceta, setFormReceta] = useState<Omit<Receta, 'id'>>(formVacioReceta())
@@ -316,7 +334,7 @@ function ExpedientesContent() {
         const supabase = createClient()
         const [recRes, venRes] = await Promise.all([
           supabase.from('recetas').select('*').eq('paciente_id', id).order('fecha', { ascending: false }),
-          supabase.from('ventas').select('folio, total, created_at, notas, estado').eq('paciente_id', id).order('created_at', { ascending: false }),
+          supabase.from('ventas').select('id, folio, total, created_at, notas, estado, metodo_pago, atendido_por, ventas_items(id, nombre, sku, precio_unitario, cantidad, descuento, subtotal)').eq('paciente_id', id).order('created_at', { ascending: false }),
         ])
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const recetas: Receta[] = (recRes.data ?? []).map((r: any) => ({
@@ -330,10 +348,24 @@ function ExpedientesContent() {
         }))
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const ventas: HistorialVenta[] = (venRes.data ?? []).map((v: any) => ({
+          id: v.id ?? '',
           fecha: v.created_at ? (v.created_at as string).split('T')[0] : '',
           folio: v.folio ?? '',
-          productos: '',
           total: parseFloat(v.total as string) || 0,
+          notas: v.notas ?? '',
+          estado: v.estado ?? '',
+          metodo_pago: v.metodo_pago ?? '',
+          atendido_por: v.atendido_por ?? '',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          items: (v.ventas_items ?? []).map((i: any) => ({
+            id: i.id ?? '',
+            nombre: i.nombre ?? '',
+            sku: i.sku ?? '',
+            precio_unitario: parseFloat(i.precio_unitario) || 0,
+            cantidad: i.cantidad || 1,
+            descuento: i.descuento || 0,
+            subtotal: parseFloat(i.subtotal) || 0,
+          })),
         }))
         setSeleccionado(prev => {
           if (!prev || prev.id !== id) return prev
@@ -786,16 +818,23 @@ function ExpedientesContent() {
                     <div className="text-center py-16 text-zinc-400 text-sm">Sin compras registradas.</div>
                   )}
                   {[...seleccionado.ventas].sort((a, b) => b.fecha.localeCompare(a.fecha)).map((v, i) => (
-                    <div key={i} className="flex items-center gap-4 px-4 py-3 rounded-lg border border-zinc-100 hover:bg-zinc-50 transition-colors">
+                    <button key={i} onClick={() => setVentaAbierta(v)}
+                      className="w-full text-left flex items-center gap-4 px-4 py-3 rounded-lg border border-zinc-100 hover:bg-zinc-50 transition-colors">
                       <div className="w-10 h-10 rounded bg-zinc-100 flex items-center justify-center flex-shrink-0">
                         <ShoppingBag className="w-4 h-4 text-zinc-400" />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-zinc-700">{v.productos}</p>
-                        <p className="text-xs text-zinc-400">{v.folio} · {v.fecha}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-zinc-700">{v.folio}</p>
+                        <p className="text-xs text-zinc-400">{v.fecha}{v.items.length > 0 ? ` · ${v.items.length} producto${v.items.length !== 1 ? 's' : ''}` : ''}</p>
                       </div>
-                      <span className="text-sm font-bold text-zinc-800">${v.total.toLocaleString('es-MX')}</span>
-                    </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {v.estado === 'cancelada' && (
+                          <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Cancelada</span>
+                        )}
+                        <span className="text-sm font-bold text-zinc-800">${v.total.toLocaleString('es-MX')}</span>
+                        <ChevronRight className="w-4 h-4 text-zinc-300" />
+                      </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -806,6 +845,79 @@ function ExpedientesContent() {
       ) : (
         <div className="flex-1 flex items-center justify-center text-zinc-400 text-sm">
           Selecciona un paciente para ver su expediente
+        </div>
+      )}
+
+      {/* ── MODAL DETALLE COMPRA ── */}
+      {ventaAbierta && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+              <div>
+                <h2 className="text-base font-bold text-zinc-800">{ventaAbierta.folio}</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {ventaAbierta.fecha}
+                  {ventaAbierta.atendido_por ? ` · ${ventaAbierta.atendido_por}` : ''}
+                  {ventaAbierta.metodo_pago ? ` · ${ventaAbierta.metodo_pago}` : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {ventaAbierta.estado === 'cancelada' && (
+                  <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-medium">Cancelada</span>
+                )}
+                <button onClick={() => setVentaAbierta(null)}>
+                  <X className="w-5 h-5 text-zinc-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+              {/* Productos */}
+              {ventaAbierta.items.length > 0 ? (
+                <div>
+                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">Productos</p>
+                  <div className="space-y-2">
+                    {ventaAbierta.items.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-3 py-2 border-b border-zinc-50 last:border-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-zinc-700">{item.nombre}</p>
+                          {item.sku && <p className="text-xs text-zinc-400">{item.sku}</p>}
+                          <p className="text-xs text-zinc-400">
+                            {item.cantidad} × ${item.precio_unitario.toLocaleString('es-MX')}
+                            {item.descuento > 0 ? ` · ${item.descuento}% desc.` : ''}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-zinc-700 flex-shrink-0">
+                          ${item.subtotal.toLocaleString('es-MX')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-zinc-400 text-sm bg-zinc-50 rounded-lg">
+                  <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-zinc-300" />
+                  Sin desglose de productos disponible
+                  <p className="text-xs mt-1 text-zinc-300">(venta migrada desde el sistema anterior)</p>
+                </div>
+              )}
+
+              {/* Notas */}
+              {ventaAbierta.notas && (
+                <div className="bg-amber-50 rounded-lg px-4 py-3">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">Notas</p>
+                  <p className="text-sm text-zinc-600">{ventaAbierta.notas}</p>
+                </div>
+              )}
+
+              {/* Total */}
+              <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
+                <span className="text-sm font-semibold text-zinc-500">Total</span>
+                <span className="text-xl font-bold text-zinc-800">${ventaAbierta.total.toLocaleString('es-MX')}</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
