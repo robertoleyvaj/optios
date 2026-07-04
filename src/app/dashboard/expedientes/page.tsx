@@ -101,8 +101,8 @@ const PACIENTES_MOCK: Paciente[] = [
       { fecha: '2026-06-25', tipo: 'Revisión · Seguimiento 1', sucursal: 'Baja Visión', estado: 'Confirmada' },
     ],
     ventas: [
-      { fecha: '2026-04-10', folio: 'V-0028', productos: 'Armazón Ray-Ban + Micas progresivas', total: 5200 },
-      { fecha: '2025-02-18', folio: 'V-0011', productos: 'Armazón Oakley + Micas antirreflejantes', total: 4800 },
+      { id: 'mock-1', fecha: '2026-04-10', folio: 'V-0028', total: 5200, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [{ id: 'i1', nombre: 'Armazón Ray-Ban', sku: '', precio_unitario: 2200, cantidad: 1, descuento: 0, subtotal: 2200 }, { id: 'i2', nombre: 'Micas progresivas', sku: '', precio_unitario: 3000, cantidad: 1, descuento: 0, subtotal: 3000 }] },
+      { id: 'mock-2', fecha: '2025-02-18', folio: 'V-0011', total: 4800, notas: '', estado: 'activa', metodo_pago: 'tarjeta', atendido_por: '', items: [] },
     ],
   },
   {
@@ -117,7 +117,7 @@ const PACIENTES_MOCK: Paciente[] = [
       { fecha: '2026-06-25', tipo: 'Cita web', sucursal: '5 de Mayo', estado: 'Confirmada' },
     ],
     ventas: [
-      { fecha: '2026-03-05', folio: 'V-0019', productos: 'Lentes de contacto Acuvue x2', total: 1200 },
+      { id: 'mock-3', fecha: '2026-03-05', folio: 'V-0019', total: 1200, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [] },
     ],
   },
   {
@@ -132,7 +132,7 @@ const PACIENTES_MOCK: Paciente[] = [
       { fecha: '2026-06-25', tipo: 'Consulta', sucursal: 'Baja Visión', estado: 'Confirmada' },
     ],
     ventas: [
-      { fecha: '2026-05-20', folio: 'V-0033', productos: 'Armazón + Micas bifocales', total: 6200 },
+      { id: 'mock-4', fecha: '2026-05-20', folio: 'V-0033', total: 6200, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [] },
     ],
   },
   {
