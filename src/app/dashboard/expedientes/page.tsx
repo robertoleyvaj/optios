@@ -66,6 +66,7 @@ type Paciente = {
   recetas: Receta[]
   citas: HistorialCita[]
   ventas: HistorialVenta[]
+  _ultimaRecetaFecha?: string | null
 }
 
 // ─────────────────────────────────────────
@@ -244,6 +245,10 @@ function ExpedientesContent() {
   const [historialResultados, setHistorialResultados] = useState<HistorialBV[]>([])
   const [buscandoHistorial, setBuscandoHistorial] = useState(false)
 
+  // Modal editar paciente
+  const [modalEditar, setModalEditar] = useState(false)
+  const [formEditar, setFormEditar] = useState<Omit<Paciente, 'id' | 'recetas' | 'citas' | 'ventas'>>(formVacioPaciente())
+
   // Abrir modal automáticamente si viene de ?nuevo=true
   useEffect(() => {
     if (searchParams.get('nuevo') === 'true') {
@@ -251,39 +256,46 @@ function ExpedientesContent() {
     }
   }, [searchParams])
 
-  // ── Cargar pacientes desde Supabase ────────────────────────
+  // ── Cargar pacientes desde Supabase (paginado) ────────────
   useEffect(() => {
     const fetchPacientes = async () => {
       try {
         const supabase = createClient()
-        const { data } = await supabase
-          .from('pacientes')
-          .select('*, recetas(*)')
-          .order('created_at', { ascending: false })
-        if (data && data.length > 0) {
-          const mapped: Paciente[] = data.map((p) => ({
-            id: p.id,
-            nombre: p.nombre,
-            apellido: p.apellido,
-            telefono: p.telefono ?? '',
-            email: p.email ?? '',
-            fechaNacimiento: p.fecha_nacimiento ?? '',
-            sucursalPrincipal: p.sucursal_principal ?? '',
-            notas: p.notas ?? '',
-            recetas: (p.recetas ?? []).map((r: Record<string,unknown>) => ({
-              id: r.id as number,
-              fecha: r.fecha as string,
-              tipo: r.tipo as Receta['tipo'],
-              od_esfera: r.od_esfera as string, od_cilindro: r.od_cilindro as string,
-              od_eje: r.od_eje as string, od_add: r.od_add as string,
-              oi_esfera: r.oi_esfera as string, oi_cilindro: r.oi_cilindro as string,
-              oi_eje: r.oi_eje as string, oi_add: r.oi_add as string,
-              dp: r.dp as string, optometrista: r.optometrista as string,
-              observaciones: r.observaciones as string,
-            })),
-            citas: [],
-            ventas: [],
-          }))
+        const PAGE = 1000
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const all: any[] = []
+        let from = 0
+        while (true) {
+          const { data } = await supabase
+            .from('pacientes')
+            .select('id, nombre, apellido, telefono, email, fecha_nacimiento, sucursal_principal, notas, recetas(fecha)')
+            .order('created_at', { ascending: false })
+            .range(from, from + PAGE - 1)
+          if (!data || data.length === 0) break
+          all.push(...data)
+          if (data.length < PAGE) break
+          from += PAGE
+        }
+        if (all.length > 0) {
+          const mapped: Paciente[] = all.map((p) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const fechas: string[] = (p.recetas ?? []).map((r: any) => r.fecha as string).filter(Boolean)
+            const ultimaFecha = fechas.sort().reverse()[0] ?? null
+            return {
+              id: p.id,
+              nombre: p.nombre,
+              apellido: p.apellido,
+              telefono: p.telefono ?? '',
+              email: p.email ?? '',
+              fechaNacimiento: p.fecha_nacimiento ?? '',
+              sucursalPrincipal: p.sucursal_principal ?? '',
+              notas: p.notas ?? '',
+              _ultimaRecetaFecha: ultimaFecha,
+              recetas: [],
+              citas: [],
+              ventas: [],
+            }
+          })
           setPacientes(mapped)
           setSeleccionado(mapped[0] ?? null)
         }
@@ -293,6 +305,44 @@ function ExpedientesContent() {
     }
     fetchPacientes()
   }, [])
+
+  // ── Cargar recetas + ventas al seleccionar paciente ────────
+  useEffect(() => {
+    if (!seleccionado) return
+    const id = seleccionado.id
+    const loadDetalle = async () => {
+      try {
+        const supabase = createClient()
+        const [recRes, venRes] = await Promise.all([
+          supabase.from('recetas').select('*').eq('paciente_id', id).order('fecha', { ascending: false }),
+          supabase.from('ventas').select('folio, total, created_at, notas, estado').eq('paciente_id', id).order('created_at', { ascending: false }),
+        ])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const recetas: Receta[] = (recRes.data ?? []).map((r: any) => ({
+          id: r.id, fecha: r.fecha as string,
+          tipo: (r.tipo || 'Lejos') as Receta['tipo'],
+          od_esfera: r.od_esfera ?? '', od_cilindro: r.od_cilindro ?? '',
+          od_eje: r.od_eje ?? '', od_add: r.od_add ?? '',
+          oi_esfera: r.oi_esfera ?? '', oi_cilindro: r.oi_cilindro ?? '',
+          oi_eje: r.oi_eje ?? '', oi_add: r.oi_add ?? '',
+          dp: r.dp ?? '', optometrista: r.optometrista ?? '', observaciones: r.observaciones ?? '',
+        }))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ventas: HistorialVenta[] = (venRes.data ?? []).map((v: any) => ({
+          fecha: v.created_at ? (v.created_at as string).split('T')[0] : '',
+          folio: v.folio ?? '',
+          productos: '',
+          total: parseFloat(v.total as string) || 0,
+        }))
+        setSeleccionado(prev => {
+          if (!prev || prev.id !== id) return prev
+          return { ...prev, recetas, ventas }
+        })
+      } catch (e) { console.error('Error cargando detalle:', e) }
+    }
+    loadDetalle()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seleccionado?.id])
 
   // Buscar en historial_bv cuando hay búsqueda y no hay resultados en pacientes
   useEffect(() => {
@@ -421,6 +471,41 @@ function ExpedientesContent() {
     setFormPaciente(formVacioPaciente())
   }
 
+  const abrirEditar = () => {
+    if (!seleccionado) return
+    setFormEditar({
+      nombre:             seleccionado.nombre,
+      apellido:           seleccionado.apellido,
+      telefono:           seleccionado.telefono,
+      email:              seleccionado.email,
+      fechaNacimiento:    seleccionado.fechaNacimiento,
+      sucursalPrincipal:  seleccionado.sucursalPrincipal,
+      notas:              seleccionado.notas,
+    })
+    setModalEditar(true)
+  }
+
+  const guardarEdicion = async () => {
+    if (!seleccionado) return
+    try {
+      const supabase = createClient()
+      await supabase.from('pacientes').update({
+        nombre:             formEditar.nombre,
+        apellido:           formEditar.apellido,
+        telefono:           formEditar.telefono,
+        email:              formEditar.email,
+        fecha_nacimiento:   formEditar.fechaNacimiento || null,
+        sucursal_principal: formEditar.sucursalPrincipal,
+        notas:              formEditar.notas,
+      }).eq('id', seleccionado.id)
+    } catch (e) { console.error(e) }
+
+    const actualizado = { ...seleccionado, ...formEditar }
+    setPacientes(prev => prev.map(p => p.id === seleccionado.id ? actualizado : p))
+    setSeleccionado(actualizado)
+    setModalEditar(false)
+  }
+
   const rv = recetaVigente(seleccionado ?? { recetas: [] } as unknown as Paciente)
 
   return (
@@ -443,7 +528,7 @@ function ExpedientesContent() {
 
         <div className="flex-1 overflow-y-auto divide-y divide-zinc-50">
           {filtrados.map(p => {
-            const rv2 = recetaVigente(p)
+            const fechaMostrar = p._ultimaRecetaFecha
             const esSeleccionado = seleccionado?.id === p.id
             return (
               <button key={p.id} onClick={() => setSeleccionado(p)}
@@ -456,7 +541,7 @@ function ExpedientesContent() {
                     {p.nombre} {p.apellido}
                   </p>
                   <p className={`text-xs truncate ${esSeleccionado ? 'text-white/50' : 'text-zinc-400'}`}>
-                    {rv2 ? `Última receta: ${rv2.fecha.split('-').slice(0,2).join('/')}` : 'Sin receta'}
+                    {fechaMostrar ? `Última receta: ${fechaMostrar.split('-').slice(0,2).join('/')}` : 'Sin receta'}
                   </p>
                 </div>
                 <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 ${esSeleccionado ? 'text-white/40' : 'text-zinc-300'}`} />
@@ -549,7 +634,7 @@ function ExpedientesContent() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
+                <button onClick={abrirEditar} className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
                   <Edit2 className="w-3.5 h-3.5" /> Editar
                 </button>
               </div>
@@ -853,6 +938,77 @@ function ExpedientesContent() {
               <button onClick={guardarReceta}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27]">
                 <Save className="w-4 h-4" /> Guardar receta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL EDITAR PACIENTE ── */}
+      {modalEditar && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+              <h2 className="text-base font-bold text-zinc-800">Editar expediente</h2>
+              <button onClick={() => setModalEditar(false)}><X className="w-5 h-5 text-zinc-400" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Nombre *</label>
+                  <input value={formEditar.nombre} onChange={e => setFormEditar(p => ({ ...p, nombre: e.target.value }))}
+                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Apellido *</label>
+                  <input value={formEditar.apellido} onChange={e => setFormEditar(p => ({ ...p, apellido: e.target.value }))}
+                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                  <input value={formEditar.telefono} onChange={e => setFormEditar(p => ({ ...p, telefono: e.target.value }))}
+                    className="w-full border border-zinc-200 rounded pl-9 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Email</label>
+                <input value={formEditar.email} onChange={e => setFormEditar(p => ({ ...p, email: e.target.value }))}
+                  className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" type="email" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Fecha de nacimiento</label>
+                  <input type="date" value={formEditar.fechaNacimiento} onChange={e => setFormEditar(p => ({ ...p, fechaNacimiento: e.target.value }))}
+                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sucursal</label>
+                  <div className="relative">
+                    <select value={formEditar.sucursalPrincipal} onChange={e => setFormEditar(p => ({ ...p, sucursalPrincipal: e.target.value }))}
+                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
+                      {SUCURSALES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Notas médicas</label>
+                <textarea value={formEditar.notas} onChange={e => setFormEditar(p => ({ ...p, notas: e.target.value }))} rows={3}
+                  className="w-full border border-zinc-200 rounded px-3 py-3 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none" />
+              </div>
+            </div>
+            <div className="px-6 pb-5 flex gap-3">
+              <button onClick={() => setModalEditar(false)}
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
+                Cancelar
+              </button>
+              <button onClick={guardarEdicion} disabled={!formEditar.nombre || !formEditar.apellido}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40">
+                <Save className="w-4 h-4" /> Guardar cambios
               </button>
             </div>
           </div>
