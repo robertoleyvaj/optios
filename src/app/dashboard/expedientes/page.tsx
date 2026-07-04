@@ -269,7 +269,8 @@ function ExpedientesContent() {
           const { data } = await supabase
             .from('pacientes')
             .select('id, nombre, apellido, telefono, email, fecha_nacimiento, sucursal_principal, notas, recetas(fecha)')
-            .order('created_at', { ascending: false })
+            .order('apellido', { ascending: true })
+            .order('nombre', { ascending: true })
             .range(from, from + PAGE - 1)
           if (!data || data.length === 0) break
           all.push(...data)
@@ -558,7 +559,7 @@ function ExpedientesContent() {
               {filtrados.length === 0 && (
                 <div className="text-center py-6 text-sm text-zinc-400">Sin expedientes activos</div>
               )}
-              {(historialResultados.length > 0 || buscandoHistorial) && (
+              {filtrados.length === 0 && (historialResultados.length > 0 || buscandoHistorial) && (
                 <div className="border-t border-dashed border-zinc-200 mt-1">
                   <p className="px-4 pt-3 pb-1 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
                     Historial anterior
