@@ -159,7 +159,7 @@ const PACIENTES_MOCK: Paciente[] = [
       { fecha: '2026-06-25', tipo: 'Lentes de contacto', sucursal: 'Baja Visión', estado: 'Confirmada' },
     ],
     ventas: [
-      { fecha: '2025-11-15', folio: 'V-0004', productos: 'Lentes de contacto Acuvue Oasys x6', total: 2800 },
+      { id: 'mock-5', fecha: '2025-11-15', folio: 'V-0004', total: 2800, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [] },
     ],
   },
   {
@@ -174,7 +174,7 @@ const PACIENTES_MOCK: Paciente[] = [
       { fecha: '2026-06-25', tipo: 'Revisión · Seguimiento 2', sucursal: '5 de Mayo', estado: 'Agendada' },
     ],
     ventas: [
-      { fecha: '2026-01-10', folio: 'V-0009', productos: 'Armazón Ray-Ban + Micas progresivas transitions', total: 7400 },
+      { id: 'mock-6', fecha: '2026-01-10', folio: 'V-0009', total: 7400, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [] },
     ],
   },
 ]
