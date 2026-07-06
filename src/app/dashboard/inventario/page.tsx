@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import RequireRol from '@/components/RequireRol'
 import {
   Search, Plus, AlertTriangle, Filter, ChevronDown,
   X, Save, Edit2, Layers, Tag, Store, Globe, CheckSquare,
@@ -115,7 +116,7 @@ function CanalBadges({ canales }: { canales: string[] }) {
 // ─────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────
-export default function InventarioPage() {
+function InventarioPage() {
   const [productos, setProductos] = useState<Producto[]>(inicial)
   const [busqueda, setBusqueda] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | TipoProducto>('todos')
@@ -513,5 +514,13 @@ export default function InventarioPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function InventarioPageProtected() {
+  return (
+    <RequireRol roles={['administrador', 'gerente']}>
+      <InventarioPage />
+    </RequireRol>
   )
 }

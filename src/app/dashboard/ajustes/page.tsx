@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import RequireRol from '@/components/RequireRol'
 import {
   Store, CreditCard, Bell, Globe, Save,
   Plus, X, Edit2, ChevronDown, CheckCircle2,
@@ -22,7 +23,7 @@ const TABS = [
   { key: 'notif',      label: 'Notificaciones',icon: Bell },
 ]
 
-export default function AjustesPage() {
+function AjustesPage() {
   const [tab, setTab] = useState('sucursales')
 
   const [sucursales, setSucursales] = useState<Sucursal[]>([
@@ -230,5 +231,13 @@ export default function AjustesPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AjustesPageProtected() {
+  return (
+    <RequireRol roles={['administrador']}>
+      <AjustesPage />
+    </RequireRol>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import RequireRol from '@/components/RequireRol'
 import {
   BarChart2, TrendingUp, Users, Package,
   Download, ChevronDown, Sparkles, FileText,
@@ -39,7 +40,7 @@ const TOP_PRODUCTOS = [
   { nombre: 'Micas transitions grey',     vendidos: 19, total: 57000 },
 ]
 
-export default function ReportesPage() {
+function ReportesPage() {
   const [mes, setMes] = useState('Junio')
   const [sucursal, setSucursal] = useState('Todas')
   const [generandoIA, setGenerandoIA] = useState(false)
@@ -230,5 +231,13 @@ Las tres sucursales registraron ventas combinadas de **$254,000 MXN**, un **8.2%
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ReportesPageProtected() {
+  return (
+    <RequireRol roles={['administrador', 'gerente']}>
+      <ReportesPage />
+    </RequireRol>
   )
 }

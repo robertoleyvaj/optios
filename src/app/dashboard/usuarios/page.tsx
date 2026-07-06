@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import RequireRol from '@/components/RequireRol'
 import {
   Plus, X, Save, Shield, Eye, EyeOff,
   ChevronDown, CheckCircle2, XCircle, Edit2,
@@ -57,7 +58,7 @@ const formVacio = (): Omit<Usuario, 'id' | 'ultimoAcceso'> & { password: string 
   rol: 'vendedor', sucursal: 'Baja Visión', activo: true,
 })
 
-export default function UsuariosPage() {
+function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>(USUARIOS_MOCK)
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Usuario | null>(null)
@@ -244,5 +245,13 @@ export default function UsuariosPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function UsuariosPageProtected() {
+  return (
+    <RequireRol roles={['administrador']}>
+      <UsuariosPage />
+    </RequireRol>
   )
 }

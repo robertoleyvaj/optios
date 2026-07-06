@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import RequireRol from '@/components/RequireRol'
 import {
   TrendingUp, TrendingDown, DollarSign, CreditCard,
   Plus, Search, ChevronDown, Filter, X, Save,
@@ -94,7 +95,7 @@ function comisionBancaria(monto: number, metodo: string) {
 // ─────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────
-export default function FinanzasPage() {
+function FinanzasPage() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>(MOVIMIENTOS_MOCK)
   const [busqueda, setBusqueda] = useState('')
   const [filtroTipo, setFiltroTipo] = useState<'todos' | TipoMovimiento>('todos')
@@ -470,5 +471,13 @@ export default function FinanzasPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function FinanzasPageProtected() {
+  return (
+    <RequireRol roles={['administrador', 'gerente']}>
+      <FinanzasPage />
+    </RequireRol>
   )
 }
