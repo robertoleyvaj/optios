@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import {
   Plus, Search, Filter, ShoppingCart, TrendingUp,
   CreditCard, Banknote, Building2, X, Printer,
-  ChevronDown, Clock, CheckCircle2, AlertCircle, ArrowRight,
+  ChevronDown, Clock, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 
@@ -15,7 +16,8 @@ import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 type Pago = { fecha: string; monto: number; metodo: string }
 type ItemVenta = { nombre: string; cantidad: number; precio: number; descuento: number }
 type Venta = {
-  id: string
+  id: string            // folio (V-0001)
+  uuid: string          // Supabase id real
   cliente: string
   telefono: string
   sucursal: string
@@ -28,89 +30,6 @@ type Venta = {
   hora: string
   vendedor: string
 }
-
-// ─────────────────────────────────────────
-// Mock data
-// ─────────────────────────────────────────
-const ventasMock: Venta[] = [
-  {
-    id: 'V-0041', cliente: 'María González', telefono: '686 123 4567',
-    sucursal: 'Baja Visión', metodo: 'tarjeta', modoPago: 'diferida',
-    items: [
-      { nombre: 'Armazón Ray-Ban RB5154', cantidad: 1, precio: 2800, descuento: 0 },
-      { nombre: 'Micas antirreflejantes', cantidad: 1, precio: 1200, descuento: 0 },
-      { nombre: 'Adaptación', cantidad: 1, precio: 800, descuento: 0 },
-    ],
-    pagos: [{ fecha: '25/06/2026', monto: 1500, metodo: 'tarjeta' }],
-    total: 4800, fecha: '25/06/2026', hora: '11:32', vendedor: 'Karina López',
-  },
-  {
-    id: 'V-0040', cliente: 'Carlos Ruiz', telefono: '686 234 5678',
-    sucursal: '5 de Mayo', metodo: 'efectivo', modoPago: 'liquidada',
-    items: [
-      { nombre: 'Lentes de contacto Acuvue mensual', cantidad: 2, precio: 580, descuento: 0 },
-      { nombre: 'Solución Renu 120ml', cantidad: 1, precio: 180, descuento: 0 },
-    ],
-    pagos: [{ fecha: '25/06/2026', monto: 1340, metodo: 'efectivo' }],
-    total: 1340, fecha: '25/06/2026', hora: '10:15', vendedor: 'Ana Castillo',
-  },
-  {
-    id: 'V-0039', cliente: 'Ana López', telefono: '686 345 6789',
-    sucursal: 'Plaza Laureles', metodo: 'transferencia', modoPago: 'diferida',
-    items: [
-      { nombre: 'Armazón Oakley OX8046', cantidad: 1, precio: 3200, descuento: 0 },
-      { nombre: 'Micas transitions', cantidad: 1, precio: 2800, descuento: 10 },
-    ],
-    pagos: [
-      { fecha: '25/06/2026', monto: 2000, metodo: 'transferencia' },
-      { fecha: '26/06/2026', monto: 1200, metodo: 'efectivo' },
-    ],
-    total: 5720, fecha: '25/06/2026', hora: '09:48', vendedor: 'Sandra Ríos',
-  },
-  {
-    id: 'V-0038', cliente: 'Pedro Sánchez', telefono: '686 456 7890',
-    sucursal: 'Baja Visión', metodo: 'efectivo', modoPago: 'liquidada',
-    items: [
-      { nombre: 'Armazón básico acetato', cantidad: 1, precio: 950, descuento: 0 },
-      { nombre: 'Micas monofocales CR-39', cantidad: 1, precio: 800, descuento: 0 },
-      { nombre: 'Adaptación', cantidad: 1, precio: 350, descuento: 0 },
-    ],
-    pagos: [{ fecha: '24/06/2026', monto: 2100, metodo: 'efectivo' }],
-    total: 2100, fecha: '24/06/2026', hora: '17:20', vendedor: 'Karina López',
-  },
-  {
-    id: 'V-0037', cliente: 'Laura Martínez', telefono: '686 567 8901',
-    sucursal: '5 de Mayo', metodo: 'efectivo', modoPago: 'liquidada',
-    items: [{ nombre: 'Solución para lentes Renu', cantidad: 3, precio: 150, descuento: 0 }],
-    pagos: [{ fecha: '24/06/2026', monto: 450, metodo: 'efectivo' }],
-    total: 450, fecha: '24/06/2026', hora: '16:05', vendedor: 'Ana Castillo',
-  },
-  {
-    id: 'V-0036', cliente: 'Jorge Herrera', telefono: '686 678 9012',
-    sucursal: 'Plaza Laureles', metodo: 'tarjeta', modoPago: 'diferida',
-    items: [
-      { nombre: 'Armazón Ray-Ban RB5154', cantidad: 1, precio: 2800, descuento: 0 },
-      { nombre: 'Micas progresivas Essilor', cantidad: 1, precio: 3500, descuento: 0 },
-      { nombre: 'Antirreflejante premium', cantidad: 1, precio: 1100, descuento: 0 },
-    ],
-    pagos: [{ fecha: '24/06/2026', monto: 2000, metodo: 'tarjeta' }],
-    total: 7400, fecha: '24/06/2026', hora: '14:33', vendedor: 'Sandra Ríos',
-  },
-  {
-    id: 'V-0035', cliente: 'Sofía Ramos', telefono: '686 789 0123',
-    sucursal: 'Baja Visión', metodo: 'tarjeta', modoPago: 'liquidada',
-    items: [{ nombre: 'Lentes de sol Ray-Ban polarizados', cantidad: 1, precio: 3200, descuento: 0 }],
-    pagos: [{ fecha: '24/06/2026', monto: 3200, metodo: 'tarjeta' }],
-    total: 3200, fecha: '24/06/2026', hora: '12:10', vendedor: 'Karina López',
-  },
-  {
-    id: 'V-0034', cliente: 'Miguel Torres', telefono: '686 890 1234',
-    sucursal: '5 de Mayo', metodo: 'transferencia', modoPago: 'liquidada',
-    items: [{ nombre: 'Micas antirreflejantes', cantidad: 1, precio: 1800, descuento: 0 }],
-    pagos: [{ fecha: '23/06/2026', monto: 1800, metodo: 'transferencia' }],
-    total: 1800, fecha: '23/06/2026', hora: '11:00', vendedor: 'Ana Castillo',
-  },
-]
 
 // ─────────────────────────────────────────
 // Config
@@ -131,7 +50,19 @@ const SUCURSALES = ['Todas', 'Baja Visión', '5 de Mayo', 'Plaza Laureles']
 // ─────────────────────────────────────────
 function saldoPendiente(v: Venta) {
   const pagado = v.pagos.reduce((s, p) => s + p.monto, 0)
-  return v.total - pagado
+  return Math.max(0, v.total - pagado)
+}
+
+function fmtFecha(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+function fmtHora(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+}
+function fechaHoy() {
+  return new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function imprimirTicket(v: Venta) {
@@ -211,7 +142,7 @@ function imprimirTicket(v: Venta) {
 <div class="folio">Folio de venta: ${v.id}</div>
 <table class="prods">
   <thead><tr><th class="cant">Cant.</th><th class="desc">Desc.</th><th class="precio">Precio</th></tr></thead>
-  <tbody>${productosRows}</tbody>
+  <tbody>${productosRows || '<tr><td colspan="3" style="text-align:center;padding:4px">—</td></tr>'}</tbody>
 </table>
 <div class="total-row"><span>TOTAL:</span><span>$${v.total.toLocaleString('es-MX')}</span></div>
 ${pagosHtml}
@@ -233,13 +164,102 @@ ${pagosHtml}
 // Page
 // ─────────────────────────────────────────
 export default function VentasPage() {
-  const [ventas, setVentas]       = useState<Venta[]>(ventasMock)
-  const [busqueda, setBusqueda]   = useState('')
-  const [sucursal, setSucursal]   = useState('Todas')
-  const [detalle, setDetalle]     = useState<Venta | null>(null)
-  const [showAbono, setShowAbono] = useState(false)
+  const [ventas, setVentas]         = useState<Venta[]>([])
+  const [cargando, setCargando]     = useState(true)
+  const [busqueda, setBusqueda]     = useState('')
+  const [sucursal, setSucursal]     = useState('Todas')
+  const [detalle, setDetalle]       = useState<Venta | null>(null)
+  const [showAbono, setShowAbono]   = useState(false)
   const [abonoMonto, setAbonoMonto]   = useState('')
   const [abonoMetodo, setAbonoMetodo] = useState('efectivo')
+
+  useEffect(() => { cargar() }, [])
+
+  const cargar = async () => {
+    setCargando(true)
+    try {
+      const supabase = createClient()
+
+      let userSucursal = ''
+      let userRol = ''
+      try {
+        const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
+        userSucursal = u.sucursal || ''
+        userRol = u.rol || ''
+      } catch {}
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = supabase
+        .from('ventas')
+        .select(`
+          id,
+          folio,
+          paciente_nombre,
+          paciente_telefono,
+          sucursal,
+          total,
+          anticipo,
+          saldo,
+          metodo_pago,
+          atendido_por,
+          created_at,
+          ventas_items(nombre, cantidad, precio_unitario, descuento)
+        `)
+        .order('created_at', { ascending: false })
+
+      // Vendedor solo ve su sucursal
+      if (userRol === 'vendedor' && userSucursal && userSucursal !== 'Todas') {
+        q = q.eq('sucursal', userSucursal)
+      }
+
+      const { data, error } = await q
+      if (error || !data) return
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapped: Venta[] = data.map((v: any) => {
+        const fecha = fmtFecha(v.created_at)
+        const hora  = fmtHora(v.created_at)
+        const anticipo = v.anticipo ?? 0
+        const saldo    = v.saldo    ?? 0
+
+        const pagos: Pago[] = []
+        if (anticipo > 0) {
+          pagos.push({ fecha, monto: anticipo, metodo: v.metodo_pago ?? 'otros' })
+        } else {
+          // Liquidada de contado: el pago fue el total completo
+          pagos.push({ fecha, monto: v.total ?? 0, metodo: v.metodo_pago ?? 'otros' })
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const items: ItemVenta[] = (v.ventas_items ?? []).map((i: any) => ({
+          nombre:    i.nombre,
+          cantidad:  i.cantidad,
+          precio:    i.precio_unitario,
+          descuento: i.descuento ?? 0,
+        }))
+
+        return {
+          uuid:     v.id,
+          id:       v.folio ?? v.id,
+          cliente:  v.paciente_nombre ?? '',
+          telefono: v.paciente_telefono ?? '',
+          sucursal: v.sucursal ?? '',
+          items,
+          total:    v.total ?? 0,
+          metodo:   v.metodo_pago ?? 'otros',
+          modoPago: saldo > 0 ? 'diferida' : 'liquidada',
+          pagos,
+          fecha,
+          hora,
+          vendedor: v.atendido_por ?? '',
+        }
+      })
+
+      setVentas(mapped)
+    } finally {
+      setCargando(false)
+    }
+  }
 
   const ventasFiltradas = ventas.filter(v => {
     const q = busqueda.toLowerCase()
@@ -249,14 +269,32 @@ export default function VentasPage() {
     return matchQ && matchS
   })
 
-  const totalHoy = ventas.filter(v => v.fecha === '25/06/2026').reduce((s, v) => s + v.total, 0)
+  const hoy = fechaHoy()
+  const totalHoy = ventas.filter(v => v.fecha === hoy).reduce((s, v) => s + v.total, 0)
+  const transHoy = ventas.filter(v => v.fecha === hoy).length
 
-  const registrarAbono = () => {
+  const registrarAbono = async () => {
     const monto = parseFloat(abonoMonto)
     if (!detalle || isNaN(monto) || monto <= 0) return
-    const hoy = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    const nuevoPago: Pago = { fecha: hoy, monto, metodo: abonoMetodo }
-    const ventaActualizada = { ...detalle, pagos: [...detalle.pagos, nuevoPago] }
+
+    // Actualizar saldo en Supabase
+    const nuevoSaldo = Math.max(0, saldoPendiente(detalle) - monto)
+    const supabase = createClient()
+    await supabase
+      .from('ventas')
+      .update({ saldo: nuevoSaldo })
+      .eq('id', detalle.uuid)
+
+    const nuevoPago: Pago = {
+      fecha: new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      monto,
+      metodo: abonoMetodo,
+    }
+    const ventaActualizada: Venta = {
+      ...detalle,
+      pagos:    [...detalle.pagos, nuevoPago],
+      modoPago: nuevoSaldo === 0 ? 'liquidada' : 'diferida',
+    }
     setVentas(prev => prev.map(v => v.id === detalle.id ? ventaActualizada : v))
     setDetalle(ventaActualizada)
     setAbonoMonto('')
@@ -292,7 +330,7 @@ export default function VentasPage() {
           </div>
           <div className="mt-3 flex items-center gap-1">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-xs font-medium text-emerald-500">{ventas.filter(v => v.fecha === '25/06/2026').length} transacciones hoy</span>
+            <span className="text-xs font-medium text-emerald-500">{transHoy} transacciones hoy</span>
           </div>
         </div>
         <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
@@ -300,7 +338,9 @@ export default function VentasPage() {
             <div>
               <p className="text-sm text-zinc-500 font-medium">Promedio por venta</p>
               <p className="text-2xl font-bold text-zinc-800 mt-1">
-                ${Math.round(ventas.reduce((s,v) => s+v.total,0) / ventas.length).toLocaleString('es-MX')}
+                {ventas.length > 0
+                  ? `$${Math.round(ventas.reduce((s,v) => s+v.total,0) / ventas.length).toLocaleString('es-MX')}`
+                  : '$0'}
               </p>
             </div>
             <div className="w-11 h-11 rounded-md bg-indigo-50 flex items-center justify-center">
@@ -332,7 +372,7 @@ export default function VentasPage() {
       <div className="bg-white rounded-lg border border-zinc-200/80">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-100">
           <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar por cliente, folio o producto..."
               className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400" />
@@ -342,7 +382,7 @@ export default function VentasPage() {
               className="appearance-none pl-3 pr-8 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none text-zinc-600">
               {SUCURSALES.map(s => <option key={s}>{s}</option>)}
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
           </div>
           <div className="flex items-center gap-1.5 text-xs text-zinc-400 ml-auto">
             <Filter className="w-3.5 h-3.5" />
@@ -351,52 +391,60 @@ export default function VentasPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-100">
-                {['Folio','Cliente','Productos','Sucursal','Método','Total','Fecha'].map(h => (
-                  <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-50">
-              {ventasFiltradas.map(v => {
-                const m = metodoBadge[v.metodo] ?? metodoBadge.otros
-                const MIcon = m.icon
-                const saldo = saldoPendiente(v)
-                const productosStr = v.items.map(i => i.nombre + (i.cantidad > 1 ? ` x${i.cantidad}` : '')).join(' + ')
-                return (
-                  <tr key={v.id} onClick={() => { setDetalle(v); setShowAbono(false); setAbonoMonto('') }}
-                    className="hover:bg-zinc-50 transition-colors cursor-pointer group">
-                    <td className="px-5 py-3.5">
-                      <span className="text-xs font-mono font-semibold text-zinc-500">{v.id}</span>
-                      {saldo > 0 && (
-                        <span className="ml-2 text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                          ${saldo.toLocaleString('es-MX')} pendiente
+          {cargando ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-6 h-6 border-2 border-[#0D9488] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-100">
+                  {['Folio','Cliente','Productos','Sucursal','Método','Total','Fecha'].map(h => (
+                    <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50">
+                {ventasFiltradas.map(v => {
+                  const m = metodoBadge[v.metodo] ?? metodoBadge.otros
+                  const MIcon = m.icon
+                  const saldo = saldoPendiente(v)
+                  const productosStr = v.items.length > 0
+                    ? v.items.map(i => i.nombre + (i.cantidad > 1 ? ` x${i.cantidad}` : '')).join(' + ')
+                    : '—'
+                  return (
+                    <tr key={v.id} onClick={() => { setDetalle(v); setShowAbono(false); setAbonoMonto('') }}
+                      className="hover:bg-zinc-50 transition-colors cursor-pointer group">
+                      <td className="px-5 py-3.5">
+                        <span className="text-xs font-mono font-semibold text-zinc-500">{v.id}</span>
+                        {saldo > 0 && (
+                          <span className="ml-2 text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                            ${saldo.toLocaleString('es-MX')} pendiente
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 font-medium text-zinc-700">{v.cliente}</td>
+                      <td className="px-5 py-3.5 max-w-xs">
+                        <span className="text-xs text-zinc-500 truncate block">{productosStr}</span>
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-zinc-500">{v.sucursal}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${m.cls}`}>
+                          <MIcon className="w-3 h-3" />{m.label}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 font-medium text-zinc-700">{v.cliente}</td>
-                    <td className="px-5 py-3.5 max-w-xs">
-                      <span className="text-xs text-zinc-500 truncate block">{productosStr}</span>
-                    </td>
-                    <td className="px-5 py-3.5 text-xs text-zinc-500">{v.sucursal}</td>
-                    <td className="px-5 py-3.5">
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${m.cls}`}>
-                        <MIcon className="w-3 h-3" />{m.label}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 font-bold text-zinc-800">${v.total.toLocaleString('es-MX')}</td>
-                    <td className="px-5 py-3.5">
-                      <div className="text-xs text-zinc-500">{v.fecha}</div>
-                      <div className="text-xs text-zinc-400">{v.hora}</div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {ventasFiltradas.length === 0 && (
+                      </td>
+                      <td className="px-5 py-3.5 font-bold text-zinc-800">${v.total.toLocaleString('es-MX')}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="text-xs text-zinc-500">{v.fecha}</div>
+                        <div className="text-xs text-zinc-400">{v.hora}</div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+          {!cargando && ventasFiltradas.length === 0 && (
             <div className="text-center py-16 text-zinc-400 text-sm">No se encontraron ventas.</div>
           )}
         </div>
@@ -438,7 +486,7 @@ export default function VentasPage() {
               <div>
                 <p className="text-xs font-semibold text-zinc-400 mb-2">Productos</p>
                 <div className="bg-zinc-50 rounded-lg divide-y divide-zinc-200 overflow-hidden">
-                  {detalle.items.map((item, i) => {
+                  {detalle.items.length > 0 ? detalle.items.map((item, i) => {
                     const precio = item.precio * (1 - item.descuento / 100)
                     const sub = precio * item.cantidad
                     return (
@@ -453,7 +501,9 @@ export default function VentasPage() {
                         <span className="text-sm font-bold text-zinc-800 ml-4 flex-shrink-0">${sub.toLocaleString('es-MX')}</span>
                       </div>
                     )
-                  })}
+                  }) : (
+                    <div className="px-4 py-3 text-xs text-zinc-400">Sin detalle de productos</div>
+                  )}
                   <div className="flex items-center justify-between px-4 py-3 bg-[#0B0E14]">
                     <span className="text-sm font-bold text-white">TOTAL</span>
                     <span className="text-lg font-bold text-[#0D9488]">${detalle.total.toLocaleString('es-MX')}</span>
@@ -506,7 +556,7 @@ export default function VentasPage() {
                   <div>
                     <label className="block text-xs font-semibold text-zinc-500 mb-1">Monto</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -tranzinc-y-1/2 text-zinc-400 font-semibold text-sm">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 font-semibold text-sm">$</span>
                       <input type="number" min={1} max={saldoPendiente(detalle)}
                         value={abonoMonto} onChange={e => setAbonoMonto(e.target.value)}
                         className="w-full border-2 border-[#0D9488] rounded pl-7 pr-3 py-2.5 text-lg font-bold text-zinc-800 bg-white focus:outline-none"
@@ -523,7 +573,7 @@ export default function VentasPage() {
                           <option key={m} value={m}>{metodoBadge[m]?.label ?? m}</option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                     </div>
                   </div>
                   <div className="flex gap-2">
