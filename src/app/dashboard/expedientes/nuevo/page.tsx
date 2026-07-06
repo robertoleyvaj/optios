@@ -231,12 +231,14 @@ export default function NuevaConsultaPage() {
   const [pApellido, setPApellido]         = useState('')
   const [pFechaNac, setPFechaNac]         = useState('')
   const [pSexo, setPSexo]                 = useState('')
+  const [pLada, setPLada]                 = useState('+52')
   const [pTelefono, setPTelefono]         = useState('')
   const [pWhatsapp, setPWhatsapp]         = useState('')
   const [pEmail, setPEmail]               = useState('')
   const [pDireccion, setPDireccion]       = useState('')
   const [pOcupacion, setPOcupacion]       = useState('')
   const [pEmpresa, setPEmpresa]           = useState('')
+  const [mostrarDatosExtra, setMostrarDatosExtra] = useState(false)
 
   // ── Datos paso 2: Historia ──
   const [motivo, setMotivo]               = useState('')
@@ -366,8 +368,8 @@ export default function NuevaConsultaPage() {
         const { data, error } = await supabase.from('pacientes').insert({
           nombre: pNombre.trim(),
           apellido: pApellido.trim(),
-          telefono: pTelefono,
-          whatsapp: pWhatsapp || pTelefono,
+          telefono: pTelefono ? `${pLada}${pTelefono}` : '',
+          whatsapp: pWhatsapp ? pWhatsapp : (pTelefono ? `${pLada}${pTelefono}` : ''),
           email: pEmail,
           direccion: pDireccion,
           ocupacion: pOcupacion,
@@ -485,11 +487,15 @@ export default function NuevaConsultaPage() {
             <h2 className="text-base font-bold text-zinc-800">Datos del paciente</h2>
             <p className="text-sm text-zinc-400 mt-0.5">Información básica para crear el expediente</p>
           </div>
+
+          {/* Nombre y apellido */}
           <div className="grid grid-cols-2 gap-4">
             <Field label="Nombre *" value={pNombre} onChange={setPNombre} />
             <Field label="Apellido(s) *" value={pApellido} onChange={setPApellido} />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+
+          {/* Fecha, sexo */}
+          <div className="grid grid-cols-2 gap-4">
             <Field label="Fecha de nacimiento" value={pFechaNac} onChange={setPFechaNac} type="date" />
             <div>
               <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sexo</label>
@@ -501,16 +507,81 @@ export default function NuevaConsultaPage() {
                 <option value="Otro">Otro</option>
               </select>
             </div>
-            <Field label="Teléfono" value={pTelefono} onChange={setPTelefono} type="tel" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="WhatsApp" value={pWhatsapp} onChange={setPWhatsapp} type="tel" />
-            <Field label="Correo electrónico" value={pEmail} onChange={setPEmail} type="email" />
+
+          {/* Teléfono con LADA */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
+            <div className="flex gap-2">
+              <select value={pLada} onChange={e => setPLada(e.target.value)}
+                className="border border-zinc-200 rounded px-2 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 flex-shrink-0 w-28">
+                <option value="+52">🇲🇽 +52</option>
+                <option value="+1">🇺🇸 +1</option>
+                <option value="+34">🇪🇸 +34</option>
+                <option value="+54">🇦🇷 +54</option>
+                <option value="+57">🇨🇴 +57</option>
+                <option value="+56">🇨🇱 +56</option>
+                <option value="+51">🇵🇪 +51</option>
+                <option value="+55">🇧🇷 +55</option>
+              </select>
+              <input
+                type="tel"
+                value={pTelefono}
+                onChange={e => setPTelefono(e.target.value)}
+                placeholder="6611234567"
+                className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+              />
+            </div>
+            {pTelefono && (
+              <p className="text-xs text-zinc-400 mt-1">Se guardará como <span className="font-mono font-semibold">{pLada}{pTelefono}</span></p>
+            )}
           </div>
-          <Field label="Dirección" value={pDireccion} onChange={setPDireccion} />
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Ocupación" value={pOcupacion} onChange={setPOcupacion} />
-            <Field label="Empresa (opcional)" value={pEmpresa} onChange={setPEmpresa} />
+
+          {/* WhatsApp con botón copiar */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 mb-1.5">WhatsApp</label>
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                value={pWhatsapp}
+                onChange={e => setPWhatsapp(e.target.value)}
+                placeholder={pTelefono ? `${pLada}${pTelefono}` : '+526611234567'}
+                className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 font-mono"
+              />
+              {pTelefono && (
+                <button
+                  type="button"
+                  onClick={() => setPWhatsapp(`${pLada}${pTelefono}`)}
+                  className="px-3 py-2 border border-[#0D9488] text-[#0D9488] rounded text-xs font-semibold hover:bg-[#0D9488]/5 transition-all flex-shrink-0 whitespace-nowrap">
+                  = mismo número
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Email */}
+          <Field label="Correo electrónico" value={pEmail} onChange={setPEmail} type="email" />
+
+          {/* Datos adicionales colapsables */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setMostrarDatosExtra(v => !v)}
+              className="flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-zinc-600 transition-colors">
+              <div className={`w-4 h-4 border border-zinc-300 rounded flex items-center justify-center transition-transform ${mostrarDatosExtra ? 'bg-zinc-100' : ''}`}>
+                <span className="text-zinc-500 leading-none">{mostrarDatosExtra ? '−' : '+'}</span>
+              </div>
+              Datos adicionales (dirección, ocupación, empresa) — opcional
+            </button>
+            {mostrarDatosExtra && (
+              <div className="mt-3 space-y-4 pl-6 border-l-2 border-zinc-100">
+                <Field label="Dirección" value={pDireccion} onChange={setPDireccion} />
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Ocupación" value={pOcupacion} onChange={setPOcupacion} />
+                  <Field label="Empresa" value={pEmpresa} onChange={setPEmpresa} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )
