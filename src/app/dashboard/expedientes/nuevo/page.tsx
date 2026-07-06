@@ -518,13 +518,16 @@ export default function NuevaConsultaPage() {
       // ── PASO 2: Historia clínica ───────────────
       case 2: return (
         <div className="space-y-5">
-          <SectionTitle>Historia clínica</SectionTitle>
+          <div className="flex items-center justify-between">
+            <SectionTitle>Historia clínica</SectionTitle>
+            <span className="text-xs text-zinc-400 bg-zinc-100 px-2 py-1 rounded">Todos los campos son opcionales</span>
+          </div>
           <div>
             <label className="block text-xs font-semibold text-zinc-500 mb-2">Motivo de consulta</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-wrap gap-2">
               {MOTIVOS.map(m => (
-                <button key={m} onClick={() => setMotivo(m)}
-                  className={`text-left px-3 py-2 rounded border text-sm transition-all ${motivo === m ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
+                <button key={m} onClick={() => setMotivo(motivo === m ? '' : m)}
+                  className={`px-3 py-2 rounded border text-sm transition-all ${motivo === m ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
                   {m}
                 </button>
               ))}
@@ -549,7 +552,10 @@ export default function NuevaConsultaPage() {
       // ── PASO 3: Hábitos ────────────────────────
       case 3: return (
         <div className="space-y-5">
-          <SectionTitle>Hábitos visuales</SectionTitle>
+          <div className="flex items-center justify-between">
+            <SectionTitle>Hábitos visuales</SectionTitle>
+            <span className="text-xs text-zinc-400 bg-zinc-100 px-2 py-1 rounded">Todos los campos son opcionales</span>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             {([
               ['horas_computadora', 'Horas frente a computadora'],
@@ -600,8 +606,11 @@ export default function NuevaConsultaPage() {
       // ── PASO 4: Síntomas ───────────────────────
       case 4: return (
         <div className="space-y-5">
-          <SectionTitle>Síntomas</SectionTitle>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center justify-between">
+            <SectionTitle>Síntomas</SectionTitle>
+            <span className="text-xs text-zinc-400 bg-zinc-100 px-2 py-1 rounded">Selecciona los que apliquen, o ninguno</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {SINTOMAS_LISTA.map(s => (
               <button key={s} onClick={() => toggleCheck(sintomasSeleccionados, setSintomasSeleccionados, s)}
                 className={`text-left flex items-center gap-2.5 px-3 py-2.5 rounded border text-sm transition-all ${sintomasSeleccionados.includes(s) ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-medium' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
