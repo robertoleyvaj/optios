@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Search, Plus, X, Save, ChevronRight,
@@ -242,6 +242,7 @@ const formVacioPaciente = (): Omit<Paciente, 'id' | 'recetas' | 'citas' | 'venta
 // ─────────────────────────────────────────
 function ExpedientesContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [pacientes, setPacientes] = useState<Paciente[]>(PACIENTES_MOCK)
   const [busqueda, setBusqueda] = useState('')
   const [seleccionado, setSeleccionado] = useState<Paciente | null>(PACIENTES_MOCK[0])
@@ -268,10 +269,13 @@ function ExpedientesContent() {
   const [formEditar, setFormEditar] = useState<Omit<Paciente, 'id' | 'recetas' | 'citas' | 'ventas'>>(formVacioPaciente())
 
   // Abrir modal automáticamente si viene de ?nuevo=true
+  // Pre-llenar búsqueda si viene de ?search=... (desde el buscador del header)
   useEffect(() => {
     if (searchParams.get('nuevo') === 'true') {
       setModalPaciente(true)
     }
+    const q = searchParams.get('search')
+    if (q) setBusqueda(q)
   }, [searchParams])
 
   // ── Cargar pacientes desde Supabase (paginado) ────────────
@@ -622,7 +626,7 @@ function ExpedientesContent() {
         </div>
 
         <div className="p-4 border-t border-zinc-100">
-          <button onClick={() => setModalPaciente(true)}
+          <button onClick={() => router.push('/dashboard/expedientes/nuevo')}
             className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-[#1A1D27] transition-colors">
             <Plus className="w-4 h-4" /> Nuevo paciente
           </button>
@@ -669,6 +673,10 @@ function ExpedientesContent() {
               <div className="flex items-center gap-2">
                 <button onClick={abrirEditar} className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
                   <Edit2 className="w-3.5 h-3.5" /> Editar
+                </button>
+                <button onClick={() => router.push(`/dashboard/expedientes/nuevo?pacienteId=${seleccionado.id}`)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> Nueva consulta
                 </button>
               </div>
             </div>
