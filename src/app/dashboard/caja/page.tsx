@@ -54,7 +54,7 @@ const RESUMEN_VACIO: Record<MetodoPago, ResumenMetodo> = {
 
 export default function CajaPage() {
   // ── Estado del usuario / sucursal ──
-  const [usuario, setUsuario] = useState({ nombre: '', sucursal: '' })
+  const [usuario, setUsuario] = useState({ nombre: '', sucursal: '', rol: '' })
 
   // ── Datos del día ──
   const [ventas, setVentas]       = useState<Record<MetodoPago, ResumenMetodo>>(RESUMEN_VACIO)
@@ -76,7 +76,7 @@ export default function CajaPage() {
   const diferencia = contado - esperado
   const entrega    = Math.max(0, contado - fondoNum)
   const total      = Object.values(ventas).reduce((s, v) => s + v.monto, 0)
-  const cerrado    = !!corteHoy
+  const cerrado    = corteHoy?.cerrado === true
 
   // ── Leer usuario del localStorage ──
   useEffect(() => {
@@ -84,7 +84,7 @@ export default function CajaPage() {
       const raw = localStorage.getItem('optios_demo_user')
       if (raw) {
         const u = JSON.parse(raw)
-        setUsuario({ nombre: u.nombre ?? '', sucursal: u.sucursal ?? '' })
+        setUsuario({ nombre: u.nombre ?? '', sucursal: u.sucursal ?? '', rol: u.rol ?? '' })
       }
     } catch { /* noop */ }
   }, [])
@@ -155,6 +155,105 @@ export default function CajaPage() {
   useEffect(() => {
     if (usuario.sucursal) cargarDatos(usuario.sucursal)
   }, [usuario.sucursal, cargarDatos])
+
+  // ── Imprimir corte ──
+  const imprimirCorte = () => {
+    const fechaFmt = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+    const horaFmt  = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+
+    const metodosRows = METODOS.map(m => {
+      const d = ventas[m.key]
+      return `<tr>
+        <td>${m.label}</td>
+        <td class="r">${d.transacciones} transacción${d.transacciones !== 1 ? 'es' : ''}</td>
+        <td class="r bold">$${d.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+      </tr>`
+    }).join('')
+
+    const difClass  = diferencia === 0 ? 'ok' : diferencia > 0 ? 'over' : 'short'
+    const difLabel  = diferencia === 0
+      ? 'Sin diferencia'
+      : diferencia > 0
+      ? `Sobrante: +$${diferencia.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+      : `Faltante: -$${Math.abs(diferencia).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
+
+    const win = window.open('', '_blank', 'width=380,height=700')
+    if (!win) return
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Corte de caja</title>
+<style>
+  @page { size: 80mm auto; margin: 4mm 3mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; color: #000; width: 74mm; }
+  .hdr { text-align: center; padding-bottom: 8px; border-bottom: 2px solid #000; margin-bottom: 8px; }
+  .hdr h1 { font-size: 15px; font-weight: 900; }
+  .hdr p  { font-size: 10px; margin-top: 2px; }
+  .titulo { text-align: center; font-size: 12px; font-weight: 900; text-transform: uppercase;
+            border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin: 8px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px; }
+  td { padding: 2px 1px; vertical-align: top; }
+  td.r { text-align: right; }
+  td.bold { font-weight: 900; }
+  .sep { border-top: 1px dashed #000; margin: 6px 0; }
+  .row { display: flex; justify-content: space-between; font-size: 11px; margin: 3px 0; }
+  .row.big { font-size: 13px; font-weight: 900; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin: 5px 0; }
+  .ok    { color: #000; font-weight: 900; }
+  .over  { color: #000; font-weight: 900; }
+  .short { color: #000; font-weight: 900; }
+  .dif-box { border: 1px solid #000; padding: 4px 6px; text-align: center; margin: 6px 0; font-size: 11px; font-weight: 900; }
+  .entrega-box { background: #000; color: #fff; padding: 6px; text-align: center; margin: 6px 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .entrega-box .num { font-size: 18px; font-weight: 900; }
+  .notas { border: 1px solid #000; padding: 4px 6px; font-size: 10px; margin: 6px 0; }
+  .firma { margin: 16px 0 6px; display: flex; gap: 8px; }
+  .firma-item { flex: 1; text-align: center; }
+  .firma-line { display: inline-block; border-top: 1px solid #000; width: 100%; padding-top: 3px; font-size: 9px; }
+  .footer { text-align: center; font-size: 9px; color: #555; border-top: 1px dashed #000; padding-top: 5px; margin-top: 5px; }
+</style></head><body>
+<div class="hdr">
+  <h1>${usuario.sucursal.toUpperCase()}</h1>
+  <p>Corte de caja</p>
+  <p>${fechaFmt}</p>
+  <p>${horaFmt} · ${usuario.nombre}</p>
+</div>
+
+<div class="titulo">Resumen de ventas</div>
+<table>
+  <tbody>${metodosRows}</tbody>
+</table>
+<div class="row big"><span>TOTAL DEL DÍA</span><span>$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></div>
+
+<div class="sep"></div>
+<div class="titulo">Conteo de efectivo</div>
+<div class="row"><span>Esperado (sistema)</span><span>$${esperado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></div>
+<div class="row"><span>Contado físicamente</span><span>$${contado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></div>
+<div class="dif-box ${difClass}">${difLabel}</div>
+
+<div class="sep"></div>
+<div class="row"><span>Fondo en caja</span><span>$${fondoNum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></div>
+<div class="entrega-box">
+  <div style="font-size:10px;margin-bottom:2px">TOTAL A ENTREGAR</div>
+  <div class="num">$${entrega.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
+</div>
+
+${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
+
+<div class="firma">
+  <div class="firma-item"><div class="firma-line">Elaboró</div></div>
+  <div class="firma-item"><div class="firma-line">Recibió</div></div>
+</div>
+<div class="footer">OptiOS · Sistema de Gestión</div>
+</body></html>`)
+    win.document.close()
+    setTimeout(() => { win.print() }, 300)
+  }
+
+  // ── Reabrir caja (solo admin) ──
+  const reabrirCaja = async () => {
+    if (!corteHoy) return
+    const sb  = createClient()
+    await sb.from('cortes_caja').update({ cerrado: false }).eq('id', corteHoy.id)
+    setCorteHoy({ ...corteHoy, cerrado: false })
+  }
 
   // ── Guardar corte en Supabase ──
   const cerrarCaja = async () => {
@@ -242,9 +341,27 @@ export default function CajaPage() {
               Cerrada por {corteHoy?.usuario} · Entrega: ${corteHoy?.entrega.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </p>
           </div>
-          <button className="flex items-center gap-1.5 text-xs text-emerald-600 hover:underline">
-            <Printer className="w-3.5 h-3.5" /> Imprimir
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={imprimirCorte} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:underline">
+              <Printer className="w-3.5 h-3.5" /> Imprimir
+            </button>
+            {usuario.rol === 'admin' && (
+              <button
+                onClick={reabrirCaja}
+                className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded hover:bg-amber-100 transition-colors font-semibold"
+              >
+                🔓 Reabrir
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Banner corte guardado pero no cerrado (editable) */}
+      {corteHoy && !cerrado && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+          <p className="text-sm text-amber-700 flex-1">Hay un corte guardado hoy pero <b>no está cerrado</b> — puedes modificarlo.</p>
         </div>
       )}
 
@@ -419,6 +536,7 @@ export default function CajaPage() {
               {guardando ? 'Guardando...' : 'Cerrar caja del día'}
             </button>
             <button
+              onClick={imprimirCorte}
               disabled={!efectivoContado}
               className="flex items-center gap-2 px-4 py-3 border border-zinc-200 text-zinc-500 rounded text-sm hover:bg-zinc-50 disabled:opacity-40"
             >
