@@ -140,6 +140,23 @@ create table if not exists cortes_caja (
   unique(fecha, sucursal)
 );
 
+-- ── CITAS / AGENDA ───────────────────────────────────────────
+create table if not exists citas (
+  id                uuid primary key default gen_random_uuid(),
+  created_at        timestamptz default now(),
+  paciente_id       uuid references pacientes(id) on delete set null,
+  paciente_nombre   text default '',
+  paciente_telefono text default '',
+  tipo              text default 'Revisión',
+  seguimiento       integer,          -- 1-4 para citas de seguimiento
+  fecha             date not null,
+  hora              text not null default '10:00',
+  duracion          integer default 30,
+  sucursal          text not null,
+  notas             text default '',
+  estado            text default 'agendada' check (estado in ('agendada','confirmada','atendida','cancelada','no_asistio'))
+);
+
 -- ── CHECK-INS DIARIOS ────────────────────────────────────────
 create table if not exists check_ins (
   id              uuid primary key default gen_random_uuid(),
