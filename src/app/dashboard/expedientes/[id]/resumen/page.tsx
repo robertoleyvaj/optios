@@ -3,7 +3,7 @@
 // Expediente clínico interno — vista del optometrista
 // Para el documento del paciente ir a /hoja
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, FileText, ChevronDown, ChevronUp } from 'lucide-react'
@@ -47,7 +47,7 @@ type Receta = {
   id: string; fecha: string; tipo: string; optometrista: string
   od_esfera: string; od_cilindro: string; od_eje: string; od_add: string
   oi_esfera: string; oi_cilindro: string; oi_eje: string; oi_add: string
-  dp_od: string; dp_oi: string; observaciones: string
+  dp: string; observaciones: string
 }
 
 type Paciente = {
@@ -354,8 +354,8 @@ export default function ResumenInternoPage() {
                     </thead>
                     <tbody>
                       {[
-                        { label: 'OD', esf: receta.od_esfera, cil: receta.od_cilindro, eje: receta.od_eje, add: receta.od_add, dp: receta.dp_od },
-                        { label: 'OI', esf: receta.oi_esfera, cil: receta.oi_cilindro, eje: receta.oi_eje, add: receta.oi_add, dp: receta.dp_oi },
+                        { label: 'OD', esf: receta.od_esfera, cil: receta.od_cilindro, eje: receta.od_eje, add: receta.od_add, dp: receta.dp },
+                        { label: 'OI', esf: receta.oi_esfera, cil: receta.oi_cilindro, eje: receta.oi_eje, add: receta.oi_add, dp: '' },
                       ].map(row => (
                         <tr key={row.label}>
                           <td className="px-3 py-2 font-bold text-zinc-700 border border-zinc-200">{row.label}</td>
