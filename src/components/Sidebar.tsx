@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   DollarSign, BarChart3, CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Microscope,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -24,8 +24,8 @@ const ROL_LABEL: Record<Rol, string> = {
 
 // Módulos a los que tiene acceso cada rol
 const PERMISOS: Record<Rol, string[]> = {
-  administrador: ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','finanzas','reportes','usuarios','ajustes','inbox'],
-  gerente:       ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','finanzas','reportes','inbox'],
+  administrador: ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','finanzas','reportes','analitica','usuarios','ajustes','inbox'],
+  gerente:       ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','finanzas','reportes','analitica','inbox'],
   vendedor:      ['dashboard','ventas','agenda','expedientes','laboratorio','caja','mi-desempeno','inbox'],
   repartidor:    ['laboratorio','inbox'],
 }
@@ -53,6 +53,7 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard/mi-desempeno',    label: 'Mi desempeño', icon: TrendingUp,      key: 'mi-desempeno' },
   { href: '/dashboard/finanzas',         label: 'Finanzas',     icon: DollarSign,      key: 'finanzas' },
   { href: '/dashboard/reportes',         label: 'Reportes',     icon: BarChart3,       key: 'reportes' },
+  { href: '/dashboard/analitica',        label: 'Analítica Clínica', icon: Microscope, key: 'analitica' },
   { href: '/dashboard/inbox',            label: 'Inbox',        icon: Mail,            key: 'inbox' },
   { href: '/dashboard/usuarios',         label: 'Usuarios',     icon: Users,           key: 'usuarios' },
   { href: '/dashboard/ajustes',          label: 'Ajustes',      icon: Settings,        key: 'ajustes' },
