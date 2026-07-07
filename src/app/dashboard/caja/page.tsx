@@ -99,7 +99,7 @@ export default function CajaPage() {
     // 1. Ventas del día agrupadas por método de pago
     const { data: ventasData } = await sb
       .from('ventas')
-      .select('metodo_pago, total')
+      .select('metodo_pago, total, saldo')
       .eq('sucursal', sucursal)
       .eq('estado', 'activa')
       .gte('created_at', `${hoy}T00:00:00`)
@@ -110,8 +110,10 @@ export default function CajaPage() {
       for (const v of ventasData) {
         const key = v.metodo_pago as MetodoPago
         if (resumen[key]) {
+          // Solo contamos lo realmente cobrado (total − saldo pendiente)
+          const recibido = Number(v.total) - Number(v.saldo ?? 0)
           resumen[key] = {
-            monto:         resumen[key].monto + Number(v.total),
+            monto:         resumen[key].monto + recibido,
             transacciones: resumen[key].transacciones + 1,
           }
         }

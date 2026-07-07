@@ -175,6 +175,15 @@ export default function VentasPage() {
 
   useEffect(() => { cargar() }, [])
 
+  // Cerrar modal con Escape
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setDetalle(null); setShowAbono(false) }
+    }
+    if (detalle) document.addEventListener('keydown', handleEsc)
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [detalle])
+
   const cargar = async () => {
     setCargando(true)
     try {
