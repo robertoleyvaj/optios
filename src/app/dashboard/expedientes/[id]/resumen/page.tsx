@@ -93,18 +93,23 @@ export default function ResumenInternoPage() {
 
   useEffect(() => {
     const cargar = async () => {
-      const supabase = createClient()
-      const [{ data: p }, { data: cs }, { data: r }] = await Promise.all([
-        supabase.from('pacientes').select('id,nombre,apellido,fecha_nacimiento,telefono,email,sexo,ocupacion').eq('id', id).single(),
-        supabase.from('consultas').select('*').eq('paciente_id', id).order('created_at', { ascending: false }),
-        supabase.from('recetas').select('*').eq('paciente_id', id).order('fecha', { ascending: false }).limit(1).single(),
-      ])
-      setPaciente(p as Paciente)
-      const lista = (cs ?? []) as Consulta[]
-      setConsultas(lista)
-      setSeleccionada(lista[0] ?? null)
-      setReceta(r as Receta)
-      setCargando(false)
+      try {
+        const supabase = createClient()
+        const [pacRes, consRes, recRes] = await Promise.all([
+          supabase.from('pacientes').select('id,nombre,apellido,fecha_nacimiento,telefono,email,sexo,ocupacion').eq('id', id).single(),
+          supabase.from('consultas').select('*').eq('paciente_id', id).order('created_at', { ascending: false }),
+          supabase.from('recetas').select('*').eq('paciente_id', id).order('fecha', { ascending: false }).limit(1).maybeSingle(),
+        ])
+        if (pacRes.data) setPaciente(pacRes.data as Paciente)
+        const lista = (consRes.data ?? []) as Consulta[]
+        setConsultas(lista)
+        setSeleccionada(lista[0] ?? null)
+        if (recRes.data) setReceta(recRes.data as Receta)
+      } catch (err) {
+        console.error('Error cargando expediente:', err)
+      } finally {
+        setCargando(false)
+      }
     }
     cargar()
   }, [id])
