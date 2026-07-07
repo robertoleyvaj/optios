@@ -7,7 +7,7 @@ import {
   Search, Plus, X, Save, ChevronRight,
   User, Phone, Calendar, FileText,
   Eye, ShoppingBag, Clock, ChevronDown,
-  Printer, Edit2, AlertCircle, FileText,
+  Printer, Edit2, AlertCircle,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
