@@ -35,8 +35,6 @@ import {
   Search,
   UserPlus,
   FlaskConical,
-  Award,
-  Zap,
 } from 'lucide-react'
 
 // --- Mock data ---
@@ -361,26 +359,10 @@ const statusMap = {
 }
 
 // ─────────────────────────────────────────
-// Pacientes para búsqueda rápida (mock — luego viene de Supabase)
+// Tipos para la vista vendedor
 // ─────────────────────────────────────────
-const PACIENTES_BUSQUEDA = [
-  { id: 1, nombre: 'María González',  telefono: '686 123 4567', ultimaVisita: '10 Apr 2026', receta: 'Progresivo · OD -2.50 -0.75 · OI -2.25 -0.50' },
-  { id: 2, nombre: 'Carlos Ruiz',     telefono: '686 234 5678', ultimaVisita: '22 Ene 2026', receta: 'Monofocal · OD +1.00 · OI +1.25 -0.25' },
-  { id: 3, nombre: 'Ana López',       telefono: '686 345 6789', ultimaVisita: '05 Mar 2026', receta: 'Bifocal · OD -3.00 -1.25 · OI -3.25 -1.00' },
-  { id: 4, nombre: 'Pedro Sánchez',   telefono: '686 456 7890', ultimaVisita: '14 Nov 2025', receta: 'Monofocal · OD -1.00 · OI -0.75' },
-  { id: 5, nombre: 'Laura Martínez',  telefono: '686 567 8901', ultimaVisita: '28 Feb 2026', receta: 'Monofocal · OD -4.50 · OI -4.25' },
-  { id: 6, nombre: 'Jorge Herrera',   telefono: '686 678 9012', ultimaVisita: '29 Jun 2026', receta: 'Progresivo · OD +2.00 -0.50 · OI +2.25 -0.75' },
-  { id: 7, nombre: 'Sofía Ramos',     telefono: '686 789 0123', ultimaVisita: '15 May 2026', receta: 'Progresivo · OD -1.50 -0.50 · OI -1.75 -0.25' },
-  { id: 8, nombre: 'Daniela Fuentes', telefono: '661 234 5678', ultimaVisita: '29 Jun 2026', receta: 'Monofocal · OD -1.75 -0.50 · OI -2.00 -0.25' },
-]
-
-type Paciente = typeof PACIENTES_BUSQUEDA[0]
-
-// Lentes listos para entrega hoy (mock)
-const LISTOS_HOY = [
-  { id: 101, nombre: 'Pedro Martínez', folio: 'L-0041' },
-  { id: 102, nombre: 'Ana Pacheco',    folio: 'L-0039' },
-]
+type PacienteReal = { id: string; nombre: string; apellido: string; telefono: string }
+type LabListo     = { id: string; folio: string; paciente: string }
 
 // ─────────────────────────────────────────
 // Vista dashboard activo para vendedor
@@ -417,74 +399,71 @@ function calcularBono(ventas: number): { actual: number; siguiente: { meta: numb
 // ─────────────────────────────────────────
 function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string }) {
   const router = useRouter()
-  const [query, setQuery]             = useState('')
-  const [paciente, setPaciente]       = useState<Paciente | null>(null)
-  const [nuevoForm, setNuevoForm]     = useState({ nombre: '', telefono: '' })
+  const [query, setQuery]               = useState('')
+  const [paciente, setPaciente]         = useState<PacienteReal | null>(null)
+  const [nuevoForm, setNuevoForm]       = useState({ nombre: '', telefono: '' })
   const [mostrarNuevo, setMostrarNuevo] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [ventasMes, setVentasMes] = useState(0)
-  const META_MES = 200000
 
+  // Datos reales de Supabase
+  const [ventasHoy, setVentasHoy]         = useState(0)
+  const [recientes, setRecientes]         = useState<PacienteReal[]>([])
+  const [listosHoy, setListosHoy]         = useState<LabListo[]>([])
+  const [busqResultados, setBusqResultados] = useState<PacienteReal[]>([])
+
+  // Carga inicial: recientes, listos, ventas hoy
   useEffect(() => {
-    const fetchVentasMes = async () => {
-      try {
-        const { createClient } = await import('@/lib/supabase/client')
-        const sb = createClient()
-        const ahora = new Date()
-        const inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString()
-        const fin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23, 59, 59).toISOString()
-        const { data } = await sb
-          .from('ventas')
-          .select('total')
-          .eq('atendido_por', nombre)
-          .eq('es_cotizacion', false)
-          .eq('estado', 'activa')
-          .gte('created_at', inicio)
-          .lte('created_at', fin)
-        if (data) setVentasMes(data.reduce((s, v) => s + Number(v.total), 0))
-      } catch { /* usa 0 */ }
+    if (!sucursal) return
+    const fetchData = async () => {
+      const { createClient } = await import('@/lib/supabase/client')
+      const sb  = createClient()
+      const hoy = new Date().toISOString().split('T')[0]
+
+      const [pRec, vHoy, listos] = await Promise.all([
+        sb.from('pacientes').select('id,nombre,apellido,telefono').order('created_at', { ascending: false }).limit(6),
+        sb.from('ventas').select('total,saldo').eq('sucursal', sucursal).eq('estado', 'activa').gte('created_at', `${hoy}T00:00:00`).lte('created_at', `${hoy}T23:59:59`),
+        sb.from('ordenes_lab').select('id,folio,paciente').eq('sucursal', sucursal).eq('estado', 'listo').order('fecha_ingreso', { ascending: true }).limit(5),
+      ])
+
+      if (pRec.data)  setRecientes(pRec.data)
+      if (vHoy.data)  setVentasHoy(vHoy.data.reduce((s, v) => s + Number(v.total) - Number(v.saldo ?? 0), 0))
+      if (listos.data) setListosHoy(listos.data)
     }
-    fetchVentasMes()
-  }, [nombre])
+    fetchData()
+  }, [sucursal])
 
-  // Cálculos de desempeño
-  const comision = calcularComision(ventasMes)
-  const { actual: bonoActual, siguiente: bonoSiguiente } = calcularBono(ventasMes)
-  const totalExtra = comision + bonoActual
-  const pctMeta = Math.min((ventasMes / META_MES) * 100, 100)
+  // Búsqueda en tiempo real con debounce
+  useEffect(() => {
+    if (query.trim().length === 0) { setBusqResultados([]); return }
+    const timer = setTimeout(async () => {
+      const { createClient } = await import('@/lib/supabase/client')
+      const sb = createClient()
+      const q  = query.trim()
+      const { data } = await sb
+        .from('pacientes')
+        .select('id,nombre,apellido,telefono')
+        .or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,telefono.ilike.%${q}%`)
+        .order('nombre', { ascending: true })
+        .limit(8)
+      setBusqResultados(data ?? [])
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [query])
 
-  // Pacientes recientes: ordenados por fecha más reciente
-  const recientes = [...PACIENTES_BUSQUEDA]
-    .sort((a, b) => new Date(b.ultimaVisita).getTime() - new Date(a.ultimaVisita).getTime())
-    .slice(0, 5)
+  const nombreDisplay = (p: PacienteReal) => `${p.nombre} ${p.apellido}`.trim()
+  const iniciales     = (p: PacienteReal) => `${p.nombre[0] ?? ''}${p.apellido?.[0] ?? ''}`.toUpperCase() || '?'
 
-  const resultados = query.trim().length > 0
-    ? PACIENTES_BUSQUEDA.filter(p =>
-        p.nombre.toLowerCase().includes(query.toLowerCase()) ||
-        p.telefono.includes(query)
-      )
-    : []
+  const seleccionar = (p: PacienteReal) => { setPaciente(p); setQuery(''); setMostrarNuevo(false) }
 
-  const seleccionar = (p: Paciente) => {
-    setPaciente(p)
-    setQuery('')
-    setMostrarNuevo(false)
-  }
-
-  const irAVenta = (p?: Paciente) => {
+  const irAVenta = (p?: PacienteReal) => {
     const target = p ?? paciente
-    if (target) localStorage.setItem('optios_flow_paciente', JSON.stringify(target))
-    router.push('/dashboard/ventas/nueva')
+    if (target?.id) router.push(`/dashboard/ventas/nueva?pacienteId=${target.id}`)
+    else             router.push('/dashboard/ventas/nueva')
   }
 
-  const limpiar = () => {
-    setPaciente(null)
-    setQuery('')
-    setMostrarNuevo(false)
-    setNuevoForm({ nombre: '', telefono: '' })
-  }
+  const limpiar = () => { setPaciente(null); setQuery(''); setMostrarNuevo(false); setNuevoForm({ nombre: '', telefono: '' }) }
 
-  const inIdle = !query && !paciente && !mostrarNuevo
+  const inIdle   = !query && !paciente && !mostrarNuevo
   const fechaHoy = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
@@ -499,18 +478,18 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
         <div className="flex items-center gap-5 text-right">
           <div>
             <p className="text-xs text-zinc-400">Ventas hoy</p>
-            <p className="text-sm font-bold text-zinc-800">$3,200</p>
+            <p className="text-sm font-bold text-zinc-800">${ventasHoy.toLocaleString('es-MX', { minimumFractionDigits: 0 })}</p>
           </div>
           <div>
             <p className="text-xs text-zinc-400">Listos</p>
-            <p className="text-sm font-bold text-emerald-600">{LISTOS_HOY.length}</p>
+            <p className="text-sm font-bold text-emerald-600">{listosHoy.length}</p>
           </div>
         </div>
       </div>
 
       {/* ── Barra de búsqueda ── */}
       <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
         <input
           ref={inputRef}
           value={query}
@@ -520,25 +499,23 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
         />
         {query && (
           <button onClick={() => setQuery('')}
-            className="absolute right-3.5 top-1/2 -tranzinc-y-1/2 text-zinc-300 hover:text-zinc-500 text-lg leading-none">
-            ×
-          </button>
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 text-lg leading-none">×</button>
         )}
       </div>
 
       {/* ── Resultados de búsqueda ── */}
       {query.trim().length > 0 && (
         <div className="border border-zinc-100 rounded-xl overflow-hidden bg-white shadow-sm divide-y divide-zinc-50">
-          {resultados.length > 0
-            ? resultados.map(p => (
+          {busqResultados.length > 0
+            ? busqResultados.map(p => (
                 <button key={p.id} onClick={() => seleccionar(p)}
                   className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-zinc-50 transition-colors group">
                   <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-zinc-500 group-hover:bg-zinc-200 transition-colors">
-                    {p.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    {iniciales(p)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-zinc-800">{p.nombre}</p>
-                    <p className="text-xs text-zinc-400 mt-0.5">{p.telefono} · Última visita {p.ultimaVisita}</p>
+                    <p className="text-sm font-semibold text-zinc-800">{nombreDisplay(p)}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">{p.telefono}</p>
                   </div>
                   <span className="text-zinc-300 text-sm">›</span>
                 </button>
@@ -546,11 +523,8 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
             : (
               <div className="px-4 py-4 text-center">
                 <p className="text-sm text-zinc-500 mb-3">No se encontró &ldquo;{query}&rdquo;</p>
-                <button onClick={() => {
-                  setNuevoForm({ nombre: query, telefono: '' })
-                  setMostrarNuevo(true)
-                  setQuery('')
-                }} className="text-sm font-medium text-zinc-900 underline underline-offset-2">
+                <button onClick={() => { setNuevoForm({ nombre: query, telefono: '' }); setMostrarNuevo(true); setQuery('') }}
+                  className="text-sm font-medium text-zinc-900 underline underline-offset-2">
                   Registrar &ldquo;{query}&rdquo; como nuevo
                 </button>
               </div>
@@ -565,28 +539,27 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-sm font-bold text-zinc-600 flex-shrink-0">
-                {paciente.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                {iniciales(paciente)}
               </div>
               <div>
-                <p className="text-base font-semibold text-zinc-900">{paciente.nombre}</p>
+                <p className="text-base font-semibold text-zinc-900">{nombreDisplay(paciente)}</p>
                 {paciente.telefono && <p className="text-xs text-zinc-400">{paciente.telefono}</p>}
               </div>
             </div>
-            <button onClick={limpiar}
-              className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors">
+            <button onClick={limpiar} className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors">
               Cambiar ×
             </button>
           </div>
-          {paciente.receta !== 'Sin receta' && (
-            <div className="border-t border-zinc-50 pt-3">
-              <p className="text-xs font-medium text-zinc-400 mb-1.5">Última receta · {paciente.ultimaVisita}</p>
-              <p className="text-xs text-zinc-600 font-mono leading-relaxed">{paciente.receta}</p>
-            </div>
-          )}
-          <button onClick={() => irAVenta()}
-            className="w-full py-3.5 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 active:scale-[0.98] transition-all">
-            Crear venta →
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => irAVenta()}
+              className="flex-1 py-3.5 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 active:scale-[0.98] transition-all">
+              Crear venta →
+            </button>
+            <button onClick={() => router.push(`/dashboard/expedientes?paciente=${paciente.id}`)}
+              className="px-4 py-3.5 border border-zinc-200 text-zinc-600 text-sm font-medium rounded-xl hover:bg-zinc-50 transition-all">
+              Expediente
+            </button>
+          </div>
         </div>
       )}
 
@@ -608,15 +581,15 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
               Cancelar
             </button>
             <button disabled={!nuevoForm.nombre.trim()}
-              onClick={() => seleccionar({ id: Date.now(), nombre: nuevoForm.nombre.trim(), telefono: nuevoForm.telefono, ultimaVisita: 'Hoy', receta: 'Sin receta' })}
+              onClick={() => router.push(`/dashboard/expedientes?nuevo=true&nombre=${encodeURIComponent(nuevoForm.nombre)}&telefono=${encodeURIComponent(nuevoForm.telefono)}`)}
               className="flex-1 py-2 bg-zinc-900 text-white rounded-lg text-sm font-semibold hover:bg-zinc-800 disabled:opacity-40 transition-colors">
-              Continuar →
+              Registrar →
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Dashboard activo: dos columnas ── */}
+      {/* ── Dashboard idle: recientes + listos ── */}
       {inIdle && (
         <div className="grid grid-cols-2 gap-4">
 
@@ -624,38 +597,36 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
           <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
             <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Recientes</h2>
             <div className="space-y-0.5">
-              {recientes.map(p => (
+              {recientes.length > 0 ? recientes.map(p => (
                 <button key={p.id} onClick={() => seleccionar(p)}
                   className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-zinc-50 transition-colors text-left group">
                   <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 flex-shrink-0 group-hover:bg-zinc-200 transition-colors">
-                    {p.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    {iniciales(p)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-zinc-800 truncate">{p.nombre}</p>
-                    <p className="text-xs text-zinc-400 truncate">{p.ultimaVisita}</p>
+                    <p className="text-sm font-medium text-zinc-800 truncate">{nombreDisplay(p)}</p>
                   </div>
                   <span className="text-zinc-200 group-hover:text-zinc-400 text-sm transition-colors">›</span>
                 </button>
-              ))}
+              )) : (
+                <p className="text-xs text-zinc-400 px-2 py-2">Sin pacientes aún.</p>
+              )}
             </div>
           </div>
 
           {/* Listos para entregar */}
           <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
             <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Listos para entregar</h2>
-            {LISTOS_HOY.length > 0 ? (
+            {listosHoy.length > 0 ? (
               <div className="space-y-0.5">
-                {LISTOS_HOY.map(l => (
-                  <div key={l.id}
-                    className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
+                {listosHoy.map(l => (
+                  <div key={l.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
                     <FlaskConical className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-zinc-800 truncate">{l.nombre}</p>
+                      <p className="text-sm font-medium text-zinc-800 truncate">{l.paciente}</p>
                       <p className="text-xs text-zinc-400">{l.folio}</p>
                     </div>
-                    <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex-shrink-0">
-                      Listo
-                    </span>
+                    <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex-shrink-0">Listo</span>
                   </div>
                 ))}
               </div>
@@ -672,13 +643,11 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
         <div className="grid grid-cols-2 gap-3">
           <button onClick={() => irAVenta()}
             className="flex items-center justify-center gap-2 py-3 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 active:scale-[0.98] transition-all">
-            <ShoppingCart className="w-4 h-4" />
-            Nueva venta
+            <ShoppingCart className="w-4 h-4" /> Nueva venta
           </button>
           <button onClick={() => router.push('/dashboard/expedientes?nuevo=true')}
             className="flex items-center justify-center gap-2 py-3 border border-zinc-200 text-zinc-700 text-sm font-medium rounded-xl hover:bg-zinc-50 active:scale-[0.98] transition-all">
-            <UserPlus className="w-4 h-4" />
-            Paciente nuevo
+            <UserPlus className="w-4 h-4" /> Paciente nuevo
           </button>
         </div>
       )}

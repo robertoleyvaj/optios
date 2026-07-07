@@ -59,16 +59,19 @@ type OrdenLab = {
 }
 
 // ─────────────────────────────────────────
-// Ventas mock  (espejo del módulo de ventas)
+// Tipo para venta vinculada (real)
 // ─────────────────────────────────────────
-const VENTAS_REF = [
-  { folio: 'V-0041', paciente: 'María González',  telefono: '686 123 4567', sucursal: 'Baja Visión',    od: '-2.50 -0.75 x170', oi: '-2.25 -0.50 x005', add: '+2.00', dp: '62', armazon: 'Ray-Ban RB5154 negro' },
-  { folio: 'V-0040', paciente: 'Carlos Ruiz',     telefono: '686 234 5678', sucursal: '5 de Mayo',      od: '+1.00',            oi: '+1.25 -0.25 x090', add: '',      dp: '64', armazon: '' },
-  { folio: 'V-0039', paciente: 'Ana López',       telefono: '686 345 6789', sucursal: 'Plaza Laureles', od: '-3.00 -1.25 x082', oi: '-3.25 -1.00 x095', add: '+2.50', dp: '60', armazon: 'Armazón básico' },
-  { folio: 'V-0038', paciente: 'Pedro Sánchez',   telefono: '686 456 7890', sucursal: 'Baja Visión',    od: '-1.00',            oi: '-0.75',            add: '',      dp: '65', armazon: 'Armazón básico' },
-  { folio: 'V-0037', paciente: 'Laura Martínez',  telefono: '686 567 8901', sucursal: 'Baja Visión',    od: '-4.50',            oi: '-4.25',            add: '',      dp: '61', armazon: '' },
-  { folio: 'V-0036', paciente: 'Jorge Herrera',   telefono: '686 678 9012', sucursal: 'Plaza Laureles', od: '+2.00 -0.50 x100', oi: '+2.25 -0.75 x085', add: '+2.25', dp: '63', armazon: 'Ray-Ban progresivo' },
-]
+type VentaRef = {
+  folio: string
+  paciente: string
+  telefono: string
+  sucursal: string
+  od: string
+  oi: string
+  add: string
+  dp: string
+  armazon: string
+}
 
 // ─────────────────────────────────────────
 // Config estados
@@ -99,23 +102,9 @@ const TIPOS_MICA = [
 const LABORATORIOS = ['Laboratorio Visión', 'Óptika Lab', 'Laboratorio Sur', 'Externo / cliente']
 const SUCURSALES   = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
-// ─────────────────────────────────────────
-// Mock data
-// ─────────────────────────────────────────
 const dias = (n: number) => {
   const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]
 }
-
-const ORDENES_MOCK: OrdenLab[] = [
-  { id: 1, supabaseId: '', folio: 'LAB-0041', folioVenta: 'V-0041', paciente: 'María González',  telefono: '686 123 4567', sucursal: 'Baja Visión',    laboratorio: 'Laboratorio Visión', tipoMica: 'Progresiva antirreflejante', armazon: 'comprado', descripcionArmazon: 'Ray-Ban RB5154 negro', od: '-2.50 -0.75 x170', oi: '-2.25 -0.50 x005', add: '+2.00', dp: '62', altura: '18', tratamiento: 'ninguno',     colorTratamiento: '', urgente: false, fechaIngreso: dias(-4), fechaPromesa: dias(3),  fechaEntrega: '', fechaEnvioLab: dias(-3), fechaRecogidaLab: '',       pagadoLab: false, fechaPagoLab: '', metodoPagoLab: '' as const, estado: 'en_laboratorio', costoLab: 1200, precioCliente: 3200, anticipo: 1000, notas: 'Antirreflejante premium' },
-  { id: 2, supabaseId: '', folio: 'LAB-0040', folioVenta: 'V-0036', paciente: 'Jorge Herrera',   telefono: '686 678 9012', sucursal: '5 de Mayo',      laboratorio: 'Óptika Lab',          tipoMica: 'Progresiva transitions',   armazon: 'comprado', descripcionArmazon: 'Oakley gris',          od: '+2.00 -0.50 x100', oi: '+2.25 -0.75 x085', add: '+2.25', dp: '63', altura: '20', tratamiento: 'tinte',       colorTratamiento: 'café', urgente: false, fechaIngreso: dias(-6), fechaPromesa: dias(1),  fechaEntrega: '', fechaEnvioLab: dias(-5), fechaRecogidaLab: dias(-1), pagadoLab: true,  fechaPagoLab: dias(-1), metodoPagoLab: 'transferencia' as const, estado: 'listo',          costoLab: 1800, precioCliente: 4800, anticipo: 2000, notas: '' },
-  { id: 3, supabaseId: '', folio: 'LAB-0039', folioVenta: 'V-0039', paciente: 'Ana López',       telefono: '686 345 6789', sucursal: 'Plaza Laureles', laboratorio: 'Laboratorio Visión',   tipoMica: 'Bifocal',                  armazon: 'comprado', descripcionArmazon: 'Armazón básico',       od: '-3.00 -1.25 x082', oi: '-3.25 -1.00 x095', add: '+2.50', dp: '60', altura: '16', tratamiento: 'ninguno',     colorTratamiento: '', urgente: false, fechaIngreso: dias(-3), fechaPromesa: dias(4),  fechaEntrega: '', fechaEnvioLab: dias(-2), fechaRecogidaLab: dias(0),  pagadoLab: false, fechaPagoLab: '', metodoPagoLab: '' as const, estado: 'en_camino',      costoLab: 900,  precioCliente: 2600, anticipo: 1000, notas: '' },
-  { id: 4, supabaseId: '', folio: 'LAB-0038', folioVenta: 'V-0037', paciente: 'Laura Martínez',  telefono: '686 567 8901', sucursal: 'Baja Visión',    laboratorio: 'Laboratorio Sur',      tipoMica: 'Lentes de contacto blandos', armazon: 'propio', descripcionArmazon: '',                  od: '-4.50',            oi: '-4.25',            add: '',      dp: '61', altura: '',   tratamiento: 'ninguno',     colorTratamiento: '', urgente: false, fechaIngreso: dias(-2), fechaPromesa: dias(5),  fechaEntrega: '', fechaEnvioLab: dias(-1), fechaRecogidaLab: '',       pagadoLab: false, fechaPagoLab: '', metodoPagoLab: '' as const, estado: 'en_laboratorio', costoLab: 600,  precioCliente: 1800, anticipo: 900,  notas: 'Mensuales Acuvue Oasys' },
-  { id: 5, supabaseId: '', folio: 'LAB-0037', folioVenta: 'V-0038', paciente: 'Pedro Sánchez',   telefono: '686 456 7890', sucursal: 'Baja Visión',    laboratorio: '',                     tipoMica: 'Monofocal antirreflejante', armazon: 'comprado', descripcionArmazon: 'Armazón básico',   od: '-1.00',            oi: '-0.75',            add: '',      dp: '65', altura: '',   tratamiento: 'polarizado',  colorTratamiento: 'gris', urgente: false, fechaIngreso: dias(0),  fechaPromesa: dias(7),  fechaEntrega: '', fechaEnvioLab: '',       fechaRecogidaLab: '',       pagadoLab: false, fechaPagoLab: '', metodoPagoLab: '' as const, estado: 'recibido',       costoLab: 0,    precioCliente: 1400, anticipo: 700,  notas: '' },
-  { id: 6, supabaseId: '', folio: 'LAB-0036', folioVenta: 'V-0040', paciente: 'Carlos Ruiz',     telefono: '686 234 5678', sucursal: '5 de Mayo',      laboratorio: 'Laboratorio Visión',   tipoMica: 'Monofocal blanca',         armazon: 'propio',   descripcionArmazon: 'Marco propio',         od: '+1.00',            oi: '+1.25 -0.25 x090', add: '',      dp: '64', altura: '',   tratamiento: 'ninguno',     colorTratamiento: '', urgente: false, fechaIngreso: dias(-8), fechaPromesa: dias(-1), fechaEntrega: dias(-1), fechaEnvioLab: dias(-7), fechaRecogidaLab: dias(-2), pagadoLab: true,  fechaPagoLab: dias(-2), metodoPagoLab: 'efectivo' as const, estado: 'entregado',       costoLab: 350,  precioCliente: 900,  anticipo: 900,  notas: '' },
-  { id: 7, supabaseId: '', folio: 'LAB-0035', folioVenta: '',       paciente: 'Sofía Ramos',     telefono: '686 789 0123', sucursal: 'Baja Visión',    laboratorio: 'Óptika Lab',           tipoMica: 'Progresiva estándar',      armazon: 'comprado', descripcionArmazon: 'Silhouette titanio',   od: '-1.50 -0.50 x160', oi: '-1.75 -0.25 x020', add: '+1.50', dp: '60', altura: '19', tratamiento: 'fotocromatico', colorTratamiento: '', urgente: false, fechaIngreso: dias(-5), fechaPromesa: dias(0),  fechaEntrega: '', fechaEnvioLab: dias(-4), fechaRecogidaLab: '',       pagadoLab: false, fechaPagoLab: '', metodoPagoLab: '' as const, estado: 'problema',       costoLab: 1400, precioCliente: 3800, anticipo: 1500, notas: 'Micas llegaron con raya. Reposición en proceso.' },
-  { id: 8, supabaseId: '', folio: 'LAB-0042', folioVenta: 'V-0042', paciente: 'Daniela Fuentes', telefono: '661 234 5678', sucursal: '5 de Mayo',      laboratorio: '',                     tipoMica: 'Monofocal antirreflejante', armazon: 'comprado', descripcionArmazon: 'Armazón Guess dorado', od: '-1.75 -0.50 x180', oi: '-2.00 -0.25 x005', add: '',      dp: '63', altura: '',   tratamiento: 'ninguno',     colorTratamiento: '', urgente: false, fechaIngreso: dias(0),  fechaPromesa: dias(5),  fechaEntrega: '', fechaEnvioLab: '',       fechaRecogidaLab: '',       pagadoLab: false, fechaPagoLab: '', metodoPagoLab: '' as const, estado: 'recibido',       costoLab: 0,    precioCliente: 1600, anticipo: 800,  notas: '' },
-]
 
 const formVacio = (): Omit<OrdenLab, 'id' | 'folio'> => ({
   supabaseId: '',
@@ -137,17 +126,38 @@ function diasRestantes(fecha: string) {
 // ─────────────────────────────────────────
 // Componente: buscador de venta
 // ─────────────────────────────────────────
-function BuscadorVenta({ onSelect }: { onSelect: (v: typeof VENTAS_REF[0]) => void }) {
+function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
   const [query, setQuery] = useState('')
+  const [resultados, setResultados] = useState<VentaRef[]>([])
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const resultados = query.length > 1
-    ? VENTAS_REF.filter(v =>
-        v.folio.toLowerCase().includes(query.toLowerCase()) ||
-        v.paciente.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 5)
-    : []
+  useEffect(() => {
+    if (query.length < 2) { setResultados([]); return }
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(async () => {
+      const { data } = await createClient()
+        .from('ventas')
+        .select('folio, sucursal, pacientes(nombre, apellido, telefono)')
+        .ilike('folio', `%${query}%`)
+        .eq('estado', 'activa')
+        .limit(5)
+      if (data) {
+        setResultados(data.map((v: Record<string, unknown>) => {
+          const p = v.pacientes as { nombre?: string; apellido?: string; telefono?: string } | null
+          return {
+            folio: v.folio as string,
+            sucursal: v.sucursal as string,
+            paciente: p ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim() : '',
+            telefono: p?.telefono ?? '',
+            od: '', oi: '', add: '', dp: '', armazon: '',
+          }
+        }))
+      }
+    }, 200)
+    return () => { if (timer.current) clearTimeout(timer.current) }
+  }, [query])
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
@@ -167,7 +177,7 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: typeof VENTAS_REF[0]) => vo
           placeholder="Buscar por folio (V-0041) o nombre de paciente..."
         />
       </div>
-      {open && resultados.length > 0 && (
+      {open && query.length > 1 && resultados.length > 0 && (
         <div className="absolute z-50 top-full mt-1 w-full bg-white border border-zinc-200 rounded-lg shadow-xl overflow-hidden">
           {resultados.map(v => (
             <button key={v.folio}
@@ -1177,7 +1187,7 @@ function rowToOrden(r: Record<string, unknown>, idx: number): OrdenLab {
 }
 
 export default function LaboratorioPage() {
-  const [ordenes, setOrdenes] = useState<OrdenLab[]>(ORDENES_MOCK)
+  const [ordenes, setOrdenes] = useState<OrdenLab[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrden | 'todas'>('todas')
@@ -1185,30 +1195,34 @@ export default function LaboratorioPage() {
   const [detalle, setDetalle] = useState<OrdenLab | null>(null)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState<Omit<OrdenLab, 'id' | 'folio'>>(formVacio())
-  const [ventaVinculada, setVentaVinculada] = useState<typeof VENTAS_REF[0] | null>(null)
+  const [ventaVinculada, setVentaVinculada] = useState<VentaRef | null>(null)
   const [printModal, setPrintModal] = useState<OrdenLab | null>(null)
 
-  // Usuario activo (demo) — leído en useEffect para evitar hidratación SSR/cliente
+  // Usuario activo — leído en useEffect para evitar hidratación SSR/cliente
   const [demoUser, setDemoUser] = useState<{ rol: string; sucursal: string; nombre: string } | null>(null)
-  useEffect(() => {
-    try { setDemoUser(JSON.parse(localStorage.getItem('optios_demo_user') || '{}')) } catch { /* noop */ }
-  }, [])
 
   // ── Cargar órdenes desde Supabase ──────────────────────────
   useEffect(() => {
     const fetchOrdenes = async () => {
       setCargando(true)
       try {
+        // Leer usuario del localStorage (dentro del useEffect para evitar SSR mismatch)
+        let user: { rol?: string; sucursal?: string; nombre?: string } = {}
+        try { user = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
+        setDemoUser(user as { rol: string; sucursal: string; nombre: string })
+
         const supabase = createClient()
-        const { data, error } = await supabase
-          .from('ordenes_lab')
-          .select('*')
-          .order('fecha_ingreso', { ascending: true })
+        let q = supabase.from('ordenes_lab').select('*').order('fecha_ingreso', { ascending: true })
+        // Vendedores solo ven órdenes de su sucursal
+        if (user?.rol === 'vendedor' && user?.sucursal) {
+          q = q.eq('sucursal', user.sucursal)
+        }
+        const { data, error } = await q
         if (data && !error) {
           setOrdenes(data.map((r, i) => rowToOrden(r as Record<string, unknown>, i)))
         }
       } catch (e) {
-        console.warn('Supabase no disponible, usando datos de ejemplo:', e)
+        console.warn('Error al cargar órdenes:', e)
       } finally {
         setCargando(false)
       }
@@ -1258,7 +1272,7 @@ export default function LaboratorioPage() {
 
   const nextFolio = `LAB-${String(ordenes.length + 42).padStart(4, '0')}`
 
-  const vincularVenta = (v: typeof VENTAS_REF[0]) => {
+  const vincularVenta = (v: VentaRef) => {
     setVentaVinculada(v)
     setForm(prev => ({
       ...prev,
