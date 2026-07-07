@@ -102,6 +102,11 @@ export default function NuevaVentaPage() {
   const [clienteApellido, setClienteApellido] = useState('')
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [clientesSuggestions, setClientesSuggestions] = useState<Cliente[]>([])
+  const [recetaPaciente, setRecetaPaciente] = useState<{
+    od_esfera: string; od_cilindro: string; od_eje: string; od_add: string
+    oi_esfera: string; oi_cilindro: string; oi_eje: string; oi_add: string
+    dp: string
+  } | null>(null)
   const [fechaEntrega, setFechaEntrega] = useState('')
   const [carrito, setCarrito] = useState<Item[]>([])
   const [showModal, setShowModal] = useState(false)
@@ -140,6 +145,7 @@ export default function NuevaVentaPage() {
             setClienteNombre(data.nombre)
             setClienteApellido(data.apellido)
             setClienteTelefono(data.telefono)
+            cargarRecetaPaciente(data.id)
           }
         })
     } else if (nombreParam) {
@@ -199,6 +205,18 @@ export default function NuevaVentaPage() {
     p.sku.toLowerCase().includes(busquedaProducto.toLowerCase())
   )
 
+  const cargarRecetaPaciente = async (pacienteId: string) => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('recetas')
+      .select('od_esfera,od_cilindro,od_eje,od_add,oi_esfera,oi_cilindro,oi_eje,oi_add,dp')
+      .eq('paciente_id', pacienteId)
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    setRecetaPaciente(data ?? null)
+  }
+
   const seleccionarCliente = (c: Cliente) => {
     setCliente(c)
     setClienteNombre(c.nombre)
@@ -206,6 +224,7 @@ export default function NuevaVentaPage() {
     setClienteTelefono(c.telefono)
     setBusquedaCliente('')
     setShowClienteDropdown(false)
+    if (c.id) cargarRecetaPaciente(c.id)
   }
 
   const agregar = (p: typeof catalogo[0]) => {
@@ -336,18 +355,53 @@ export default function NuevaVentaPage() {
         const { data: folioLab } = await supabase.rpc('siguiente_folio', { prefijo: 'L' })
         const hoy = new Date().toISOString().split('T')[0]
 
+        // Armar texto de tipo mica y tratamientos desde carrito
+        const micasCarrito = carrito.filter(i =>
+          i.nombre.toLowerCase().includes('mica') ||
+          i.nombre.toLowerCase().includes('progres') ||
+          i.nombre.toLowerCase().includes('bifocal') ||
+          i.nombre.toLowerCase().includes('monofocal') ||
+          i.nombre.toLowerCase().includes('transitions')
+        ).map(i => i.nombre).join(', ')
+
+        const filtrosCarrito = carrito.filter(i =>
+          i.nombre.toLowerCase().includes('filtro') ||
+          i.nombre.toLowerCase().includes('antirreflejo') ||
+          i.nombre.toLowerCase().includes('blue light') ||
+          i.nombre.toLowerCase().includes('fotocrom') ||
+          i.nombre.toLowerCase().includes('polariz') ||
+          i.nombre.toLowerCase().includes('tinte')
+        ).map(i => i.nombre).join(', ')
+
+        // Formatear graduación OD/OI como texto para ordenes_lab
+        const fmtOjo = (esf: string, cil: string, eje: string) =>
+          [esf, cil, eje ? `${eje}°` : ''].filter(Boolean).join(' / ')
+
+        const odTexto = recetaPaciente
+          ? fmtOjo(recetaPaciente.od_esfera, recetaPaciente.od_cilindro, recetaPaciente.od_eje)
+          : ''
+        const oiTexto = recetaPaciente
+          ? fmtOjo(recetaPaciente.oi_esfera, recetaPaciente.oi_cilindro, recetaPaciente.oi_eje)
+          : ''
+
         await supabase.from('ordenes_lab').insert({
-          folio:         folioLab ?? 'L-0001',
-          folio_venta:   folio,
-          venta_id:      ventaId,
-          paciente:      `${clienteNombre} ${clienteApellido}`.trim() || 'Sin nombre',
-          telefono:      clienteTelefono,
+          folio:            folioLab ?? 'L-0001',
+          folio_venta:      folio,
+          venta_id:         ventaId,
+          paciente:         `${clienteNombre} ${clienteApellido}`.trim() || 'Sin nombre',
+          telefono:         clienteTelefono,
           sucursal,
-          estado:        'recibido',
-          fecha_ingreso: hoy,
-          fecha_promesa: fechaEntrega || '',
-          precio_cliente: total,
-          anticipo:       anticoNum,
+          estado:           'recibido',
+          fecha_ingreso:    hoy,
+          fecha_promesa:    fechaEntrega || '',
+          precio_cliente:   total,
+          anticipo:         anticoNum,
+          od:               odTexto,
+          oi:               oiTexto,
+          add_graduacion:   recetaPaciente?.od_add || '',
+          dp:               recetaPaciente?.dp || '',
+          tipo_mica:        micasCarrito,
+          tratamiento:      filtrosCarrito,
         })
         setFolioLabGuardado(folioLab ?? 'L-0001')
       }
@@ -539,24 +593,35 @@ ${entregaHtml}
     <div style="font-size:9px;color:#555">${fechaFmt}</div>
   </div>
 </div>
-<div class="notice">Completar datos de graduación en el módulo de laboratorio</div>
 <div class="paciente">${nombreCompleto || 'Sin nombre'}</div>
 ${clienteTelefono ? `<p style="font-size:10px;color:#555;margin-bottom:8px">${clienteTelefono}</p>` : ''}
 <hr class="sep">
 <table class="grad-table">
   <thead><tr><th></th><th>Esfera</th><th>Cilindro</th><th>Eje</th><th>ADD</th></tr></thead>
   <tbody>
-    <tr><td class="lbl">OD</td><td></td><td></td><td></td><td></td></tr>
-    <tr><td class="lbl">OI</td><td></td><td></td><td></td><td></td></tr>
-    <tr><td class="lbl">D.P.</td><td colspan="4"></td></tr>
+    <tr>
+      <td class="lbl">OD</td>
+      <td>${recetaPaciente?.od_esfera || '—'}</td>
+      <td>${recetaPaciente?.od_cilindro || '—'}</td>
+      <td>${recetaPaciente?.od_eje ? recetaPaciente.od_eje + '°' : '—'}</td>
+      <td>${recetaPaciente?.od_add || '—'}</td>
+    </tr>
+    <tr>
+      <td class="lbl">OI</td>
+      <td>${recetaPaciente?.oi_esfera || '—'}</td>
+      <td>${recetaPaciente?.oi_cilindro || '—'}</td>
+      <td>${recetaPaciente?.oi_eje ? recetaPaciente.oi_eje + '°' : '—'}</td>
+      <td>${recetaPaciente?.oi_add || '—'}</td>
+    </tr>
+    <tr><td class="lbl">D.P.</td><td colspan="4">${recetaPaciente?.dp || '—'} mm</td></tr>
   </tbody>
 </table>
 <hr class="sep">
-<div class="field"><span class="fl">Tipo de mica:</span><span class="fv"></span></div>
-<div class="field"><span class="fl">Tratamiento:</span><span class="fv"></span></div>
-<div class="field"><span class="fl">Armazón:</span><span class="fv"></span></div>
-<div class="field"><span class="fl">Laboratorio:</span><span class="fv"></span></div>
-<div class="field"><span class="fl">Fecha entrega:</span><span class="fv"></span></div>
+<div class="field"><span class="fl">Tipo de mica:</span><span class="fv">${carrito.filter(i => i.nombre.toLowerCase().includes('mica') || i.nombre.toLowerCase().includes('monofocal') || i.nombre.toLowerCase().includes('progres') || i.nombre.toLowerCase().includes('bifocal')).map(i => i.nombre).join(', ') || '—'}</span></div>
+<div class="field"><span class="fl">Tratamiento:</span><span class="fv">${carrito.filter(i => i.nombre.toLowerCase().includes('filtro') || i.nombre.toLowerCase().includes('antirreflejo') || i.nombre.toLowerCase().includes('blue') || i.nombre.toLowerCase().includes('fotocrom') || i.nombre.toLowerCase().includes('tinte')).map(i => i.nombre).join(', ') || '—'}</span></div>
+<div class="field"><span class="fl">Armazón:</span><span class="fv">_________________________</span></div>
+<div class="field"><span class="fl">Laboratorio:</span><span class="fv">_________________________</span></div>
+<div class="field"><span class="fl">Fecha entrega:</span><span class="fv">${fechaEntrega || '_________________________'}</span></div>
 <div class="firma">Recibido por: _________________________</div>
 </body></html>`)
       win.document.close()
