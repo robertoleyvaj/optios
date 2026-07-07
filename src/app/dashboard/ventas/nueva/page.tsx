@@ -565,10 +565,11 @@ ${entregaHtml}
   @page { size: 4in 6in; margin: 5mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 11px; color: #000; width: 100%; }
-  .hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
-  .hdr-left h1 { font-size: 15px; font-weight: 900; letter-spacing: -0.3px; }
+  .hdr { display: flex; justify-content: space-between; align-items: center; background: #111; color: #fff; padding: 8px 10px; border-radius: 4px; margin-bottom: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hdr-left h1 { font-size: 14px; font-weight: 900; letter-spacing: -0.3px; color: #fff; }
+  .hdr-left p { font-size: 9px; color: #aaa; }
   .hdr-right { text-align: right; }
-  .folio { font-size: 14px; font-weight: 900; font-family: monospace; color: #009688; }
+  .folio { font-size: 15px; font-weight: 900; font-family: monospace; color: #4DB6AC; }
   .paciente { font-size: 14px; font-weight: 900; margin: 4px 0 1px; }
   .sep { border: none; border-top: 1px dashed #bbb; margin: 7px 0; }
   .grad-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
