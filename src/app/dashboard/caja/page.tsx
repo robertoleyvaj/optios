@@ -67,7 +67,7 @@ export default function CajaPage() {
 
   // ── Formulario de corte ──
   const [efectivoContado, setEfectivoContado] = useState('')
-  const [fondo, setFondo]     = useState('500')
+  const [fondo, setFondo]     = useState('427')
   const [notas, setNotas]     = useState('')
   const [guardando, setGuardando] = useState(false)
 
