@@ -5,9 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   Search, Plus, X, Save, ChevronRight,
-  User, Phone, Calendar, FileText,
+  User, Phone, FileText,
   Eye, ShoppingBag, Clock, ChevronDown,
-  Printer, Edit2, AlertCircle,
+  Printer, Edit2, AlertCircle, MoreHorizontal,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -268,6 +268,9 @@ function ExpedientesContent() {
   const [modalEditar, setModalEditar] = useState(false)
   const [formEditar, setFormEditar] = useState<Omit<Paciente, 'id' | 'recetas' | 'citas' | 'ventas'>>(formVacioPaciente())
 
+  // Menú de acciones del paciente
+  const [menuAbierto, setMenuAbierto] = useState(false)
+
   // Abrir modal automáticamente si viene de ?nuevo=true
   // Pre-llenar búsqueda si viene de ?search=... (desde el buscador del header)
   useEffect(() => {
@@ -404,6 +407,20 @@ function ExpedientesContent() {
     }, 400)
     return () => clearTimeout(timer)
   }, [busqueda])
+
+  // ── ESC para cerrar modales ────────────────────────────────
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (menuAbierto) { setMenuAbierto(false); return }
+      if (ventaAbierta) { setVentaAbierta(null); return }
+      if (modalReceta) { setModalReceta(false); setErroresReceta({}); return }
+      if (modalEditar) { setModalEditar(false); return }
+      if (modalPaciente) { setModalPaciente(false); return }
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [menuAbierto, ventaAbierta, modalReceta, modalEditar, modalPaciente])
 
   const crearDesdeHistorial = (h: HistorialBV) => {
     const partes = h.nombre.trim().split(' ')
@@ -560,7 +577,7 @@ function ExpedientesContent() {
             <span className="text-xs text-zinc-400">{pacientes.length} pacientes</span>
           </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
             <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
               className="w-full pl-8 pr-3 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
               placeholder="Buscar paciente..." />
@@ -642,50 +659,79 @@ function ExpedientesContent() {
         <div className="flex-1 flex flex-col gap-4 overflow-hidden">
 
           {/* Info del paciente */}
-          <div className="bg-white rounded-lg border border-zinc-200/80 p-5 flex-shrink-0">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-xl font-bold flex-shrink-0">
-                  {seleccionado.nombre[0]}{seleccionado.apellido[0]}
+          <div className="bg-white rounded-lg border border-zinc-200/80 px-4 py-3.5 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              {/* Avatar */}
+              <div className="w-10 h-10 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                {seleccionado.nombre[0]}{seleccionado.apellido[0]}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-sm font-bold text-zinc-800 leading-tight">{seleccionado.nombre} {seleccionado.apellido}</h2>
+                  {seleccionado.fechaNacimiento && (
+                    <span className="text-xs text-zinc-400">{calcEdad(seleccionado.fechaNacimiento)}</span>
+                  )}
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 font-medium">{seleccionado.sucursalPrincipal}</span>
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-zinc-800">{seleccionado.nombre} {seleccionado.apellido}</h2>
-                  <div className="flex items-center gap-4 mt-1 flex-wrap">
-                    <span className="flex items-center gap-1.5 text-sm text-zinc-500">
-                      <Phone className="w-3.5 h-3.5" /> {seleccionado.telefono}
-                    </span>
-                    {seleccionado.email && (
-                      <span className="text-sm text-zinc-500">{seleccionado.email}</span>
-                    )}
-                    {seleccionado.fechaNacimiento && (
-                      <span className="flex items-center gap-1.5 text-sm text-zinc-500">
-                        <Calendar className="w-3.5 h-3.5" /> {calcEdad(seleccionado.fechaNacimiento)}
-                      </span>
-                    )}
-                    <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-500">
-                      {seleccionado.sucursalPrincipal}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                  {seleccionado.telefono && (
+                    <div className="flex items-center gap-1.5">
+                      <Phone className="w-3 h-3 text-zinc-400" />
+                      <span className="text-xs text-zinc-500">{seleccionado.telefono}</span>
+                      <a href={`https://wa.me/52${seleccionado.telefono.replace(/\D/g, '')}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-colors font-medium">
+                        <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                        </svg>
+                        WA
+                      </a>
+                    </div>
+                  )}
+                  {seleccionado.email && (
+                    <span className="text-xs text-zinc-400 truncate max-w-52">{seleccionado.email}</span>
+                  )}
                   {seleccionado.notas && (
-                    <div className="flex items-start gap-1.5 mt-2">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-700">{seleccionado.notas}</p>
+                    <div className="flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                      <span className="text-xs text-amber-700 truncate max-w-64">{seleccionado.notas}</span>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={abrirEditar} className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
-                  <Edit2 className="w-3.5 h-3.5" /> Editar
-                </button>
-                <button onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/resumen`)}
-                  className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-600 hover:bg-zinc-50 transition-colors">
-                  <FileText className="w-3.5 h-3.5" /> Expediente clínico
-                </button>
-                <button onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/hoja`)}
-                  className="flex items-center gap-1.5 px-3 py-2 border border-[#0D9488] rounded text-xs text-[#0D9488] hover:bg-teal-50 transition-colors">
-                  <FileText className="w-3.5 h-3.5" /> Hoja del paciente
-                </button>
+
+              {/* Acciones */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Menú secundario */}
+                <div className="relative">
+                  <button onClick={() => setMenuAbierto(o => !o)}
+                    className="flex items-center justify-center w-8 h-8 border border-zinc-200 rounded text-zinc-500 hover:bg-zinc-50 transition-colors">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                  {menuAbierto && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setMenuAbierto(false)} />
+                      <div className="absolute right-0 top-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg z-20 min-w-48 py-1">
+                        <button onClick={() => { abrirEditar(); setMenuAbierto(false) }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 transition-colors">
+                          <Edit2 className="w-3.5 h-3.5 text-zinc-400" /> Editar datos
+                        </button>
+                        <button onClick={() => { router.push(`/dashboard/expedientes/${seleccionado.id}/resumen`); setMenuAbierto(false) }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 transition-colors">
+                          <FileText className="w-3.5 h-3.5 text-zinc-400" /> Expediente clínico
+                        </button>
+                        <button onClick={() => { router.push(`/dashboard/expedientes/${seleccionado.id}/hoja`); setMenuAbierto(false) }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 transition-colors">
+                          <Printer className="w-3.5 h-3.5 text-zinc-400" /> Hoja del paciente
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Acción principal */}
                 <button onClick={() => router.push(`/dashboard/expedientes/nuevo?pacienteId=${seleccionado.id}`)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors">
                   <Plus className="w-3.5 h-3.5" /> Nueva consulta
@@ -694,20 +740,20 @@ function ExpedientesContent() {
             </div>
 
             {/* Stats rápidos */}
-            <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-zinc-100">
+            <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-zinc-100">
               <div className="text-center">
-                <p className="text-2xl font-bold text-zinc-800">{seleccionado.recetas.length}</p>
-                <p className="text-xs text-zinc-400 mt-0.5">Receta{seleccionado.recetas.length !== 1 ? 's' : ''}</p>
+                <p className="text-lg font-bold text-zinc-800">{seleccionado.recetas.length}</p>
+                <p className="text-xs text-zinc-400">Recetas</p>
               </div>
               <div className="text-center border-x border-zinc-100">
-                <p className="text-2xl font-bold text-zinc-800">{seleccionado.citas.length}</p>
-                <p className="text-xs text-zinc-400 mt-0.5">Citas</p>
+                <p className="text-lg font-bold text-zinc-800">{seleccionado.citas.length}</p>
+                <p className="text-xs text-zinc-400">Citas</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-zinc-800">
+                <p className="text-lg font-bold text-zinc-800">
                   ${seleccionado.ventas.reduce((s, v) => s + v.total, 0).toLocaleString('es-MX')}
                 </p>
-                <p className="text-xs text-zinc-400 mt-0.5">Total compras</p>
+                <p className="text-xs text-zinc-400">Total compras</p>
               </div>
             </div>
           </div>
@@ -968,7 +1014,7 @@ function ExpedientesContent() {
                       className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {['Lejos', 'Cerca', 'Progresivo', 'Bifocal'].map(t => <option key={t}>{t}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
                 <div>
@@ -1100,10 +1146,13 @@ function ExpedientesContent() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5 border border-zinc-200 rounded px-3 py-2.5 bg-zinc-100 text-xs text-zinc-500 whitespace-nowrap select-none">
+                    🇲🇽 +52
+                  </div>
                   <input value={formEditar.telefono} onChange={e => setFormEditar(p => ({ ...p, telefono: e.target.value }))}
-                    className="w-full border border-zinc-200 rounded pl-9 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                    className="flex-1 border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                    placeholder="661 000 0000" />
                 </div>
               </div>
               <div>
@@ -1173,11 +1222,13 @@ function ExpedientesContent() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono *</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5 border border-zinc-200 rounded px-3 py-2.5 bg-zinc-100 text-xs text-zinc-500 whitespace-nowrap select-none">
+                    🇲🇽 +52
+                  </div>
                   <input value={formPaciente.telefono} onChange={e => setFormPaciente(p => ({ ...p, telefono: e.target.value }))}
-                    className="w-full border border-zinc-200 rounded pl-9 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                    placeholder="686 000 0000" />
+                    className="flex-1 border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                    placeholder="661 000 0000" />
                 </div>
               </div>
               <div>
@@ -1199,7 +1250,7 @@ function ExpedientesContent() {
                       className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {SUCURSALES.map(s => <option key={s}>{s}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
               </div>
