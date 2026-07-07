@@ -19,6 +19,8 @@ export default function CheckInModal() {
         if (!raw) return
         const u = JSON.parse(raw)
         if (!u.nombre) return
+        // El repartidor se mueve entre todas las sucursales — no necesita check-in
+        if (u.rol === 'repartidor') return
         setNombre(u.nombre)
 
         // Verificar si ya hay check-in hoy

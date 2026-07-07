@@ -103,7 +103,6 @@ export default function MiDesempenoPage() {
           .from('ventas')
           .select('total')
           .eq('atendido_por', nombre)
-          .eq('es_cotizacion', false)
           .eq('estado', 'activa')
           .gte('created_at', inicio)
           .lte('created_at', fin)

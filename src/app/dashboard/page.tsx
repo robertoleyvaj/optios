@@ -659,13 +659,21 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
 // ─────────────────────────────────────────
 export default function DashboardPage() {
   const [usuario, setUsuario] = useState<{ nombre: string; rol: string; sucursal: string } | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem('optios_demo_user')
-      if (raw) setUsuario(JSON.parse(raw))
+      if (raw) {
+        const u = JSON.parse(raw)
+        setUsuario(u)
+        // El repartidor va directo al laboratorio — ese es su dashboard
+        if (u.rol === 'repartidor') {
+          router.replace('/dashboard/laboratorio')
+        }
+      }
     } catch { /* noop */ }
-  }, [])
+  }, [router])
 
   const esAdmin    = !usuario || usuario.rol === 'administrador' || usuario.rol === 'gerente'
   const esVendedor = usuario?.rol === 'vendedor'
@@ -676,6 +684,9 @@ export default function DashboardPage() {
   if (esVendedor) {
     return <VistaVendedor nombre={nombreUsuario} sucursal={usuario?.sucursal ?? ''} />
   }
+
+  // Repartidor: redirigido a laboratorio (no renderizar nada mientras)
+  if (usuario?.rol === 'repartidor') return null
 
   return (
     <div className="space-y-5">

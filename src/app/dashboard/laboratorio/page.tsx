@@ -504,6 +504,11 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     fechaPromesa: string
     notas: string
   } | null>(null)
+  const [llevandoDraft, setLlevandoDraft] = useState<{
+    laboratorio: string
+    costoLab: string
+    notas: string
+  }>({ laboratorio: '', costoLab: '', notas: '' })
 
   const lista = ordenes
     .filter(o => o.estado !== 'entregado' && o.estado !== 'problema')
@@ -560,10 +565,16 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   }
 
   const openOrder = (id: number) => {
+    const o = lista.find(x => x.id === id)
     setSelectedId(id)
     setEditMode(false)
     setSavedNext('none')
     setDraft(null)
+    setLlevandoDraft({
+      laboratorio: o?.laboratorio ?? '',
+      costoLab: o && o.costoLab > 0 ? String(o.costoLab) : '',
+      notas: o?.notas ?? '',
+    })
   }
 
   const startEdit = (o: OrdenLab) => {
@@ -647,6 +658,75 @@ function VistaRepartidor({ ordenes, onUpdate }: {
             )}
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // ── Vista "Llevar al lab" — órdenes recibido ──────────────
+  if (selected && selected.estado === 'recibido') {
+    const o = selected
+    return (
+      <div className="max-w-sm mx-auto space-y-3">
+        <div className="flex items-center justify-between">
+          <button onClick={() => { setSelectedId(null); setDraft(null) }}
+            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
+            <ChevronLeft className="w-4 h-4" /> Órdenes
+          </button>
+          <span className="text-sm font-bold text-zinc-500">{o.folio}</span>
+          <div className="w-20" />
+        </div>
+
+        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+          <div className="px-4 pt-4 pb-3 border-b border-zinc-100">
+            <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
+            <p className="text-sm text-zinc-400 mt-0.5">
+              {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
+            </p>
+            <p className="text-xs text-zinc-400 mt-1">{o.sucursal}</p>
+          </div>
+
+          <div className="px-4 py-4 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Laboratorio</label>
+              <select value={llevandoDraft.laboratorio}
+                onChange={e => setLlevandoDraft(d => ({ ...d, laboratorio: e.target.value }))}
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488]">
+                <option value="">Sin asignar</option>
+                {LABORATORIOS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Costo del lab</label>
+              <input type="number" placeholder="$0" value={llevandoDraft.costoLab}
+                onChange={e => setLlevandoDraft(d => ({ ...d, costoLab: e.target.value }))}
+                className="border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] w-40" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Observaciones</label>
+              <textarea value={llevandoDraft.notas} rows={2} placeholder="—"
+                onChange={e => setLlevandoDraft(d => ({ ...d, notas: e.target.value }))}
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] resize-none" />
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            onUpdate(o.id, {
+              estado: 'en_laboratorio',
+              laboratorio: llevandoDraft.laboratorio,
+              costoLab: Number(llevandoDraft.costoLab) || 0,
+              notas: llevandoDraft.notas,
+              fechaEnvioLab: new Date().toISOString().split('T')[0],
+            })
+            setSavedNext(getNextId(o.id))
+          }}
+          className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors"
+        >
+          <ArrowRight className="w-4 h-4" /> Confirmé que lo llevé al lab
+        </button>
       </div>
     )
   }
@@ -806,33 +886,28 @@ function VistaRepartidor({ ordenes, onUpdate }: {
         {/* Acciones rápidas */}
         {!editMode && (
           <div className="space-y-2">
-            {o.estado === 'recibido' && (
-              <button
-                onClick={() => { onUpdate(o.id, { estado: 'en_laboratorio', fechaEnvioLab: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)); setEditMode(false); setDraft(null) }}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors"
-              >
-                <ArrowRight className="w-4 h-4" /> ✓ Llevé la orden al laboratorio
-              </button>
-            )}
             {o.estado === 'en_laboratorio' && (
-              <div className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-50 text-zinc-400 text-sm rounded-xl border border-zinc-200">
-                <Clock className="w-4 h-4" /> En fabricación...
-              </div>
-            )}
-            {(o.estado === 'en_camino' || o.estado === 'en_laboratorio') && (
               <button
-                onClick={() => { onUpdate(o.id, { estado: 'listo', fechaRecogidaLab: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)); setEditMode(false); setDraft(null) }}
-                className={`w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors ${o.estado === 'en_laboratorio' ? 'mt-1' : ''}`}
+                onClick={() => { onUpdate(o.id, { estado: 'listo', fechaRecogidaLab: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)) }}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors"
               >
-                <CheckCircle2 className="w-4 h-4" /> ✓ Recogí la orden del laboratorio
+                <CheckCircle2 className="w-4 h-4" /> Ya está listo, lo voy a recoger
               </button>
             )}
             {o.estado === 'listo' && (
               <button
-                onClick={() => { onUpdate(o.id, { estado: 'entregado', fechaEntrega: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)); setEditMode(false); setDraft(null) }}
+                onClick={() => { onUpdate(o.id, { estado: 'en_camino' }); setSavedNext(getNextId(o.id)) }}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors"
+              >
+                <Truck className="w-4 h-4" /> Ya voy en camino a la óptica
+              </button>
+            )}
+            {o.estado === 'en_camino' && (
+              <button
+                onClick={() => { onUpdate(o.id, { estado: 'entregado', fechaEntrega: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)) }}
                 className="w-full flex items-center justify-center gap-2 py-3 bg-[#0B0E14] text-white text-sm font-bold rounded-xl hover:bg-zinc-700 transition-colors"
               >
-                <CheckCircle2 className="w-4 h-4" /> ✓ Entregué al cliente
+                <CheckCircle2 className="w-4 h-4" /> Lo entregué en la óptica
               </button>
             )}
           </div>
@@ -937,10 +1012,9 @@ function VistaRepartidor({ ordenes, onUpdate }: {
 // ─────────────────────────────────────────
 // Vista simplificada para vendedor
 // ─────────────────────────────────────────
-function VistaVendedor({ ordenes, sucursal, onCambiarEstado, onPrint }: {
+function VistaVendedor({ ordenes, sucursal, onPrint }: {
   ordenes: OrdenLab[]
   sucursal: string
-  onCambiarEstado: (id: number, estado: EstadoOrden) => void
   onPrint: (o: OrdenLab) => void
 }) {
   const pendientes = ordenes
@@ -1009,13 +1083,13 @@ function VistaVendedor({ ordenes, sucursal, onCambiarEstado, onPrint }: {
             </div>
           )}
 
-          {/* Pipeline de 4 pasos */}
+          {/* Pipeline de estado */}
           <div className="flex items-center gap-0 pt-1 border-t border-zinc-100">
             {[
-              { label: 'Creada',   done: true },
-              { label: 'En lab',   done: ['en_laboratorio','en_camino','listo','entregado'].includes(o.estado) },
-              { label: 'Recibida', done: ['listo','entregado'].includes(o.estado) },
-              { label: 'Entregada',done: o.estado === 'entregado' },
+              { label: 'Pendiente',  done: true },
+              { label: 'En lab',     done: ['en_laboratorio','listo','en_camino','entregado'].includes(o.estado) },
+              { label: 'Listo',      done: ['listo','en_camino','entregado'].includes(o.estado) },
+              { label: 'Entregado',  done: ['en_camino','entregado'].includes(o.estado) },
             ].map((step, i) => (
               <React.Fragment key={step.label}>
                 {i > 0 && (
@@ -1039,42 +1113,13 @@ function VistaVendedor({ ordenes, sucursal, onCambiarEstado, onPrint }: {
             ))}
           </div>
 
-          {/* Acciones */}
-          <div className="flex items-center gap-2 border-t border-zinc-100">
-            {o.estado === 'en_camino' && (
-              <button
-                onClick={() => onCambiarEstado(o.id, 'listo')}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-xs font-bold hover:bg-emerald-100 transition-colors"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Llegó del laboratorio
-              </button>
-            )}
-            {o.estado === 'listo' && (
-              <button
-                onClick={() => onCambiarEstado(o.id, 'entregado')}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#0B0E14] text-white rounded text-xs font-bold hover:bg-[#1A1D27] transition-colors"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Entregar al cliente
-              </button>
-            )}
-            {o.estado === 'recibido' && (
-              <button
-                onClick={() => onCambiarEstado(o.id, 'en_laboratorio')}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-xs font-bold hover:bg-indigo-100 transition-colors"
-              >
-                <ArrowRight className="w-3.5 h-3.5" /> Enviar al laboratorio
-              </button>
-            )}
-            {o.estado === 'en_laboratorio' && (
-              <div className="flex-1 flex items-center justify-center gap-1.5 py-2 text-zinc-400 text-xs">
-                <Clock className="w-3.5 h-3.5" /> Fabricando...
-              </div>
-            )}
+          {/* Imprimir */}
+          <div className="flex items-center justify-end border-t border-zinc-100 pt-2">
             <button
               onClick={() => onPrint(o)}
-              className="flex items-center gap-1 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-3.5 h-3.5" /> Imprimir orden
             </button>
           </div>
         </div>
@@ -1360,7 +1405,6 @@ export default function LaboratorioPage() {
         <VistaVendedor
           ordenes={ordenes}
           sucursal={demoUser?.sucursal ?? 'Todas'}
-          onCambiarEstado={cambiarEstado}
           onPrint={o => setPrintModal(o)}
         />
         {printModal && <PrintModal orden={printModal} onClose={() => setPrintModal(null)} />}
