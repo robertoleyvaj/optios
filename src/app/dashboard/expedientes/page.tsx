@@ -897,7 +897,7 @@ function ExpedientesContent() {
             )}
           </div>
 
-          {/* ─── CONTENIDO PRINCIPAL (2 columnas) ─── */}
+          {/* CONTENIDO PRINCIPAL: receta primero, historial segundo */}
           <div className="flex-1 flex gap-3 min-h-0">
 
             {/* Centro: receta vigente (PRIMERO) → historial */}
