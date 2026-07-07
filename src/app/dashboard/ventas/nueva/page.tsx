@@ -77,7 +77,7 @@ const metodosPago = [
 ]
 
 type Item = { id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number }
-type Cliente = typeof clientesMock[0]
+type Cliente = { id: string; nombre: string; apellido: string; telefono: string }
 
 // Comisión es interna (para finanzas), no se traslada al cliente
 const COMISION: Record<string, number> = { debito: 0.015, credito: 0.029 }
@@ -101,6 +101,7 @@ export default function NuevaVentaPage() {
   const [clienteNombre, setClienteNombre] = useState('')
   const [clienteApellido, setClienteApellido] = useState('')
   const [clienteTelefono, setClienteTelefono] = useState('')
+  const [clientesSuggestions, setClientesSuggestions] = useState<Cliente[]>([])
   const [fechaEntrega, setFechaEntrega] = useState('')
   const [carrito, setCarrito] = useState<Item[]>([])
   const [showModal, setShowModal] = useState(false)
@@ -120,12 +121,28 @@ export default function NuevaVentaPage() {
   const [showProductoLibre, setShowProductoLibre] = useState(false)
   const [productoLibre, setProductoLibre] = useState({ descripcion: '', precio: '', cantidad: '1' })
 
-  // Auto-populate desde consulta terminada
+  // Auto-populate desde URL params (pacienteId desde expedientes, desde_consulta desde wizard)
   useEffect(() => {
+    const pacienteId    = searchParams.get('pacienteId')
     const desdeConsulta = searchParams.get('desde_consulta')
     const nombreParam   = searchParams.get('nombre')
+    const supabase      = createClient()
 
-    if (nombreParam) {
+    // Si viene pacienteId, cargarlo y auto-seleccionarlo
+    if (pacienteId) {
+      supabase.from('pacientes')
+        .select('id, nombre, apellido, telefono')
+        .eq('id', pacienteId)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setCliente({ id: data.id, nombre: data.nombre, apellido: data.apellido, telefono: data.telefono })
+            setClienteNombre(data.nombre)
+            setClienteApellido(data.apellido)
+            setClienteTelefono(data.telefono)
+          }
+        })
+    } else if (nombreParam) {
       const partes = decodeURIComponent(nombreParam).split(' ')
       setClienteNombre(partes[0] || '')
       setClienteApellido(partes.slice(1).join(' ') || '')
@@ -133,43 +150,49 @@ export default function NuevaVentaPage() {
 
     if (!desdeConsulta) return
 
-    const cargarDesdeConsulta = async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('consultas')
-        .select('rec_comerciales, diagnosticos')
-        .eq('id', desdeConsulta)
-        .single()
-
-      if (!data?.rec_comerciales) return
-
-      const recs: { producto: string; prioridad: string }[] = Array.isArray(data.rec_comerciales)
-        ? data.rec_comerciales : []
-
-      const itemsAgregar: Item[] = []
-      for (const rec of recs) {
-        const ids = REC_A_CATALOGO[rec.producto]
-        if (!ids || ids.length === 0) continue
-        for (const id of ids) {
-          const prod = catalogo.find(p => p.id === id)
-          if (prod && !itemsAgregar.find(i => i.id === id)) {
-            itemsAgregar.push({ ...prod, cantidad: 1, descuento: 0 })
+    supabase.from('consultas')
+      .select('rec_comerciales, diagnosticos')
+      .eq('id', desdeConsulta)
+      .single()
+      .then(({ data }) => {
+        if (!data?.rec_comerciales) return
+        const recs: { producto: string; prioridad: string }[] = Array.isArray(data.rec_comerciales)
+          ? data.rec_comerciales : []
+        const itemsAgregar: Item[] = []
+        for (const rec of recs) {
+          const ids = REC_A_CATALOGO[rec.producto]
+          if (!ids || ids.length === 0) continue
+          for (const id of ids) {
+            const prod = catalogo.find(p => p.id === id)
+            if (prod && !itemsAgregar.find(i => i.id === id)) {
+              itemsAgregar.push({ ...prod, cantidad: 1, descuento: 0 })
+            }
           }
         }
-      }
-
-      if (itemsAgregar.length > 0) setCarrito(itemsAgregar)
-    }
-    cargarDesdeConsulta()
+        if (itemsAgregar.length > 0) setCarrito(itemsAgregar)
+      })
   }, []) // eslint-disable-line
 
-  // Búsqueda de clientes — muestra todos al enfocar, filtra al escribir
-  const clientesFiltrados = busquedaCliente.length >= 1
-    ? clientesMock.filter(c =>
-        `${c.nombre} ${c.apellido}`.toLowerCase().includes(busquedaCliente.toLowerCase()) ||
-        c.telefono.includes(busquedaCliente)
-      )
-    : clientesMock
+  // Búsqueda de clientes en Supabase
+  useEffect(() => {
+    if (!showClienteDropdown) return
+    const supabase = createClient()
+    const q = busquedaCliente.trim()
+    const query = supabase.from('pacientes')
+      .select('id, nombre, apellido, telefono')
+      .order('nombre', { ascending: true })
+      .limit(8)
+
+    const fetch = q.length >= 1
+      ? query.or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,telefono.ilike.%${q}%`)
+      : query
+
+    fetch.then(({ data }) => {
+      setClientesSuggestions((data ?? []).map(p => ({
+        id: p.id, nombre: p.nombre, apellido: p.apellido, telefono: p.telefono
+      })))
+    })
+  }, [busquedaCliente, showClienteDropdown])
 
   const productosFiltrados = catalogo.filter(p =>
     p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase()) ||
@@ -745,8 +768,8 @@ ${clienteTelefono ? `<p style="font-size:10px;color:#555;margin-bottom:8px">${cl
             </div>
             {showClienteDropdown && !cliente && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-100 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden">
-                {clientesFiltrados.length > 0
-                  ? clientesFiltrados.slice(0, 6).map(c => (
+                {clientesSuggestions.length > 0
+                  ? clientesSuggestions.slice(0, 6).map(c => (
                     <button
                       key={c.id}
                       onMouseDown={() => seleccionarCliente(c)}
