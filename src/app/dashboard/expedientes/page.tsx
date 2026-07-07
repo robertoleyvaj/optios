@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import React from 'react'
 import {
-  Search, Plus, X, Save, ChevronRight,
+  Search, Plus, X, Save, ChevronRight, ChevronLeft,
   User, Phone, FileText, Calendar, MessageCircle,
   Eye, ShoppingBag, ChevronDown,
   Printer, Edit2, AlertCircle, MoreHorizontal,
@@ -268,6 +268,21 @@ function getInfoClinica(p: Paciente, rv: Receta | null): string[] {
   return tags.length > 0 ? tags : ['Sin notas clínicas']
 }
 
+const TAG_COLORES: Record<string, string> = {
+  'Astigmatismo':          'bg-teal-100 text-teal-700',
+  'Baja visión':           'bg-blue-100 text-blue-700',
+  'Uso de fotocromáticos': 'bg-indigo-100 text-indigo-700',
+  'Diabetes':              'bg-orange-100 text-orange-700',
+  'Hipertensión':          'bg-red-100 text-red-700',
+  'Sin alergias conocidas':'bg-zinc-100 text-zinc-500',
+  'Alergias':              'bg-red-100 text-red-700',
+  'Lentes de contacto':    'bg-purple-100 text-purple-700',
+  'Necesita adición':      'bg-amber-100 text-amber-700',
+}
+function tagColor(tag: string): string {
+  return TAG_COLORES[tag] ?? 'bg-zinc-100 text-zinc-600'
+}
+
 function garantiaVigenteInfo(p: Paciente): string | null {
   const last = [...p.ventas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
   if (!last) return null
@@ -363,6 +378,9 @@ function ExpedientesContent() {
   // Modal editar paciente
   const [modalEditar, setModalEditar] = useState(false)
   const [formEditar, setFormEditar] = useState<Omit<Paciente, 'id' | 'recetas' | 'citas' | 'ventas'>>(formVacioPaciente())
+
+  // Panel izquierdo colapsable
+  const [panelAbierto, setPanelAbierto] = useState(true)
 
   // Menú de acciones del paciente
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -667,91 +685,104 @@ function ExpedientesContent() {
   const rv = recetaVigente(seleccionado ?? { recetas: [] } as unknown as Paciente)
 
   return (
-    <div className="flex gap-5 h-[calc(100vh-140px)]">
+    <div className="flex gap-3 h-[calc(100vh-140px)]">
 
-      {/* ── PANEL IZQUIERDO: lista de pacientes ── */}
-      <div className="w-72 flex-shrink-0 bg-white rounded-lg border border-zinc-200/80 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-zinc-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-bold text-zinc-700">Expedientes</span>
-            <span className="text-xs text-zinc-400">{pacientes.length} pacientes</span>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
-            <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-              placeholder="Buscar paciente..." />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto divide-y divide-zinc-50">
-          {filtrados.map(p => {
-            const fechaMostrar = p._ultimaRecetaFecha
-            const esSeleccionado = seleccionado?.id === p.id
-            return (
-              <button key={p.id} onClick={() => { setSeleccionado(p); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
-                className={`w-full text-left px-4 py-3.5 transition-colors flex items-center gap-3 ${esSeleccionado ? 'bg-[#0B0E14]' : 'hover:bg-zinc-50'}`}>
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${esSeleccionado ? 'bg-[#0D9488]/20 text-[#0D9488]' : 'bg-zinc-100 text-zinc-500'}`}>
-                  {p.nombre[0]}{p.apellido[0]}
+      {/* ── PANEL IZQUIERDO: lista de pacientes (colapsable) ── */}
+      <div className={`flex-shrink-0 bg-white rounded-lg border border-zinc-200/80 flex flex-col overflow-hidden transition-all duration-200 ${panelAbierto ? 'w-60' : 'w-12'}`}>
+        {panelAbierto ? (
+          <>
+            <div className="p-3 border-b border-zinc-100 flex-shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest">Expedientes</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-zinc-400">{pacientes.length}</span>
+                  <button onClick={() => setPanelAbierto(false)}
+                    className="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded transition-colors">
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold truncate ${esSeleccionado ? 'text-white' : 'text-zinc-700'}`}>
-                    {p.nombre} {p.apellido}
-                  </p>
-                  <p className={`text-xs truncate ${esSeleccionado ? 'text-white/50' : 'text-zinc-400'}`}>
-                    {fechaMostrar ? `Última receta: ${fechaMostrar.split('-').slice(0,2).join('/')}` : 'Sin receta'}
-                  </p>
-                </div>
-                <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 ${esSeleccionado ? 'text-white/40' : 'text-zinc-300'}`} />
-              </button>
-            )
-          })}
-          {filtrados.length === 0 && busqueda.length < 3 && (
-            <div className="text-center py-10 text-sm text-zinc-400">Sin resultados</div>
-          )}
+              </div>
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-400" />
+                <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                  className="w-full pl-6 pr-2 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                  placeholder="Buscar paciente..." />
+              </div>
+            </div>
 
-          {/* ── Resultados de historial_bv ── */}
-          {busqueda.length >= 3 && (
-            <>
-              {filtrados.length === 0 && (
-                <div className="text-center py-6 text-sm text-zinc-400">Sin expedientes activos</div>
+            <div className="flex-1 overflow-y-auto">
+              {filtrados.map(p => {
+                const esSeleccionado = seleccionado?.id === p.id
+                return (
+                  <button key={p.id} onClick={() => { setSeleccionado(p); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
+                    className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 border-b border-zinc-50 ${esSeleccionado ? 'bg-[#0B0E14]' : 'hover:bg-zinc-50'}`}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${esSeleccionado ? 'bg-[#0D9488]/20 text-[#0D9488]' : 'bg-zinc-100 text-zinc-500'}`}>
+                      {p.nombre[0]}{p.apellido[0]}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-semibold truncate leading-tight ${esSeleccionado ? 'text-white' : 'text-zinc-700'}`}>
+                        {p.nombre} {p.apellido}
+                      </p>
+                      <p className={`text-[10px] truncate ${esSeleccionado ? 'text-white/50' : 'text-zinc-400'}`}>
+                        {p._ultimaRecetaFecha ? `Última receta: ${p._ultimaRecetaFecha}` : 'Sin receta'}
+                      </p>
+                    </div>
+                    {esSeleccionado && <div className="w-1.5 h-1.5 rounded-full bg-[#0D9488] flex-shrink-0" />}
+                  </button>
+                )
+              })}
+              {filtrados.length === 0 && busqueda.length < 3 && (
+                <div className="text-center py-8 text-xs text-zinc-400">Sin resultados</div>
               )}
-              {filtrados.length === 0 && (historialResultados.length > 0 || buscandoHistorial) && (
-                <div className="border-t border-dashed border-zinc-200 mt-1">
-                  <p className="px-4 pt-3 pb-1 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-                    Historial anterior
-                  </p>
-                  {buscandoHistorial && (
-                    <div className="px-4 py-3 text-xs text-zinc-400">Buscando...</div>
-                  )}
+              {busqueda.length >= 3 && filtrados.length === 0 && (historialResultados.length > 0 || buscandoHistorial) && (
+                <div className="border-t border-dashed border-zinc-200">
+                  <p className="px-3 pt-2 pb-1 text-[10px] font-bold text-zinc-400 uppercase tracking-wide">Historial anterior</p>
+                  {buscandoHistorial && <div className="px-3 py-2 text-xs text-zinc-400">Buscando...</div>}
                   {historialResultados.map(h => (
                     <button key={h.id} onClick={() => crearDesdeHistorial(h)}
-                      className="w-full text-left px-4 py-3 hover:bg-amber-50 transition-colors flex items-center gap-3 border-b border-zinc-50">
-                      <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                      className="w-full text-left px-3 py-2 hover:bg-amber-50 transition-colors flex items-center gap-2 border-b border-zinc-50">
+                      <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
                         {h.nombre[0]}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-zinc-600 truncate">{h.nombre}</p>
-                        <p className="text-xs text-zinc-400 truncate">{h.sucursal} · ${h.total.toLocaleString('es-MX')}</p>
+                        <p className="text-xs font-semibold text-zinc-600 truncate">{h.nombre}</p>
+                        <p className="text-[10px] text-zinc-400">${h.total.toLocaleString('es-MX')}</p>
                       </div>
-                      <span className="text-xs text-amber-600 font-medium flex-shrink-0">Crear →</span>
+                      <span className="text-[10px] text-amber-600 font-semibold">Crear</span>
                     </button>
                   ))}
-                  {!buscandoHistorial && historialResultados.length === 0 && (
-                    <div className="px-4 py-3 text-xs text-zinc-400">Sin historial encontrado</div>
-                  )}
                 </div>
               )}
-            </>
-          )}
-        </div>
+            </div>
 
-        <div className="p-4 border-t border-zinc-100">
-          <button onClick={() => router.push('/dashboard/expedientes/nuevo')}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-[#1A1D27] transition-colors">
-            <Plus className="w-4 h-4" /> Nuevo paciente
-          </button>
-        </div>
+            <div className="p-3 border-t border-zinc-100 flex-shrink-0">
+              <button onClick={() => router.push('/dashboard/expedientes/nuevo')}
+                className="w-full flex items-center justify-center gap-1.5 py-2 bg-[#0B0E14] text-white rounded text-xs font-semibold hover:bg-[#1A1D27] transition-colors">
+                <Plus className="w-3.5 h-3.5" /> Nuevo paciente
+              </button>
+            </div>
+          </>
+        ) : (
+          /* Estado colapsado */
+          <div className="flex flex-col items-center py-3 gap-2 h-full">
+            <button onClick={() => setPanelAbierto(true)}
+              className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded transition-colors flex-shrink-0">
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex flex-col items-center gap-1.5 flex-1 overflow-y-auto py-1 w-full px-1.5">
+              {filtrados.map(p => {
+                const esSeleccionado = seleccionado?.id === p.id
+                return (
+                  <button key={p.id} onClick={() => { setSeleccionado(p); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
+                    title={`${p.nombre} ${p.apellido}`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${esSeleccionado ? 'bg-[#0D9488] text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}>
+                    {p.nombre[0]}{p.apellido[0]}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── PANEL DERECHO: detalle ── */}
@@ -792,24 +823,20 @@ function ExpedientesContent() {
               </div>
 
               {/* Acciones */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button onClick={() => router.push(`/dashboard/expedientes/nuevo?pacienteId=${seleccionado.id}`)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors">
-                  <Plus className="w-3.5 h-3.5" /> Nueva consulta
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button onClick={abrirEditar}
+                  className="flex items-center gap-1 px-2.5 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
+                  <Edit2 className="w-3 h-3" /> Editar
                 </button>
                 <div className="relative">
                   <button onClick={() => setMenuAbierto(o => !o)}
-                    className="w-8 h-8 border border-zinc-200 rounded flex items-center justify-center text-zinc-500 hover:bg-zinc-50 transition-colors">
-                    <MoreHorizontal className="w-4 h-4" />
+                    className="w-7 h-7 border border-zinc-200 rounded flex items-center justify-center text-zinc-400 hover:bg-zinc-50 transition-colors">
+                    <MoreHorizontal className="w-3.5 h-3.5" />
                   </button>
                   {menuAbierto && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setMenuAbierto(false)} />
                       <div className="absolute right-0 top-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg z-20 min-w-48 py-1">
-                        <button onClick={() => { abrirEditar(); setMenuAbierto(false) }}
-                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 transition-colors">
-                          <Edit2 className="w-3.5 h-3.5 text-zinc-400" /> Editar datos
-                        </button>
                         <button onClick={() => { router.push(`/dashboard/expedientes/${seleccionado.id}/resumen`); setMenuAbierto(false) }}
                           className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 transition-colors">
                           <FileText className="w-3.5 h-3.5 text-zinc-400" /> Expediente clínico
@@ -822,6 +849,10 @@ function ExpedientesContent() {
                     </>
                   )}
                 </div>
+                <button onClick={() => router.push(`/dashboard/expedientes/nuevo?pacienteId=${seleccionado.id}`)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> Nueva consulta
+                </button>
               </div>
             </div>
 
@@ -869,56 +900,11 @@ function ExpedientesContent() {
           {/* ─── CONTENIDO PRINCIPAL (2 columnas) ─── */}
           <div className="flex-1 flex gap-3 min-h-0">
 
-            {/* Centro: historial + receta + compras */}
+            {/* Centro: receta vigente (PRIMERO) → historial */}
             <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
 
-              {/* Historial del paciente */}
-              <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
-                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Historial del paciente</h3>
-                <div>
-                  {getHistorialMezclado(seleccionado).map((ev, i, arr) => {
-                    const fd = formatFechaHistorial(ev.fecha)
-                    return (
-                      <div key={i} className="flex gap-3">
-                        {/* Fecha */}
-                        <div className="w-12 text-right flex-shrink-0 pt-0.5">
-                          <span className="text-sm font-bold text-[#0D9488] block leading-none">{fd.dia}</span>
-                          <span className="text-xs text-zinc-400 uppercase block">{fd.mes}</span>
-                          <span className="text-[10px] text-zinc-300 block">{fd.año}</span>
-                        </div>
-                        {/* Línea + punto */}
-                        <div className="flex flex-col items-center flex-shrink-0">
-                          <div className={`w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0 ${
-                            ev.tipo === 'consulta' ? 'bg-[#0D9488]' : ev.tipo === 'venta' ? 'bg-blue-400' : 'bg-zinc-300'
-                          }`} />
-                          {i < arr.length - 1 && <div className="w-px flex-1 bg-zinc-100 min-h-8 mt-1" />}
-                        </div>
-                        {/* Contenido */}
-                        <div className={`flex-1 pb-4 ${i === 0 ? 'bg-zinc-50 border border-zinc-100 rounded-lg p-3 -mt-0.5 mb-1' : ''}`}>
-                          <p className="text-sm font-semibold text-zinc-700 leading-tight">{ev.titulo}</p>
-                          {ev.tags && ev.tags.length > 0 && (
-                            <div className="flex gap-1 mt-1.5 flex-wrap">
-                              {ev.tags.map(t => (
-                                <span key={t} className="text-xs bg-[#0D9488]/10 text-[#0D9488] px-2 py-0.5 rounded-full font-medium">{t}</span>
-                              ))}
-                            </div>
-                          )}
-                          {ev.subtitulo && <p className="text-xs text-zinc-400 mt-0.5">{ev.subtitulo}</p>}
-                          {ev.monto !== undefined && (
-                            <p className="text-xs font-semibold text-zinc-500 mt-0.5">${ev.monto.toLocaleString('es-MX')}</p>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {getHistorialMezclado(seleccionado).length === 0 && (
-                    <p className="text-sm text-zinc-400 text-center py-8">Sin historial registrado</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Receta vigente */}
-              {rv && (
+              {/* ── Receta vigente — primero y más prominente ── */}
+              {rv ? (
                 <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -932,35 +918,42 @@ function ExpedientesContent() {
                       <thead>
                         <tr className="text-xs text-zinc-400">
                           <th className="text-left py-1 w-10"></th>
-                          <th className="text-center py-1 font-medium px-2">Esfera</th>
-                          <th className="text-center py-1 font-medium px-2">Cilindro</th>
-                          <th className="text-center py-1 font-medium px-2">Eje</th>
-                          {(rv.od_add || rv.oi_add) && <th className="text-center py-1 font-medium px-2">Adición</th>}
+                          <th className="text-center py-1 font-medium px-3">Esfera</th>
+                          <th className="text-center py-1 font-medium px-3">Cilindro</th>
+                          <th className="text-center py-1 font-medium px-3">Eje</th>
+                          {(rv.od_add || rv.oi_add) && <th className="text-center py-1 font-medium px-3">Adición</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-100">
                         <tr>
-                          <td className="py-2"><span className="text-xs font-bold bg-zinc-100 px-2 py-0.5 rounded text-zinc-500">OD</span></td>
-                          <td className="text-center px-2 font-mono font-semibold text-zinc-800">{rv.od_esfera || '—'}</td>
-                          <td className="text-center px-2 font-mono font-semibold text-zinc-800">{rv.od_cilindro || '—'}</td>
-                          <td className="text-center px-2 font-mono font-semibold text-zinc-800">{rv.od_eje || '—'}°</td>
-                          {(rv.od_add || rv.oi_add) && <td className="text-center px-2 font-mono font-semibold text-zinc-800">{rv.od_add || '—'}</td>}
+                          <td className="py-2.5"><span className="text-xs font-bold bg-zinc-100 px-2 py-0.5 rounded text-zinc-500">OD</span></td>
+                          <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.od_esfera || '—'}</td>
+                          <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.od_cilindro || '—'}</td>
+                          <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.od_eje || '—'}°</td>
+                          {(rv.od_add || rv.oi_add) && <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.od_add || '—'}</td>}
                         </tr>
                         <tr>
-                          <td className="py-2"><span className="text-xs font-bold bg-zinc-100 px-2 py-0.5 rounded text-zinc-500">OI</span></td>
-                          <td className="text-center px-2 font-mono font-semibold text-zinc-800">{rv.oi_esfera || '—'}</td>
-                          <td className="text-center px-2 font-mono font-semibold text-zinc-800">{rv.oi_cilindro || '—'}</td>
-                          <td className="text-center px-2 font-mono font-semibold text-zinc-800">{rv.oi_eje || '—'}°</td>
-                          {(rv.od_add || rv.oi_add) && <td className="text-center px-2 font-mono font-semibold text-zinc-800">{rv.oi_add || '—'}</td>}
+                          <td className="py-2.5"><span className="text-xs font-bold bg-zinc-100 px-2 py-0.5 rounded text-zinc-500">OI</span></td>
+                          <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.oi_esfera || '—'}</td>
+                          <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.oi_cilindro || '—'}</td>
+                          <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.oi_eje || '—'}°</td>
+                          {(rv.od_add || rv.oi_add) && <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.oi_add || '—'}</td>}
                         </tr>
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-zinc-500 pb-3 border-b border-zinc-100">
-                    <span><span className="font-semibold">DP:</span> {rv.dp} mm</span>
-                    <span><span className="font-semibold">Tipo:</span> {rv.tipo}</span>
-                    {rv.observaciones && <span><span className="font-semibold">Obs:</span> {rv.observaciones}</span>}
+                  <div className="flex items-center gap-4 text-xs text-zinc-500 pb-3 border-b border-zinc-100">
+                    <span><span className="font-semibold text-zinc-600">DP:</span> {rv.dp} mm</span>
+                    <span><span className="font-semibold text-zinc-600">Tipo:</span> {rv.tipo}</span>
                   </div>
+                  {rv.observaciones && (
+                    <div className="grid grid-cols-2 gap-4 pt-3 pb-3 border-b border-zinc-100">
+                      <div>
+                        <p className="text-xs font-semibold text-zinc-500 mb-1">Observaciones</p>
+                        <p className="text-xs text-zinc-600">{rv.observaciones}</p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mt-3">
                     <button className="flex items-center gap-1 px-2.5 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
                       <Eye className="w-3 h-3" /> Ver receta
@@ -982,96 +975,155 @@ function ExpedientesContent() {
                     </button>
                   </div>
                 </div>
-              )}
-
-              {/* Últimas compras */}
-              {seleccionado.ventas.length > 0 && (
-                <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Últimas compras</h3>
-                    <span className="text-xs text-zinc-400">Ver todas las compras</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {[...seleccionado.ventas].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 3).map((v, i) => (
-                      <button key={i} onClick={() => setVentaAbierta(v)}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded border border-zinc-100 hover:bg-zinc-50 transition-colors text-left">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-zinc-600">{v.fecha}</p>
-                          <p className="text-xs text-zinc-400 truncate">
-                            {v.items.length > 0 ? v.items.slice(0, 2).map(it => it.nombre).join(' + ') : 'Sin desglose'}
-                          </p>
-                        </div>
-                        <span className="text-sm font-bold text-zinc-800 ml-3 flex-shrink-0">
-                          ${v.total.toLocaleString('es-MX')}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+              ) : (
+                <div className="bg-white rounded-lg border border-zinc-200/80 p-6 text-center">
+                  <p className="text-xs text-zinc-400">Sin receta vigente</p>
+                  <button onClick={() => { setFormReceta(formVacioReceta()); setErroresReceta({}); setModalReceta(true) }}
+                    className="mt-3 flex items-center gap-1.5 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors mx-auto">
+                    <Plus className="w-3.5 h-3.5" /> Agregar receta
+                  </button>
                 </div>
               )}
+
+              {/* ── Historial del paciente — debajo de la receta ── */}
+              <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Historial del paciente</h3>
+                  <span className="text-xs text-zinc-400">Ver todo</span>
+                </div>
+                <div>
+                  {getHistorialMezclado(seleccionado).map((ev, i, arr) => {
+                    const fd = formatFechaHistorial(ev.fecha)
+                    return (
+                      <div key={i} className="flex gap-3">
+                        <div className="w-11 text-right flex-shrink-0 pt-0.5">
+                          <span className="text-xs font-bold text-[#0D9488] block leading-none">{fd.dia}</span>
+                          <span className="text-[10px] text-zinc-400 uppercase block">{fd.mes}</span>
+                          <span className="text-[10px] text-zinc-300 block">{fd.año}</span>
+                        </div>
+                        <div className="flex flex-col items-center flex-shrink-0">
+                          <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                            ev.tipo === 'consulta' ? 'bg-[#0D9488]' : ev.tipo === 'venta' ? 'bg-blue-400' : 'bg-zinc-300'
+                          }`} />
+                          {i < arr.length - 1 && <div className="w-px flex-1 bg-zinc-100 min-h-6 mt-1" />}
+                        </div>
+                        <div className="flex-1 pb-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-zinc-700">{ev.titulo}</p>
+                            {ev.monto !== undefined && (
+                              <span className="text-xs font-semibold text-zinc-500">${ev.monto.toLocaleString('es-MX')}</span>
+                            )}
+                          </div>
+                          {ev.tags && ev.tags.length > 0 && (
+                            <div className="flex gap-1 mt-1 flex-wrap">
+                              {ev.tags.map(t => (
+                                <span key={t} className="text-[10px] bg-[#0D9488]/10 text-[#0D9488] px-1.5 py-0.5 rounded-full font-medium">{t}</span>
+                              ))}
+                            </div>
+                          )}
+                          {ev.subtitulo && <p className="text-[10px] text-zinc-400 mt-0.5">{ev.subtitulo}</p>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {getHistorialMezclado(seleccionado).length === 0 && (
+                    <p className="text-xs text-zinc-400 text-center py-6">Sin historial registrado</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* ─── SIDEBAR DERECHO ─── */}
             <div className="w-56 flex flex-col gap-3 overflow-y-auto flex-shrink-0">
 
-              {/* Acciones rápidas */}
+              {/* Acciones rápidas — grid 2x2 */}
               <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
-                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Acciones rápidas</h3>
-                <div className="space-y-0.5">
-                  <button onClick={() => router.push(`/dashboard/ventas/nueva?pacienteId=${seleccionado.id}`)}
-                    className="w-full flex items-center gap-2.5 px-2 py-2 text-xs text-zinc-600 hover:bg-zinc-50 rounded transition-colors text-left">
-                    <ShoppingBag className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" /> Nueva venta
-                  </button>
-                  <button onClick={() => router.push('/dashboard/agenda')}
-                    className="w-full flex items-center gap-2.5 px-2 py-2 text-xs text-zinc-600 hover:bg-zinc-50 rounded transition-colors text-left">
-                    <Calendar className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" /> Agendar cita
-                  </button>
-                  <button onClick={() => window.open(`https://wa.me/52${seleccionado.telefono.replace(/\D/g,'')}`, '_blank')}
-                    className="w-full flex items-center gap-2.5 px-2 py-2 text-xs text-zinc-600 hover:bg-zinc-50 rounded transition-colors text-left">
-                    <MessageCircle className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" /> Enviar mensaje
-                  </button>
-                  <button onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/hoja`)}
-                    className="w-full flex items-center gap-2.5 px-2 py-2 text-xs text-zinc-600 hover:bg-zinc-50 rounded transition-colors text-left">
-                    <Printer className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" /> Imprimir hoja del paciente
-                  </button>
+                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Acciones rápidas</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Nueva venta',    Icon: ShoppingBag, color: 'bg-[#0D9488]/10 text-[#0D9488]', action: () => router.push(`/dashboard/ventas/nueva?pacienteId=${seleccionado.id}`) },
+                    { label: 'Agendar cita',   Icon: Calendar,    color: 'bg-blue-50 text-blue-600',        action: () => router.push('/dashboard/agenda') },
+                    { label: 'Enviar mensaje', Icon: MessageCircle,color:'bg-emerald-50 text-emerald-600',  action: () => window.open(`https://wa.me/52${seleccionado.telefono.replace(/\D/g,'')}`, '_blank') },
+                    { label: 'Imprimir hoja del paciente', Icon: Printer, color: 'bg-zinc-100 text-zinc-500', action: () => router.push(`/dashboard/expedientes/${seleccionado.id}/hoja`) },
+                  ].map(({ label, Icon, color, action }) => (
+                    <button key={label} onClick={action}
+                      className="flex flex-col items-center gap-2 p-3 border border-zinc-100 rounded-lg hover:bg-zinc-50 transition-colors text-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-[10px] text-zinc-600 leading-tight">{label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {/* Información clínica */}
               <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
-                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Información clínica</h3>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Información clínica</h3>
+                  <button onClick={abrirEditar} className="text-xs text-zinc-400 hover:text-zinc-600 flex items-center gap-0.5 transition-colors">
+                    <Edit2 className="w-3 h-3" /> Editar
+                  </button>
+                </div>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide mb-1.5">Diagnóstico</p>
+                <div className="flex flex-wrap gap-1.5 mb-3">
                   {getInfoClinica(seleccionado, rv).map(tag => (
-                    <span key={tag} className="text-xs px-2 py-1 rounded-full bg-zinc-100 text-zinc-600 font-medium">{tag}</span>
+                    <span key={tag} className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${tagColor(tag)}`}>{tag}</span>
                   ))}
                 </div>
+                {seleccionado.notas && (
+                  <>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide mb-1.5">Notas clínicas</p>
+                    <ul className="space-y-1">
+                      {seleccionado.notas.split(/[.;\n]/).filter(n => n.trim().length > 2).map((nota, i) => (
+                        <li key={i} className="text-[10px] text-zinc-500 flex items-start gap-1.5">
+                          <span className="w-1 h-1 rounded-full bg-zinc-400 mt-1.5 flex-shrink-0" />
+                          {nota.trim()}.
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
               </div>
 
-              {/* Notas internas */}
-              {seleccionado.notas && (
-                <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Notas internas</h3>
-                    <button onClick={abrirEditar} className="text-zinc-400 hover:text-zinc-600 transition-colors">
-                      <Edit2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-zinc-500 leading-relaxed whitespace-pre-line">{seleccionado.notas}</p>
-                </div>
-              )}
-
-              {/* Garantía vigente */}
+              {/* Garantías vigentes */}
               {garantiaVigenteInfo(seleccionado) && (
                 <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
                   <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Garantías vigentes</h3>
-                  <div className="flex items-start gap-2 p-2.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                  <div className="flex items-start gap-2 p-2 bg-emerald-50 rounded-lg border border-emerald-100">
                     <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <span className="text-white text-[10px] font-bold">✓</span>
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-zinc-700">Lentes graduados</p>
-                      <p className="text-xs text-zinc-500 mt-0.5">{garantiaVigenteInfo(seleccionado)}</p>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">{garantiaVigenteInfo(seleccionado)}</p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Últimas compras */}
+              {seleccionado.ventas.length > 0 && (
+                <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Últimas compras</h3>
+                    <span className="text-[10px] text-zinc-400">Ver todas</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {[...seleccionado.ventas].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 3).map((v, i) => (
+                      <button key={i} onClick={() => setVentaAbierta(v)}
+                        className="w-full flex items-center justify-between text-left hover:bg-zinc-50 rounded px-1 py-1 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-medium text-zinc-500">{v.fecha}</p>
+                          <p className="text-[10px] text-zinc-400 truncate">
+                            {v.items.length > 0 ? v.items.slice(0, 2).map(it => it.nombre).join(' + ') : 'Sin desglose'}
+                          </p>
+                        </div>
+                        <span className="text-xs font-bold text-zinc-700 ml-2 flex-shrink-0">
+                          ${v.total.toLocaleString('es-MX')}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
