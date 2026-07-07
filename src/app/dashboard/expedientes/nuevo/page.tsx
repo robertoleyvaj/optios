@@ -253,6 +253,7 @@ export default function NuevaConsultaPage() {
   const [tieneAlergias, setTieneAlergias] = useState<boolean | null>(null)
   const [tieneFamiliares, setTieneFamiliares] = useState<boolean | null>(null)
   const [antecFamOtra, setAntecFamOtra]   = useState('')
+  const [noOcular, setNoOcular]           = useState<string[]>([])
 
   // ── Datos paso 3: Hábitos ──
   const [habitos, setHabitos] = useState<Habitos>({
@@ -727,12 +728,12 @@ export default function NuevaConsultaPage() {
             <div>
               <p className="text-sm text-zinc-700 mb-2">¿Has tenido alguna cirugía en los ojos?</p>
               <div className="flex gap-2">
-                <button onClick={() => { if (!antecOculares.includes('Cirugías')) setAntecOculares([...antecOculares, 'Cirugías']) }}
+                <button onClick={() => { setAntecOculares([...antecOculares.filter(x => x !== 'Cirugías'), 'Cirugías']); setNoOcular(noOcular.filter(x => x !== 'Cirugías')) }}
                   className={`px-4 py-2 rounded border text-sm font-medium transition-all ${antecOculares.includes('Cirugías') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
                   Sí
                 </button>
-                <button onClick={() => setAntecOculares(antecOculares.filter(x => x !== 'Cirugías'))}
-                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${!antecOculares.includes('Cirugías') ? 'border-zinc-200 text-zinc-500' : 'border-zinc-200 text-zinc-400'}`}>
+                <button onClick={() => { setAntecOculares(antecOculares.filter(x => x !== 'Cirugías')); setNoOcular([...noOcular.filter(x => x !== 'Cirugías'), 'Cirugías']) }}
+                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${noOcular.includes('Cirugías') ? 'border-zinc-500 bg-zinc-100 text-zinc-700' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
                   No
                 </button>
               </div>
@@ -742,12 +743,12 @@ export default function NuevaConsultaPage() {
             <div>
               <p className="text-sm text-zinc-700 mb-2">¿Has tenido algún golpe o traumatismo en los ojos?</p>
               <div className="flex gap-2">
-                <button onClick={() => { if (!antecOculares.includes('Traumatismos')) setAntecOculares([...antecOculares, 'Traumatismos']) }}
+                <button onClick={() => { setAntecOculares([...antecOculares.filter(x => x !== 'Traumatismos'), 'Traumatismos']); setNoOcular(noOcular.filter(x => x !== 'Traumatismos')) }}
                   className={`px-4 py-2 rounded border text-sm font-medium transition-all ${antecOculares.includes('Traumatismos') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
                   Sí
                 </button>
-                <button onClick={() => setAntecOculares(antecOculares.filter(x => x !== 'Traumatismos'))}
-                  className="px-4 py-2 rounded border border-zinc-200 text-sm font-medium text-zinc-500">
+                <button onClick={() => { setAntecOculares(antecOculares.filter(x => x !== 'Traumatismos')); setNoOcular([...noOcular.filter(x => x !== 'Traumatismos'), 'Traumatismos']) }}
+                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${noOcular.includes('Traumatismos') ? 'border-zinc-500 bg-zinc-100 text-zinc-700' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
                   No
                 </button>
               </div>
@@ -757,27 +758,14 @@ export default function NuevaConsultaPage() {
             <div>
               <p className="text-sm text-zinc-700 mb-2">¿Te han diagnosticado ojo seco?</p>
               <div className="flex gap-2">
-                <button onClick={() => { if (!antecOculares.includes('Ojo seco')) setAntecOculares([...antecOculares, 'Ojo seco']) }}
+                <button onClick={() => { setAntecOculares([...antecOculares.filter(x => x !== 'Ojo seco'), 'Ojo seco']); setNoOcular(noOcular.filter(x => x !== 'Ojo seco')) }}
                   className={`px-4 py-2 rounded border text-sm font-medium transition-all ${antecOculares.includes('Ojo seco') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
                   Sí
                 </button>
-                <button onClick={() => setAntecOculares(antecOculares.filter(x => x !== 'Ojo seco'))}
-                  className="px-4 py-2 rounded border border-zinc-200 text-sm font-medium text-zinc-500">
+                <button onClick={() => { setAntecOculares(antecOculares.filter(x => x !== 'Ojo seco')); setNoOcular([...noOcular.filter(x => x !== 'Ojo seco'), 'Ojo seco']) }}
+                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${noOcular.includes('Ojo seco') ? 'border-zinc-500 bg-zinc-100 text-zinc-700' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
                   No
                 </button>
-              </div>
-            </div>
-
-            {/* Sección optometrista */}
-            <div className="pt-3 border-t border-zinc-100">
-              <p className="text-xs font-semibold text-zinc-400 mb-2">Diagnósticos previos — anota el optometrista</p>
-              <div className="flex flex-wrap gap-2">
-                {['Estrabismo', 'Ambliopía'].map(op => (
-                  <button key={op} onClick={() => toggleCheck(antecOculares, setAntecOculares, op)}
-                    className={`px-3 py-1.5 rounded border text-xs transition-all ${antecOculares.includes(op) ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-400 hover:border-zinc-300'}`}>
-                    {op}
-                  </button>
-                ))}
               </div>
             </div>
           </div>
