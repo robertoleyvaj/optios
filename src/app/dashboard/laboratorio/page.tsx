@@ -506,9 +506,13 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   } | null>(null)
   const [llevandoDraft, setLlevandoDraft] = useState<{
     laboratorio: string
-    costoLab: string
+    fechaPromesa: string
     notas: string
-  }>({ laboratorio: '', costoLab: '', notas: '' })
+  }>({ laboratorio: '', fechaPromesa: '', notas: '' })
+  const [recogendoDraft, setRecogendoDraft] = useState<{
+    costoLab: string
+    metodoPagoLab: 'transferencia' | 'efectivo' | ''
+  }>({ costoLab: '', metodoPagoLab: '' })
 
   const lista = ordenes
     .filter(o => o.estado !== 'entregado' && o.estado !== 'problema')
@@ -572,8 +576,12 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     setDraft(null)
     setLlevandoDraft({
       laboratorio: o?.laboratorio ?? '',
-      costoLab: o && o.costoLab > 0 ? String(o.costoLab) : '',
+      fechaPromesa: o?.fechaPromesa ?? '',
       notas: o?.notas ?? '',
+    })
+    setRecogendoDraft({
+      costoLab: o && o.costoLab > 0 ? String(o.costoLab) : '',
+      metodoPagoLab: o?.metodoPagoLab ?? '',
     })
   }
 
@@ -697,10 +705,10 @@ function VistaRepartidor({ ordenes, onUpdate }: {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Costo del lab</label>
-              <input type="number" placeholder="$0" value={llevandoDraft.costoLab}
-                onChange={e => setLlevandoDraft(d => ({ ...d, costoLab: e.target.value }))}
-                className="border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] w-40" />
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">¿Cuándo estará listo?</label>
+              <input type="date" value={llevandoDraft.fechaPromesa}
+                onChange={e => setLlevandoDraft(d => ({ ...d, fechaPromesa: e.target.value }))}
+                className="border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] w-48" />
             </div>
 
             <div>
@@ -717,7 +725,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
             onUpdate(o.id, {
               estado: 'en_laboratorio',
               laboratorio: llevandoDraft.laboratorio,
-              costoLab: Number(llevandoDraft.costoLab) || 0,
+              fechaPromesa: llevandoDraft.fechaPromesa,
               notas: llevandoDraft.notas,
               fechaEnvioLab: new Date().toISOString().split('T')[0],
             })
@@ -725,7 +733,104 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           }}
           className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors"
         >
-          <ArrowRight className="w-4 h-4" /> Confirmé que lo llevé al lab
+          <ArrowRight className="w-4 h-4" /> Ya lo dejé en el laboratorio
+        </button>
+      </div>
+    )
+  }
+
+  // ── Vista "Recoger del lab" — órdenes en_laboratorio ──────
+  if (selected && selected.estado === 'en_laboratorio') {
+    const o = selected
+    const hoy = new Date().toISOString().split('T')[0]
+    const listaHoy = o.fechaPromesa === hoy
+    return (
+      <div className="max-w-sm mx-auto space-y-3">
+        <div className="flex items-center justify-between">
+          <button onClick={() => { setSelectedId(null); setDraft(null) }}
+            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
+            <ChevronLeft className="w-4 h-4" /> Órdenes
+          </button>
+          <span className="text-sm font-bold text-zinc-500">{o.folio}</span>
+          <div className="w-20" />
+        </div>
+
+        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+          <div className="px-4 pt-4 pb-3 border-b border-zinc-100">
+            <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
+            <p className="text-sm text-zinc-400 mt-0.5">
+              {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
+            </p>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="text-xs text-zinc-400">{o.sucursal}</span>
+              {o.laboratorio && <span className="text-xs text-indigo-600 font-semibold">· {o.laboratorio}</span>}
+              {o.fechaPromesa && (
+                <span className={`text-xs font-semibold ${listaHoy ? 'text-emerald-600' : 'text-zinc-400'}`}>
+                  · {listaHoy ? 'Listo hoy' : `Listo el ${o.fechaPromesa.replace(/^\d{4}-/, '').replace('-', '/')}`}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {o.notas && (
+            <div className="px-4 py-3 border-b border-zinc-100">
+              <p className="text-xs text-zinc-400 font-semibold mb-1">Observaciones</p>
+              <p className="text-sm text-zinc-600">{o.notas}</p>
+            </div>
+          )}
+
+          <div className="px-4 py-4 space-y-4">
+            <p className="text-xs text-zinc-400">Al recoger, registra lo que cobró el laboratorio:</p>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">¿Cuánto cobró el lab?</label>
+              <input type="number" placeholder="$0" value={recogendoDraft.costoLab}
+                onChange={e => setRecogendoDraft(d => ({ ...d, costoLab: e.target.value }))}
+                className="border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] w-40" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">¿Cómo pagaste?</label>
+              <div className="flex gap-2">
+                {([
+                  { v: '' as const,              label: 'Sin pagar'     },
+                  { v: 'efectivo' as const,      label: 'Efectivo'      },
+                  { v: 'transferencia' as const, label: 'Transferencia' },
+                ]).map(m => (
+                  <button key={m.v}
+                    onClick={() => setRecogendoDraft(d => ({ ...d, metodoPagoLab: m.v }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      recogendoDraft.metodoPagoLab === m.v
+                        ? 'bg-[#0B0E14] text-white border-[#0B0E14]'
+                        : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
+                    }`}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            onUpdate(o.id, {
+              estado: 'en_camino',
+              costoLab: Number(recogendoDraft.costoLab) || 0,
+              metodoPagoLab: recogendoDraft.metodoPagoLab,
+              pagadoLab: recogendoDraft.metodoPagoLab !== '',
+              fechaRecogidaLab: new Date().toISOString().split('T')[0],
+              ...(recogendoDraft.metodoPagoLab !== '' ? { fechaPagoLab: new Date().toISOString().split('T')[0] } : {}),
+            })
+            setSavedNext(getNextId(o.id))
+          }}
+          className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors"
+        >
+          <Truck className="w-4 h-4" /> Ya lo recogí, voy en camino a la óptica
+        </button>
+
+        <button onClick={() => startEdit(o)}
+          className="w-full py-2.5 border border-zinc-200 text-zinc-500 text-sm font-medium rounded-xl hover:bg-zinc-50 transition-colors">
+          Editar detalles
         </button>
       </div>
     )
@@ -884,33 +989,13 @@ function VistaRepartidor({ ordenes, onUpdate }: {
         </div>
 
         {/* Acciones rápidas */}
-        {!editMode && (
-          <div className="space-y-2">
-            {o.estado === 'en_laboratorio' && (
-              <button
-                onClick={() => { onUpdate(o.id, { estado: 'listo', fechaRecogidaLab: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)) }}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors"
-              >
-                <CheckCircle2 className="w-4 h-4" /> Ya está listo, lo voy a recoger
-              </button>
-            )}
-            {o.estado === 'listo' && (
-              <button
-                onClick={() => { onUpdate(o.id, { estado: 'en_camino' }); setSavedNext(getNextId(o.id)) }}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors"
-              >
-                <Truck className="w-4 h-4" /> Ya voy en camino a la óptica
-              </button>
-            )}
-            {o.estado === 'en_camino' && (
-              <button
-                onClick={() => { onUpdate(o.id, { estado: 'entregado', fechaEntrega: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)) }}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-[#0B0E14] text-white text-sm font-bold rounded-xl hover:bg-zinc-700 transition-colors"
-              >
-                <CheckCircle2 className="w-4 h-4" /> Lo entregué en la óptica
-              </button>
-            )}
-          </div>
+        {!editMode && o.estado === 'en_camino' && (
+          <button
+            onClick={() => { onUpdate(o.id, { estado: 'listo', fechaEntrega: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)) }}
+            className="w-full flex items-center justify-center gap-2 py-3.5 bg-[#0B0E14] text-white text-sm font-bold rounded-xl hover:bg-zinc-700 transition-colors"
+          >
+            <CheckCircle2 className="w-4 h-4" /> Ya lo dejé en {o.sucursal}
+          </button>
         )}
 
         {/* Botones edición */}
@@ -935,76 +1020,101 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     )
   }
 
-  // ── Lista ──────────────────────────────────────────────────
-  return (
-    <div className="max-w-sm mx-auto space-y-4">
+  // ── Lista por secciones ────────────────────────────────────
+  const porLlevarList  = lista.filter(o => o.estado === 'recibido')
+  const enLabList      = lista.filter(o => o.estado === 'en_laboratorio')
+  const enCaminoList   = lista.filter(o => o.estado === 'en_camino')
+  const hoy            = new Date().toISOString().split('T')[0]
 
-      {/* Resumen */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: 'Por llevar', n: counts.porLlevar,  bg: 'bg-zinc-100',  text: 'text-zinc-700'   },
-          { label: 'En lab',     n: counts.enLab,      bg: 'bg-indigo-50',  text: 'text-indigo-700'  },
-          { label: 'En camino',  n: counts.enCamino,   bg: 'bg-blue-50',    text: 'text-blue-700'    },
-          { label: 'Listos',     n: counts.listos,     bg: 'bg-emerald-50', text: 'text-emerald-700' },
-          { label: 'Sin pagar',  n: counts.sinPagar,   bg: 'bg-amber-50',   text: 'text-amber-700'   },
-          { label: 'Atrasados',  n: counts.atrasados,  bg: 'bg-red-50',     text: 'text-red-700'     },
-        ].map(s => (
-          <div key={s.label} className={`${s.bg} rounded-lg py-2.5 text-center`}>
-            <p className={`text-xl font-bold ${s.text}`}>{s.n}</p>
-            <p className="text-xs text-zinc-400 mt-0.5">{s.label}</p>
+  const OrdenRow = ({ o }: { o: OrdenLab }) => {
+    const b = BADGE[o.estado]
+    const sinPagar = o.costoLab > 0 && !o.pagadoLab
+    const listaHoy = o.fechaPromesa === hoy
+
+    return (
+      <button onClick={() => openOrder(o.id)}
+        className="w-full flex items-stretch hover:bg-zinc-50 transition-colors text-left group">
+        <div className="flex items-center pl-4 pr-3">
+          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT[o.estado]}`} />
+        </div>
+        <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-100">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-zinc-400">{o.folio}</span>
+            {o.fechaPromesa && (
+              <span className={`text-xs font-semibold ${listaHoy ? 'text-emerald-600' : 'text-zinc-400'}`}>
+                {listaHoy ? 'Listo hoy' : o.fechaPromesa.replace(/^\d{4}-/, '').replace('-', '/')}
+              </span>
+            )}
           </div>
-        ))}
-      </div>
+          <p className="text-sm font-semibold text-zinc-800 leading-tight">
+            {o.paciente}
+            {o.urgente && <span className="ml-1 text-red-500 text-xs">⚡</span>}
+          </p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-xs text-zinc-400">{o.sucursal}</span>
+            {o.laboratorio && <span className="text-xs text-indigo-600">· {o.laboratorio}</span>}
+            {sinPagar && (
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">Sin pagar</span>
+            )}
+          </div>
+        </div>
+      </button>
+    )
+  }
 
-      {/* Lista */}
-      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
-        {lista.length === 0 && (
-          <p className="p-8 text-center text-sm text-zinc-400">Sin órdenes activas</p>
-        )}
-        {lista.map(o => {
-          const b = BADGE[o.estado]
-          const vencida = o.fechaPromesa && new Date(o.fechaPromesa) < new Date(new Date().toDateString())
-          const sinPagar = o.costoLab > 0 && !o.pagadoLab
+  return (
+    <div className="max-w-sm mx-auto space-y-5">
 
-          return (
-            <button key={o.id} onClick={() => openOrder(o.id)}
-              className="w-full flex items-stretch hover:bg-zinc-50 transition-colors text-left group">
-              {/* Dot de estado al lado izquierdo */}
-              <div className="flex items-center pl-4 pr-3">
-                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT[o.estado]}`} />
-              </div>
-              <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-100 ml-0">
-                {/* Folio + fecha */}
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-zinc-400">{o.folio}</span>
-                  {o.fechaPromesa && (
-                    <span className={`text-xs ${vencida ? 'text-red-500 font-semibold' : 'text-zinc-400'}`}>
-                      {o.fechaPromesa.replace(/^\d{4}-/, '').replace('-', ' ')}
-                    </span>
-                  )}
-                </div>
-                {/* Nombre */}
-                <p className="text-sm font-semibold text-zinc-800 leading-tight">
-                  {o.paciente}
-                  {o.urgente && <span className="ml-1 text-red-500 text-xs">⚡</span>}
-                </p>
-                {/* Óptica + badges */}
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-xs text-zinc-400">{o.sucursal}</span>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${b.bg} ${b.text}`}>
-                    {b.label}
-                  </span>
-                  {sinPagar && (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
-                      Pago pendiente
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          )
-        })}
-      </div>
+      {lista.length === 0 && (
+        <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">
+          <p className="text-sm text-zinc-400">Sin órdenes activas</p>
+        </div>
+      )}
+
+      {/* Por llevar */}
+      {porLlevarList.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-2 px-1">
+            Por llevar al lab · {porLlevarList.length}
+          </p>
+          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
+            {porLlevarList.map(o => <OrdenRow key={o.id} o={o} />)}
+          </div>
+        </div>
+      )}
+
+      {/* En laboratorio */}
+      {enLabList.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-2 px-1">
+            En laboratorio · {enLabList.length}
+          </p>
+          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
+            {enLabList.map(o => <OrdenRow key={o.id} o={o} />)}
+          </div>
+        </div>
+      )}
+
+      {/* En camino */}
+      {enCaminoList.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-2 px-1">
+            En camino a la óptica · {enCaminoList.length}
+          </p>
+          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
+            {enCaminoList.map(o => <OrdenRow key={o.id} o={o} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Sin pagar */}
+      {counts.sinPagar > 0 && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          <DollarSign className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          <p className="text-xs text-amber-700 font-semibold">{counts.sinPagar} {counts.sinPagar === 1 ? 'orden pendiente' : 'órdenes pendientes'} de pago al laboratorio</p>
+        </div>
+      )}
+
     </div>
   )
 }
