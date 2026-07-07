@@ -62,6 +62,8 @@ export default function CajaPage() {
   const [corteHoy, setCorteHoy]   = useState<CorteGuardado | null>(null)
   const [cargando, setCargando]   = useState(true)
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null)
+  const [isClosed, setIsClosed]   = useState(false)
+  const [errorGuardado, setErrorGuardado] = useState('')
 
   // ── Formulario de corte ──
   const [efectivoContado, setEfectivoContado] = useState('')
@@ -76,7 +78,7 @@ export default function CajaPage() {
   const diferencia = contado - esperado
   const entrega    = Math.max(0, contado - fondoNum)
   const total      = Object.values(ventas).reduce((s, v) => s + v.monto, 0)
-  const cerrado    = corteHoy?.cerrado === true
+  const cerrado    = isClosed || corteHoy?.cerrado === true
 
   // ── Leer usuario del localStorage ──
   useEffect(() => {
@@ -131,11 +133,13 @@ export default function CajaPage() {
 
     if (corteData) {
       setCorteHoy(corteData)
+      setIsClosed(!!corteData.cerrado)
       setEfectivoContado(String(corteData.efectivo_contado))
       setFondo(String(corteData.fondo))
       setNotas(corteData.notas)
     } else {
       setCorteHoy(null)
+      setIsClosed(false)
     }
 
     // 3. Historial (últimos 10 cortes, excluyendo hoy)
@@ -253,12 +257,14 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
     const sb  = createClient()
     await sb.from('cortes_caja').update({ cerrado: false }).eq('id', corteHoy.id)
     setCorteHoy({ ...corteHoy, cerrado: false })
+    setIsClosed(false)
   }
 
   // ── Guardar corte en Supabase ──
   const cerrarCaja = async () => {
     if (!efectivoContado || guardando) return
     setGuardando(true)
+    setErrorGuardado('')
     const sb  = createClient()
     const hoy = new Date().toISOString().split('T')[0]
 
@@ -282,7 +288,12 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
       .select()
       .single()
 
-    if (!error && data) setCorteHoy(data)
+    if (error) {
+      setErrorGuardado(`Error al guardar: ${error.message}`)
+    } else {
+      setIsClosed(true)
+      if (data) setCorteHoy(data)
+    }
     setGuardando(false)
   }
 
@@ -524,7 +535,13 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 
         {/* Botón cerrar / ya cerrada */}
         {!cerrado && (
-          <div className="mt-5 flex gap-3">
+          <div className="mt-5 flex gap-3 flex-col">
+            {errorGuardado && (
+              <div className="px-4 py-2.5 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-medium">
+                ⚠️ {errorGuardado}
+              </div>
+            )}
+            <div className="flex gap-3">
             <button
               onClick={cerrarCaja}
               disabled={!efectivoContado || guardando}
@@ -542,6 +559,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
             >
               <Printer className="w-4 h-4" /> Imprimir
             </button>
+            </div>
           </div>
         )}
       </div>
