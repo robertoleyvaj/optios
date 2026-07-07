@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Printer, MessageCircle, ArrowLeft } from 'lucide-react'
@@ -73,7 +73,7 @@ function IcoLuz() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
 }
 
-const RECS_ICONOS: Record<string, JSX.Element> = {
+const RECS_ICONOS: Record<string, React.ReactElement> = {
   'Regla 20-20-20': <IcoRegla />,
   'Lubricantes oculares': <IcoGota />,
   'Usar lentes de sol': <IcoSol />,
