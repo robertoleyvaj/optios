@@ -943,10 +943,12 @@ function VistaVendedor({ ordenes, sucursal, onCambiarEstado, onPrint }: {
   onCambiarEstado: (id: number, estado: EstadoOrden) => void
   onPrint: (o: OrdenLab) => void
 }) {
-  const pendientes = ordenes.filter(o =>
-    (sucursal === 'Todas' || o.sucursal === sucursal) &&
-    o.estado !== 'entregado'
-  )
+  const pendientes = ordenes
+    .filter(o =>
+      (sucursal === 'Todas' || o.sucursal === sucursal) &&
+      o.estado !== 'entregado'
+    )
+    .sort((a, b) => b.fechaIngreso.localeCompare(a.fechaIngreso)) // más recientes primero
 
   const listos   = pendientes.filter(o => o.estado === 'listo')
   const enCamino = pendientes.filter(o => o.estado === 'en_camino')
@@ -1081,24 +1083,25 @@ function VistaVendedor({ ordenes, sucursal, onCambiarEstado, onPrint }: {
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
-      <div>
-        <h1 className="text-xl font-bold text-zinc-800">Mis órdenes de laboratorio</h1>
-        <p className="text-sm text-zinc-400 mt-0.5">{sucursal} · {pendientes.length} pendiente{pendientes.length !== 1 ? 's' : ''}</p>
-      </div>
-
-      {/* Stats rápidos */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Listas para entregar', n: listos.length,   color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'En camino',            n: enCamino.length, color: 'text-blue-600',    bg: 'bg-blue-50' },
-          { label: 'Con problema',         n: problemas.length,color: 'text-red-600',     bg: 'bg-red-50' },
-        ].map(s => (
-          <div key={s.label} className={`${s.bg} rounded-lg px-4 py-3 text-center`}>
-            <p className={`text-2xl font-bold ${s.color}`}>{s.n}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">{s.label}</p>
-          </div>
-        ))}
+    <div className="space-y-5">
+      {/* Header + stats */}
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <h1 className="text-xl font-bold text-zinc-800">Mis órdenes de laboratorio</h1>
+          <p className="text-sm text-zinc-400 mt-0.5">{sucursal} · {pendientes.length} pendiente{pendientes.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {[
+            { label: 'Listas',    n: listos.length,   color: 'text-emerald-600', bg: 'bg-emerald-50' },
+            { label: 'En camino', n: enCamino.length, color: 'text-blue-600',    bg: 'bg-blue-50' },
+            { label: 'Problema',  n: problemas.length,color: 'text-red-600',     bg: 'bg-red-50' },
+          ].map(s => (
+            <div key={s.label} className={`${s.bg} rounded-lg px-5 py-2.5 text-center min-w-[72px]`}>
+              <p className={`text-2xl font-bold ${s.color}`}>{s.n}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">{s.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Listas primero */}
@@ -1107,7 +1110,7 @@ function VistaVendedor({ ordenes, sucursal, onCambiarEstado, onPrint }: {
           <p className="text-xs font-semibold text-emerald-600 mb-2 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5" /> LISTAS PARA ENTREGAR ({listos.length})
           </p>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             {listos.map(o => <EntregaCard key={o.id} o={o} />)}
           </div>
         </div>
@@ -1119,7 +1122,7 @@ function VistaVendedor({ ordenes, sucursal, onCambiarEstado, onPrint }: {
           <p className="text-xs font-semibold text-blue-600 mb-2 flex items-center gap-1.5">
             <Truck className="w-3.5 h-3.5" /> EN CAMINO ({enCamino.length})
           </p>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             {enCamino.map(o => <EntregaCard key={o.id} o={o} />)}
           </div>
         </div>
@@ -1129,7 +1132,7 @@ function VistaVendedor({ ordenes, sucursal, onCambiarEstado, onPrint }: {
       {otros.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-zinc-400 mb-2">EN PROCESO ({otros.length})</p>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             {otros.map(o => <EntregaCard key={o.id} o={o} />)}
           </div>
         </div>
@@ -1302,8 +1305,14 @@ export default function LaboratorioPage() {
 
   const guardar = async () => {
     const supabase = createClient()
-    const { data: folioData } = await supabase.rpc('siguiente_folio', { prefijo: 'L' })
-    const folio: string = folioData ?? nextFolio
+    const { data: ultimoL } = await supabase
+      .from('ordenes_lab')
+      .select('folio')
+      .ilike('folio', 'L-%')
+      .order('folio', { ascending: false })
+      .limit(1)
+    const nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
+    const folio: string = `L-${String(nL).padStart(4, '0')}`
 
     // Insertar en Supabase
     const { data: inserted } = await supabase.from('ordenes_lab').insert({

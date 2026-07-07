@@ -31,18 +31,18 @@ import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 // --- Catálogo GON ---
 const catalogo = [
   // ── Micas Monofocal ──────────────────────────────────────────
-  { id:  1, nombre: 'Mica Monofocal Essential 1.50',      categoria: 'Micas', precio:  749, sku: 'MON-ESS',  stock: 999 },
+  { id:  1, nombre: 'Mica Monofocal Essential 1.49',      categoria: 'Micas', precio:  749, sku: 'MON-ESS',  stock: 999 },
   { id:  2, nombre: 'Mica Monofocal Slim HD 1.60',        categoria: 'Micas', precio: 1146, sku: 'MON-SHD',  stock: 999 },
   { id:  3, nombre: 'Mica Monofocal Poly Plus 1.58',      categoria: 'Micas', precio: 1746, sku: 'MON-PPL',  stock: 999 },
   { id:  4, nombre: 'Mica Monofocal Ultra Slim 1.67',     categoria: 'Micas', precio: 3946, sku: 'MON-USL',  stock: 999 },
   { id:  5, nombre: 'Mica Monofocal Ultra Slim Pro 1.74', categoria: 'Micas', precio: 5446, sku: 'MON-USP',  stock: 999 },
   // ── Micas Bifocal ────────────────────────────────────────────
-  { id:  6, nombre: 'Mica Bifocal Essential 1.50',        categoria: 'Micas', precio: 1149, sku: 'BIF-ESS',  stock: 999 },
+  { id:  6, nombre: 'Mica Bifocal Essential 1.49',        categoria: 'Micas', precio: 1149, sku: 'BIF-ESS',  stock: 999 },
   { id:  7, nombre: 'Mica Bifocal Slim HD 1.60',          categoria: 'Micas', precio: 1546, sku: 'BIF-SHD',  stock: 999 },
   { id:  8, nombre: 'Mica Bifocal Poly Plus 1.58',        categoria: 'Micas', precio: 2146, sku: 'BIF-PPL',  stock: 999 },
   { id:  9, nombre: 'Mica Bifocal Ultra Slim 1.67',       categoria: 'Micas', precio: 4346, sku: 'BIF-USL',  stock: 999 },
   // ── Micas Progresivo ─────────────────────────────────────────
-  { id: 10, nombre: 'Mica Progresivo Essential 1.50',     categoria: 'Micas', precio: 1899, sku: 'PRO-ESS',  stock: 999 },
+  { id: 10, nombre: 'Mica Progresivo Essential 1.49',     categoria: 'Micas', precio: 1899, sku: 'PRO-ESS',  stock: 999 },
   { id: 11, nombre: 'Mica Progresivo Slim HD 1.60',       categoria: 'Micas', precio: 2296, sku: 'PRO-SHD',  stock: 999 },
   { id: 12, nombre: 'Mica Progresivo Poly Plus 1.58',     categoria: 'Micas', precio: 2896, sku: 'PRO-PPL',  stock: 999 },
   { id: 13, nombre: 'Mica Progresivo Ultra Slim 1.67',    categoria: 'Micas', precio: 5096, sku: 'PRO-USL',  stock: 999 },
@@ -282,8 +282,14 @@ export default function NuevaVentaPage() {
 
       // ── 1. Obtener folio siguiente ──────────────────────────
       const prefijo = cotizacion ? 'COT' : 'V'
-      const { data: folioData } = await supabase.rpc('siguiente_folio', { prefijo })
-      const folio: string = folioData ?? `${prefijo}-0001`
+      const { data: ultimoV } = await supabase
+        .from('ventas')
+        .select('folio')
+        .ilike('folio', `${prefijo}-%`)
+        .order('folio', { ascending: false })
+        .limit(1)
+      const nV = ultimoV?.[0]?.folio ? parseInt(ultimoV[0].folio.replace(/\D/g, '')) + 1 : 1
+      const folio: string = `${prefijo}-${String(nV).padStart(4, '0')}`
 
       const anticoNum = Number(anticipo || 0)
       const saldoNum  = total - anticoNum
@@ -352,7 +358,14 @@ export default function NuevaVentaPage() {
       )
 
       if (!cotizacion && tieneMicas) {
-        const { data: folioLab } = await supabase.rpc('siguiente_folio', { prefijo: 'L' })
+        const { data: ultimoL } = await supabase
+          .from('ordenes_lab')
+          .select('folio')
+          .ilike('folio', 'L-%')
+          .order('folio', { ascending: false })
+          .limit(1)
+        const nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
+        const folioLab: string = `L-${String(nL).padStart(4, '0')}`
         const hoy = new Date().toISOString().split('T')[0]
 
         // Armar texto de tipo mica y tratamientos desde carrito
@@ -385,7 +398,7 @@ export default function NuevaVentaPage() {
           : ''
 
         await supabase.from('ordenes_lab').insert({
-          folio:            folioLab ?? 'L-0001',
+          folio:            folioLab,
           folio_venta:      folio,
           venta_id:         ventaId,
           paciente:         `${clienteNombre} ${clienteApellido}`.trim() || 'Sin nombre',
@@ -403,7 +416,7 @@ export default function NuevaVentaPage() {
           tipo_mica:        micasCarrito,
           tratamiento:      filtrosCarrito,
         })
-        setFolioLabGuardado(folioLab ?? 'L-0001')
+        setFolioLabGuardado(folioLab)
       }
 
       setFolioGuardado(folio)
