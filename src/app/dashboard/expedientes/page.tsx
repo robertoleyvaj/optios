@@ -320,7 +320,11 @@ function ExpedientesContent() {
             }
           })
           setPacientes(mapped)
-          setSeleccionado(mapped[0] ?? null)
+          const idParam = searchParams.get('id')
+          const inicial = idParam
+            ? (mapped.find(p => String(p.id) === idParam) ?? mapped[0] ?? null)
+            : (mapped[0] ?? null)
+          setSeleccionado(inicial)
         }
       } catch (e) {
         console.warn('Usando expedientes de ejemplo:', e)
@@ -568,7 +572,7 @@ function ExpedientesContent() {
             const fechaMostrar = p._ultimaRecetaFecha
             const esSeleccionado = seleccionado?.id === p.id
             return (
-              <button key={p.id} onClick={() => setSeleccionado(p)}
+              <button key={p.id} onClick={() => { setSeleccionado(p); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
                 className={`w-full text-left px-4 py-3.5 transition-colors flex items-center gap-3 ${esSeleccionado ? 'bg-[#0B0E14]' : 'hover:bg-zinc-50'}`}>
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${esSeleccionado ? 'bg-[#0D9488]/20 text-[#0D9488]' : 'bg-zinc-100 text-zinc-500'}`}>
                   {p.nombre[0]}{p.apellido[0]}
