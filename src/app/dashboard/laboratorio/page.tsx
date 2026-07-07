@@ -202,8 +202,9 @@ const TRATAMIENTO_LABEL: Record<string, string> = {
 }
 
 function parseGrad(grad: string) {
-  const parts = grad.trim().split(/\s+/)
-  return { esf: parts[0] || '—', cil: parts[1] || '—', eje: parts[2]?.replace('x','').replace('X','') || '—' }
+  // Soporta "esf cil eje", "esf / cil / eje°", o "esf/cil/eje"
+  const parts = grad.trim().split(/\s*\/\s*|\s+/).map(p => p.replace(/°$/, '').trim()).filter(p => p && p !== '/')
+  return { esf: parts[0] || '—', cil: parts[1] || '—', eje: parts[2] || '—' }
 }
 
 function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }) {
@@ -272,11 +273,11 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
     <div class="hdr-right">
       <div class="folio">${orden.folio}</div>
       <div class="fecha">${fecha}</div>
-      ${orden.folioVenta ? `<div class="folio-ref">${orden.folioVenta}</div>` : ''}
     </div>
   </div>
 
   <div class="paciente">${orden.paciente}</div>
+  <div class="sucursal">${orden.sucursal}</div>
   <hr class="sep">
 
   <table class="grad-table">
@@ -378,8 +379,8 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
                   </div>
                   {orden.folioVenta && (
                     <div>
-                      <p className="text-xs font-semibold text-zinc-400 mb-1">Folio de venta</p>
-                      <p className="font-mono text-zinc-700">{orden.folioVenta}</p>
+                      <p className="text-xs font-semibold text-zinc-400 mb-1">Ref. venta</p>
+                      <p className="font-mono text-xs text-zinc-500">{orden.folioVenta}</p>
                     </div>
                   )}
                   <div>

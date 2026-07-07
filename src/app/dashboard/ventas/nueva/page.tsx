@@ -566,62 +566,77 @@ ${entregaHtml}
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 11px; color: #000; width: 100%; }
   .hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
-  .hdr h1 { font-size: 15px; font-weight: 900; }
-  .folio { font-size: 14px; font-weight: 900; font-family: monospace; }
-  .paciente { font-size: 14px; font-weight: 900; margin: 6px 0 2px; }
+  .hdr-left h1 { font-size: 15px; font-weight: 900; letter-spacing: -0.3px; }
+  .hdr-right { text-align: right; }
+  .folio { font-size: 14px; font-weight: 900; font-family: monospace; color: #009688; }
+  .paciente { font-size: 14px; font-weight: 900; margin: 4px 0 1px; }
   .sep { border: none; border-top: 1px dashed #bbb; margin: 7px 0; }
   .grad-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
   .grad-table th { background: #f0f0f0; font-size: 9px; font-weight: 700; text-align: center; padding: 4px 3px; border: 1px solid #ccc; }
   .grad-table th:first-child { text-align: left; }
-  .grad-table td { border: 1px solid #ddd; padding: 10px 3px; font-size: 10px; }
+  .grad-table td { border: 1px solid #ddd; padding: 5px 3px; font-family: monospace; font-size: 10px; }
   .lbl { font-weight: 700; font-family: sans-serif; font-size: 9px; background: #f8f8f8; }
-  .field { font-size: 10px; margin: 6px 0; display: flex; gap: 4px; align-items: flex-end; }
+  .val { text-align: center; }
+  .mica-box { background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 5px 7px; margin-bottom: 6px; }
+  .mica-tipo { font-size: 12px; font-weight: 900; }
+  .mica-sub  { font-size: 9px; color: #444; margin-top: 1px; }
+  .field { font-size: 10px; margin: 5px 0; display: flex; gap: 4px; align-items: flex-end; }
   .fl { font-weight: 700; flex-shrink: 0; }
   .fv { border-bottom: 1px solid #aaa; flex: 1; min-width: 80px; }
-  .notice { border: 1px dashed #bbb; border-radius: 2px; padding: 5px 8px; font-size: 9px; margin-bottom: 8px; color: #888; text-align:center; }
-  .firma { border-top: 1px solid #000; margin-top: 15px; padding-top: 4px; text-align: right; font-size: 9px; color: #777; }
+  .meta { display: flex; justify-content: space-between; font-size: 9px; color: #555; margin: 6px 0; }
+  .firma { border-top: 1px solid #000; margin-top: 10px; padding-top: 4px; text-align: right; font-size: 9px; color: #777; }
 </style></head><body>
 <div class="hdr">
-  <div>
+  <div class="hdr-left">
     <h1>${sucursalNombre}</h1>
-    ${sucursalSub ? `<p style="font-size:9px;color:#555">${sucursalSub}</p>` : ''}
-    <p style="font-size:9px;color:#555">Orden de laboratorio</p>
+    ${sucursalSub ? `<p style="font-size:9px;color:#888">${sucursalSub}</p>` : ''}
+    <p style="font-size:9px;color:#888">Orden de laboratorio</p>
   </div>
-  <div style="text-align:right">
+  <div class="hdr-right">
     <div class="folio">${folioLabGuardado}</div>
-    <div style="font-size:9px;color:#555">${folio}</div>
-    <div style="font-size:9px;color:#555">${fechaFmt}</div>
+    <div style="font-size:9px;color:#888">${fechaFmt}</div>
   </div>
 </div>
+
 <div class="paciente">${nombreCompleto || 'Sin nombre'}</div>
-${clienteTelefono ? `<p style="font-size:10px;color:#555;margin-bottom:8px">${clienteTelefono}</p>` : ''}
+<div style="font-size:9px;color:#888;margin-bottom:8px">${sucursal}</div>
 <hr class="sep">
+
 <table class="grad-table">
   <thead><tr><th></th><th>Esfera</th><th>Cilindro</th><th>Eje</th><th>ADD</th></tr></thead>
   <tbody>
     <tr>
       <td class="lbl">OD</td>
-      <td>${recetaPaciente?.od_esfera || '—'}</td>
-      <td>${recetaPaciente?.od_cilindro || '—'}</td>
-      <td>${recetaPaciente?.od_eje ? recetaPaciente.od_eje + '°' : '—'}</td>
-      <td>${recetaPaciente?.od_add || '—'}</td>
+      <td class="val">${recetaPaciente?.od_esfera || '—'}</td>
+      <td class="val">${recetaPaciente?.od_cilindro || '—'}</td>
+      <td class="val">${recetaPaciente?.od_eje ? recetaPaciente.od_eje + '°' : '—'}</td>
+      <td class="val">${recetaPaciente?.od_add || '—'}</td>
     </tr>
     <tr>
       <td class="lbl">OI</td>
-      <td>${recetaPaciente?.oi_esfera || '—'}</td>
-      <td>${recetaPaciente?.oi_cilindro || '—'}</td>
-      <td>${recetaPaciente?.oi_eje ? recetaPaciente.oi_eje + '°' : '—'}</td>
-      <td>${recetaPaciente?.oi_add || '—'}</td>
+      <td class="val">${recetaPaciente?.oi_esfera || '—'}</td>
+      <td class="val">${recetaPaciente?.oi_cilindro || '—'}</td>
+      <td class="val">${recetaPaciente?.oi_eje ? recetaPaciente.oi_eje + '°' : '—'}</td>
+      <td class="val">${recetaPaciente?.oi_add || '—'}</td>
     </tr>
-    <tr><td class="lbl">D.P.</td><td colspan="4">${recetaPaciente?.dp || '—'} mm</td></tr>
+    <tr><td class="lbl">D.P.</td><td class="val" colspan="4">${recetaPaciente?.dp || '—'} mm</td></tr>
   </tbody>
 </table>
+
 <hr class="sep">
-<div class="field"><span class="fl">Tipo de mica:</span><span class="fv">${carrito.filter(i => i.nombre.toLowerCase().includes('mica') || i.nombre.toLowerCase().includes('monofocal') || i.nombre.toLowerCase().includes('progres') || i.nombre.toLowerCase().includes('bifocal')).map(i => i.nombre).join(', ') || '—'}</span></div>
-<div class="field"><span class="fl">Tratamiento:</span><span class="fv">${carrito.filter(i => i.nombre.toLowerCase().includes('filtro') || i.nombre.toLowerCase().includes('antirreflejo') || i.nombre.toLowerCase().includes('blue') || i.nombre.toLowerCase().includes('fotocrom') || i.nombre.toLowerCase().includes('tinte')).map(i => i.nombre).join(', ') || '—'}</span></div>
-<div class="field"><span class="fl">Armazón:</span><span class="fv">_________________________</span></div>
-<div class="field"><span class="fl">Laboratorio:</span><span class="fv">_________________________</span></div>
-<div class="field"><span class="fl">Fecha entrega:</span><span class="fv">${fechaEntrega || '_________________________'}</span></div>
+
+<div class="mica-box">
+  <div class="mica-tipo">${carrito.filter(i => ['mica','monofocal','progres','bifocal','transitions'].some(k => i.nombre.toLowerCase().includes(k))).map(i => i.nombre).join(' + ') || '—'}</div>
+  ${carrito.filter(i => ['filtro','antirreflejo','blue','fotocrom','tinte','polariz'].some(k => i.nombre.toLowerCase().includes(k))).length > 0
+    ? `<div class="mica-sub">Tratamiento: <b>${carrito.filter(i => ['filtro','antirreflejo','blue','fotocrom','tinte','polariz'].some(k => i.nombre.toLowerCase().includes(k))).map(i => i.nombre).join(' + ')}</b></div>`
+    : ''}
+</div>
+
+<div class="field"><span class="fl">Armazón:</span><span class="fv"></span></div>
+<div class="meta">
+  <span>Ingreso: <b>${new Date().toLocaleDateString('es-MX')}</b></span>
+  <span>Entrega: <b>${fechaEntrega || '___________'}</b></span>
+</div>
 <div class="firma">Recibido por: _________________________</div>
 </body></html>`)
       win.document.close()
