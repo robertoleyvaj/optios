@@ -680,7 +680,11 @@ function ExpedientesContent() {
                 </button>
                 <button onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/resumen`)}
                   className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-600 hover:bg-zinc-50 transition-colors">
-                  <FileText className="w-3.5 h-3.5" /> Resumen clínico
+                  <FileText className="w-3.5 h-3.5" /> Expediente clínico
+                </button>
+                <button onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/hoja`)}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-[#0D9488] rounded text-xs text-[#0D9488] hover:bg-teal-50 transition-colors">
+                  <FileText className="w-3.5 h-3.5" /> Hoja del paciente
                 </button>
                 <button onClick={() => router.push(`/dashboard/expedientes/nuevo?pacienteId=${seleccionado.id}`)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors">
