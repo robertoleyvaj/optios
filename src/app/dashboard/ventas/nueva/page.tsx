@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import {
@@ -81,7 +82,18 @@ type Cliente = typeof clientesMock[0]
 // Comisión es interna (para finanzas), no se traslada al cliente
 const COMISION: Record<string, number> = { debito: 0.015, credito: 0.029 }
 
+// Mapeo de recomendaciones comerciales del wizard → IDs del catálogo
+const REC_A_CATALOGO: Record<string, number[]> = {
+  'Antirreflejante premium':              [20],
+  'Filtro para luz azul':                 [21],
+  'Fotocromático (transitions)':          [22],
+  'Lente progresivo':                     [10],  // progresivo essential 1.50 — vendedor ajusta
+  'Material índice alto (1.60 o 1.67)':   [2],   // slim 1.60 — vendedor ajusta a 1.67 si necesario
+  'Diseño ocupacional':                   [],    // no hay en catálogo, se agrega libre
+}
+
 export default function NuevaVentaPage() {
+  const searchParams = useSearchParams()
   const [sucursal, setSucursal] = useState('Baja Visión')
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [showClienteDropdown, setShowClienteDropdown] = useState(false)
@@ -107,6 +119,49 @@ export default function NuevaVentaPage() {
   const [showBuscadorProducto, setShowBuscadorProducto] = useState(false)
   const [showProductoLibre, setShowProductoLibre] = useState(false)
   const [productoLibre, setProductoLibre] = useState({ descripcion: '', precio: '', cantidad: '1' })
+
+  // Auto-populate desde consulta terminada
+  useEffect(() => {
+    const desdeConsulta = searchParams.get('desde_consulta')
+    const nombreParam   = searchParams.get('nombre')
+
+    if (nombreParam) {
+      const partes = decodeURIComponent(nombreParam).split(' ')
+      setClienteNombre(partes[0] || '')
+      setClienteApellido(partes.slice(1).join(' ') || '')
+    }
+
+    if (!desdeConsulta) return
+
+    const cargarDesdeConsulta = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('consultas')
+        .select('rec_comerciales, diagnosticos')
+        .eq('id', desdeConsulta)
+        .single()
+
+      if (!data?.rec_comerciales) return
+
+      const recs: { producto: string; prioridad: string }[] = Array.isArray(data.rec_comerciales)
+        ? data.rec_comerciales : []
+
+      const itemsAgregar: Item[] = []
+      for (const rec of recs) {
+        const ids = REC_A_CATALOGO[rec.producto]
+        if (!ids || ids.length === 0) continue
+        for (const id of ids) {
+          const prod = catalogo.find(p => p.id === id)
+          if (prod && !itemsAgregar.find(i => i.id === id)) {
+            itemsAgregar.push({ ...prod, cantidad: 1, descuento: 0 })
+          }
+        }
+      }
+
+      if (itemsAgregar.length > 0) setCarrito(itemsAgregar)
+    }
+    cargarDesdeConsulta()
+  }, []) // eslint-disable-line
 
   // Búsqueda de clientes — muestra todos al enfocar, filtra al escribir
   const clientesFiltrados = busquedaCliente.length >= 1

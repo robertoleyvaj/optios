@@ -7,7 +7,7 @@ import {
   Search, Plus, X, Save, ChevronRight,
   User, Phone, Calendar, FileText,
   Eye, ShoppingBag, Clock, ChevronDown,
-  Printer, Edit2, AlertCircle,
+  Printer, Edit2, AlertCircle, FileText,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -673,6 +673,10 @@ function ExpedientesContent() {
               <div className="flex items-center gap-2">
                 <button onClick={abrirEditar} className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
                   <Edit2 className="w-3.5 h-3.5" /> Editar
+                </button>
+                <button onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/resumen`)}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-600 hover:bg-zinc-50 transition-colors">
+                  <FileText className="w-3.5 h-3.5" /> Resumen clínico
                 </button>
                 <button onClick={() => router.push(`/dashboard/expedientes/nuevo?pacienteId=${seleccionado.id}`)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors">

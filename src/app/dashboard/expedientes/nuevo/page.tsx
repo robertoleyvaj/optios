@@ -28,7 +28,7 @@ type Habitos = {
 }
 
 type Diagnostico = { nombre: string; confirmado: boolean }
-type RecClinica = { texto: string; activa: boolean }
+type RecClinica = { texto: string; titulo?: string; detalle?: string; activa: boolean }
 type RecComercial = { producto: string; razon: string; prioridad: 'alta' | 'media' | 'opcional' }
 
 const STEPS = [
@@ -59,6 +59,68 @@ const SINTOMAS_LISTA = [
 ]
 
 const DISTANCIAS = ['< 30 cm', '30–50 cm', '50–70 cm', '> 70 cm', 'Variable']
+
+// ─────────────────────────────────────────────
+// Descripciones de diagnósticos (plain language)
+// ─────────────────────────────────────────────
+const DIAG_INFO: Record<string, { que_es: string; por_que: string }> = {
+  'Miopía': {
+    que_es: 'El ojo ve bien de cerca pero borroso a distancia. Los letreros, la pizarra o la televisión desde lejos se ven difusos.',
+    por_que: 'El globo ocular es un poco más largo de lo normal, haciendo que la imagen se forme antes de llegar a la retina.',
+  },
+  'Hipermetropía': {
+    que_es: 'Dificultad para enfocar de cerca y posible cansancio visual al leer. El ojo tiene que hacer un esfuerzo extra constante.',
+    por_que: 'El globo ocular es ligeramente más corto o la córnea tiene poca curvatura; la imagen se forma detrás de la retina.',
+  },
+  'Astigmatismo': {
+    que_es: 'La visión es borrosa o distorsionada en todas las distancias, a veces con sensación de sombra o doble imagen.',
+    por_que: 'La córnea no tiene una forma perfectamente esférica — es ligeramente ovalada, haciendo que la luz se enfoque en dos puntos distintos.',
+  },
+  'Astigmatismo miópico compuesto': {
+    que_es: 'Visión borrosa a distancia con deformación adicional de la imagen por la forma ovalada de la córnea.',
+    por_que: 'El ojo es más largo de lo normal y además tiene forma ovalada. Ambos factores hacen que la imagen se enfoque antes de llegar a la retina en ambos ejes.',
+  },
+  'Astigmatismo mixto': {
+    que_es: 'La visión se ve borrosa en todos los rangos de distancia: ni de lejos ni de cerca se ve con claridad.',
+    por_que: 'La córnea tiene dos curvaturas opuestas: una genera miopía y la otra hipermetropía, haciendo que ningún punto quede completamente nítido.',
+  },
+  'Astigmatismo hipermetrópico compuesto': {
+    que_es: 'El ojo combina dificultad para ver de cerca con una córnea ovalada, generando cansancio visual frecuente.',
+    por_que: 'El ojo es corto y además tiene forma ovalada; la imagen se forma detrás de la retina en ambos ejes.',
+  },
+  'Astigmatismo simple': {
+    que_es: 'En uno de los ejes la visión es clara, pero en el otro se ve borrosa o distorsionada.',
+    por_que: 'La córnea tiene curvatura normal en un eje pero no en el otro.',
+  },
+  'Astigmatismo con la regla': {
+    que_es: 'Tipo de astigmatismo donde el eje de mayor curvatura es vertical. Es el tipo más común.',
+    por_que: 'El meridiano vertical de la córnea tiene ligeramente más curvatura que el horizontal.',
+  },
+  'Astigmatismo contra la regla': {
+    que_es: 'El eje de mayor curvatura es horizontal. Puede generar más cansancio visual que el tipo común.',
+    por_que: 'El meridiano horizontal tiene mayor curvatura, lo contrario a lo habitual.',
+  },
+  'Astigmatismo oblicuo': {
+    que_es: 'El eje de mayor curvatura está en dirección diagonal, lo que puede ser más difícil de adaptar con un lente nuevo.',
+    por_que: 'La curvatura máxima de la córnea está en un eje oblicuo (entre 20°–70° o 110°–160°).',
+  },
+  'Presbicia': {
+    que_es: 'Dificultad para ver de cerca: el celular, libros y menús se ven borrosos. Es necesario alejar el papel para leer. Es completamente normal.',
+    por_que: 'Con la edad el cristalino del ojo pierde elasticidad y ya no puede cambiar de forma para enfocar objetos cercanos. Ocurre naturalmente alrededor de los 40 años.',
+  },
+  'Anisometropía': {
+    que_es: 'Los dos ojos tienen graduaciones muy diferentes entre sí. Puede causar dolores de cabeza o sensación de imagen desnivelada.',
+    por_que: 'Cada ojo se desarrolló distinto. Si la diferencia es grande, el cerebro puede esforzarse para fusionar las imágenes, o incluso ignorar un ojo.',
+  },
+  'Fatiga visual digital': {
+    que_es: 'Los ojos se cansan, irritan o duelen después de usar pantallas. Puede venir con dolor de cabeza, cuello tenso o visión borrosa al final del día.',
+    por_que: 'Al mirar pantallas, parpadeamos mucho menos de lo normal, resecando la superficie del ojo. La luz azul y el esfuerzo constante de enfoque también contribuyen.',
+  },
+  'Sospecha de ojo seco': {
+    que_es: 'Los ojos se sienten secos, arenosos o con ardor. A veces hay lagrimeo excesivo como reacción del ojo (lágrimas de mala calidad como compensación).',
+    por_que: 'La capa de lágrimas que lubrica el ojo es insuficiente o se evapora rápido. Pantallas, aire acondicionado, calefacción y algunos medicamentos lo agravan.',
+  },
+}
 
 const rxVacia = (): RxEye => ({ esfera: '', cilindro: '', eje: '', add: '' })
 
@@ -127,18 +189,50 @@ function generarDiagnosticos(rx: RxSubjetiva, edad: number, habitos: Habitos, si
 // ─────────────────────────────────────────────
 // Recomendaciones clínicas
 // ─────────────────────────────────────────────
-function generarRecClinicas(diags: string[], habitos: Habitos, sintomas: string[]): string[] {
-  const recs: string[] = []
+function generarRecClinicas(diags: string[], habitos: Habitos, sintomas: string[]): { texto: string; titulo: string; detalle: string }[] {
+  const recs: { texto: string; titulo: string; detalle: string }[] = []
   const pantallasTotales = (habitos.horas_computadora || 0) + (habitos.horas_celular || 0)
 
-  if (pantallasTotales >= 6) recs.push('Aplicar regla 20-20-20: cada 20 min, mirar a 20 pies por 20 segundos')
-  if (diags.includes('Sospecha de ojo seco')) recs.push('Aplicar lubricantes oculares sin conservadores 3-4 veces al día')
-  if (diags.includes('Presbicia')) recs.push('Evaluar necesidad de lente progresivo o bifocal según actividades del paciente')
-  if (diags.some(d => d.includes('Miopía')) && pantallasTotales >= 4) recs.push('Limitar uso de pantallas antes de dormir para evitar progresión')
-  if (sintomas.includes('Cefalea')) recs.push('Verificar postura y altura del monitor; revisar iluminación del área de trabajo')
-  if (sintomas.includes('Fotofobia')) recs.push('Evitar exposición directa a luz fluorescente; considerar filtro fotocromático')
-  if (habitos.maneja_noche) recs.push('Uso estricto de antirreflejante para conducción nocturna')
-  if (habitos.lentes_sol === false) recs.push('Recomendar protección UV 400 para exteriores, incluso en días nublados')
+  if (pantallasTotales >= 6) recs.push({
+    texto: 'Regla 20-20-20 para pantallas',
+    titulo: 'Regla 20-20-20',
+    detalle: `Con ${pantallasTotales}h diarias de pantalla, cada 20 minutos toma 20 segundos para mirar un punto a 6 metros de distancia. Esto relaja los músculos del enfoque y reduce la fatiga ocular acumulada.`,
+  })
+  if (diags.includes('Sospecha de ojo seco')) recs.push({
+    texto: 'Lubricantes oculares sin conservadores',
+    titulo: 'Lubricantes oculares',
+    detalle: 'Aplicar gotas lubricantes sin conservadores 3–4 veces al día. Alivia el ardor, la sensación de arenilla y el lagrimeo involuntario. No generan dependencia.',
+  })
+  if (diags.includes('Presbicia')) recs.push({
+    texto: 'Evaluar lente progresivo o bifocal',
+    titulo: 'Lente progresivo o bifocal',
+    detalle: 'Un lente progresivo permite ver bien a todas las distancias con una sola mica — lejos, computadora y lectura. El optometrista evaluará qué diseño se adapta mejor a tus actividades.',
+  })
+  if (diags.some(d => d.includes('Miopía')) && pantallasTotales >= 4) recs.push({
+    texto: 'Reducir pantallas antes de dormir',
+    titulo: 'Control de miopía',
+    detalle: 'Limitar el uso de pantallas al menos 1 hora antes de dormir. El esfuerzo de enfoque de cerca en la oscuridad puede favorecer la progresión de la miopía, especialmente en jóvenes.',
+  })
+  if (sintomas.includes('Cefalea')) recs.push({
+    texto: 'Revisar ergonomía visual del área de trabajo',
+    titulo: 'Ergonomía visual',
+    detalle: 'El dolor de cabeza relacionado con la vista mejora mucho corrigiendo la postura, ajustando la altura del monitor (al nivel de los ojos) y mejorando la iluminación del ambiente.',
+  })
+  if (sintomas.includes('Fotofobia')) recs.push({
+    texto: 'Reducir exposición a luz fluorescente — evaluar filtro fotocromático',
+    titulo: 'Sensibilidad a la luz',
+    detalle: 'Evitar exposición directa a luz fluorescente y ajustar el brillo de las pantallas. Un lente fotocromático (que se oscurece al sol) o con filtro de luz azul puede reducir significativamente la molestia.',
+  })
+  if (habitos.maneja_noche) recs.push({
+    texto: 'Antirreflejante para conducción nocturna',
+    titulo: 'Antirreflejante nocturno',
+    detalle: 'Sin antirreflejante, los faros del tráfico generan halos y deslumbramiento. Un antirreflejante de calidad mejora notablemente la nitidez y la seguridad al manejar de noche.',
+  })
+  if (habitos.lentes_sol === false) recs.push({
+    texto: 'Protección UV en exteriores',
+    titulo: 'Protección ultravioleta',
+    detalle: 'La exposición acumulada a rayos UV sin protección favorece la formación de cataratas y otras condiciones oculares. Se recomienda lentes con filtro UV 400 en exteriores, incluso en días nublados.',
+  })
 
   return recs
 }
@@ -221,6 +315,7 @@ export default function NuevaConsultaPage() {
   const pacienteIdParam = searchParams.get('pacienteId')
 
   const [paso, setPaso]         = useState(pacienteIdParam ? 2 : 1)
+  const [pasoMaximo, setPasoMaximo] = useState(pacienteIdParam ? 2 : 1)
   const [guardando, setGuardando] = useState(false)
   const [consultaId, setConsultaId] = useState<string | null>(null)
   const [pacienteId, setPacienteId] = useState<string | null>(pacienteIdParam)
@@ -334,7 +429,7 @@ export default function NuevaConsultaPage() {
     if (paso === 7 && recClinicas.length === 0) {
       const diags = diagnosticos.filter(d => d.confirmado).map(d => d.nombre)
       const sugeridas = generarRecClinicas(diags, habitos, sintomasSeleccionados)
-      setRecClinicas(sugeridas.map(t => ({ texto: t, activa: true })))
+      setRecClinicas(sugeridas.map(r => ({ ...r, activa: true })))
     }
   }, [paso])
 
@@ -464,7 +559,9 @@ export default function NuevaConsultaPage() {
         }).eq('id', consultaId)
       }
 
-      setPaso(p => Math.min(p + 1, 9))
+      const siguiente = Math.min(paso + 1, 9)
+      setPaso(siguiente)
+      setPasoMaximo(p => Math.max(p, siguiente))
     } finally {
       setGuardando(false)
     }
@@ -480,7 +577,14 @@ export default function NuevaConsultaPage() {
       }).eq('id', consultaId)
     }
     setGuardando(false)
-    router.push('/dashboard/expedientes')
+    // Ir a nueva venta pre-cargada con las recomendaciones del paciente
+    const pId = pacienteId || pacienteIdParam
+    const nombre = encodeURIComponent(pacienteNombre || `${pNombre} ${pApellido}`)
+    if (consultaId && pId) {
+      router.push(`/dashboard/ventas/nueva?desde_consulta=${consultaId}&paciente_id=${pId}&nombre=${nombre}`)
+    } else {
+      router.push('/dashboard/expedientes')
+    }
   }
 
   const puedeAvanzar = () => {
@@ -955,17 +1059,36 @@ export default function NuevaConsultaPage() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2">
-            {diagnosticos.map((d, i) => (
-              <button key={i} onClick={() => setDiagnosticos(prev => prev.map((x, j) => j === i ? { ...x, confirmado: !x.confirmado } : x))}
-                className={`flex items-center gap-2 px-3 py-2 rounded-full border text-sm font-medium transition-all ${d.confirmado ? 'bg-[#0D9488] border-[#0D9488] text-white' : 'bg-white border-zinc-300 text-zinc-400 line-through'}`}>
-                {d.nombre}
-                <button onClick={e => { e.stopPropagation(); setDiagnosticos(prev => prev.filter((_, j) => j !== i)) }}
-                  className={`ml-1 rounded-full ${d.confirmado ? 'hover:bg-white/20' : 'hover:bg-zinc-200'}`}>
-                  <X className="w-3 h-3" />
-                </button>
-              </button>
-            ))}
+          <div className="space-y-3">
+            {diagnosticos.map((d, i) => {
+              const info = DIAG_INFO[d.nombre]
+              return (
+                <div key={i}
+                  onClick={() => setDiagnosticos(prev => prev.map((x, j) => j === i ? { ...x, confirmado: !x.confirmado } : x))}
+                  className={`border rounded-lg p-4 cursor-pointer transition-all ${d.confirmado ? 'border-[#0D9488]/30 bg-[#0D9488]/5' : 'border-zinc-200 bg-zinc-50 opacity-50'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2.5 mb-1">
+                        <div className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center ${d.confirmado ? 'border-[#0D9488] bg-[#0D9488]' : 'border-zinc-300'}`}>
+                          {d.confirmado && <Check className="w-2.5 h-2.5 text-white" />}
+                        </div>
+                        <p className={`text-sm font-bold ${d.confirmado ? 'text-zinc-800' : 'text-zinc-400 line-through'}`}>{d.nombre}</p>
+                      </div>
+                      {info && d.confirmado && (
+                        <div className="ml-6 space-y-1.5">
+                          <p className="text-xs text-zinc-600">{info.que_es}</p>
+                          <p className="text-xs text-zinc-400"><span className="font-semibold text-zinc-500">¿Por qué ocurre?</span> {info.por_que}</p>
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={e => { e.stopPropagation(); setDiagnosticos(prev => prev.filter((_, j) => j !== i)) }}
+                      className="text-zinc-300 hover:text-zinc-500 flex-shrink-0 mt-0.5">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           <div className="flex gap-2">
@@ -995,13 +1118,22 @@ export default function NuevaConsultaPage() {
 
           <div className="space-y-2">
             {recClinicas.map((r, i) => (
-              <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${r.activa ? 'border-[#0D9488]/30 bg-[#0D9488]/5' : 'border-zinc-200 bg-zinc-50 opacity-50'}`}>
+              <div key={i} className={`flex items-start gap-3 p-4 rounded-lg border transition-all ${r.activa ? 'border-[#0D9488]/30 bg-[#0D9488]/5' : 'border-zinc-200 bg-zinc-50 opacity-50'}`}>
                 <button onClick={() => setRecClinicas(prev => prev.map((x, j) => j === i ? { ...x, activa: !x.activa } : x))}
                   className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${r.activa ? 'border-[#0D9488] bg-[#0D9488]' : 'border-zinc-300'}`}>
                   {r.activa && <Check className="w-3 h-3 text-white" />}
                 </button>
-                <span className="text-sm text-zinc-700 flex-1">{r.texto}</span>
-                <button onClick={() => setRecClinicas(prev => prev.filter((_, j) => j !== i))} className="text-zinc-300 hover:text-zinc-500">
+                <div className="flex-1">
+                  {r.titulo ? (
+                    <>
+                      <p className="text-sm font-semibold text-zinc-800">{r.titulo}</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">{r.detalle}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-zinc-700">{r.texto}</p>
+                  )}
+                </div>
+                <button onClick={() => setRecClinicas(prev => prev.filter((_, j) => j !== i))} className="text-zinc-300 hover:text-zinc-500 flex-shrink-0">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -1093,10 +1225,11 @@ export default function NuevaConsultaPage() {
                 ))}
               </div>
             )}
-            <div className="mt-3 flex flex-wrap gap-3 text-xs text-zinc-400">
-              {habitos.horas_computadora > 0 && <span>💻 {habitos.horas_computadora}h computadora</span>}
-              {habitos.horas_celular > 0 && <span>📱 {habitos.horas_celular}h celular</span>}
-              {habitos.maneja_noche && <span>🌙 Maneja de noche</span>}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
+              {habitos.horas_computadora > 0 && <span>{habitos.horas_computadora}h computadora</span>}
+              {habitos.horas_celular > 0 && <span>{habitos.horas_celular}h celular</span>}
+              {habitos.maneja_noche && <span>Maneja de noche</span>}
+              {habitos.lentes_sol && <span>Usa lentes de sol</span>}
             </div>
           </div>
 
@@ -1167,23 +1300,24 @@ export default function NuevaConsultaPage() {
         {/* Steps indicator */}
         <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
           {STEPS.map((s, idx) => {
-            const done  = paso > s.id
+            const done  = paso > s.id && s.id <= pasoMaximo
             const activ = paso === s.id
+            const nav   = s.id !== paso && s.id <= pasoMaximo
             const Icon  = s.icon
             return (
               <div key={s.id} className="flex items-center gap-1 flex-shrink-0">
                 <button
-                  onClick={() => { if (done) setPaso(s.id) }}
-                  disabled={!done}
+                  onClick={() => { if (nav) setPaso(s.id) }}
+                  disabled={!nav && !activ}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    done  ? 'bg-[#0D9488]/10 text-[#0D9488] hover:bg-[#0D9488]/20 cursor-pointer' :
                     activ ? 'bg-[#0B0E14] text-white' :
+                    nav   ? 'bg-[#0D9488]/10 text-[#0D9488] hover:bg-[#0D9488]/20 cursor-pointer' :
                             'bg-zinc-100 text-zinc-400 cursor-not-allowed'
                   }`}>
                   {done ? <Check className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
                   <span className="hidden sm:inline">{s.label}</span>
                 </button>
-                {idx < STEPS.length - 1 && <div className={`w-4 h-px ${done ? 'bg-[#0D9488]/40' : 'bg-zinc-200'}`} />}
+                {idx < STEPS.length - 1 && <div className={`w-4 h-px ${s.id < pasoMaximo ? 'bg-[#0D9488]/40' : 'bg-zinc-200'}`} />}
               </div>
             )
           })}
@@ -1217,7 +1351,7 @@ export default function NuevaConsultaPage() {
               disabled={guardando}
               className="flex items-center gap-2 px-6 py-2.5 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 disabled:opacity-40 transition-all">
               {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
-              <Check className="w-4 h-4" /> Finalizar consulta
+              <Check className="w-4 h-4" /> Finalizar e ir a venta
             </button>
           )}
         </div>
