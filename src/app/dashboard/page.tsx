@@ -43,12 +43,6 @@ const now = new Date()
 const monthName = now.toLocaleString('es-MX', { month: 'long', year: 'numeric' })
 const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1)
 
-const salesData = [
-  { semana: 'Sem 1\n1–7 jun', ventas: 18400 },
-  { semana: 'Sem 2\n8–14 jun', ventas: 24800 },
-  { semana: 'Sem 3\n15–21 jun', ventas: 31200 },
-  { semana: 'Sem 4\n22–25 jun', ventas: 19600 },
-]
 
 const categoryData = [
   { name: 'Armazones', value: 42 },
@@ -88,12 +82,6 @@ const cajaData = [
 ]
 const totalCaja = cajaData.reduce((s, c) => s + c.efectivo, 0)
 
-// Metas — ventas actuales mock por sucursal
-const ventasActualesPorSucursal: Record<string, number> = {
-  'Baja Visión': 64000,
-  '5 de Mayo': 51000,
-  'Plaza Laureles': 47000,
-}
 
 // --- Sub-components ---
 function StatCard({
@@ -220,7 +208,7 @@ function CajaCard({ sucursalFiltro }: { sucursalFiltro: string | null }) {
   )
 }
 
-function MetasCard({ sucursalFiltro, esAdmin }: { sucursalFiltro: string | null; esAdmin: boolean }) {
+function MetasCard({ sucursalFiltro, esAdmin, ventasReales }: { sucursalFiltro: string | null; esAdmin: boolean; ventasReales: Record<string, number> }) {
   // Calcular días del mes y días transcurridos
   const hoy = new Date()
   const diaActual = hoy.getDate()
@@ -286,7 +274,7 @@ function MetasCard({ sucursalFiltro, esAdmin }: { sucursalFiltro: string | null;
       <div className={`grid gap-4 ${metasFiltradas.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
         {(editando ? draftFiltrado : metasFiltradas).map((s) => {
           const draftIdx = draft.findIndex(d => d.sucursal === s.sucursal)
-          const actual = ventasActualesPorSucursal[s.sucursal] ?? 0
+          const actual = ventasReales[s.sucursal] ?? 0
           const esperado = Math.round(s.meta * fraccionMes)
           const diferencia = actual - esperado
           const adelante = diferencia >= 0
@@ -661,19 +649,79 @@ export default function DashboardPage() {
   const [usuario, setUsuario] = useState<{ nombre: string; rol: string; sucursal: string } | null>(null)
   const router = useRouter()
 
+  const [kpis, setKpis] = useState({ ventasHoy: 0, ventasAyer: 0, labTotal: 0, labListos: 0, porCobrar: 0, cuentasPendientes: 0 })
+  const [chartData, setChartData] = useState<{ semana: string; ventas: number }[]>([])
+  const [totalMes, setTotalMes] = useState(0)
+  const [ventasRealesPorSucursal, setVentasRealesPorSucursal] = useState<Record<string, number>>({})
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem('optios_demo_user')
       if (raw) {
         const u = JSON.parse(raw)
         setUsuario(u)
-        // El repartidor va directo al laboratorio — ese es su dashboard
         if (u.rol === 'repartidor') {
           router.replace('/dashboard/laboratorio')
         }
       }
     } catch { /* noop */ }
   }, [router])
+
+  // Fetch datos reales de Supabase para el dashboard admin/gerente
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const sb = createClient()
+        const now = new Date()
+        const hoy = now.toISOString().split('T')[0]
+        const ayer = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
+        const primerDia = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+
+        const [vHoy, vAyer, lab, cuentas, ventasMes] = await Promise.all([
+          sb.from('ventas').select('total,saldo').eq('estado','activa')
+            .gte('created_at',`${hoy}T00:00:00`).lte('created_at',`${hoy}T23:59:59`),
+          sb.from('ventas').select('total,saldo').eq('estado','activa')
+            .gte('created_at',`${ayer}T00:00:00`).lt('created_at',`${hoy}T00:00:00`),
+          sb.from('ordenes_lab').select('estado'),
+          sb.from('ventas').select('saldo').eq('estado','activa').gt('saldo',0),
+          sb.from('ventas').select('created_at,total,saldo,sucursal').eq('estado','activa')
+            .gte('created_at',`${primerDia}T00:00:00`),
+        ])
+
+        const calcNet = (arr: { total: unknown; saldo: unknown }[]) =>
+          arr.reduce((s, v) => s + Number(v.total) - Number(v.saldo ?? 0), 0)
+
+        const totalHoy  = calcNet(vHoy.data  ?? [])
+        const totalAyer = calcNet(vAyer.data ?? [])
+
+        setKpis({
+          ventasHoy:          totalHoy,
+          ventasAyer:         totalAyer,
+          labTotal:           (lab.data ?? []).filter(o => !['listo','entregado'].includes(o.estado)).length,
+          labListos:          (lab.data ?? []).filter(o => o.estado === 'listo').length,
+          porCobrar:          (cuentas.data ?? []).reduce((s,v) => s + Number(v.saldo ?? 0), 0),
+          cuentasPendientes:  (cuentas.data ?? []).length,
+        })
+
+        // Agrupar ventas del mes por semana y por sucursal
+        const semMap: Record<number, number> = {}
+        const sucMap: Record<string, number> = {}
+        for (const v of (ventasMes.data ?? [])) {
+          const net = Number(v.total) - Number(v.saldo ?? 0)
+          const dia = new Date(v.created_at).getDate()
+          const sem = Math.ceil(dia / 7)
+          semMap[sem] = (semMap[sem] ?? 0) + net
+          sucMap[v.sucursal] = (sucMap[v.sucursal] ?? 0) + net
+        }
+        const lbls = ['Sem 1\n1–7','Sem 2\n8–14','Sem 3\n15–21','Sem 4\n22–28','Sem 5\n29+']
+        setChartData([1,2,3,4,5].filter(k => semMap[k] !== undefined).map(k => ({ semana: lbls[k-1], ventas: semMap[k] })))
+        setTotalMes(Object.values(sucMap).reduce((s, v) => s + v, 0))
+        setVentasRealesPorSucursal(sucMap)
+      } catch { /* noop */ }
+    }
+    fetchDashboardData()
+  }, [])
 
   const esAdmin    = !usuario || usuario.rol === 'administrador' || usuario.rol === 'gerente'
   const esVendedor = usuario?.rol === 'vendedor'
@@ -706,36 +754,38 @@ export default function DashboardPage() {
       <div className="grid grid-cols-4 gap-4">
         <StatCard
           label="Ventas del día"
-          value="$8,450"
+          value={`$${kpis.ventasHoy.toLocaleString('es-MX')}`}
           icon={ShoppingCart}
           iconBg="bg-[#0D9488]/10"
           iconColor="text-[#0D9488]"
-          trend="up"
-          trendLabel="+18% vs ayer"
+          trend={kpis.ventasAyer > 0 ? (kpis.ventasHoy >= kpis.ventasAyer ? 'up' : 'down') : 'neutral'}
+          trendLabel={kpis.ventasAyer > 0
+            ? `${kpis.ventasHoy >= kpis.ventasAyer ? '+' : ''}${Math.round(((kpis.ventasHoy - kpis.ventasAyer) / kpis.ventasAyer) * 100)}% vs ayer`
+            : 'Sin ventas ayer'}
         />
         <CajaCard sucursalFiltro={sucursalFiltro} />
         <StatCard
           label="En laboratorio"
-          value="34"
+          value={String(kpis.labTotal)}
           icon={Package}
           iconBg="bg-amber-50"
           iconColor="text-amber-500"
           trend="neutral"
-          trendLabel="6 listos para entregar"
+          trendLabel={`${kpis.labListos} listo${kpis.labListos !== 1 ? 's' : ''} para entregar`}
         />
         <StatCard
           label="Por cobrar"
-          value="$23,800"
+          value={`$${kpis.porCobrar.toLocaleString('es-MX')}`}
           icon={DollarSign}
           iconBg="bg-rose-50"
           iconColor="text-rose-500"
-          trend="up"
-          trendLabel="8 cuentas pendientes"
+          trend={kpis.cuentasPendientes > 0 ? 'down' : 'neutral'}
+          trendLabel={`${kpis.cuentasPendientes} cuenta${kpis.cuentasPendientes !== 1 ? 's' : ''} pendiente${kpis.cuentasPendientes !== 1 ? 's' : ''}`}
         />
       </div>
 
       {/* Metas del mes */}
-      <MetasCard sucursalFiltro={sucursalFiltro} esAdmin={esAdmin} />
+      <MetasCard sucursalFiltro={sucursalFiltro} esAdmin={esAdmin} ventasReales={ventasRealesPorSucursal} />
 
       {/* Main grid */}
       <div className="grid grid-cols-3 gap-4">
@@ -745,14 +795,19 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-semibold text-zinc-800">Ventas del mes — {monthLabel}</h2>
-              <p className="text-xs text-zinc-400 mt-0.5">Total acumulado: $94,000 MXN</p>
+              <p className="text-xs text-zinc-400 mt-0.5">Total acumulado: ${totalMes.toLocaleString('es-MX')} MXN</p>
             </div>
             <span className="text-xs font-medium text-[#0D9488] bg-[#0D9488]/10 px-3 py-1 rounded-full">
               Mes actual
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={salesData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+          {chartData.length === 0 && (
+            <div className="h-[200px] flex items-center justify-center text-zinc-300 text-sm">
+              Sin ventas registradas este mes
+            </div>
+          )}
+          {chartData.length > 0 && <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#0D9488" stopOpacity={0.2} />
@@ -768,7 +823,7 @@ export default function DashboardPage() {
               />
               <Area type="monotone" dataKey="ventas" stroke="#0D9488" strokeWidth={2.5} fill="url(#salesGrad)" dot={{ fill: '#0D9488', r: 4, strokeWidth: 0 }} />
             </AreaChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer>}
         </div>
 
         {/* Upcoming appointments */}
