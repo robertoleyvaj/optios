@@ -51,35 +51,38 @@ const ESTADO: Record<EstadoArmazon, { label: string; dot: string; text: string; 
 }
 
 // ─────────────────────────────────────────
-// Mock data
+// Catálogo real GON — micas y filtros
 // ─────────────────────────────────────────
 const inicial: Producto[] = [
-  // Armazones — una fila = una pieza física, múltiples canales
-  { id: 1, sku: 'ARZ-001', nombre: 'Ray-Ban RB5154 Negro',         tipo: 'armazon', categoria: 'Armazones', marca: 'Ray-Ban',      precio: 2800, costo: 1200, ubicacion: 'Baja Visión',   canales: ['baja','gon','verly'], estado: 'disponible' },
-  { id: 2, sku: 'ARZ-001', nombre: 'Ray-Ban RB5154 Negro',         tipo: 'armazon', categoria: 'Armazones', marca: 'Ray-Ban',      precio: 2800, costo: 1200, ubicacion: '5 de Mayo',     canales: ['mayo','gon'],         estado: 'disponible' },
-  { id: 3, sku: 'ARZ-002', nombre: 'Ray-Ban RB5154 Carey',         tipo: 'armazon', categoria: 'Armazones', marca: 'Ray-Ban',      precio: 2800, costo: 1200, ubicacion: 'Baja Visión',   canales: ['baja','verly'],       estado: 'apartado' },
-  { id: 4, sku: 'ARZ-003', nombre: 'Oakley OX8046 Negro Mate',     tipo: 'armazon', categoria: 'Armazones', marca: 'Oakley',       precio: 3200, costo: 1500, ubicacion: 'Plaza Laureles',canales: ['plaza','gon','verly'], estado: 'disponible' },
-  { id: 5, sku: 'ARZ-004', nombre: 'Kenneth Cole KC0324 #12',      tipo: 'armazon', categoria: 'Armazones', marca: 'Kenneth Cole', precio: 2400, costo:  980, ubicacion: '5 de Mayo',     canales: [],                     estado: 'vendido' },
-  { id: 6, sku: 'ARZ-005', nombre: 'Armazón acetato básico negro', tipo: 'armazon', categoria: 'Armazones', marca: 'Genérico',     precio:  950, costo:  380, ubicacion: 'Plaza Laureles',canales: ['plaza','gon'],         estado: 'disponible' },
-
-  // Servicios
-  { id: 10, sku: 'MIC-001', nombre: 'Micas monofocales CR-39',     tipo: 'servicio', categoria: 'Micas', marca: 'Genérico',    precio:  800, costo: 200, ubicacion: 'Todas' },
-  { id: 11, sku: 'MIC-002', nombre: 'Micas antirreflejantes',      tipo: 'servicio', categoria: 'Micas', marca: 'Essilor',     precio: 1200, costo: 450, ubicacion: 'Todas' },
-  { id: 12, sku: 'MIC-003', nombre: 'Micas progresivas Essilor',   tipo: 'servicio', categoria: 'Micas', marca: 'Essilor',     precio: 3500, costo:1400, ubicacion: 'Todas' },
-  { id: 13, sku: 'MIC-004', nombre: 'Micas transitions',           tipo: 'servicio', categoria: 'Micas', marca: 'Transitions', precio: 2800, costo:1100, ubicacion: 'Todas' },
-
-  // Consumibles
-  { id: 20, sku: 'LC-001',  nombre: 'Lentes contacto Acuvue 1 día',   tipo: 'consumible', categoria: 'Lentes de contacto', marca: 'Acuvue',  precio: 320, costo:140, stock: 24, stockMin: 20, ubicacion: 'Baja Visión' },
-  { id: 21, sku: 'LC-002',  nombre: 'Lentes contacto Acuvue mensual', tipo: 'consumible', categoria: 'Lentes de contacto', marca: 'Acuvue',  precio: 580, costo:250, stock: 12, stockMin: 10, ubicacion: '5 de Mayo' },
-  { id: 22, sku: 'ACC-001', nombre: 'Solución Renu 120ml',            tipo: 'consumible', categoria: 'Accesorios', marca: 'Renu',     precio: 180, costo: 70, stock:  3, stockMin: 10, ubicacion: 'Baja Visión' },
-  { id: 23, sku: 'ACC-002', nombre: 'Estuche de viaje',               tipo: 'consumible', categoria: 'Accesorios', marca: 'Genérico', precio: 120, costo: 40, stock:  4, stockMin: 15, ubicacion: 'Plaza Laureles' },
-  { id: 24, sku: 'ACC-003', nombre: 'Paño de microfibra',             tipo: 'consumible', categoria: 'Accesorios', marca: 'Genérico', precio:  60, costo: 15, stock:  3, stockMin: 20, ubicacion: '5 de Mayo' },
+  // Micas Monofocal
+  { id:  1, sku: 'MON-ESS', nombre: 'Mica Monofocal Essential',         tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio:  749, costo: 0, ubicacion: 'Todas' },
+  { id:  2, sku: 'MON-SHD', nombre: 'Mica Monofocal Slim HD 1.60',      tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 1146, costo: 0, ubicacion: 'Todas' },
+  { id:  3, sku: 'MON-PPL', nombre: 'Mica Monofocal Poly Plus 1.58',    tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 1746, costo: 0, ubicacion: 'Todas' },
+  { id:  4, sku: 'MON-USL', nombre: 'Mica Monofocal Ultra Slim 1.67',   tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 3946, costo: 0, ubicacion: 'Todas' },
+  { id:  5, sku: 'MON-USP', nombre: 'Mica Monofocal Ultra Slim Pro 1.74',tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 5446, costo: 0, ubicacion: 'Todas' },
+  // Micas Bifocal
+  { id:  6, sku: 'BIF-ESS', nombre: 'Mica Bifocal Essential',           tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 1149, costo: 0, ubicacion: 'Todas' },
+  { id:  7, sku: 'BIF-SHD', nombre: 'Mica Bifocal Slim HD 1.60',        tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 1546, costo: 0, ubicacion: 'Todas' },
+  { id:  8, sku: 'BIF-PPL', nombre: 'Mica Bifocal Poly Plus 1.58',      tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 2146, costo: 0, ubicacion: 'Todas' },
+  { id:  9, sku: 'BIF-USL', nombre: 'Mica Bifocal Ultra Slim 1.67',     tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 4346, costo: 0, ubicacion: 'Todas' },
+  // Micas Progresivo
+  { id: 10, sku: 'PRO-ESS', nombre: 'Mica Progresivo Essential',        tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 1899, costo: 0, ubicacion: 'Todas' },
+  { id: 11, sku: 'PRO-SHD', nombre: 'Mica Progresivo Slim HD 1.60',     tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 2296, costo: 0, ubicacion: 'Todas' },
+  { id: 12, sku: 'PRO-PPL', nombre: 'Mica Progresivo Poly Plus 1.58',   tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 2896, costo: 0, ubicacion: 'Todas' },
+  { id: 13, sku: 'PRO-USL', nombre: 'Mica Progresivo Ultra Slim 1.67',  tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 5096, costo: 0, ubicacion: 'Todas' },
+  { id: 14, sku: 'PRO-USP', nombre: 'Mica Progresivo Ultra Slim Pro 1.74',tipo: 'servicio', categoria: 'Micas', marca: 'GON', precio: 6596, costo: 0, ubicacion: 'Todas' },
+  // Filtros
+  { id: 20, sku: 'FIL-AR',  nombre: 'Filtro Antirreflejo',              tipo: 'servicio', categoria: 'Filtros', marca: 'GON', precio:  279, costo: 0, ubicacion: 'Todas' },
+  { id: 21, sku: 'FIL-BL',  nombre: 'Filtro Blue Light',                tipo: 'servicio', categoria: 'Filtros', marca: 'GON', precio:  549, costo: 0, ubicacion: 'Todas' },
+  { id: 22, sku: 'FIL-FC',  nombre: 'Filtro Fotocromático',             tipo: 'servicio', categoria: 'Filtros', marca: 'GON', precio:  949, costo: 0, ubicacion: 'Todas' },
+  { id: 23, sku: 'FIL-POL', nombre: 'Filtro Polarizado',                tipo: 'servicio', categoria: 'Filtros', marca: 'GON', precio: 1699, costo: 0, ubicacion: 'Todas' },
+  { id: 24, sku: 'FIL-TIN', nombre: 'Filtro Tinte',                     tipo: 'servicio', categoria: 'Filtros', marca: 'GON', precio:  549, costo: 0, ubicacion: 'Todas' },
 ]
 
 const sucursales = ['Todas', 'Baja Visión', '5 de Mayo', 'Plaza Laureles']
 const catsPorTipo: Record<TipoProducto, string[]> = {
   armazon:    ['Armazones', 'Lentes de sol'],
-  consumible: ['Lentes de contacto', 'Accesorios', 'Soluciones'],
+  consumible: ['Accesorios'],
   servicio:   ['Micas', 'Examen visual', 'Servicio'],
 }
 
