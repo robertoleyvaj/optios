@@ -663,21 +663,13 @@ export default function NuevaConsultaPage() {
             </div>
           </div>
 
-          {/* Teléfono con LADA */}
+          {/* Teléfono */}
           <div>
             <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
             <div className="flex gap-2">
-              <select value={pLada} onChange={e => setPLada(e.target.value)}
-                className="border border-zinc-200 rounded px-2 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 flex-shrink-0 w-28">
-                <option value="+52">🇲🇽 +52</option>
-                <option value="+1">🇺🇸 +1</option>
-                <option value="+34">🇪🇸 +34</option>
-                <option value="+54">🇦🇷 +54</option>
-                <option value="+57">🇨🇴 +57</option>
-                <option value="+56">🇨🇱 +56</option>
-                <option value="+51">🇵🇪 +51</option>
-                <option value="+55">🇧🇷 +55</option>
-              </select>
+              <div className="flex items-center border border-zinc-200 rounded px-3 py-2 bg-zinc-100 text-xs text-zinc-500 whitespace-nowrap select-none">
+                +52
+              </div>
               <input
                 type="tel"
                 value={pTelefono}
@@ -686,9 +678,6 @@ export default function NuevaConsultaPage() {
                 className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
               />
             </div>
-            {pTelefono && (
-              <p className="text-xs text-zinc-400 mt-1">Se guardará como <span className="font-mono font-semibold">{pLada}{pTelefono}</span></p>
-            )}
           </div>
 
           {/* WhatsApp con botón copiar */}

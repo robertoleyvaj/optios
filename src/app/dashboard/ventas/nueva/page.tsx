@@ -112,7 +112,7 @@ export default function NuevaVentaPage() {
   const [recetaPaciente, setRecetaPaciente] = useState<{
     od_esfera: string; od_cilindro: string; od_eje: string; od_add: string
     oi_esfera: string; oi_cilindro: string; oi_eje: string; oi_add: string
-    dp: string
+    dp_od: string; dp_oi: string
   } | null>(null)
   const [fechaEntrega, setFechaEntrega] = useState('')
   const [carrito, setCarrito] = useState<Item[]>([])
@@ -137,7 +137,7 @@ export default function NuevaVentaPage() {
 
   // Auto-populate desde URL params (pacienteId desde expedientes, desde_consulta desde wizard)
   useEffect(() => {
-    const pacienteId    = searchParams.get('pacienteId')
+    const pacienteId    = searchParams.get('pacienteId') || searchParams.get('paciente_id')
     const desdeConsulta = searchParams.get('desde_consulta')
     const nombreParam   = searchParams.get('nombre')
     const supabase      = createClient()
@@ -218,7 +218,7 @@ export default function NuevaVentaPage() {
     const supabase = createClient()
     const { data } = await supabase
       .from('recetas')
-      .select('od_esfera,od_cilindro,od_eje,od_add,oi_esfera,oi_cilindro,oi_eje,oi_add,dp')
+      .select('od_esfera,od_cilindro,od_eje,od_add,oi_esfera,oi_cilindro,oi_eje,oi_add,dp_od,dp_oi')
       .eq('paciente_id', pacienteId)
       .order('fecha', { ascending: false })
       .limit(1)
@@ -435,7 +435,7 @@ export default function NuevaVentaPage() {
           od:               odTexto,
           oi:               oiTexto,
           add_graduacion:   recetaPaciente?.od_add || '',
-          dp:               recetaPaciente?.dp || '',
+          dp:               recetaPaciente ? `${recetaPaciente.dp_od}/${recetaPaciente.dp_oi}` : '',
           tipo_mica:        micasCarrito,
           tratamiento:      filtrosCarrito,
         })
@@ -656,7 +656,7 @@ ${entregaHtml}
       <td class="val">${recetaPaciente?.oi_eje ? recetaPaciente.oi_eje + '°' : '—'}</td>
       <td class="val">${recetaPaciente?.oi_add || '—'}</td>
     </tr>
-    <tr><td class="lbl">D.P.</td><td class="val" colspan="4">${recetaPaciente?.dp || '—'} mm</td></tr>
+    <tr><td class="lbl">D.P.</td><td class="val" colspan="4">${recetaPaciente?.dp_od ? recetaPaciente.dp_od + ' / ' + recetaPaciente.dp_oi + ' mm' : '—'}</td></tr>
   </tbody>
 </table>
 

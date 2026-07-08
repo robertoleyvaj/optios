@@ -1370,7 +1370,7 @@ function ExpedientesContent() {
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
                 <div className="flex gap-2">
                   <div className="flex items-center gap-1.5 border border-zinc-200 rounded px-3 py-2.5 bg-zinc-100 text-xs text-zinc-500 whitespace-nowrap select-none">
-                    🇲🇽 +52
+                    +52
                   </div>
                   <input value={formEditar.telefono} onChange={e => setFormEditar(p => ({ ...p, telefono: e.target.value }))}
                     className="flex-1 border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
@@ -1446,7 +1446,7 @@ function ExpedientesContent() {
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono *</label>
                 <div className="flex gap-2">
                   <div className="flex items-center gap-1.5 border border-zinc-200 rounded px-3 py-2.5 bg-zinc-100 text-xs text-zinc-500 whitespace-nowrap select-none">
-                    🇲🇽 +52
+                    +52
                   </div>
                   <input value={formPaciente.telefono} onChange={e => setFormPaciente(p => ({ ...p, telefono: e.target.value }))}
                     className="flex-1 border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
