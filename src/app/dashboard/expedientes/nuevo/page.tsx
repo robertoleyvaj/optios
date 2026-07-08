@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   ChevronRight, ChevronLeft, Check, User, ClipboardList,
   Eye, Activity, Stethoscope, Brain, Star, FileText,
-  ShoppingBag, X, Plus, AlertCircle, Sparkles,
+  ShoppingBag, X, Plus, AlertCircle, Sparkles, Pencil,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────
@@ -392,6 +392,11 @@ export default function NuevaConsultaPage() {
   const [rxTipo, setRxTipo]             = useState('Lejos')
   const [rxOptometrista, setRxOptometrista] = useState('')
   const [rxObservaciones, setRxObservaciones] = useState('')
+  const [editandoRx, setEditandoRx]     = useState(false)   // prescripción read-only por defecto
+
+  // ── Toggles secciones opcionales paso 5 ──
+  const [hizoLens, setHizoLens] = useState<boolean | null>(null)
+  const [hizoAuto, setHizoAuto] = useState<boolean | null>(null)
 
   // ── Datos paso 9: Rec. comerciales ──
   const [recComerciales, setRecComerciales] = useState<RecComercial[]>([])
@@ -407,7 +412,7 @@ export default function NuevaConsultaPage() {
     // Default optometrista
     try {
       const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
-      setRxOptometrista(u.nombreReceta || u.nombre || 'Dr. Leyva')
+      setRxOptometrista(u.nombre || 'Dr. Leyva')  // nombre completo, no apodo
     } catch {}
   }, [pacienteIdParam])
 
@@ -415,6 +420,7 @@ export default function NuevaConsultaPage() {
   useEffect(() => {
     if (paso === 8) {
       setRxFinal({ od: { ...rxOd }, oi: { ...rxOi }, dp_od: rxDpOd, dp_oi: rxDpOi })
+      setEditandoRx(false)  // siempre inicia en modo lectura
     }
   }, [paso])
 
@@ -1057,10 +1063,45 @@ export default function NuevaConsultaPage() {
             </div>
           </div>
 
-          {/* Lensómetro */}
-          <RxSection label="Lensómetro" od={lensOd} oi={lensOi} setOd={setLensOd} setOi={setLensOi} showAdd />
-          {/* Autorrefracción */}
-          <RxSection label="Autorrefracción" od={autoOd} oi={autoOi} setOd={setAutoOd} setOi={setAutoOi} />
+          {/* Lensómetro — solo si se realizó */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Lensómetro</p>
+              <div className="flex items-center gap-0.5 bg-zinc-100 p-0.5 rounded-lg">
+                <button onClick={() => setHizoLens(true)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${hizoLens === true ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}>
+                  Sí
+                </button>
+                <button onClick={() => setHizoLens(false)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${hizoLens === false ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}>
+                  No
+                </button>
+              </div>
+            </div>
+            {hizoLens === true  && <RxSection label="Lensómetro" od={lensOd} oi={lensOi} setOd={setLensOd} setOi={setLensOi} showAdd />}
+            {hizoLens === false && <div className="text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-zinc-200 px-4 py-3">No realizado</div>}
+            {hizoLens === null  && <div className="text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-dashed border-zinc-200 px-4 py-3 text-center">Selecciona si se realizó el lensómetro</div>}
+          </div>
+
+          {/* Autorrefracción — solo si se realizó */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Autorrefracción</p>
+              <div className="flex items-center gap-0.5 bg-zinc-100 p-0.5 rounded-lg">
+                <button onClick={() => setHizoAuto(true)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${hizoAuto === true ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}>
+                  Sí
+                </button>
+                <button onClick={() => setHizoAuto(false)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${hizoAuto === false ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}>
+                  No
+                </button>
+              </div>
+            </div>
+            {hizoAuto === true  && <RxSection label="Autorrefracción" od={autoOd} oi={autoOi} setOd={setAutoOd} setOi={setAutoOi} />}
+            {hizoAuto === false && <div className="text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-zinc-200 px-4 py-3">No realizada</div>}
+            {hizoAuto === null  && <div className="text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-dashed border-zinc-200 px-4 py-3 text-center">Selecciona si se realizó la autorrefracción</div>}
+          </div>
           {/* Refracción subjetiva */}
           <RxSection label="Refracción subjetiva ★" od={rxOd} oi={rxOi} setOd={setRxOd} setOi={setRxOi} showAdd showDp dpOd={rxDpOd} dpOi={rxDpOi} setDpOd={setRxDpOd} setDpOi={setRxDpOi} highlight />
 
@@ -1186,9 +1227,20 @@ export default function NuevaConsultaPage() {
       // ── PASO 8: Prescripción ───────────────────
       case 8: return (
         <div className="space-y-5">
-          <SectionTitle>Prescripción</SectionTitle>
-          <p className="text-sm text-zinc-400 -mt-3">Prellenada con la refracción subjetiva. Verifica antes de guardar.</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <SectionTitle>Prescripción</SectionTitle>
+              <p className="text-sm text-zinc-400 mt-0.5">Pre-llenada desde la refracción subjetiva.</p>
+            </div>
+            {!editandoRx && (
+              <button onClick={() => setEditandoRx(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded text-xs font-semibold text-zinc-500 hover:bg-zinc-50 transition-all mt-1">
+                <Pencil className="w-3 h-3" /> Editar
+              </button>
+            )}
+          </div>
 
+          {/* Tipo de lente y optometrista — siempre visible */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo de lente</label>
@@ -1197,33 +1249,59 @@ export default function NuevaConsultaPage() {
                 {['Lejos','Cerca','Progresivo','Bifocal','Lentes de contacto'].map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
-            <Field label="Optometrista" value={rxOptometrista} onChange={setRxOptometrista} />
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Optometrista</label>
+              <p className="px-3 py-2 text-sm text-zinc-800 bg-zinc-50 border border-zinc-200 rounded">{rxOptometrista}</p>
+            </div>
           </div>
 
-          {/* Tabla Rx */}
-          <div className="bg-zinc-50 rounded-lg border border-zinc-200 overflow-hidden">
-            <div className="grid grid-cols-6 gap-0 px-4 py-2 border-b border-zinc-200">
-              <div />
-              {['Esfera','Cilindro','Eje','Adición','D.P.'].map(h => (
-                <div key={h} className="text-center text-xs font-semibold text-zinc-400 uppercase tracking-wide">{h}</div>
+          {/* Tabla Rx — read-only o editable */}
+          {!editandoRx ? (
+            <div className="bg-[#0D9488]/5 rounded-lg border border-[#0D9488]/20 overflow-hidden">
+              <div className="grid grid-cols-6 gap-0 px-4 py-2.5 border-b border-[#0D9488]/10">
+                <div />
+                {['Esfera','Cilindro','Eje','Add','D.P.'].map(h => (
+                  <div key={h} className="text-center text-xs font-semibold text-zinc-400 uppercase tracking-wide">{h}</div>
+                ))}
+              </div>
+              {([
+                ['OD', rxFinal.od, rxFinal.dp_od],
+                ['OI', rxFinal.oi, rxFinal.dp_oi],
+              ] as [string, RxEye, string][]).map(([eye, rx, dp]) => (
+                <div key={eye} className="grid grid-cols-6 gap-0 px-4 py-3 border-b border-[#0D9488]/10 last:border-0">
+                  <div className="flex items-center font-bold text-sm text-zinc-700">{eye}</div>
+                  {(['esfera','cilindro','eje','add'] as (keyof RxEye)[]).map(k => (
+                    <div key={k} className="text-center text-sm font-mono text-zinc-800 py-1">{rx[k] || '—'}</div>
+                  ))}
+                  <div className="text-center text-sm font-mono text-zinc-800 py-1">{dp || '—'}</div>
+                </div>
               ))}
             </div>
-            {([
-              ['OD', rxFinal.od, (v: RxEye) => setRxFinal(r => ({ ...r, od: v })), rxFinal.dp_od, (v: string) => setRxFinal(r => ({ ...r, dp_od: v }))],
-              ['OI', rxFinal.oi, (v: RxEye) => setRxFinal(r => ({ ...r, oi: v })), rxFinal.dp_oi, (v: string) => setRxFinal(r => ({ ...r, dp_oi: v }))],
-            ] as [string, RxEye, (v: RxEye) => void, string, (v: string) => void][]).map(([eye, rx, setRx, dp, setDp]) => (
-              <div key={eye} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-zinc-100 last:border-0">
-                <div className="flex items-center font-bold text-sm text-zinc-700">{eye}</div>
-                {(['esfera','cilindro','eje','add'] as (keyof RxEye)[]).map(k => (
-                  <input key={k} value={rx[k]} onChange={e => setRx({ ...rx, [k]: e.target.value })}
-                    placeholder={k === 'eje' ? '000' : '+0.00'}
-                    className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
+          ) : (
+            <div className="bg-zinc-50 rounded-lg border border-zinc-200 overflow-hidden">
+              <div className="grid grid-cols-6 gap-0 px-4 py-2 border-b border-zinc-200">
+                <div />
+                {['Esfera','Cilindro','Eje','Adición','D.P.'].map(h => (
+                  <div key={h} className="text-center text-xs font-semibold text-zinc-400 uppercase tracking-wide">{h}</div>
                 ))}
-                <input value={dp} onChange={e => setDp(e.target.value)} placeholder="32"
-                  className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
               </div>
-            ))}
-          </div>
+              {([
+                ['OD', rxFinal.od, (v: RxEye) => setRxFinal(r => ({ ...r, od: v })), rxFinal.dp_od, (v: string) => setRxFinal(r => ({ ...r, dp_od: v }))],
+                ['OI', rxFinal.oi, (v: RxEye) => setRxFinal(r => ({ ...r, oi: v })), rxFinal.dp_oi, (v: string) => setRxFinal(r => ({ ...r, dp_oi: v }))],
+              ] as [string, RxEye, (v: RxEye) => void, string, (v: string) => void][]).map(([eye, rx, setRx, dp, setDp]) => (
+                <div key={eye} className="grid grid-cols-6 gap-2 px-4 py-3 border-b border-zinc-100 last:border-0">
+                  <div className="flex items-center font-bold text-sm text-zinc-700">{eye}</div>
+                  {(['esfera','cilindro','eje','add'] as (keyof RxEye)[]).map(k => (
+                    <input key={k} value={rx[k]} onChange={e => setRx({ ...rx, [k]: e.target.value })}
+                      placeholder={k === 'eje' ? '000' : '+0.00'}
+                      className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
+                  ))}
+                  <input value={dp} onChange={e => setDp(e.target.value)} placeholder="32"
+                    className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Observaciones</label>
