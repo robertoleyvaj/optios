@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import RequireRol from '@/components/RequireRol'
 import {
   Search, Plus, AlertTriangle, Filter, ChevronDown,
-  X, Save, Edit2, Layers, Tag, Store, Globe, CheckSquare,
+  X, Save, Edit2, Layers, Tag, Store, Globe, CheckSquare, RefreshCw,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -30,12 +30,17 @@ type Producto = {
   marca: string
   precio: number
   costo: number
-  ubicacion: string          // dónde está físicamente
-  canales?: string[]         // solo armazones: en qué canales aparece
+  ubicacion: string
+  canales?: string[]
   estado?: EstadoArmazon
-  stock?: number             // solo consumibles
+  stock?: number
+  stockBaja?: number
+  stockMayo?: number
+  stockPlaza?: number
   stockMin?: number
   descripcion?: string
+  color?: string
+  medidas?: { ojo?: string; puente?: string; varilla?: string; alto?: string }
 }
 
 const TIPOS: Record<TipoProducto, { label: string; color: string }> = {
@@ -86,11 +91,20 @@ const catsPorTipo: Record<TipoProducto, string[]> = {
   servicio:   ['Micas', 'Examen visual', 'Servicio'],
 }
 
+const TODOS_LOS_CANALES = CANALES_DISPONIBLES.map(c => c.key)
+
+const generarSku = (tipo: TipoProducto) => {
+  const pref = { armazon: 'ARZ', consumible: 'CON', servicio: 'SRV' }[tipo]
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
+  return `${pref}-${rand}`
+}
+
 const formVacio = (): Omit<Producto, 'id'> => ({
   sku: '', nombre: '', tipo: 'armazon', categoria: 'Armazones', marca: '',
   precio: 0, costo: 0, ubicacion: 'Baja Visión',
-  canales: ['baja', 'gon', 'verly'], estado: 'disponible',
-  stock: 0, stockMin: 0, descripcion: '',
+  canales: [...TODOS_LOS_CANALES], estado: 'disponible',
+  stock: 0, stockBaja: 0, stockMayo: 0, stockPlaza: 0, stockMin: 0,
+  descripcion: '', color: '', medidas: {},
 })
 
 // ─────────────────────────────────────────
@@ -128,6 +142,12 @@ function InventarioPage() {
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Producto | null>(null)
   const [form, setForm] = useState<Omit<Producto, 'id'>>(formVacio())
+  const [esAdmin, setEsAdmin] = useState(false)
+
+  useEffect(() => {
+    const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
+    setEsAdmin(u.rol === 'administrador' || u.rol === 'gerente')
+  }, [])
 
   const filtrados = productos.filter(p => {
     const q = busqueda.toLowerCase()
@@ -149,7 +169,14 @@ function InventarioPage() {
   const abrirNuevo = () => { setEditando(null); setForm(formVacio()); setModal(true) }
   const abrirEditar = (p: Producto) => {
     setEditando(p)
-    setForm({ sku: p.sku, nombre: p.nombre, tipo: p.tipo, categoria: p.categoria, marca: p.marca, precio: p.precio, costo: p.costo, ubicacion: p.ubicacion, canales: p.canales ?? [], estado: p.estado ?? 'disponible', stock: p.stock ?? 0, stockMin: p.stockMin ?? 0, descripcion: p.descripcion ?? '' })
+    setForm({
+      sku: p.sku, nombre: p.nombre, tipo: p.tipo, categoria: p.categoria, marca: p.marca,
+      precio: p.precio, costo: p.costo, ubicacion: p.ubicacion,
+      canales: p.canales ?? [...TODOS_LOS_CANALES], estado: p.estado ?? 'disponible',
+      stock: p.stock ?? 0, stockBaja: p.stockBaja ?? 0, stockMayo: p.stockMayo ?? 0,
+      stockPlaza: p.stockPlaza ?? 0, stockMin: p.stockMin ?? 0,
+      descripcion: p.descripcion ?? '', color: p.color ?? '', medidas: p.medidas ?? {},
+    })
     setModal(true)
   }
 
@@ -367,6 +394,7 @@ function InventarioPage() {
             </div>
 
             <div className="px-6 py-5 space-y-4">
+
               {/* Tipo */}
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-2">Tipo</label>
@@ -380,121 +408,163 @@ function InventarioPage() {
                 </div>
               </div>
 
+              {/* SKU + Marca */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">SKU *</label>
-                  <input value={form.sku} onChange={e => f('sku', e.target.value)}
-                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" placeholder="ej. ARZ-007" />
+                  <div className="flex gap-1.5">
+                    <input value={form.sku} onChange={e => f('sku', e.target.value)}
+                      className="flex-1 border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                      placeholder={form.tipo === 'armazon' ? 'ej. ARZ-007' : form.tipo === 'consumible' ? 'ej. CON-ABC' : 'ej. SRV-001'} />
+                    <button type="button" onClick={() => f('sku', generarSku(form.tipo))}
+                      title="Generar SKU aleatorio"
+                      className="px-2.5 border border-zinc-200 rounded bg-zinc-50 hover:bg-zinc-100 text-zinc-400 hover:text-[#0D9488] transition-colors">
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Marca</label>
                   <input value={form.marca} onChange={e => f('marca', e.target.value)}
-                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" placeholder="ej. Ray-Ban" />
+                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                    placeholder={form.tipo === 'armazon' ? 'ej. Ray-Ban' : 'ej. Zeiss'} />
                 </div>
               </div>
 
+              {/* Nombre / Modelo */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Nombre *</label>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
+                  {form.tipo === 'armazon' ? 'Modelo *' : 'Nombre *'}
+                </label>
                 <input value={form.nombre} onChange={e => f('nombre', e.target.value)}
-                  className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" placeholder="Nombre completo del producto" />
+                  className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                  placeholder={form.tipo === 'armazon' ? 'ej. RB3025 Aviator Classic' : 'Nombre completo del producto'} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Costo *</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -tranzinc-y-1/2 text-zinc-400 text-sm">$</span>
-                    <input type="number" value={form.costo || ''} onChange={e => f('costo', parseFloat(e.target.value) || 0)}
-                      className="w-full border border-zinc-200 rounded pl-7 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" placeholder="0.00" />
+              {/* ARMAZÓN: Color + Medidas */}
+              {form.tipo === 'armazon' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Color</label>
+                    <input value={form.color ?? ''} onChange={e => f('color', e.target.value)}
+                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                      placeholder="ej. Negro mate, Dorado, Azul tortuga" />
                   </div>
-                </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-2">
+                      Medidas <span className="font-normal text-zinc-400">(mm)</span>
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {([
+                        { key: 'ojo',     label: 'Ojo' },
+                        { key: 'puente',  label: 'Puente' },
+                        { key: 'varilla', label: 'Varilla' },
+                        { key: 'alto',    label: 'Alto' },
+                      ] as { key: keyof NonNullable<Producto['medidas']>; label: string }[]).map(({ key, label }) => (
+                        <div key={key}>
+                          <p className="text-xs text-zinc-400 mb-1 text-center">{label}</p>
+                          <input
+                            type="number"
+                            value={form.medidas?.[key] ?? ''}
+                            onChange={e => f('medidas', { ...(form.medidas ?? {}), [key]: e.target.value })}
+                            className="w-full border border-zinc-200 rounded px-2 py-2 text-sm bg-zinc-50 text-center focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                            placeholder="—"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-1.5">Ojo · Puente · Varilla · Alto del aro</p>
+                  </div>
+                </>
+              )}
+
+              {/* Precio de venta + Costo (costo solo admin) */}
+              <div className={`grid gap-4 ${esAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {esAdmin && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Costo</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
+                      <input type="number" value={form.costo || ''} onChange={e => f('costo', parseFloat(e.target.value) || 0)}
+                        className="w-full border border-zinc-200 rounded pl-7 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" placeholder="0.00" />
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Precio de venta *</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -tranzinc-y-1/2 text-zinc-400 text-sm">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
                     <input type="number" value={form.precio || ''} onChange={e => f('precio', parseFloat(e.target.value) || 0)}
                       className="w-full border border-zinc-200 rounded pl-7 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" placeholder="0.00" />
                   </div>
-                  {form.costo > 0 && form.precio > 0 && (
+                  {esAdmin && form.costo > 0 && form.precio > 0 && (
                     <p className="text-xs text-emerald-500 mt-1">Margen: {Math.round(((form.precio - form.costo) / form.precio) * 100)}%</p>
                   )}
                 </div>
               </div>
 
               {/* Ubicación física */}
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
-                  {form.tipo === 'armazon' ? 'Ubicación física (dónde está el armazón)' : form.tipo === 'servicio' ? 'Disponible en' : 'Sucursal'}
-                </label>
-                <div className="relative">
-                  <select value={form.ubicacion} onChange={e => f('ubicacion', e.target.value)}
-                    className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 pr-8">
-                    {(form.tipo === 'servicio' ? ['Todas', ...sucursales.slice(1)] : sucursales.slice(1)).map(s => <option key={s}>{s}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* ARMAZONES: canales de venta y estado */}
               {form.tipo === 'armazon' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-500 mb-2">
-                      Canales de venta activos
-                      <span className="font-normal text-zinc-400 ml-1">— al venderse, se quitan de todos automáticamente</span>
-                    </label>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      {CANALES_DISPONIBLES.map(c => {
-                        const activo = (form.canales ?? []).includes(c.key)
-                        const deshabilitado = form.estado === 'vendido'
-                        const esWeb = c.key === 'gon' || c.key === 'verly'
-                        return (
-                          <button key={c.key} type="button"
-                            disabled={deshabilitado}
-                            onClick={() => toggleCanal(c.key)}
-                            className={`flex items-center gap-3 px-4 py-2.5 rounded border text-sm transition-all text-left ${activo && !deshabilitado ? 'border-[#0D9488] bg-[#0D9488]/5 text-zinc-700' : 'border-zinc-200 text-zinc-400 hover:bg-zinc-50'} ${deshabilitado ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                            {esWeb ? <Globe className="w-4 h-4 flex-shrink-0 text-blue-400" /> : <Store className="w-4 h-4 flex-shrink-0 text-zinc-400" />}
-                            <span className="flex-1">{c.label}</span>
-                            {activo && !deshabilitado && <CheckSquare className="w-4 h-4 text-[#0D9488]" />}
-                          </button>
-                        )
-                      })}
-                    </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Ubicación física (dónde está el armazón)</label>
+                  <div className="relative">
+                    <select value={form.ubicacion} onChange={e => f('ubicacion', e.target.value)}
+                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 pr-8">
+                      {sucursales.slice(1).map(s => <option key={s}>{s}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-500 mb-2">Estado de la pieza</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['disponible','apartado','vendido'] as EstadoArmazon[]).map(e => {
-                        const ec = ESTADO[e]
-                        return (
-                          <button key={e} onClick={() => {
-                            f('estado', e)
-                            if (e === 'vendido') f('canales', [])
-                          }}
-                            className={`py-2.5 rounded text-xs font-semibold border transition-all ${form.estado === e ? `${ec.bg} border-current ${ec.text}` : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
-                            {ec.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    {form.estado === 'vendido' && (
-                      <p className="text-xs text-zinc-400 mt-1.5">Al marcar como vendido, los canales se desactivan automáticamente.</p>
-                    )}
-                  </div>
-                </>
+                </div>
               )}
 
-              {/* CONSUMIBLES: stock */}
-              {form.tipo === 'consumible' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Cantidad actual *</label>
-                    <input type="number" value={form.stock || ''} onChange={e => f('stock', parseInt(e.target.value) || 0)}
-                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" placeholder="0" />
+              {/* ARMAZÓN: canales de venta (sin estado) */}
+              {form.tipo === 'armazon' && (
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-2">
+                    Canales de venta activos
+                    <span className="font-normal text-zinc-400 ml-1">— al venderse, se quitan de todos automáticamente</span>
+                  </label>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {CANALES_DISPONIBLES.map(c => {
+                      const activo = (form.canales ?? []).includes(c.key)
+                      const esWeb = c.key === 'gon' || c.key === 'verly'
+                      return (
+                        <button key={c.key} type="button"
+                          onClick={() => toggleCanal(c.key)}
+                          className={`flex items-center gap-3 px-4 py-2.5 rounded border text-sm transition-all text-left ${activo ? 'border-[#0D9488] bg-[#0D9488]/5 text-zinc-700' : 'border-zinc-200 text-zinc-400 hover:bg-zinc-50'}`}>
+                          {esWeb ? <Globe className="w-4 h-4 flex-shrink-0 text-blue-400" /> : <Store className="w-4 h-4 flex-shrink-0 text-zinc-400" />}
+                          <span className="flex-1">{c.label}</span>
+                          {activo && <CheckSquare className="w-4 h-4 text-[#0D9488]" />}
+                        </button>
+                      )
+                    })}
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Mínimo (alerta)</label>
+                </div>
+              )}
+
+              {/* CONSUMIBLE: stock por sucursal */}
+              {form.tipo === 'consumible' && (
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-2">Cantidad por sucursal</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {([
+                      { key: 'stockBaja',  label: 'Baja Visión' },
+                      { key: 'stockMayo',  label: '5 de Mayo' },
+                      { key: 'stockPlaza', label: 'Plaza Laureles' },
+                    ] as { key: 'stockBaja' | 'stockMayo' | 'stockPlaza'; label: string }[]).map(({ key, label }) => (
+                      <div key={key}>
+                        <p className="text-xs text-zinc-400 mb-1 text-center">{label}</p>
+                        <input type="number"
+                          value={(form[key] as number) || ''}
+                          onChange={e => f(key, parseInt(e.target.value) || 0)}
+                          className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 text-center focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                          placeholder="0" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Mínimo para alerta</label>
                     <input type="number" value={form.stockMin || ''} onChange={e => f('stockMin', parseInt(e.target.value) || 0)}
                       className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" placeholder="0" />
                   </div>
