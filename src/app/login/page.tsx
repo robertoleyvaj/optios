@@ -6,10 +6,10 @@ import { Glasses, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
 // Usuarios demo — misma tabla que Sidebar.tsx
 const USUARIOS_DEMO = [
-  { nombre: 'Roberto Leyva', iniciales: 'RL', rol: 'administrador', sucursal: 'Todas',        nombreReceta: 'Dr. Leyva',     user: 'roberto',  pass: 'admin123'  },
-  { nombre: 'Ana Castillo',  iniciales: 'AC', rol: 'gerente',        sucursal: 'Baja Visión',  nombreReceta: 'Dra. Castillo', user: 'ana',       pass: 'gon2025'   },
-  { nombre: 'Karina López',  iniciales: 'KL', rol: 'vendedor',       sucursal: 'Baja Visión',  nombreReceta: 'Karina López',  user: 'karina',    pass: 'gon2025'   },
-  { nombre: 'Sergio',        iniciales: 'SG', rol: 'repartidor',     sucursal: 'Todas',        nombreReceta: 'Sergio',        user: 'sergio',    pass: 'gon2025'   },
+  { nombre: 'Roberto Leyva Jaramillo',       apodo: 'Roberto', iniciales: 'RL', rol: 'administrador', sucursal: 'Todas',       nombreReceta: 'Dr. Leyva',      user: 'roberto', pass: 'admin123' },
+  { nombre: 'Diany Monserrath Pérez Sánchez', apodo: 'Monse',   iniciales: 'DM', rol: 'gerente',       sucursal: 'Todas',       nombreReceta: 'Monse Pérez',    user: 'monse',   pass: 'gon2025'  },
+  { nombre: 'Ana Karina Govea Delgado',       apodo: 'Karina',  iniciales: 'KG', rol: 'vendedor',      sucursal: 'Baja Visión', nombreReceta: 'Karina Govea',   user: 'karina',  pass: 'gon2025'  },
+  { nombre: 'Sergio Hernández',               apodo: 'Sergio',  iniciales: 'SH', rol: 'repartidor',    sucursal: 'Todas',       nombreReceta: 'Sergio Hernández', user: 'sergio', pass: 'gon2025'  },
 ]
 
 export default function LoginPage() {

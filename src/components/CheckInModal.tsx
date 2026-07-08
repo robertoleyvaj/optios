@@ -9,6 +9,7 @@ const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 export default function CheckInModal() {
   const [visible, setVisible]     = useState(false)
   const [nombre, setNombre]       = useState('')
+  const [apodo,  setApodo]        = useState('')
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho]         = useState(false)
 
@@ -22,6 +23,7 @@ export default function CheckInModal() {
         // El repartidor se mueve entre todas las sucursales — no necesita check-in
         if (u.rol === 'repartidor') return
         setNombre(u.nombre)
+        setApodo(u.apodo ?? u.nombre.split(' ')[0])
 
         // Verificar si ya hay check-in hoy
         const sb = createClient()
@@ -89,7 +91,7 @@ export default function CheckInModal() {
                 <span className="text-[#2DD4BF] text-xs font-semibold tracking-wide uppercase">Check-in del día</span>
               </div>
               <h2 className="text-white text-xl font-semibold tracking-tight">
-                Buenos días, {nombre.split(' ')[0]}
+                Buenos días, {apodo}
               </h2>
               <p className="text-white/40 text-[13px] mt-1">¿En qué sucursal estás hoy?</p>
             </div>

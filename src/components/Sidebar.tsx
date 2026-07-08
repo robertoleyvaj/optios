@@ -25,7 +25,7 @@ const ROL_LABEL: Record<Rol, string> = {
 // Módulos a los que tiene acceso cada rol
 const PERMISOS: Record<Rol, string[]> = {
   administrador: ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','finanzas','reportes','analitica','usuarios','ajustes','inbox'],
-  gerente:       ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','finanzas','reportes','analitica','inbox'],
+  gerente:       ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','inbox'],
   vendedor:      ['dashboard','ventas','agenda','expedientes','laboratorio','caja','mi-desempeno','inbox'],
   repartidor:    ['laboratorio','inbox'],
 }
@@ -59,7 +59,7 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/dashboard/ajustes',          label: 'Ajustes',      icon: Settings,        key: 'ajustes' },
 ]
 
-const USUARIO_DEFAULT = { nombre: 'Usuario', iniciales: 'U', rol: 'vendedor' as Rol, sucursal: '' }
+const USUARIO_DEFAULT = { nombre: 'Usuario', apodo: 'Usuario', iniciales: 'U', rol: 'vendedor' as Rol, sucursal: '' }
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -73,7 +73,8 @@ export default function Sidebar() {
         const u = JSON.parse(raw)
         setUsuario({
           nombre:    u.nombre    ?? 'Usuario',
-          iniciales: u.nombre ? u.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U',
+          apodo:     u.apodo     ?? u.nombre?.split(' ')[0] ?? 'Usuario',
+          iniciales: u.iniciales ?? (u.nombre ? u.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U'),
           rol:       (u.rol ?? 'vendedor') as Rol,
           sucursal:  u.sucursal  ?? '',
         })

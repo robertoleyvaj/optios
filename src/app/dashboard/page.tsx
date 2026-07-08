@@ -679,10 +679,11 @@ export default function DashboardPage() {
   const esVendedor = usuario?.rol === 'vendedor'
   const sucursalFiltro = esAdmin ? null : usuario?.sucursal ?? null
   const nombreUsuario = usuario?.nombre ?? 'Usuario'
+  const apodoUsuario  = (usuario as { apodo?: string } | null)?.apodo ?? nombreUsuario.split(' ')[0]
 
   // Vendedor: flujo guiado de atención
   if (esVendedor) {
-    return <VistaVendedor nombre={nombreUsuario} sucursal={usuario?.sucursal ?? ''} />
+    return <VistaVendedor nombre={apodoUsuario} sucursal={usuario?.sucursal ?? ''} />
   }
 
   // Repartidor: redirigido a laboratorio (no renderizar nada mientras)
@@ -693,7 +694,7 @@ export default function DashboardPage() {
 
       {/* Greeting */}
       <div>
-        <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Hola, {nombreUsuario}</h1>
+        <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Hola, {apodoUsuario}</h1>
         <p className="text-sm text-zinc-400 mt-0.5">
           {esAdmin
             ? 'Aquí está el resumen de hoy en todas tus sucursales.'
