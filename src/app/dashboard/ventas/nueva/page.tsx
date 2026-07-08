@@ -79,6 +79,13 @@ const metodosPago = [
 type Item = { id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number }
 type Cliente = { id: string; nombre: string; apellido: string; telefono: string }
 
+// Colores disponibles por filtro (Fotocromático, Polarizado y Tinte piden color)
+const COLORES_FILTRO: Record<string, string[]> = {
+  'FIL-FC':  ['Gris', 'Café', 'Verde'],                                            // Fotocromático
+  'FIL-POL': ['Gris', 'Café', 'Verde', 'Azul'],                                    // Polarizado
+  'FIL-TIN': ['Gris', 'Café', 'Verde', 'Azul', 'Rosado', 'Morado', 'Amarillo'],   // Tinte
+}
+
 // Comisión es interna (para finanzas), no se traslada al cliente
 const COMISION: Record<string, number> = { debito: 0.015, credito: 0.029 }
 
@@ -125,6 +132,8 @@ export default function NuevaVentaPage() {
   const [showBuscadorProducto, setShowBuscadorProducto] = useState(false)
   const [showProductoLibre, setShowProductoLibre] = useState(false)
   const [productoLibre, setProductoLibre] = useState({ descripcion: '', precio: '', cantidad: '1' })
+  // Modal de selección de color para filtros (Fotocromático, Polarizado, Tinte)
+  const [pendingFiltro, setPendingFiltro] = useState<typeof catalogo[0] | null>(null)
 
   // Auto-populate desde URL params (pacienteId desde expedientes, desde_consulta desde wizard)
   useEffect(() => {
@@ -227,14 +236,28 @@ export default function NuevaVentaPage() {
     if (c.id) cargarRecetaPaciente(c.id)
   }
 
-  const agregar = (p: typeof catalogo[0]) => {
+  const agregarDirecto = (p: typeof catalogo[0], colorSufijo?: string) => {
+    const nombre = colorSufijo ? `${p.nombre} — ${colorSufijo}` : p.nombre
+    // Usar id único por color para permitir el mismo filtro en distintos colores
+    const idVirtual = colorSufijo ? p.id * 1000 + p.nombre.length + colorSufijo.charCodeAt(0) : p.id
     setCarrito(prev => {
-      const ex = prev.find(i => i.id === p.id)
-      if (ex) return prev.map(i => i.id === p.id ? { ...i, cantidad: i.cantidad + 1 } : i)
-      return [...prev, { ...p, cantidad: 1, descuento: 0 }]
+      const ex = prev.find(i => i.id === idVirtual)
+      if (ex) return prev.map(i => i.id === idVirtual ? { ...i, cantidad: i.cantidad + 1 } : i)
+      return [...prev, { ...p, id: idVirtual, nombre, cantidad: 1, descuento: 0 }]
     })
     setBusquedaProducto('')
     setShowBuscadorProducto(false)
+  }
+
+  const agregar = (p: typeof catalogo[0]) => {
+    // Si el filtro requiere selección de color, abrimos el selector
+    if (COLORES_FILTRO[p.sku]) {
+      setPendingFiltro(p)
+      setBusquedaProducto('')
+      setShowBuscadorProducto(false)
+      return
+    }
+    agregarDirecto(p)
   }
 
   const cambiarCantidad = (id: number, delta: number) =>
@@ -1351,6 +1374,33 @@ ${entregaHtml}
                 {guardando ? 'Guardando...' : esCotizacion ? 'Generar cotización' : 'Finalizar venta'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Color picker modal for filtros */}
+      {pendingFiltro && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-sm font-bold text-zinc-800 mb-1">{pendingFiltro.nombre}</h3>
+            <p className="text-xs text-zinc-400 mb-4">Selecciona el color</p>
+            <div className="flex flex-wrap gap-2">
+              {COLORES_FILTRO[pendingFiltro.sku].map(color => (
+                <button
+                  key={color}
+                  onClick={() => { agregarDirecto(pendingFiltro, color); setPendingFiltro(null) }}
+                  className="px-4 py-2 border border-zinc-200 rounded-lg text-sm font-semibold text-zinc-700 hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all"
+                >
+                  {color}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setPendingFiltro(null)}
+              className="mt-4 w-full text-xs text-zinc-400 hover:text-zinc-600 py-1 transition-colors"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}
