@@ -10,9 +10,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
 } from 'recharts'
 import {
   TrendingUp,
@@ -21,7 +18,6 @@ import {
   Package,
   DollarSign,
   Clock,
-  AlertTriangle,
   CheckCircle2,
   XCircle,
   Banknote,
@@ -37,51 +33,10 @@ import {
   FlaskConical,
 } from 'lucide-react'
 
-// --- Mock data ---
-// Ventas mensuales — semana a semana del mes actual
+// Mes actual
 const now = new Date()
 const monthName = now.toLocaleString('es-MX', { month: 'long', year: 'numeric' })
 const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1)
-
-
-const categoryData = [
-  { name: 'Armazones', value: 42 },
-  { name: 'Lentes contacto', value: 28 },
-  { name: 'Micas', value: 18 },
-  { name: 'Accesorios', value: 12 },
-]
-
-const COLORS = ['#0D9488', '#1B3A6B', '#6366F1', '#F59E0B']
-
-const appointments = [
-  { name: 'María González', time: '10:00', type: 'Examen visual', status: 'confirmada' },
-  { name: 'Carlos Ruiz', time: '10:45', type: 'Entrega de lentes', status: 'pendiente' },
-  { name: 'Ana López', time: '11:30', type: 'Consulta', status: 'confirmada' },
-  { name: 'Pedro Sánchez', time: '12:00', type: 'Examen visual', status: 'cancelada' },
-  { name: 'Laura Martínez', time: '13:15', type: 'Entrega de lentes', status: 'confirmada' },
-]
-
-const topProducts = [
-  { name: 'Armazón Ray-Ban RB5154', category: 'Armazones', units: 12, revenue: 14400 },
-  { name: 'Lentes contacto Acuvue', category: 'Lentes de contacto', units: 34, revenue: 10200 },
-  { name: 'Micas progresivas Essilor', category: 'Micas', units: 8, revenue: 9600 },
-  { name: 'Armazón Oakley OX8046', category: 'Armazones', units: 6, revenue: 8400 },
-  { name: 'Solución para lentes', category: 'Accesorios', units: 28, revenue: 2800 },
-]
-
-const lowStock = [
-  { name: 'Solución Renu 120ml', stock: 2, min: 10 },
-  { name: 'Estuche de viaje', stock: 4, min: 15 },
-  { name: 'Paño de microfibra', stock: 3, min: 20 },
-]
-
-const cajaData = [
-  { sucursal: 'Baja Visión', efectivo: 4250, color: '#0D9488' },
-  { sucursal: '5 de Mayo', efectivo: 3180, color: '#1B3A6B' },
-  { sucursal: 'Plaza Laureles', efectivo: 5620, color: '#6366F1' },
-]
-const totalCaja = cajaData.reduce((s, c) => s + c.efectivo, 0)
-
 
 const SUCURSAL_COLORS: Record<string, string> = {
   'Baja Visión':   '#0D9488',
@@ -731,6 +686,7 @@ export default function DashboardPage() {
   const [ventasRealesPorSucursal, setVentasRealesPorSucursal] = useState<Record<string, number>>({})
   const [ventasHoySucursal, setVentasHoySucursal] = useState<Record<string, number>>({})
   const [efectivoHoySucursal, setEfectivoHoySucursal] = useState<Record<string, number>>({})
+  const [citasHoy, setCitasHoy] = useState<{ id: string; hora: string; paciente: string; tipo: string; estado: string }[]>([])
 
   useEffect(() => {
     try {
@@ -814,6 +770,12 @@ export default function DashboardPage() {
         setChartData([1,2,3,4,5].filter(k => semMap[k] !== undefined).map(k => ({ semana: lbls[k-1], ventas: semMap[k] })))
         setTotalMes(Object.values(sucMap).reduce((s, v) => s + v, 0))
         setVentasRealesPorSucursal(sucMap)
+
+        // Citas de hoy desde Supabase
+        const hoyStr = new Date().toISOString().split('T')[0]
+        const { data: citasData } = await sb.from('citas').select('id,hora,paciente,tipo,estado')
+          .eq('fecha', hoyStr).order('hora', { ascending: true }).limit(10)
+        if (citasData) setCitasHoy(citasData as { id: string; hora: string; paciente: string; tipo: string; estado: string }[])
       } catch { /* noop */ }
     }
     fetchDashboardData()
@@ -912,119 +874,38 @@ export default function DashboardPage() {
           </ResponsiveContainer>}
         </div>
 
-        {/* Upcoming appointments */}
+        {/* Próximas citas — datos reales */}
         <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-zinc-800">Próximas citas</h2>
-            <span className="text-xs text-[#0D9488] font-medium cursor-pointer hover:underline">Ver todas</span>
+            <button onClick={() => router.push('/dashboard/agenda')}
+              className="text-xs text-[#0D9488] font-medium hover:underline">Ver todas</button>
           </div>
-          <div className="space-y-3">
-            {appointments.map((a, i) => {
-              const s = statusMap[a.status as keyof typeof statusMap]
-              const StatusIcon = s.icon
-              return (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-zinc-500">{a.time}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-zinc-700 truncate">{a.name}</p>
-                    <p className="text-xs text-zinc-400">{a.type}</p>
-                  </div>
-                  <StatusIcon className={`w-4 h-4 flex-shrink-0 ${s.color}`} />
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom grid */}
-      <div className="grid grid-cols-3 gap-4">
-
-        {/* Top products */}
-        <div className="col-span-2 bg-white rounded-lg p-5 border border-zinc-200/80">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-zinc-800">Productos más vendidos</h2>
-            <span className="text-xs text-[#0D9488] font-medium cursor-pointer hover:underline">Ver inventario</span>
-          </div>
-          <div className="overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-zinc-100">
-                  <th className="text-left text-zinc-400 font-medium pb-2">Producto</th>
-                  <th className="text-left text-zinc-400 font-medium pb-2">Categoría</th>
-                  <th className="text-right text-zinc-400 font-medium pb-2">Unidades</th>
-                  <th className="text-right text-zinc-400 font-medium pb-2">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-50">
-                {topProducts.map((p, i) => (
-                  <tr key={i} className="hover:bg-zinc-50 transition-colors">
-                    <td className="py-2.5 text-zinc-700 font-medium">{p.name}</td>
-                    <td className="py-2.5 text-zinc-400">{p.category}</td>
-                    <td className="py-2.5 text-right text-zinc-600">{p.units}</td>
-                    <td className="py-2.5 text-right font-semibold text-zinc-800">
-                      ${p.revenue.toLocaleString('es-MX')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Right column — categories + low stock */}
-        <div className="space-y-4">
-
-          {/* Category pie */}
-          <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-            <h2 className="text-sm font-semibold text-zinc-800 mb-3">Ventas por categoría</h2>
-            <div className="flex items-center gap-3">
-              <ResponsiveContainer width={90} height={90}>
-                <PieChart>
-                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={28} outerRadius={42} dataKey="value" strokeWidth={0}>
-                    {categoryData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-1.5 flex-1">
-                {categoryData.map((c, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: COLORS[i] }} />
-                    <span className="text-xs text-zinc-500 flex-1 truncate">{c.name}</span>
-                    <span className="text-xs font-semibold text-zinc-700">{c.value}%</span>
-                  </div>
-                ))}
-              </div>
+          {citasHoy.length === 0 ? (
+            <div className="text-center py-6 text-xs text-zinc-400">
+              <Clock className="w-8 h-8 mx-auto mb-2 text-zinc-200" />
+              No hay citas programadas para hoy
             </div>
-          </div>
-
-          {/* Low stock */}
-          <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-              <h2 className="text-sm font-semibold text-zinc-800">Inventario bajo</h2>
-            </div>
+          ) : (
             <div className="space-y-3">
-              {lowStock.map((item, i) => (
-                <div key={i}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-zinc-600 font-medium truncate pr-2">{item.name}</span>
-                    <span className="text-xs font-bold text-red-500 flex-shrink-0">{item.stock} uds</span>
+              {citasHoy.map((a) => {
+                const s = statusMap[a.estado as keyof typeof statusMap] ?? statusMap.pendiente
+                const StatusIcon = s.icon
+                return (
+                  <div key={a.id} className="flex items-center gap-3">
+                    <div className="w-10 h-8 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] font-bold text-zinc-500">{a.hora?.slice(0,5)}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-zinc-700 truncate">{a.paciente}</p>
+                      <p className="text-xs text-zinc-400">{a.tipo}</p>
+                    </div>
+                    <StatusIcon className={`w-4 h-4 flex-shrink-0 ${s.color}`} />
                   </div>
-                  <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-red-400 rounded-full"
-                      style={{ width: `${Math.round((item.stock / item.min) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
