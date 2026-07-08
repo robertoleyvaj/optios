@@ -83,6 +83,12 @@ const cajaData = [
 const totalCaja = cajaData.reduce((s, c) => s + c.efectivo, 0)
 
 
+const SUCURSAL_COLORS: Record<string, string> = {
+  'Baja Visión':   '#0D9488',
+  '5 de Mayo':     '#1B3A6B',
+  'Plaza Laureles':'#6366F1',
+}
+
 // --- Sub-components ---
 function StatCard({
   label,
@@ -128,79 +134,142 @@ function StatCard({
   )
 }
 
-function CajaCard({ sucursalFiltro }: { sucursalFiltro: string | null }) {
+// Ventas del día — expandable por sucursal
+function VentasDiaCard({ total, ayer, porSucursal }: {
+  total: number
+  ayer: number
+  porSucursal: Record<string, number>
+}) {
   const [open, setOpen] = useState(false)
-
-  // Si hay filtro de sucursal, mostrar solo esa
-  const datos = sucursalFiltro
-    ? cajaData.filter(c => c.sucursal === sucursalFiltro)
-    : cajaData
-  const total = datos.reduce((s, c) => s + c.efectivo, 0)
+  const pct = ayer > 0 ? Math.round(((total - ayer) / ayer) * 100) : null
+  const secs = Object.entries(porSucursal).filter(([, v]) => v > 0)
+  const maxVal = Math.max(...secs.map(([, v]) => v), 1)
 
   return (
     <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
       <button
-        onClick={() => !sucursalFiltro && setOpen(!open)}
-        className={`w-full p-5 flex items-start justify-between text-left ${!sucursalFiltro ? 'hover:bg-zinc-50 transition-colors' : ''}`}
+        onClick={() => secs.length > 0 && setOpen(!open)}
+        className={`w-full p-5 flex items-start justify-between text-left ${secs.length > 0 ? 'hover:bg-zinc-50 transition-colors' : ''}`}
       >
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm text-zinc-500 font-medium">Efectivo en caja</p>
-            {!sucursalFiltro && (open
+            <p className="text-sm text-zinc-500 font-medium">Ventas del día</p>
+            {secs.length > 0 && (open
               ? <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
               : <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
             )}
           </div>
-          <p className="text-2xl font-bold text-zinc-800 mt-1">
-            ${total.toLocaleString('es-MX')}
-          </p>
+          <p className="text-2xl font-bold text-zinc-800 mt-1">${total.toLocaleString('es-MX')}</p>
+        </div>
+        <div className="w-11 h-11 rounded-md bg-[#0D9488]/10 flex items-center justify-center">
+          <ShoppingCart className="w-5 h-5 text-[#0D9488]" />
+        </div>
+      </button>
+
+      {open && secs.length > 0 && (
+        <div className="border-t border-zinc-100 px-5 pb-4 pt-3 space-y-3">
+          {secs.map(([suc, val]) => {
+            const color = SUCURSAL_COLORS[suc] ?? '#94A3B8'
+            return (
+              <div key={suc} className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
+                  <Store className="w-3.5 h-3.5" style={{ color }} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-medium text-zinc-600">{suc}</span>
+                    <span className="text-xs font-bold text-zinc-800">${val.toLocaleString('es-MX')}</span>
+                  </div>
+                  <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.round((val / maxVal) * 100)}%`, background: color }} />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {!open && (
+        <div className="px-5 pb-4 mt-1">
+          <div className="flex items-center gap-1">
+            {pct !== null && (pct >= 0
+              ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+              : <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+            )}
+            <span className={`text-xs font-medium ${pct === null ? 'text-zinc-400' : pct >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+              {pct !== null ? `${pct >= 0 ? '+' : ''}${pct}% vs ayer` : 'Sin ventas ayer'}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Efectivo recibido hoy — expandable por sucursal
+function CajaCard({ sucursalFiltro, efectivoReal }: { sucursalFiltro: string | null; efectivoReal: Record<string, number> }) {
+  const [open, setOpen] = useState(false)
+
+  const entradas = sucursalFiltro
+    ? Object.entries(efectivoReal).filter(([s]) => s === sucursalFiltro)
+    : Object.entries(efectivoReal)
+  const total = entradas.reduce((s, [, v]) => s + v, 0)
+  const maxVal = Math.max(...entradas.map(([, v]) => v), 1)
+  const hasDatos = entradas.length > 0
+
+  return (
+    <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
+      <button
+        onClick={() => !sucursalFiltro && hasDatos && setOpen(!open)}
+        className={`w-full p-5 flex items-start justify-between text-left ${!sucursalFiltro && hasDatos ? 'hover:bg-zinc-50 transition-colors' : ''}`}
+      >
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-zinc-500 font-medium">Efectivo recibido</p>
+            {!sucursalFiltro && hasDatos && (open
+              ? <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+              : <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+            )}
+          </div>
+          <p className="text-2xl font-bold text-zinc-800 mt-1">${total.toLocaleString('es-MX')}</p>
         </div>
         <div className="w-11 h-11 rounded-md bg-emerald-50 flex items-center justify-center">
           <Banknote className="w-5 h-5 text-emerald-500" />
         </div>
       </button>
 
-      {!sucursalFiltro && open && (
+      {!sucursalFiltro && open && hasDatos && (
         <div className="border-t border-zinc-100 px-5 pb-4 pt-3 space-y-3">
-          {cajaData.map((c) => (
-            <div key={c.sucursal} className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${c.color}18` }}>
-                <Store className="w-3.5 h-3.5" style={{ color: c.color }} />
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs font-medium text-zinc-600">{c.sucursal}</span>
-                  <span className="text-xs font-bold text-zinc-800">${c.efectivo.toLocaleString('es-MX')}</span>
+          {entradas.map(([suc, val]) => {
+            const color = SUCURSAL_COLORS[suc] ?? '#94A3B8'
+            return (
+              <div key={suc} className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
+                  <Store className="w-3.5 h-3.5" style={{ color }} />
                 </div>
-                <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.round((c.efectivo / totalCaja) * 100)}%`,
-                      background: c.color,
-                    }}
-                  />
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-medium text-zinc-600">{suc}</span>
+                    <span className="text-xs font-bold text-zinc-800">${val.toLocaleString('es-MX')}</span>
+                  </div>
+                  <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${Math.round((val / maxVal) * 100)}%`, background: color }} />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
-      {!sucursalFiltro && !open && (
+      {!open && (
         <div className="px-5 pb-4 mt-1">
           <div className="flex items-center gap-1">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-xs font-medium text-emerald-500">3 sucursales activas</span>
-          </div>
-        </div>
-      )}
-
-      {sucursalFiltro && (
-        <div className="px-5 pb-4 mt-1">
-          <div className="flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-xs font-medium text-emerald-500">Tu sucursal hoy</span>
+            <span className="text-xs font-medium text-emerald-500">
+              {hasDatos ? `${entradas.length} sucursal${entradas.length !== 1 ? 'es' : ''} con efectivo` : 'Sin efectivo registrado hoy'}
+            </span>
           </div>
         </div>
       )}
@@ -385,7 +454,7 @@ function calcularBono(ventas: number): { actual: number; siguiente: { meta: numb
 }
 
 // ─────────────────────────────────────────
-function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string }) {
+function VistaVendedor({ nombre, nombreCompleto, sucursal }: { nombre: string; nombreCompleto: string; sucursal: string }) {
   const router = useRouter()
   const [query, setQuery]               = useState('')
   const [paciente, setPaciente]         = useState<PacienteReal | null>(null)
@@ -405,11 +474,18 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
     const fetchData = async () => {
       const { createClient } = await import('@/lib/supabase/client')
       const sb  = createClient()
-      const hoy = new Date().toISOString().split('T')[0]
+      // Hora local para que el conteo se reinicie a medianoche México
+      const now2 = new Date()
+      const startHoy2 = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(), 0, 0, 0, 0)
+      const endHoy2   = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(), 23, 59, 59, 999)
 
       const [pRec, vHoy, listos] = await Promise.all([
         sb.from('pacientes').select('id,nombre,apellido,telefono').order('created_at', { ascending: false }).limit(6),
-        sb.from('ventas').select('total,saldo').eq('sucursal', sucursal).eq('estado', 'activa').gte('created_at', `${hoy}T00:00:00`).lte('created_at', `${hoy}T23:59:59`),
+        // Sus propias ventas (por atendido_por) — no las de toda la sucursal
+        sb.from('ventas').select('total,saldo')
+          .eq('atendido_por', nombreCompleto)
+          .gte('created_at', startHoy2.toISOString())
+          .lte('created_at', endHoy2.toISOString()),
         sb.from('ordenes_lab').select('id,folio,paciente').eq('sucursal', sucursal).eq('estado', 'listo').order('fecha_ingreso', { ascending: true }).limit(5),
       ])
 
@@ -418,7 +494,7 @@ function VistaVendedor({ nombre, sucursal }: { nombre: string; sucursal: string 
       if (listos.data) setListosHoy(listos.data)
     }
     fetchData()
-  }, [sucursal])
+  }, [sucursal, nombreCompleto])
 
   // Búsqueda en tiempo real con debounce
   useEffect(() => {
@@ -653,6 +729,8 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState<{ semana: string; ventas: number }[]>([])
   const [totalMes, setTotalMes] = useState(0)
   const [ventasRealesPorSucursal, setVentasRealesPorSucursal] = useState<Record<string, number>>({})
+  const [ventasHoySucursal, setVentasHoySucursal] = useState<Record<string, number>>({})
+  const [efectivoHoySucursal, setEfectivoHoySucursal] = useState<Record<string, number>>({})
 
   useEffect(() => {
     try {
@@ -674,19 +752,22 @@ export default function DashboardPage() {
         const { createClient } = await import('@/lib/supabase/client')
         const sb = createClient()
         const now = new Date()
-        const hoy = now.toISOString().split('T')[0]
-        const ayer = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
-        const primerDia = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+        // Usar tiempo LOCAL para evitar que ventas de tarde/noche en México queden fuera del rango UTC
+        const startHoy  = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+        const endHoy    = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+        const startAyer = new Date(startHoy.getTime() - 86400000)
+        const endAyer   = new Date(startHoy.getTime() - 1)
+        const primerDia = new Date(now.getFullYear(), now.getMonth(), 1)
 
         const [vHoy, vAyer, lab, cuentas, ventasMes] = await Promise.all([
-          sb.from('ventas').select('total,saldo').eq('estado','activa')
-            .gte('created_at',`${hoy}T00:00:00`).lte('created_at',`${hoy}T23:59:59`),
-          sb.from('ventas').select('total,saldo').eq('estado','activa')
-            .gte('created_at',`${ayer}T00:00:00`).lt('created_at',`${hoy}T00:00:00`),
+          sb.from('ventas').select('total,saldo,sucursal,metodo_pago')
+            .gte('created_at', startHoy.toISOString()).lte('created_at', endHoy.toISOString()),
+          sb.from('ventas').select('total,saldo')
+            .gte('created_at', startAyer.toISOString()).lte('created_at', endAyer.toISOString()),
           sb.from('ordenes_lab').select('estado'),
-          sb.from('ventas').select('saldo').eq('estado','activa').gt('saldo',0),
-          sb.from('ventas').select('created_at,total,saldo,sucursal').eq('estado','activa')
-            .gte('created_at',`${primerDia}T00:00:00`),
+          sb.from('ventas').select('saldo').gt('saldo', 0),
+          sb.from('ventas').select('created_at,total,saldo,sucursal')
+            .gte('created_at', primerDia.toISOString()),
         ])
 
         const calcNet = (arr: { total: unknown; saldo: unknown }[]) =>
@@ -694,6 +775,19 @@ export default function DashboardPage() {
 
         const totalHoy  = calcNet(vHoy.data  ?? [])
         const totalAyer = calcNet(vAyer.data ?? [])
+
+        // Breakdown hoy por sucursal y efectivo por sucursal
+        const ventasSucHoy:   Record<string, number> = {}
+        const efectivoSucHoy: Record<string, number> = {}
+        for (const v of (vHoy.data ?? [])) {
+          const net = Number(v.total) - Number(v.saldo ?? 0)
+          ventasSucHoy[v.sucursal] = (ventasSucHoy[v.sucursal] ?? 0) + net
+          if ((v.metodo_pago ?? '').toLowerCase().includes('efectivo')) {
+            efectivoSucHoy[v.sucursal] = (efectivoSucHoy[v.sucursal] ?? 0) + net
+          }
+        }
+        setVentasHoySucursal(ventasSucHoy)
+        setEfectivoHoySucursal(efectivoSucHoy)
 
         setKpis({
           ventasHoy:          totalHoy,
@@ -704,7 +798,7 @@ export default function DashboardPage() {
           cuentasPendientes:  (cuentas.data ?? []).length,
         })
 
-        // Agrupar ventas del mes por semana y por sucursal
+        // Ventas del mes: por semana (gráfica) y por sucursal (metas)
         const semMap: Record<number, number> = {}
         const sucMap: Record<string, number> = {}
         for (const v of (ventasMes.data ?? [])) {
@@ -731,7 +825,7 @@ export default function DashboardPage() {
 
   // Vendedor: flujo guiado de atención
   if (esVendedor) {
-    return <VistaVendedor nombre={apodoUsuario} sucursal={usuario?.sucursal ?? ''} />
+    return <VistaVendedor nombre={apodoUsuario} nombreCompleto={nombreUsuario} sucursal={usuario?.sucursal ?? ''} />
   }
 
   // Repartidor: redirigido a laboratorio (no renderizar nada mientras)
@@ -752,18 +846,8 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4">
-        <StatCard
-          label="Ventas del día"
-          value={`$${kpis.ventasHoy.toLocaleString('es-MX')}`}
-          icon={ShoppingCart}
-          iconBg="bg-[#0D9488]/10"
-          iconColor="text-[#0D9488]"
-          trend={kpis.ventasAyer > 0 ? (kpis.ventasHoy >= kpis.ventasAyer ? 'up' : 'down') : 'neutral'}
-          trendLabel={kpis.ventasAyer > 0
-            ? `${kpis.ventasHoy >= kpis.ventasAyer ? '+' : ''}${Math.round(((kpis.ventasHoy - kpis.ventasAyer) / kpis.ventasAyer) * 100)}% vs ayer`
-            : 'Sin ventas ayer'}
-        />
-        <CajaCard sucursalFiltro={sucursalFiltro} />
+        <VentasDiaCard total={kpis.ventasHoy} ayer={kpis.ventasAyer} porSucursal={ventasHoySucursal} />
+        <CajaCard sucursalFiltro={sucursalFiltro} efectivoReal={efectivoHoySucursal} />
         <StatCard
           label="En laboratorio"
           value={String(kpis.labTotal)}
