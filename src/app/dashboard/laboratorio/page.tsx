@@ -99,7 +99,7 @@ const TIPOS_MICA = [
   'Lentes de contacto rígidos',
 ]
 
-const LABORATORIOS = ['Laboratorio Visión', 'Óptika Lab', 'Laboratorio Sur', 'Externo / cliente']
+const LABORATORIOS = ['Karen', 'Indigo', 'Tecnolab', 'Richardson', 'Exce Lentes', 'El Nuevo']
 const SUCURSALES   = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
 const dias = (n: number) => {
