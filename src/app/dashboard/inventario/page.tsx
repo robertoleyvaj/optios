@@ -93,11 +93,8 @@ const catsPorTipo: Record<TipoProducto, string[]> = {
 
 const TODOS_LOS_CANALES = CANALES_DISPONIBLES.map(c => c.key)
 
-const generarSku = (tipo: TipoProducto) => {
-  const pref = { armazon: 'ARZ', consumible: 'CON', servicio: 'SRV' }[tipo]
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
-  return `${pref}-${rand}`
-}
+const generarSku = (_tipo?: TipoProducto) =>
+  Math.random().toString(36).slice(2, 9).toUpperCase()
 
 const formVacio = (): Omit<Producto, 'id'> => ({
   sku: '', nombre: '', tipo: 'armazon', categoria: 'Armazones', marca: '',
@@ -209,10 +206,12 @@ function InventarioPage() {
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Inventario</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Una pieza · múltiples canales de venta · sincronización automática</p>
         </div>
-        <button onClick={abrirNuevo}
-          className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27] active:scale-[0.98] transition-all">
-          <Plus className="w-4 h-4" /> Agregar producto
-        </button>
+        {esAdmin && (
+          <button onClick={abrirNuevo}
+            className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27] active:scale-[0.98] transition-all">
+            <Plus className="w-4 h-4" /> Agregar producto
+          </button>
+        )}
       </div>
 
       {/* KPIs */}
@@ -367,12 +366,14 @@ function InventarioPage() {
                       )}
                       {p.tipo === 'servicio' && <span className="text-xs text-zinc-400">a pedido</span>}
                     </td>
-                    <td className="px-4 py-3.5">
-                      <button onClick={() => abrirEditar(p)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-[#0D9488]">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    </td>
+                    {esAdmin && (
+                      <td className="px-4 py-3.5">
+                        <button onClick={() => abrirEditar(p)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-[#0D9488]">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 )
               })}
@@ -416,7 +417,7 @@ function InventarioPage() {
                     <input value={form.sku} onChange={e => f('sku', e.target.value)}
                       className="flex-1 border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                       placeholder={form.tipo === 'armazon' ? 'ej. ARZ-007' : form.tipo === 'consumible' ? 'ej. CON-ABC' : 'ej. SRV-001'} />
-                    <button type="button" onClick={() => f('sku', generarSku(form.tipo))}
+                    <button type="button" onClick={() => f('sku', generarSku())}
                       title="Generar SKU aleatorio"
                       className="px-2.5 border border-zinc-200 rounded bg-zinc-50 hover:bg-zinc-100 text-zinc-400 hover:text-[#0D9488] transition-colors">
                       <RefreshCw className="w-4 h-4" />
