@@ -197,7 +197,7 @@ function InventarioPage() {
     setForm(prev => ({ ...prev, canales: actual.includes(key) ? actual.filter(k => k !== key) : [...actual, key] }))
   }
 
-  const f = (k: keyof typeof form, v: string | number | string[]) =>
+  const f = (k: keyof typeof form, v: string | number | string[] | Record<string, string>) =>
     setForm(prev => ({ ...prev, [k]: v }))
 
   return (
