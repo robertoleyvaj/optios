@@ -43,6 +43,10 @@ const STEPS = [
   { id: 9, label: 'Comercial',   icon: ShoppingBag },
 ]
 
+// Pasos que pueden omitirse sin perder datos críticos
+// NO omitibles: 1 (datos paciente), 5 (graduación/consulta), 8 (prescripción)
+const PASOS_OMITIBLES = new Set([2, 3, 4, 6, 7])
+
 const MOTIVOS = [
   'Primera consulta', 'Revisión anual', 'Cambio de graduación',
   'Lentes dañados', 'Problemas de visión', 'Adaptación de lentes de contacto', 'Otro',
@@ -565,6 +569,32 @@ export default function NuevaConsultaPage() {
     } finally {
       setGuardando(false)
     }
+  }
+
+  // Avanzar sin guardar datos del paso actual
+  const omitirPaso = async () => {
+    // Paso 2: aunque se omita, necesitamos crear la consulta para que
+    // los pasos posteriores (3-8) puedan hacer update por consultaId
+    if (paso === 2 && !consultaId) {
+      setGuardando(true)
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase.from('consultas').insert({
+          paciente_id: pacienteId || pacienteIdParam,
+          sucursal: getSucursalActual(),
+          atendido_por: rxOptometrista,
+          motivo: '',
+          paso_actual: 3,
+        }).select('id').single()
+        if (error || !data) { alert('Error al continuar: ' + error?.message); return }
+        setConsultaId(data.id)
+      } finally {
+        setGuardando(false)
+      }
+    }
+    const siguiente = Math.min(paso + 1, 9)
+    setPaso(siguiente)
+    setPasoMaximo(p => Math.max(p, siguiente))
   }
 
   const finalizar = async () => {
@@ -1337,23 +1367,34 @@ export default function NuevaConsultaPage() {
             <ChevronLeft className="w-4 h-4" /> Anterior
           </button>
 
-          {paso < 9 ? (
-            <button
-              onClick={avanzar}
-              disabled={!puedeAvanzar() || guardando}
-              className="flex items-center gap-2 px-6 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40 transition-all">
-              {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
-              Siguiente <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={finalizar}
-              disabled={guardando}
-              className="flex items-center gap-2 px-6 py-2.5 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 disabled:opacity-40 transition-all">
-              {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
-              <Check className="w-4 h-4" /> Finalizar e ir a venta
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {PASOS_OMITIBLES.has(paso) && (
+              <button
+                onClick={omitirPaso}
+                disabled={guardando}
+                className="flex items-center gap-1 px-4 py-2.5 text-zinc-400 text-sm font-medium hover:text-zinc-600 disabled:opacity-30 transition-all">
+                Omitir <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+
+            {paso < 9 ? (
+              <button
+                onClick={avanzar}
+                disabled={!puedeAvanzar() || guardando}
+                className="flex items-center gap-2 px-6 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40 transition-all">
+                {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
+                Siguiente <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                onClick={finalizar}
+                disabled={guardando}
+                className="flex items-center gap-2 px-6 py-2.5 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 disabled:opacity-40 transition-all">
+                {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
+                <Check className="w-4 h-4" /> Finalizar e ir a venta
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
