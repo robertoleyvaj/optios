@@ -490,7 +490,7 @@ function VistaVendedor({ nombre, nombreCompleto, sucursal }: { nombre: string; n
       ])
 
       if (pRec.data)  setRecientes(pRec.data)
-      if (vHoy.data)  setVentasHoy(vHoy.data.reduce((s, v) => s + Number(v.total) - Number(v.saldo ?? 0), 0))
+      if (vHoy.data)  setVentasHoy(vHoy.data.reduce((s, v) => s + Number(v.total), 0))
       if (listos.data) setListosHoy(listos.data)
     }
     fetchData()
@@ -770,20 +770,22 @@ export default function DashboardPage() {
             .gte('created_at', primerDia.toISOString()),
         ])
 
-        const calcNet = (arr: { total: unknown; saldo: unknown }[]) =>
-          arr.reduce((s, v) => s + Number(v.total) - Number(v.saldo ?? 0), 0)
+        // Ventas del día = total bruto (lo vendido, no lo cobrado)
+        // Efectivo recibido = total - saldo (lo que ya entró en caja)
+        const calcGross = (arr: { total: unknown }[]) =>
+          arr.reduce((s, v) => s + Number(v.total), 0)
 
-        const totalHoy  = calcNet(vHoy.data  ?? [])
-        const totalAyer = calcNet(vAyer.data ?? [])
+        const totalHoy  = calcGross(vHoy.data  ?? [])
+        const totalAyer = calcGross(vAyer.data ?? [])
 
         // Breakdown hoy por sucursal y efectivo por sucursal
         const ventasSucHoy:   Record<string, number> = {}
         const efectivoSucHoy: Record<string, number> = {}
         for (const v of (vHoy.data ?? [])) {
-          const net = Number(v.total) - Number(v.saldo ?? 0)
-          ventasSucHoy[v.sucursal] = (ventasSucHoy[v.sucursal] ?? 0) + net
+          const cobrado = Number(v.total) - Number(v.saldo ?? 0)  // lo ya cobrado
+          ventasSucHoy[v.sucursal] = (ventasSucHoy[v.sucursal] ?? 0) + Number(v.total) // gross
           if ((v.metodo_pago ?? '').toLowerCase().includes('efectivo')) {
-            efectivoSucHoy[v.sucursal] = (efectivoSucHoy[v.sucursal] ?? 0) + net
+            efectivoSucHoy[v.sucursal] = (efectivoSucHoy[v.sucursal] ?? 0) + cobrado  // efectivo recibido
           }
         }
         setVentasHoySucursal(ventasSucHoy)
@@ -798,15 +800,15 @@ export default function DashboardPage() {
           cuentasPendientes:  (cuentas.data ?? []).length,
         })
 
-        // Ventas del mes: por semana (gráfica) y por sucursal (metas)
+        // Ventas del mes: por semana (gráfica) y por sucursal (metas) — total bruto
         const semMap: Record<number, number> = {}
         const sucMap: Record<string, number> = {}
         for (const v of (ventasMes.data ?? [])) {
-          const net = Number(v.total) - Number(v.saldo ?? 0)
+          const gross = Number(v.total)
           const dia = new Date(v.created_at).getDate()
           const sem = Math.ceil(dia / 7)
-          semMap[sem] = (semMap[sem] ?? 0) + net
-          sucMap[v.sucursal] = (sucMap[v.sucursal] ?? 0) + net
+          semMap[sem] = (semMap[sem] ?? 0) + gross
+          sucMap[v.sucursal] = (sucMap[v.sucursal] ?? 0) + gross
         }
         const lbls = ['Sem 1\n1–7','Sem 2\n8–14','Sem 3\n15–21','Sem 4\n22–28','Sem 5\n29+']
         setChartData([1,2,3,4,5].filter(k => semMap[k] !== undefined).map(k => ({ semana: lbls[k-1], ventas: semMap[k] })))
