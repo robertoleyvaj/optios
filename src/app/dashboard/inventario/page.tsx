@@ -5,6 +5,7 @@ import RequireRol from '@/components/RequireRol'
 import {
   Search, Plus, AlertTriangle, Filter, ChevronDown,
   X, Save, Edit2, Layers, Tag, Store, Globe, CheckSquare, RefreshCw,
+  ClipboardCheck, ChevronRight, Check, ShoppingCart, Package,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -93,6 +94,15 @@ const catsPorTipo: Record<TipoProducto, string[]> = {
 
 const TODOS_LOS_CANALES = CANALES_DISPONIBLES.map(c => c.key)
 
+const CAPACIDAD_EXHIBICION: Record<string, number> = {
+  'Baja Visión':    253,
+  '5 de Mayo':      282,
+  'Plaza Laureles': 225,
+}
+const RESERVA_OBJETIVO = 12   // mínimo de reserva en bodega
+const RESERVA_ALERTA   = 5    // umbral crítico — alert de compra
+const SUCURSALES_FISICAS = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
+
 const generarSku = (_tipo?: TipoProducto) =>
   Math.random().toString(36).slice(2, 9).toUpperCase()
 
@@ -140,11 +150,39 @@ function InventarioPage() {
   const [editando, setEditando] = useState<Producto | null>(null)
   const [form, setForm] = useState<Omit<Producto, 'id'>>(formVacio())
   const [esAdmin, setEsAdmin] = useState(false)
+  const [sucursalActual, setSucursalActual] = useState('Baja Visión')
+
+  // Wizard de verificación
+  const [wizardAbierto, setWizardAbierto]         = useState(false)
+  const [wizardPaso, setWizardPaso]               = useState(0)
+  const [verifSucursal, setVerifSucursal]         = useState('Baja Visión')
+  const [conteoConsumibles, setConteoConsumibles] = useState<Record<number, string>>({})
+  const [spotCheck, setSpotCheck]                 = useState<Producto[]>([])
+  const [spotResultados, setSpotResultados]       = useState<Record<number, boolean | null>>({})
 
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
     setEsAdmin(u.rol === 'administrador' || u.rol === 'gerente')
+    if (u.sucursal) setSucursalActual(u.sucursal)
   }, [])
+
+  const iniciarVerificacion = () => {
+    const consumibles = productos.filter(p => p.tipo === 'consumible')
+    const conteoInicial: Record<number, string> = {}
+    consumibles.forEach(p => { conteoInicial[p.id] = '' })
+    setConteoConsumibles(conteoInicial)
+
+    const armazonesSuc = productos.filter(p =>
+      p.tipo === 'armazon' && p.ubicacion === verifSucursal && p.estado !== 'vendido'
+    )
+    const mezclados = [...armazonesSuc].sort(() => Math.random() - 0.5).slice(0, 10)
+    const resultadosIniciales: Record<number, boolean | null> = {}
+    mezclados.forEach(p => { resultadosIniciales[p.id] = null })
+    setSpotCheck(mezclados)
+    setSpotResultados(resultadosIniciales)
+    setWizardPaso(1)
+    setWizardAbierto(true)
+  }
 
   const filtrados = productos.filter(p => {
     const q = busqueda.toLowerCase()
@@ -204,59 +242,117 @@ function InventarioPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Inventario</h1>
-          <p className="text-sm text-zinc-400 mt-0.5">Una pieza · múltiples canales de venta · sincronización automática</p>
+          <p className="text-sm text-zinc-400 mt-0.5">Estado de exhibición y stock por sucursal</p>
         </div>
+        <button
+          onClick={() => { setVerifSucursal(sucursalActual); iniciarVerificacion() }}
+          className="flex items-center gap-2 bg-[#0D9488] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-teal-600 active:scale-[0.98] transition-all"
+        >
+          <ClipboardCheck className="w-4 h-4" /> Verificar inventario
+        </button>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-zinc-500 font-medium">Armazones disponibles</p>
-              <p className="text-2xl font-bold text-zinc-800 mt-1">{armazonesDisp} <span className="text-sm font-normal text-zinc-400">/ {armazonesTotal}</span></p>
+      {/* Tableros por sucursal */}
+      <div className="grid grid-cols-3 gap-4">
+        {SUCURSALES_FISICAS.map(suc => {
+          const cap     = CAPACIDAD_EXHIBICION[suc]
+          const armSuc  = productos.filter(p => p.tipo === 'armazon' && p.ubicacion === suc)
+          const enPiso  = armSuc.filter(p => p.estado === 'disponible' || p.estado === 'apartado').length
+          const reserva = armSuc.filter(p => p.estado === 'disponible').length
+          const vacios  = Math.max(0, cap - enPiso)
+          const pct     = Math.min(100, Math.round((enPiso / cap) * 100))
+          const critico = reserva <= RESERVA_ALERTA
+
+          return (
+            <div key={suc} className={`bg-white rounded-lg p-5 border ${critico ? 'border-red-200' : 'border-zinc-200/80'}`}>
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-sm font-bold text-zinc-800">{suc}</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">Capacidad exhibición: {cap.toLocaleString()}</p>
+                </div>
+                {critico && <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />}
+              </div>
+
+              {/* Barra de llenado */}
+              <div className="h-2 bg-zinc-100 rounded-full overflow-hidden mb-3">
+                <div
+                  className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-emerald-400' : pct >= 60 ? 'bg-amber-400' : 'bg-red-400'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                <div>
+                  <p className="text-xl font-bold text-zinc-800">{enPiso}</p>
+                  <p className="text-xs text-zinc-400">En piso</p>
+                </div>
+                <div>
+                  <p className={`text-xl font-bold ${vacios > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>{vacios}</p>
+                  <p className="text-xs text-zinc-400">Espacios vacíos</p>
+                </div>
+                <div>
+                  <p className={`text-xl font-bold ${critico ? 'text-red-500' : 'text-zinc-800'}`}>{reserva}</p>
+                  <p className="text-xs text-zinc-400">Reserva</p>
+                </div>
+              </div>
+
+              {critico ? (
+                <div className="bg-red-50 border border-red-100 text-red-600 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-2">
+                  <ShoppingCart className="w-3.5 h-3.5 flex-shrink-0" />
+                  Reserva crítica — ordenar stock ya
+                </div>
+              ) : reserva <= RESERVA_OBJETIVO ? (
+                <div className="bg-amber-50 border border-amber-100 text-amber-600 text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-2">
+                  <Package className="w-3.5 h-3.5 flex-shrink-0" />
+                  Reserva baja — considerar reorder
+                </div>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-medium px-3 py-2 rounded-lg">
+                  Stock en orden
+                </div>
+              )}
             </div>
-            <div className="w-11 h-11 rounded-lg bg-indigo-50 flex items-center justify-center">
-              <Layers className="w-5 h-5 text-indigo-500" />
-            </div>
+          )
+        })}
+      </div>
+
+      {/* KPIs compactos */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="bg-white rounded-lg px-4 py-3 border border-zinc-200/80 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+            <Layers className="w-4 h-4 text-indigo-500" />
           </div>
-          <p className="text-xs text-zinc-400 mt-3">{armazonesApart} apartados</p>
+          <div>
+            <p className="text-xs text-zinc-400">Total armazones</p>
+            <p className="text-lg font-bold text-zinc-800">{armazonesDisp} <span className="text-xs font-normal text-zinc-400">disp.</span></p>
+          </div>
         </div>
-        <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-zinc-500 font-medium">Listados activos</p>
-              <p className="text-2xl font-bold text-zinc-800 mt-1">{totalCanales}</p>
-            </div>
-            <div className="w-11 h-11 rounded-lg bg-blue-50 flex items-center justify-center">
-              <Globe className="w-5 h-5 text-blue-500" />
-            </div>
+        <div className="bg-white rounded-lg px-4 py-3 border border-zinc-200/80 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <Globe className="w-4 h-4 text-blue-500" />
           </div>
-          <p className="text-xs text-zinc-400 mt-3">en tiendas y web simultáneamente</p>
+          <div>
+            <p className="text-xs text-zinc-400">Apartados</p>
+            <p className="text-lg font-bold text-zinc-800">{armazonesApart}</p>
+          </div>
         </div>
-        <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-zinc-500 font-medium">Consumibles con alerta</p>
-              <p className="text-2xl font-bold text-zinc-800 mt-1">{consumAlerta}</p>
-            </div>
-            <div className="w-11 h-11 rounded-lg bg-amber-50 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-            </div>
+        <div className={`bg-white rounded-lg px-4 py-3 border flex items-center gap-3 ${consumAlerta > 0 ? 'border-amber-200' : 'border-zinc-200/80'}`}>
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${consumAlerta > 0 ? 'bg-amber-50' : 'bg-zinc-100'}`}>
+            <AlertTriangle className={`w-4 h-4 ${consumAlerta > 0 ? 'text-amber-500' : 'text-zinc-400'}`} />
           </div>
-          <p className="text-xs text-zinc-400 mt-3">lentes y accesorios por reponer</p>
+          <div>
+            <p className="text-xs text-zinc-400">Consumibles en alerta</p>
+            <p className={`text-lg font-bold ${consumAlerta > 0 ? 'text-amber-600' : 'text-zinc-800'}`}>{consumAlerta}</p>
+          </div>
         </div>
-        <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-zinc-500 font-medium">Servicios en catálogo</p>
-              <p className="text-2xl font-bold text-zinc-800 mt-1">{productos.filter(p => p.tipo === 'servicio').length}</p>
-            </div>
-            <div className="w-11 h-11 rounded-lg bg-zinc-100 flex items-center justify-center">
-              <Tag className="w-5 h-5 text-zinc-500" />
-            </div>
+        <div className="bg-white rounded-lg px-4 py-3 border border-zinc-200/80 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+            <Tag className="w-4 h-4 text-zinc-500" />
           </div>
-          <p className="text-xs text-zinc-400 mt-3">micas y servicios a pedido</p>
+          <div>
+            <p className="text-xs text-zinc-400">Servicios</p>
+            <p className="text-lg font-bold text-zinc-800">{productos.filter(p => p.tipo === 'servicio').length}</p>
+          </div>
         </div>
       </div>
 
@@ -370,6 +466,203 @@ function InventarioPage() {
           )}
         </div>
       </div>
+
+      {/* ── Wizard de verificación de inventario ── */}
+      {wizardAbierto && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+
+            {/* Header wizard */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+              <div>
+                <h2 className="text-base font-bold text-zinc-800">Verificación de inventario</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {wizardPaso === 0 && 'Selecciona la sucursal a verificar'}
+                  {wizardPaso === 1 && `Paso 1 de 3 — Consumibles · ${verifSucursal}`}
+                  {wizardPaso === 2 && `Paso 2 de 3 — Spot-check armazones · ${verifSucursal}`}
+                  {wizardPaso === 3 && 'Paso 3 de 3 — Resumen'}
+                </p>
+              </div>
+              <button onClick={() => setWizardAbierto(false)}><X className="w-5 h-5 text-zinc-400" /></button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+
+              {/* PASO 0: Seleccionar sucursal */}
+              {wizardPaso === 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-zinc-600">¿En qué sucursal estás haciendo el conteo?</p>
+                  {SUCURSALES_FISICAS.map(suc => (
+                    <button key={suc} onClick={() => setVerifSucursal(suc)}
+                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-lg border text-sm font-semibold transition-all ${verifSucursal === suc ? 'border-[#0D9488] bg-[#0D9488]/5 text-zinc-800' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                      {suc}
+                      {verifSucursal === suc && <Check className="w-4 h-4 text-[#0D9488]" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* PASO 1: Conteo de consumibles */}
+              {wizardPaso === 1 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-zinc-500">Cuenta físicamente cada producto y escribe la cantidad real.</p>
+                  {productos.filter(p => p.tipo === 'consumible').length === 0 ? (
+                    <div className="text-center py-8 text-zinc-400 text-sm">No hay consumibles registrados aún.</div>
+                  ) : (
+                    productos.filter(p => p.tipo === 'consumible').map(p => {
+                      const conteo = conteoConsumibles[p.id] ?? ''
+                      const sistemaTotal = (p.stockBaja ?? 0) + (p.stockMayo ?? 0) + (p.stockPlaza ?? 0)
+                      const real = parseInt(conteo)
+                      const diff = isNaN(real) ? null : real - sistemaTotal
+                      return (
+                        <div key={p.id} className={`flex items-center gap-3 p-3 rounded-lg border ${diff !== null && diff < 0 ? 'border-red-200 bg-red-50' : diff !== null && diff === 0 ? 'border-emerald-200 bg-emerald-50' : 'border-zinc-200'}`}>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-zinc-700 truncate">{p.nombre}</p>
+                            <p className="text-xs text-zinc-400">Sistema: {sistemaTotal} uds.</p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <input
+                              type="number" min="0"
+                              value={conteo}
+                              onChange={e => setConteoConsumibles(prev => ({ ...prev, [p.id]: e.target.value }))}
+                              placeholder="?"
+                              className="w-16 border border-zinc-200 rounded px-2 py-1.5 text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                            />
+                            {diff !== null && (
+                              <span className={`text-xs font-bold w-10 text-right ${diff < 0 ? 'text-red-500' : diff > 0 ? 'text-blue-500' : 'text-emerald-500'}`}>
+                                {diff > 0 ? `+${diff}` : diff === 0 ? '✓' : diff}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              )}
+
+              {/* PASO 2: Spot-check armazones */}
+              {wizardPaso === 2 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-zinc-500">Busca físicamente cada armazón y confirma si está en la sucursal.</p>
+                  {spotCheck.length === 0 ? (
+                    <div className="text-center py-8 text-zinc-400 text-sm">
+                      No hay armazones registrados para {verifSucursal} aún.
+                    </div>
+                  ) : (
+                    spotCheck.map((p, idx) => {
+                      const res = spotResultados[p.id]
+                      return (
+                        <div key={p.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${res === true ? 'border-emerald-200 bg-emerald-50' : res === false ? 'border-red-200 bg-red-50' : 'border-zinc-200'}`}>
+                          <span className="text-xs font-bold text-zinc-400 w-5 text-center">{idx + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-zinc-700 truncate">{p.nombre}</p>
+                            <p className="text-xs text-zinc-400 font-mono">{p.sku} {p.color ? `· ${p.color}` : ''}</p>
+                          </div>
+                          <div className="flex gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => setSpotResultados(prev => ({ ...prev, [p.id]: true }))}
+                              className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${res === true ? 'bg-emerald-500 text-white' : 'border border-zinc-200 text-zinc-400 hover:bg-emerald-50 hover:text-emerald-600'}`}>
+                              ✓ Sí
+                            </button>
+                            <button
+                              onClick={() => setSpotResultados(prev => ({ ...prev, [p.id]: false }))}
+                              className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${res === false ? 'bg-red-500 text-white' : 'border border-zinc-200 text-zinc-400 hover:bg-red-50 hover:text-red-600'}`}>
+                              ✗ No
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              )}
+
+              {/* PASO 3: Resumen */}
+              {wizardPaso === 3 && (() => {
+                const consumiblesVerif = productos.filter(p => p.tipo === 'consumible')
+                const faltanConsumibles = consumiblesVerif.filter(p => {
+                  const real = parseInt(conteoConsumibles[p.id] ?? '')
+                  const sistemaTotal = (p.stockBaja ?? 0) + (p.stockMayo ?? 0) + (p.stockPlaza ?? 0)
+                  return !isNaN(real) && real < sistemaTotal
+                })
+                const spotFaltantes = spotCheck.filter(p => spotResultados[p.id] === false)
+                const spotOk       = spotCheck.filter(p => spotResultados[p.id] === true).length
+                const spotPend     = spotCheck.filter(p => spotResultados[p.id] === null).length
+                const todoOk       = faltanConsumibles.length === 0 && spotFaltantes.length === 0 && spotPend === 0
+
+                return (
+                  <div className="space-y-4">
+                    <div className={`text-center py-4 rounded-lg ${todoOk ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+                      <p className={`text-2xl font-black ${todoOk ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {todoOk ? '¡Todo cuadra!' : 'Hay diferencias'}
+                      </p>
+                      <p className="text-xs text-zinc-400 mt-1">{verifSucursal} · {new Date().toLocaleDateString('es-MX')}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-zinc-50 rounded-lg p-3">
+                        <p className="text-xs text-zinc-400 mb-1">Spot-check armazones</p>
+                        <p className="text-lg font-bold text-zinc-800">{spotOk} / {spotCheck.length}</p>
+                        {spotFaltantes.length > 0 && <p className="text-xs text-red-500 font-semibold mt-1">{spotFaltantes.length} no encontrado{spotFaltantes.length > 1 ? 's' : ''}</p>}
+                      </div>
+                      <div className="bg-zinc-50 rounded-lg p-3">
+                        <p className="text-xs text-zinc-400 mb-1">Consumibles</p>
+                        <p className="text-lg font-bold text-zinc-800">{consumiblesVerif.length - faltanConsumibles.length} / {consumiblesVerif.length}</p>
+                        {faltanConsumibles.length > 0 && <p className="text-xs text-red-500 font-semibold mt-1">{faltanConsumibles.length} con faltante</p>}
+                      </div>
+                    </div>
+
+                    {spotFaltantes.length > 0 && (
+                      <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                        <p className="text-xs font-bold text-red-600 mb-2">Armazones no encontrados:</p>
+                        {spotFaltantes.map(p => (
+                          <p key={p.id} className="text-xs text-red-600 font-mono">{p.sku} — {p.nombre}</p>
+                        ))}
+                      </div>
+                    )}
+
+                    {faltanConsumibles.length > 0 && (
+                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                        <p className="text-xs font-bold text-amber-600 mb-2">Consumibles con faltante:</p>
+                        {faltanConsumibles.map(p => {
+                          const real = parseInt(conteoConsumibles[p.id])
+                          const sis  = (p.stockBaja ?? 0) + (p.stockMayo ?? 0) + (p.stockPlaza ?? 0)
+                          return (
+                            <p key={p.id} className="text-xs text-amber-700">{p.nombre}: real {real} vs sistema {sis} ({real - sis})</p>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* Footer wizard */}
+            <div className="px-6 pb-5 flex gap-3">
+              {wizardPaso > 0 && (
+                <button onClick={() => setWizardPaso(p => p - 1)}
+                  className="px-4 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
+                  Atrás
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (wizardPaso === 0) iniciarVerificacion()
+                  else if (wizardPaso < 3) setWizardPaso(p => p + 1)
+                  else setWizardAbierto(false)
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-zinc-800 transition-all">
+                {wizardPaso === 0 && <><ChevronRight className="w-4 h-4" /> Iniciar verificación</>}
+                {wizardPaso === 1 && <><ChevronRight className="w-4 h-4" /> Continuar al spot-check</>}
+                {wizardPaso === 2 && <><ChevronRight className="w-4 h-4" /> Ver resumen</>}
+                {wizardPaso === 3 && <><Check className="w-4 h-4" /> Finalizar</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal — deshabilitado hasta panel admin dedicado */}
       {false && modal && (
