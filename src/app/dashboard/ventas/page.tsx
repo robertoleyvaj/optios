@@ -66,17 +66,22 @@ function fechaHoy() {
 }
 
 function imprimirTicket(v: Venta) {
-  const fechaFmt = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  const horaFmt  = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  // Usar la fecha/hora originales de la venta
+  const fechaFmt = v.fecha
+  const horaFmt  = v.hora
 
-  const productosRows = v.items.map(item => {
+  // Vendedor: "Nombre A."
+  const _vp = (v.vendedor || '').trim().split(/\s+/)
+  const vendedorCorto = _vp.length >= 2 ? `${_vp[0]} ${_vp[1][0].toUpperCase()}.` : _vp[0] || ''
+
+  const productosRows = v.items.map((item) => {
     const precioUnit = item.precio * (1 - item.descuento / 100)
     const sub = precioUnit * item.cantidad
-    const descStr = item.descuento > 0 ? ` (−${item.descuento}%)` : ''
+    const descStr = item.descuento > 0 ? `<br><small>(−${item.descuento}%)</small>` : ''
     return `<tr>
-      <td class="cant">${item.cantidad}</td>
-      <td class="desc">${item.nombre}${descStr}</td>
-      <td class="precio">$${sub.toLocaleString('es-MX')}</td>
+      <td class="tc">${item.cantidad}</td>
+      <td>${item.nombre}${descStr}</td>
+      <td class="tp">$${sub.toLocaleString('es-MX')}</td>
     </tr>`
   }).join('')
 
@@ -88,73 +93,127 @@ function imprimirTicket(v: Venta) {
   ).join('')
 
   const pagosHtml = v.modoPago === 'diferida' ? `
-    <div class="section-title">Pagos Realizados</div>
+    <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">💲 PAGOS REALIZADOS</div><div class="ph-line"></div></div>
     <table class="pagos">
-      <tr><th>#</th><th>Fecha</th><th>Pago</th></tr>
+      <tr><th>#</th><th>Fecha</th><th class="r">Pago</th></tr>
       ${pagosRows}
     </table>
-    <div class="pagos-total">$${pagadoTotal.toLocaleString('es-MX')}</div>
-    <div class="saldo-box">Cantidad restante para liquidar el pago:<br><b>$${saldo.toLocaleString('es-MX')}</b></div>` : ''
+    <div class="pagos-total-row"><span>TOTAL PAGADO:</span><span>$${pagadoTotal.toLocaleString('es-MX')}</span></div>
+    <div class="saldo-box">
+      <div class="saldo-lbl">Cantidad restante para liquidar el pago:</div>
+      <div class="saldo-val">$${saldo.toLocaleString('es-MX')}</div>
+    </div>` : ''
 
-  const win = window.open('', '_blank', 'width=330,height=900')
+  const win = window.open('', '_blank', 'width=240,height=1000')
   if (!win) return
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Ticket ${v.id}</title>
 <style>
-  @page { size: 80mm auto; margin: 4mm 3mm; }
+  @page { size: 55mm auto; margin: 3mm 2mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Courier New', monospace; font-size: 11px; color: #000; width: 74mm; }
-  .hdr { text-align: center; padding-bottom: 7px; border-bottom: 2px solid #000; margin-bottom: 7px; }
-  .store { font-size: 16px; font-weight: 900; }
-  .branch { font-size: 12px; font-weight: 700; }
-  .date { font-size: 10px; margin-top: 3px; }
-  .info { margin-bottom: 7px; padding-bottom: 7px; border-bottom: 1px dashed #000; }
-  .info div { margin: 1.5px 0; }
-  .folio { font-size: 12px; font-weight: 900; text-align: center; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin-bottom: 7px; }
-  table.prods { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 5px; }
-  table.prods th { border-bottom: 1px solid #000; padding: 2px 1px; text-align: left; }
-  .cant { width: 22px; } .desc { padding: 2px 3px; } .precio { text-align: right; white-space: nowrap; }
-  table.prods td { vertical-align: top; padding: 2px 1px; }
-  .total-row { display: flex; justify-content: space-between; font-weight: 900; font-size: 13px; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin-bottom: 8px; }
-  .section-title { font-weight: 900; text-align: center; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 3px 0; margin: 6px 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; width: 51mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hdr { text-align: center; padding: 6px 0 10px; border-bottom: 2.5px solid #006868; margin-bottom: 9px; }
+  .hdr .b1 { font-size: 22px; font-weight: 900; color: #006868; letter-spacing: 1px; line-height: 1.1; }
+  .hdr .b2 { font-size: 16px; font-weight: 900; color: #006868; line-height: 1.2; }
+  .hdr .dt { font-size: 10px; color: #555; margin-top: 7px; }
+  .info-sec { margin-bottom: 9px; padding-bottom: 9px; border-bottom: 1.5px dashed #bbb; }
+  .irow { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 11px; }
+  .ilbl { font-weight: 700; color: #333; min-width: 56px; font-size: 10.5px; }
+  .folio-box { display: flex; align-items: stretch; border: 1.5px solid #006868; border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
+  .folio-accent { background: #006868; color: white; padding: 6px 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .folio-text { flex: 1; text-align: center; padding: 5px 4px; background: #f0fafa; }
+  .folio-lbl { font-size: 8.5px; font-weight: 700; color: #006868; letter-spacing: 0.5px; }
+  .folio-num { font-size: 18px; font-weight: 900; color: #006868; }
+  table.prods { width: 100%; border-collapse: collapse; margin-bottom: 7px; font-size: 10.5px; }
+  table.prods thead { background: #006868; color: white; }
+  table.prods th { padding: 4px 3px; text-align: left; font-size: 9.5px; font-weight: 700; letter-spacing: 0.3px; }
+  table.prods td { padding: 4px 3px; border-bottom: 1px solid #eee; vertical-align: top; line-height: 1.35; }
+  .tc { width: 22px; text-align: center; }
+  .tp { text-align: right; white-space: nowrap; }
+  .total-row { display: flex; align-items: center; justify-content: space-between; margin: 7px 0 11px; }
+  .tlbl { font-size: 15px; font-weight: 900; color: #222; }
+  .tval { background: #006868; color: white; font-size: 16px; font-weight: 900; padding: 5px 10px; border-radius: 5px; }
+  .ph-title { display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; }
+  .ph-line { flex: 1; height: 1px; background: #bbb; }
+  .ph-txt { font-size: 9.5px; font-weight: 700; color: #006868; white-space: nowrap; }
   table.pagos { width: 100%; border-collapse: collapse; font-size: 10px; }
-  table.pagos th { text-align: left; font-weight: 700; padding: 1px 0; }
-  table.pagos .r { text-align: right; }
-  .pagos-total { text-align: right; font-weight: 900; border-top: 1px solid #000; padding-top: 2px; margin: 3px 0 6px; }
-  .saldo-box { border: 1px solid #000; padding: 5px; text-align: center; font-size: 11px; margin-bottom: 8px; }
-  .saldo-box b { font-size: 14px; }
-  .entrega { font-size: 10px; text-align: center; margin: 6px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; }
-  .conserva { font-size: 10px; text-align: center; margin: 6px 0; }
-  .firma { margin: 14px 0 6px; text-align: center; }
-  .firma-line { display: inline-block; border-top: 1px solid #000; width: 160px; padding-top: 3px; font-size: 10px; }
-  .footer { text-align: center; font-size: 10px; border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
-  .footer b { display: block; font-size: 11px; }
+  table.pagos th { text-align: left; font-weight: 700; padding: 2px 2px; border-bottom: 1px solid #bbb; font-size: 9.5px; }
+  table.pagos td { padding: 3px 2px; border-bottom: 1px dotted #ddd; }
+  .r { text-align: right; }
+  .pagos-total-row { display: flex; justify-content: space-between; font-weight: 700; color: #006868; font-size: 11px; margin: 5px 0 9px; border-top: 1.5px solid #006868; padding-top: 4px; }
+  .saldo-box { border: 1.5px solid #006868; border-radius: 5px; padding: 8px 6px; text-align: center; margin-bottom: 10px; }
+  .saldo-lbl { font-size: 10px; color: #444; line-height: 1.3; }
+  .saldo-val { font-size: 19px; font-weight: 900; color: #006868; margin-top: 4px; }
+  .icard { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1.5px dashed #ccc; font-size: 10px; line-height: 1.4; }
+  .ic { width: 28px; height: 28px; border-radius: 50%; background: #e3f4f4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; line-height: 28px; text-align: center; }
+  .firma-sec { display: flex; align-items: center; gap: 8px; margin: 14px 0 10px; }
+  .fic { width: 30px; height: 30px; border-radius: 50%; background: #e3f4f4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
+  .fblock { flex: 1; }
+  .fline-rule { border-bottom: 1px solid #aaa; margin-bottom: 4px; height: 20px; }
+  .flbl { font-size: 9px; color: #666; text-align: center; }
+  .footer { border-top: 2px solid #006868; padding-top: 8px; font-size: 9.5px; color: #333; margin-top: 4px; }
+  .frow { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 2.5px 0; text-align: center; }
+  .fatendio { font-weight: 700; color: #006868; display: block; text-align: center; margin: 3px 0; font-size: 10px; }
+  .fbar { background: #006868; color: white; text-align: center; padding: 8px 0; margin-top: 9px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>
+
 <div class="hdr">
-  <div class="store">${(SUCURSAL_CONFIG[v.sucursal]?.nombreLinea1 ?? v.sucursal).toUpperCase()}</div>
-  ${SUCURSAL_CONFIG[v.sucursal]?.nombreLinea2 ? `<div class="branch">${SUCURSAL_CONFIG[v.sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
-  <div class="date">${fechaFmt} &nbsp; ${horaFmt}</div>
+  <div class="b1">${(SUCURSAL_CONFIG[v.sucursal]?.nombreLinea1 ?? v.sucursal).toUpperCase()}</div>
+  ${SUCURSAL_CONFIG[v.sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[v.sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
+  <div class="dt">📅 ${fechaFmt} &nbsp;|&nbsp; 🕐 ${horaFmt}</div>
 </div>
-<div class="info">
-  <div><b>Paciente:</b> ${v.cliente}</div>
-  ${v.telefono ? `<div><b>Teléfono:</b> ${v.telefono}</div>` : ''}
+
+<div class="info-sec">
+  ${v.cliente ? `<div class="irow"><span>👤</span><span class="ilbl">Paciente:</span><span>${v.cliente}</span></div>` : ''}
+  ${v.telefono ? `<div class="irow"><span>📞</span><span class="ilbl">Teléfono:</span><span>${v.telefono}</span></div>` : ''}
 </div>
-<div class="folio">Folio de venta: ${v.id}</div>
+
+<div class="folio-box">
+  <div class="folio-accent">🏷</div>
+  <div class="folio-text">
+    <div class="folio-lbl">FOLIO DE VENTA</div>
+    <div class="folio-num">${v.id}</div>
+  </div>
+</div>
+
 <table class="prods">
-  <thead><tr><th class="cant">Cant.</th><th class="desc">Desc.</th><th class="precio">Precio</th></tr></thead>
-  <tbody>${productosRows || '<tr><td colspan="3" style="text-align:center;padding:4px">—</td></tr>'}</tbody>
+  <thead><tr><th class="tc">CANT.</th><th>DESCRIPCIÓN</th><th class="tp">PRECIO</th></tr></thead>
+  <tbody>${productosRows || '<tr><td colspan="3" style="text-align:center;padding:6px;color:#999">—</td></tr>'}</tbody>
 </table>
-<div class="total-row"><span>TOTAL:</span><span>$${v.total.toLocaleString('es-MX')}</span></div>
-${pagosHtml}
-<div class="entrega">Fecha de entrega de 3 a 5 días hábiles a partir de la compra.</div>
-<div class="conserva">Conserve este ticket para cualquier aclaración o garantía.</div>
-<div class="firma"><div class="firma-line">Nombre y firma del comprador</div></div>
-<div class="footer">
-  <div>Tel. ${SUCURSAL_CONFIG[v.sucursal]?.telefono ?? '661 612 0316'} &nbsp;|&nbsp; WA ${SUCURSAL_CONFIG[v.sucursal]?.whatsapp ?? '664 834 3018'}</div>
-  <div>${SUCURSAL_CONFIG[v.sucursal]?.horario ?? 'Lun–Sáb 10:00–18:00'}</div>
-  <b>Atendió: ${v.vendedor}</b>
-  <div>${SUCURSAL_CONFIG[v.sucursal]?.web ?? 'gonmx.com'}</div>
+
+<div class="total-row">
+  <span class="tlbl">TOTAL:</span>
+  <span class="tval">$${v.total.toLocaleString('es-MX')}</span>
 </div>
+
+${pagosHtml}
+
+<div class="icard">
+  <div class="ic">📅</div>
+  <div>Fecha de entrega de <b>3 a 5</b> días hábiles a partir de la compra.</div>
+</div>
+<div class="icard">
+  <div class="ic">🛡</div>
+  <div>Conserve este ticket para cualquier <b>aclaración o garantía.</b></div>
+</div>
+
+<div class="firma-sec">
+  <div class="fic">✍️</div>
+  <div class="fblock">
+    <div class="fline-rule"></div>
+    <div class="flbl">Nombre y firma del comprador</div>
+  </div>
+</div>
+
+<div class="footer">
+  <div class="frow">📞 Tel. ${SUCURSAL_CONFIG[v.sucursal]?.telefono ?? '661 612 0316'} &nbsp;|&nbsp; WA ${SUCURSAL_CONFIG[v.sucursal]?.whatsapp ?? '664 834 3018'}</div>
+  <div class="frow">🕐 ${SUCURSAL_CONFIG[v.sucursal]?.horario ?? 'Lun–Sáb 10:00–18:00'}</div>
+  ${vendedorCorto ? `<div class="frow">👤 <span class="fatendio">Atendió: ${vendedorCorto}</span></div>` : ''}
+  <div class="frow">🌐 ${SUCURSAL_CONFIG[v.sucursal]?.web ?? 'gonmx.com'}</div>
+  <div class="fbar">· · · ❤ ¡Gracias por su compra! ❤ · · ·</div>
+</div>
+
 </body></html>`)
   win.document.close()
   setTimeout(() => { win.print() }, 300)
