@@ -667,9 +667,20 @@ export default function NuevaConsultaPage() {
           <div>
             <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
             <div className="flex gap-2">
-              <div className="flex items-center border border-zinc-200 rounded px-3 py-2 bg-zinc-100 text-xs text-zinc-500 whitespace-nowrap select-none">
-                +52
-              </div>
+              <select value={pLada} onChange={e => setPLada(e.target.value)}
+                className="border border-zinc-200 rounded px-2 py-2 bg-zinc-50 text-xs text-zinc-600 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 cursor-pointer">
+                {[
+                  { code: '+52', label: 'MX +52' }, { code: '+1',   label: 'US +1'   },
+                  { code: '+1',  label: 'CA +1'  }, { code: '+34',  label: 'ES +34'  },
+                  { code: '+33', label: 'FR +33' }, { code: '+49',  label: 'DE +49'  },
+                  { code: '+39', label: 'IT +39' }, { code: '+44',  label: 'UK +44'  },
+                  { code: '+31', label: 'NL +31' }, { code: '+57',  label: 'CO +57'  },
+                  { code: '+54', label: 'AR +54' }, { code: '+56',  label: 'CL +56'  },
+                  { code: '+55', label: 'BR +55' }, { code: '+51',  label: 'PE +51'  },
+                  { code: '+58', label: 'VE +58' }, { code: '+593', label: 'EC +593' },
+                  { code: '+502',label: 'GT +502'}, { code: '+503', label: 'SV +503' },
+                ].map((p, i) => <option key={i} value={p.code}>{p.label}</option>)}
+              </select>
               <input
                 type="tel"
                 value={pTelefono}

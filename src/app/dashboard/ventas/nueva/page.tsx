@@ -503,14 +503,15 @@ export default function NuevaVentaPage() {
         ? `<div class="icard"><div>Fecha de entrega: <b>${fechaEntrega}</b></div></div>`
         : `<div class="icard"><div>Fecha de entrega de <b>3 a 5</b> días hábiles a partir de la compra.</div></div>`
 
-      const win = window.open('', '_blank', 'width=240,height=1000')
+      const win = window.open('', '_blank', 'width=250,height=900')
       if (!win) return
       win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Ticket ${folio}</title>
 <style>
-  @page { size: 55mm auto; margin: 3mm 2mm; }
+  @page { size: 55mm auto; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; width: 51mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html { height: auto; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; width: 51mm; padding: 3mm 2mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow: visible; }
 
   /* ── Header ── */
   .hdr { text-align: center; padding: 6px 0 10px; border-bottom: 2.5px solid #006868; margin-bottom: 9px; }
@@ -573,8 +574,21 @@ export default function NuevaVentaPage() {
   .fatendio { font-weight: 700; color: #006868; display: block; text-align: center; margin: 3px 0; font-size: 10px; }
   .fbar { background: #006868; color: white; text-align: center; padding: 8px 0; margin-top: 9px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; }
 
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  /* ── Evitar cortes de página en bloques ── */
+  .hdr, .info-sec, .folio-box, table.prods, .total-row,
+  .ph-title, table.pagos, .pagos-total-row, .saldo-box,
+  .icard, .firma-sec, .footer { page-break-inside: avoid; break-inside: avoid; }
+  /* ── Aviso solo en pantalla ── */
+  .tip { display: block; background: #fff8e1; border: 1px solid #f59e0b; border-radius: 4px; padding: 7px 8px; margin-bottom: 10px; font-size: 9.5px; line-height: 1.5; color: #78350f; }
+  @media print { .tip { display: none; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>
+
+<div class="tip">
+  En el diálogo de impresión:<br>
+  &bull; <b>Márgenes → Ninguno</b><br>
+  &bull; Desactivar <b>encabezados y pies de página</b><br>
+  &bull; Tamaño de papel: <b>personalizado 55&nbsp;×&nbsp;auto mm</b>
+</div>
 
 <div class="hdr">
   <div class="b1">${(SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal).toUpperCase()}</div>

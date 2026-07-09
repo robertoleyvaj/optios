@@ -348,6 +348,27 @@ const formVacioPaciente = (): Omit<Paciente, 'id' | 'recetas' | 'citas' | 'venta
   fechaNacimiento: '', sucursalPrincipal: 'Baja Visión', notas: '',
 })
 
+const PAISES_LADA = [
+  { code: '+52',  label: 'MX +52'  },
+  { code: '+1',   label: 'US +1'   },
+  { code: '+1',   label: 'CA +1'   },
+  { code: '+34',  label: 'ES +34'  },
+  { code: '+33',  label: 'FR +33'  },
+  { code: '+49',  label: 'DE +49'  },
+  { code: '+39',  label: 'IT +39'  },
+  { code: '+44',  label: 'UK +44'  },
+  { code: '+31',  label: 'NL +31'  },
+  { code: '+57',  label: 'CO +57'  },
+  { code: '+54',  label: 'AR +54'  },
+  { code: '+56',  label: 'CL +56'  },
+  { code: '+55',  label: 'BR +55'  },
+  { code: '+51',  label: 'PE +51'  },
+  { code: '+58',  label: 'VE +58'  },
+  { code: '+593', label: 'EC +593' },
+  { code: '+502', label: 'GT +502' },
+  { code: '+503', label: 'SV +503' },
+]
+
 // ─────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────
@@ -370,6 +391,7 @@ function ExpedientesContent() {
   // Modal nuevo paciente
   const [modalPaciente, setModalPaciente] = useState(false)
   const [formPaciente, setFormPaciente] = useState<Omit<Paciente, 'id' | 'recetas' | 'citas' | 'ventas'>>(formVacioPaciente())
+  const [ladaNuevo, setLadaNuevo] = useState('+52')
 
   // Historial BV
   const [historialResultados, setHistorialResultados] = useState<HistorialBV[]>([])
@@ -378,6 +400,7 @@ function ExpedientesContent() {
   // Modal editar paciente
   const [modalEditar, setModalEditar] = useState(false)
   const [formEditar, setFormEditar] = useState<Omit<Paciente, 'id' | 'recetas' | 'citas' | 'ventas'>>(formVacioPaciente())
+  const [ladaEditar, setLadaEditar] = useState('+52')
 
   // Panel izquierdo colapsable
   const [panelAbierto, setPanelAbierto] = useState(true)
@@ -619,12 +642,15 @@ function ExpedientesContent() {
   }
 
   const guardarPaciente = async () => {
+    const telefonoFull = formPaciente.telefono
+      ? `${ladaNuevo}${formPaciente.telefono}`
+      : ''
     try {
       const supabase = createClient()
       const { data, error } = await supabase.from('pacientes').insert({
         nombre:             formPaciente.nombre,
         apellido:           formPaciente.apellido,
-        telefono:           formPaciente.telefono,
+        telefono:           telefonoFull,
         email:              formPaciente.email,
         fecha_nacimiento:   formPaciente.fechaNacimiento || null,
         sucursal_principal: formPaciente.sucursalPrincipal,
@@ -634,17 +660,18 @@ function ExpedientesContent() {
       const id = data?.id ?? Date.now()
       if (error) console.error(error)
 
-      const nuevo: Paciente = { id, ...formPaciente, recetas: [], citas: [], ventas: [] }
+      const nuevo: Paciente = { id, ...formPaciente, telefono: telefonoFull, recetas: [], citas: [], ventas: [] }
       setPacientes(prev => [nuevo, ...prev])
       setSeleccionado(nuevo)
     } catch (e) {
       console.error(e)
-      const nuevo: Paciente = { id: Date.now(), ...formPaciente, recetas: [], citas: [], ventas: [] }
+      const nuevo: Paciente = { id: Date.now(), ...formPaciente, telefono: telefonoFull, recetas: [], citas: [], ventas: [] }
       setPacientes(prev => [nuevo, ...prev])
       setSeleccionado(nuevo)
     }
     setModalPaciente(false)
     setFormPaciente(formVacioPaciente())
+    setLadaNuevo('+52')
   }
 
   const abrirEditar = () => {
@@ -663,12 +690,15 @@ function ExpedientesContent() {
 
   const guardarEdicion = async () => {
     if (!seleccionado) return
+    const telefonoFull = formEditar.telefono
+      ? `${ladaEditar}${formEditar.telefono}`
+      : ''
     try {
       const supabase = createClient()
       await supabase.from('pacientes').update({
         nombre:             formEditar.nombre,
         apellido:           formEditar.apellido,
-        telefono:           formEditar.telefono,
+        telefono:           telefonoFull,
         email:              formEditar.email,
         fecha_nacimiento:   formEditar.fechaNacimiento || null,
         sucursal_principal: formEditar.sucursalPrincipal,
@@ -676,7 +706,7 @@ function ExpedientesContent() {
       }).eq('id', seleccionado.id)
     } catch (e) { console.error(e) }
 
-    const actualizado = { ...seleccionado, ...formEditar }
+    const actualizado = { ...seleccionado, ...formEditar, telefono: telefonoFull }
     setPacientes(prev => prev.map(p => p.id === seleccionado.id ? actualizado : p))
     setSeleccionado(actualizado)
     setModalEditar(false)
@@ -1369,9 +1399,10 @@ function ExpedientesContent() {
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
                 <div className="flex gap-2">
-                  <div className="flex items-center gap-1.5 border border-zinc-200 rounded px-3 py-2.5 bg-zinc-100 text-xs text-zinc-500 whitespace-nowrap select-none">
-                    +52
-                  </div>
+                  <select value={ladaEditar} onChange={e => setLadaEditar(e.target.value)}
+                    className="border border-zinc-200 rounded px-2 py-2.5 bg-zinc-50 text-xs text-zinc-600 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 cursor-pointer">
+                    {PAISES_LADA.map((p, i) => <option key={i} value={p.code}>{p.label}</option>)}
+                  </select>
                   <input value={formEditar.telefono} onChange={e => setFormEditar(p => ({ ...p, telefono: e.target.value }))}
                     className="flex-1 border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                     placeholder="661 000 0000" />
@@ -1443,11 +1474,12 @@ function ExpedientesContent() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono *</label>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
                 <div className="flex gap-2">
-                  <div className="flex items-center gap-1.5 border border-zinc-200 rounded px-3 py-2.5 bg-zinc-100 text-xs text-zinc-500 whitespace-nowrap select-none">
-                    +52
-                  </div>
+                  <select value={ladaNuevo} onChange={e => setLadaNuevo(e.target.value)}
+                    className="border border-zinc-200 rounded px-2 py-2.5 bg-zinc-50 text-xs text-zinc-600 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 cursor-pointer">
+                    {PAISES_LADA.map((p, i) => <option key={i} value={p.code}>{p.label}</option>)}
+                  </select>
                   <input value={formPaciente.telefono} onChange={e => setFormPaciente(p => ({ ...p, telefono: e.target.value }))}
                     className="flex-1 border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                     placeholder="661 000 0000" />
@@ -1488,7 +1520,7 @@ function ExpedientesContent() {
                 className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
                 Cancelar
               </button>
-              <button onClick={guardarPaciente} disabled={!formPaciente.nombre || !formPaciente.apellido || !formPaciente.telefono}
+              <button onClick={guardarPaciente} disabled={!formPaciente.nombre || !formPaciente.apellido}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40">
                 <User className="w-4 h-4" /> Crear expediente
               </button>
