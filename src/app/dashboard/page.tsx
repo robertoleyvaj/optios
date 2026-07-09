@@ -782,6 +782,7 @@ export default function DashboardPage() {
   }, [])
 
   const esAdmin    = !usuario || usuario.rol === 'administrador' || usuario.rol === 'gerente'
+  const esDueno    = !usuario || usuario.rol === 'administrador'
   const esVendedor = usuario?.rol === 'vendedor'
   const sucursalFiltro = esAdmin ? null : usuario?.sucursal ?? null
   const nombreUsuario = usuario?.nombre ?? 'Usuario'
@@ -802,9 +803,11 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Hola, {apodoUsuario}</h1>
         <p className="text-sm text-zinc-400 mt-0.5">
-          {esAdmin
-            ? 'Aquí está el resumen de hoy en todas tus sucursales.'
-            : `Aquí está el resumen de hoy en ${sucursalFiltro}.`}
+          {esDueno
+            ? 'Aquí está el resumen de hoy en todas las sucursales.'
+            : esAdmin
+            ? `Resumen de hoy en todas las sucursales.`
+            : `Resumen de hoy en ${sucursalFiltro}.`}
         </p>
       </div>
 
