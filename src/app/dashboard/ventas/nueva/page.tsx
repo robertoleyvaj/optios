@@ -1128,6 +1128,11 @@ ${entregaHtml}
                 const precioFinal = item.precio - descMonto
                 const subtotalItem = precioFinal * item.cantidad
                 const stockBajo = item.stock !== 999 && item.cantidad > item.stock
+                // Conversión USD: redondeo hacia abajo, sin decimales
+                const esUSDVista = moneda === 'USD' && !!tipoCambio
+                const precioDisplay    = esUSDVista ? Math.floor(precioFinal / tipoCambio!) : precioFinal
+                const subtotalDisplay  = esUSDVista ? Math.floor(subtotalItem / tipoCambio!) : subtotalItem
+                const fmtPrecio = (n: number) => esUSDVista ? `USD $${n}` : `$${n.toLocaleString('es-MX')}`
 
                 return (
                   <tr key={item.id} className="hover:bg-zinc-50/50 group">
@@ -1159,7 +1164,7 @@ ${entregaHtml}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm text-zinc-700">${item.precio.toLocaleString('es-MX')}</span>
+                      <span className="text-sm text-zinc-700">{fmtPrecio(precioDisplay)}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
@@ -1176,7 +1181,7 @@ ${entregaHtml}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm font-bold text-zinc-800">${subtotalItem.toLocaleString('es-MX')}</span>
+                      <span className="text-sm font-bold text-zinc-800">{fmtPrecio(subtotalDisplay)}</span>
                     </td>
                     <td className="px-2 py-3">
                       <button onClick={() => eliminar(item.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-300 hover:text-red-400">
@@ -1209,10 +1214,17 @@ ${entregaHtml}
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <span className="text-sm text-zinc-400">Total</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-400">$</span>
-                  <span className="text-2xl font-bold text-zinc-800">{subtotal.toLocaleString('es-MX')}</span>
-                </div>
+                {moneda === 'USD' && tipoCambio ? (
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-xs text-blue-400">USD $</span>
+                    <span className="text-2xl font-bold text-blue-700">{Math.floor(subtotal / tipoCambio)}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-400">$</span>
+                    <span className="text-2xl font-bold text-zinc-800">{subtotal.toLocaleString('es-MX')}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
