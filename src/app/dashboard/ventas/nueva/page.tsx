@@ -1136,12 +1136,20 @@ ${entregaHtml}
 
       {/* Botones finales */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={limpiar}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-500 hover:text-zinc-700 border border-zinc-200 rounded-md hover:bg-zinc-50 transition-all"
-        >
-          <X className="w-4 h-4" /> Limpiar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={limpiar}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-500 hover:text-zinc-700 border border-zinc-200 rounded-md hover:bg-zinc-50 transition-all"
+          >
+            <X className="w-4 h-4" /> Limpiar
+          </button>
+          <button
+            onClick={() => setShowProductoLibre(true)}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-500 hover:text-zinc-700 border border-dashed border-zinc-300 rounded-md hover:bg-zinc-50 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Producto libre
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => { setEsCotizacion(true); setShowModal(true) }}
