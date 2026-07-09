@@ -206,12 +206,6 @@ function InventarioPage() {
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Inventario</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Una pieza · múltiples canales de venta · sincronización automática</p>
         </div>
-        {esAdmin && (
-          <button onClick={abrirNuevo}
-            className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27] active:scale-[0.98] transition-all">
-            <Plus className="w-4 h-4" /> Agregar producto
-          </button>
-        )}
       </div>
 
       {/* KPIs */}
@@ -366,14 +360,6 @@ function InventarioPage() {
                       )}
                       {p.tipo === 'servicio' && <span className="text-xs text-zinc-400">a pedido</span>}
                     </td>
-                    {esAdmin && (
-                      <td className="px-4 py-3.5">
-                        <button onClick={() => abrirEditar(p)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-[#0D9488]">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    )}
                   </tr>
                 )
               })}
@@ -385,8 +371,8 @@ function InventarioPage() {
         </div>
       </div>
 
-      {/* Modal */}
-      {modal && (
+      {/* Modal — deshabilitado hasta panel admin dedicado */}
+      {false && modal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
