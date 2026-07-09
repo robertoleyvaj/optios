@@ -135,6 +135,12 @@ export default function NuevaVentaPage() {
   // Modal de selección de color para filtros (Fotocromático, Polarizado, Tinte)
   const [pendingFiltro, setPendingFiltro] = useState<typeof catalogo[0] | null>(null)
 
+  // Moneda en efectivo (MXN / USD)
+  const [moneda, setMoneda] = useState<'MXN' | 'USD'>('MXN') // moneda de cobro (solo efectivo)
+  const [tipoCambio, setTipoCambio] = useState<number | null>(null)
+  const [loadingTC, setLoadingTC] = useState(false)
+  const [tcError, setTcError] = useState(false)
+
   // Auto-populate desde URL params (pacienteId desde expedientes, desde_consulta desde wizard)
   useEffect(() => {
     const pacienteId    = searchParams.get('pacienteId') || searchParams.get('paciente_id')
@@ -291,6 +297,22 @@ export default function NuevaVentaPage() {
   // El total al cliente es el subtotal. La comisión bancaria la absorbe la tienda (se registra en finanzas).
   const total = subtotal
 
+  // Tipo de cambio USD → MXN
+  const fetchTipoCambio = async () => {
+    setLoadingTC(true)
+    setTcError(false)
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD')
+      const data = await res.json()
+      if (data?.rates?.MXN) setTipoCambio(Math.round(data.rates.MXN * 100) / 100)
+      else setTcError(true)
+    } catch {
+      setTcError(true)
+    } finally {
+      setLoadingTC(false)
+    }
+  }
+
   const handleFinalizar = async (cotizacion = false) => {
     setGuardando(true)
     setEsCotizacion(cotizacion)
@@ -317,6 +339,13 @@ export default function NuevaVentaPage() {
       const anticoNum = Number(anticipo || 0)
       const saldoNum  = total - anticoNum
 
+      // Si la venta es en USD, guardamos el monto en dólares
+      const esUSD = !cotizacion && metodoPago === 'efectivo' && moneda === 'USD' && tipoCambio
+      const totalDB    = esUSD ? Math.round((total / tipoCambio!) * 100) / 100 : total
+      const subtotalDB = esUSD ? Math.round((subtotal / tipoCambio!) * 100) / 100 : subtotal
+      const anticoDB   = esUSD ? Math.round((anticoNum / tipoCambio!) * 100) / 100 : anticoNum
+      const saldoDB    = esUSD ? Math.round((saldoNum / tipoCambio!) * 100) / 100 : saldoNum
+
       // ── 2. Insertar venta ───────────────────────────────────
       const { data: ventaRow, error: errVenta } = await supabase
         .from('ventas')
@@ -325,15 +354,17 @@ export default function NuevaVentaPage() {
           paciente_nombre:   `${clienteNombre} ${clienteApellido}`.trim(),
           paciente_telefono: clienteTelefono,
           sucursal,
-          subtotal,
-          total,
-          anticipo:    anticoNum,
-          saldo:       saldoNum,
+          subtotal:    subtotalDB,
+          total:       totalDB,
+          anticipo:    anticoDB,
+          saldo:       saldoDB,
           metodo_pago: metodoPago,
           estado:      'activa',
           es_cotizacion: cotizacion,
           fecha_entrega: fechaEntrega || null,
           atendido_por:  atendioPor,
+          moneda:       esUSD ? 'USD' : 'MXN',
+          tipo_cambio:  esUSD ? tipoCambio : null,
         })
         .select('id')
         .single()
@@ -359,7 +390,7 @@ export default function NuevaVentaPage() {
 
       // ── 4. Crear movimiento de caja ─────────────────────────
       if (!cotizacion) {
-        const montoIngreso = anticoNum > 0 ? anticoNum : total
+        const montoIngreso = anticoDB > 0 ? anticoDB : totalDB
         await supabase.from('caja_movimientos').insert({
           tipo:           'ingreso',
           concepto:       `Venta ${folio} — ${`${clienteNombre} ${clienteApellido}`.trim() || 'Sin nombre'}`,
@@ -503,7 +534,7 @@ export default function NuevaVentaPage() {
         ? `<div class="icard"><div>Fecha de entrega: <b>${fechaEntrega}</b></div></div>`
         : `<div class="icard"><div>Fecha de entrega de <b>3 a 5</b> días hábiles a partir de la compra.</div></div>`
 
-      const win = window.open('', '_blank', 'width=250,height=900')
+      const win = window.open('', '_blank', 'width=230,height=900')
       if (!win) return
       win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Ticket ${folio}</title>
@@ -511,140 +542,114 @@ export default function NuevaVentaPage() {
   @page { size: 55mm auto; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { height: auto; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; width: 51mm; padding: 3mm 2mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow: visible; }
-
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 3mm;
+    color: #000;
+    background: #fff;
+    width: 51mm;
+    padding: 2.5mm 2mm;
+    overflow: visible;
+  }
   /* ── Header ── */
-  .hdr { text-align: center; padding: 6px 0 10px; border-bottom: 2.5px solid #006868; margin-bottom: 9px; }
-  .hdr .b1 { font-size: 22px; font-weight: 900; color: #006868; letter-spacing: 1px; line-height: 1.1; }
-  .hdr .b2 { font-size: 16px; font-weight: 900; color: #006868; line-height: 1.2; }
-  .hdr .dt { font-size: 10px; color: #555; margin-top: 7px; }
-
-  /* ── Info section ── */
-  .info-sec { margin-bottom: 9px; padding-bottom: 9px; border-bottom: 1.5px dashed #bbb; }
-  .irow { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 11px; }
-  .ilbl { font-weight: 700; color: #333; min-width: 56px; font-size: 10.5px; }
-
-  /* ── Folio box ── */
-  .folio-box { display: flex; align-items: stretch; border: 1.5px solid #006868; border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
-  .folio-accent { background: #006868; color: white; padding: 6px 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
-  .folio-text { flex: 1; text-align: center; padding: 5px 4px; background: #f0fafa; }
-  .folio-lbl { font-size: 8.5px; font-weight: 700; color: #006868; letter-spacing: 0.5px; }
-  .folio-num { font-size: 18px; font-weight: 900; color: #006868; }
-
-  /* ── Products table ── */
-  table.prods { width: 100%; border-collapse: collapse; margin-bottom: 7px; font-size: 10.5px; }
-  table.prods thead { background: #006868; color: white; }
-  table.prods th { padding: 4px 3px; text-align: left; font-size: 9.5px; font-weight: 700; letter-spacing: 0.3px; }
-  table.prods td { padding: 4px 3px; border-bottom: 1px solid #eee; vertical-align: top; line-height: 1.35; }
-  .tc { width: 22px; text-align: center; }
-  .tp { text-align: right; white-space: nowrap; }
-
+  .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.4mm solid #000; margin-bottom: 2.5mm; }
+  .b1  { font-size: 5mm; font-weight: 900; line-height: 1.2; }
+  .b2  { font-size: 4mm; font-weight: 900; line-height: 1.2; }
+  .dt  { font-size: 2.5mm; margin-top: 1.5mm; }
+  /* ── Info ── */
+  .info-sec { margin-bottom: 2.5mm; padding-bottom: 2mm; border-bottom: 0.3mm dashed #000; }
+  .irow { display: flex; padding: 0.8mm 0; font-size: 3mm; gap: 1mm; }
+  .ilbl { font-weight: 700; min-width: 17mm; flex-shrink: 0; }
+  /* ── Folio ── */
+  .folio { text-align: center; border: 0.4mm solid #000; padding: 2mm 1mm; margin-bottom: 2.5mm; }
+  .folio-lbl { font-size: 2.5mm; }
+  .folio-num { font-size: 5mm; font-weight: 900; margin-top: 0.5mm; }
+  /* ── Productos ── */
+  table.prods { width: 100%; border-collapse: collapse; margin-bottom: 1.5mm; font-size: 2.8mm; }
+  table.prods th { border-top: 0.4mm solid #000; border-bottom: 0.4mm solid #000; padding: 1.5mm 1mm; text-align: left; font-weight: 700; }
+  table.prods td { padding: 1.5mm 1mm; vertical-align: top; line-height: 1.35; }
+  .tc { width: 7mm; }
+  .tp { text-align: right; }
   /* ── Total ── */
-  .total-row { display: flex; align-items: center; justify-content: space-between; margin: 7px 0 11px; }
-  .tlbl { font-size: 15px; font-weight: 900; color: #222; }
-  .tval { background: #006868; color: white; font-size: 16px; font-weight: 900; padding: 5px 10px; border-radius: 5px; }
-
-  /* ── Pagos realizados ── */
-  .ph-title { display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; }
-  .ph-line { flex: 1; height: 1px; background: #bbb; }
-  .ph-txt { font-size: 9.5px; font-weight: 700; color: #006868; white-space: nowrap; }
-  table.pagos { width: 100%; border-collapse: collapse; font-size: 10px; }
-  table.pagos th { text-align: left; font-weight: 700; padding: 2px 2px; border-bottom: 1px solid #bbb; font-size: 9.5px; }
-  table.pagos td { padding: 3px 2px; border-bottom: 1px dotted #ddd; }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 4.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2mm 0; margin-bottom: 2.5mm; }
+  /* ── Pagos ── */
+  .ph-title { text-align: center; font-weight: 900; font-size: 3mm; border-top: 0.3mm dashed #000; border-bottom: 0.3mm dashed #000; padding: 1.5mm 0; margin: 2mm 0 1.5mm; }
+  .ph-line { display: none; }
+  table.pagos { width: 100%; border-collapse: collapse; font-size: 2.8mm; }
+  table.pagos th { text-align: left; font-weight: 700; padding: 1mm 1mm; border-bottom: 0.3mm solid #000; }
+  table.pagos td { padding: 1mm 1mm; }
   .r { text-align: right; }
-  .pagos-total-row { display: flex; justify-content: space-between; font-weight: 700; color: #006868; font-size: 11px; margin: 5px 0 9px; border-top: 1.5px solid #006868; padding-top: 4px; }
-  .saldo-box { border: 1.5px solid #006868; border-radius: 5px; padding: 8px 6px; text-align: center; margin-bottom: 10px; }
-  .saldo-lbl { font-size: 10px; color: #444; line-height: 1.3; }
-  .saldo-val { font-size: 19px; font-weight: 900; color: #006868; margin-top: 4px; }
-
-  /* ── Info cards (entrega / conserva) ── */
-  .icard { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1.5px dashed #ccc; font-size: 10px; line-height: 1.4; }
-  .ic { width: 28px; height: 28px; border-radius: 50%; background: #e3f4f4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; line-height: 28px; text-align: center; }
-
+  .pagos-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 3mm; border-top: 0.4mm solid #000; padding-top: 1.5mm; margin: 1.5mm 0 2.5mm; }
+  .saldo-box { border: 0.5mm solid #000; padding: 2.5mm 2mm; text-align: center; margin-bottom: 2.5mm; }
+  .saldo-lbl { font-size: 2.8mm; line-height: 1.4; }
+  .saldo-val { font-size: 5mm; font-weight: 900; margin-top: 1.5mm; }
+  /* ── Info cards ── */
+  .icard { padding: 2mm 0; border-top: 0.3mm dashed #000; font-size: 2.8mm; line-height: 1.4; }
   /* ── Firma ── */
-  .firma-sec { display: flex; align-items: center; gap: 8px; margin: 14px 0 10px; }
-  .fic { width: 30px; height: 30px; border-radius: 50%; background: #e3f4f4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
-  .fblock { flex: 1; }
-  .fline-rule { border-bottom: 1px solid #aaa; margin-bottom: 4px; height: 20px; }
-  .flbl { font-size: 9px; color: #666; text-align: center; }
-
+  .firma-sec { margin: 5mm 0 2.5mm; }
+  .fline-rule { border-bottom: 0.3mm solid #000; height: 5mm; }
+  .flbl { font-size: 2.5mm; text-align: center; margin-top: 1mm; }
   /* ── Footer ── */
-  .footer { border-top: 2px solid #006868; padding-top: 8px; font-size: 9.5px; color: #333; margin-top: 4px; }
-  .frow { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 2.5px 0; text-align: center; }
-  .fatendio { font-weight: 700; color: #006868; display: block; text-align: center; margin: 3px 0; font-size: 10px; }
-  .fbar { background: #006868; color: white; text-align: center; padding: 8px 0; margin-top: 9px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; }
-
-  /* ── Evitar cortes de página en bloques ── */
-  .hdr, .info-sec, .folio-box, table.prods, .total-row,
-  .ph-title, table.pagos, .pagos-total-row, .saldo-box,
-  .icard, .firma-sec, .footer { page-break-inside: avoid; break-inside: avoid; }
-  /* ── Aviso solo en pantalla ── */
-  .tip { display: block; background: #fff8e1; border: 1px solid #f59e0b; border-radius: 4px; padding: 7px 8px; margin-bottom: 10px; font-size: 9.5px; line-height: 1.5; color: #78350f; }
-  @media print { .tip { display: none; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  .footer { border-top: 0.5mm solid #000; padding-top: 2.5mm; margin-top: 2mm; text-align: center; font-size: 2.8mm; line-height: 1.8; }
+  .fatendio { font-weight: 700; }
+  .fbar { margin-top: 2mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2mm 0; font-weight: 900; font-size: 3mm; }
+  /* ── Evitar cortes ── */
+  * { page-break-inside: avoid; break-inside: avoid; }
+  /* ── Aviso pantalla ── */
+  .tip { display: block; background: #fff8e1; border: 1px solid #e5a; padding: 5px 6px; margin-bottom: 8px; font-size: 8px; line-height: 1.5; }
+  @media print { .tip { display: none; } }
 </style></head><body>
 
 <div class="tip">
-  En el diálogo de impresión:<br>
-  &bull; <b>Márgenes → Ninguno</b><br>
-  &bull; Desactivar <b>encabezados y pies de página</b><br>
-  &bull; Tamaño de papel: <b>personalizado 55&nbsp;×&nbsp;auto mm</b>
+  Configurar impresión: <b>Márgenes → Ninguno</b> · Sin encabezados/pies
 </div>
 
 <div class="hdr">
   <div class="b1">${(SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal).toUpperCase()}</div>
   ${SUCURSAL_CONFIG[sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
-  <div class="dt">${fechaFmt} &nbsp;|&nbsp; ${horaHoy}</div>
+  <div class="dt">${fechaFmt} | ${horaHoy}</div>
 </div>
 
 <div class="info-sec">
   ${(clienteNombre || clienteApellido) ? `<div class="irow"><span class="ilbl">Paciente:</span><span>${clienteNombre} ${clienteApellido}</span></div>` : ''}
-  ${clienteTelefono ? `<div class="irow"><span class="ilbl">Teléfono:</span><span>${clienteTelefono}</span></div>` : ''}
+  ${clienteTelefono ? `<div class="irow"><span class="ilbl">Tel:</span><span>${clienteTelefono}</span></div>` : ''}
 </div>
 
-<div class="folio-box">
-  <div class="folio-accent"></div>
-  <div class="folio-text">
-    <div class="folio-lbl">FOLIO DE VENTA</div>
-    <div class="folio-num">${folio}</div>
-  </div>
+<div class="folio">
+  <div class="folio-lbl">FOLIO DE VENTA</div>
+  <div class="folio-num">${folio}</div>
 </div>
 
 <table class="prods">
-  <thead><tr><th class="tc">CANT.</th><th>DESCRIPCIÓN</th><th class="tp">PRECIO</th></tr></thead>
+  <thead><tr><th class="tc">CANT</th><th>DESCRIPCION</th><th class="tp">PRECIO</th></tr></thead>
   <tbody>${productosRows}</tbody>
 </table>
 
-<div class="total-row">
-  <span class="tlbl">TOTAL:</span>
-  <span class="tval">$${total.toLocaleString('es-MX')}</span>
-</div>
+<div class="total-row"><span>TOTAL:</span><span>$${total.toLocaleString('es-MX')}</span></div>
+${moneda === 'USD' && tipoCambio ? `<div class="icard" style="text-align:center;font-size:2.6mm;">Pago en dolares: USD $${(total / tipoCambio).toFixed(2)} · TC $${tipoCambio.toFixed(2)}</div>` : ''}
 
 ${pagosHtml}
 
 ${entregaHtml}
 
-<div class="icard">
-  <div>Conserve este ticket para cualquier <b>aclaración o garantía.</b></div>
-</div>
+<div class="icard">Conserve este ticket para cualquier aclaracion o garantia.</div>
 
 <div class="firma-sec">
-  <div class="fblock">
-    <div class="fline-rule"></div>
-    <div class="flbl">Nombre y firma del comprador</div>
-  </div>
+  <div class="fline-rule"></div>
+  <div class="flbl">Nombre y firma del comprador</div>
 </div>
 
 <div class="footer">
-  <div class="frow">Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} &nbsp;|&nbsp; WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
-  <div class="frow">${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun–Sáb 10:00–18:00'}</div>
-  ${atendioPor ? `<div class="frow"><span class="fatendio">Atendió: ${atendioPor}</span></div>` : ''}
-  <div class="frow">${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
-  <div class="fbar">· · · ¡Gracias por su compra! · · ·</div>
+  <div>Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
+  <div>${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun-Sab 10:00-18:00'}</div>
+  ${atendioPor ? `<div class="fatendio">Atendio: ${atendioPor}</div>` : ''}
+  <div>${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
+  <div class="fbar">... Gracias por su compra! ...</div>
 </div>
 
 </body></html>`)
       win.document.close()
-      setTimeout(() => { win.print() }, 300)
+      setTimeout(() => { win.print() }, 400)
     }
 
     // ── Imprimir orden de laboratorio (placeholder — sin graduación) ──
@@ -783,21 +788,55 @@ ${entregaHtml}
             </div>
           )}
 
+          {/* Toggle de moneda (encima de los productos) */}
+          <div className="px-5 pt-3 pb-1 flex items-center gap-2">
+            <span className="text-xs text-zinc-400 font-medium">Moneda:</span>
+            <button
+              onClick={() => setMoneda('MXN')}
+              className={`text-xs font-bold px-2.5 py-1 rounded-full border transition-all ${moneda === 'MXN' ? 'bg-zinc-800 text-white border-zinc-800' : 'border-zinc-200 text-zinc-400 hover:border-zinc-400'}`}
+            >
+              MXN
+            </button>
+            <button
+              onClick={() => {
+                setMoneda('USD')
+                if (!tipoCambio) fetchTipoCambio()
+              }}
+              className={`text-xs font-bold px-2.5 py-1 rounded-full border transition-all ${moneda === 'USD' ? 'bg-blue-600 text-white border-blue-600' : 'border-zinc-200 text-zinc-400 hover:border-blue-400'}`}
+            >
+              USD
+            </button>
+            {moneda === 'USD' && loadingTC && <span className="text-[10px] text-blue-400">Consultando TC...</span>}
+            {moneda === 'USD' && tipoCambio && !loadingTC && (
+              <span className="text-[10px] text-blue-500 font-medium">
+                1 USD = ${tipoCambio.toFixed(2)}
+                <button onClick={fetchTipoCambio} className="ml-1 underline">↻</button>
+              </span>
+            )}
+            {moneda === 'USD' && tcError && !loadingTC && (
+              <button onClick={fetchTipoCambio} className="text-[10px] text-red-400 underline">Error — reintentar</button>
+            )}
+          </div>
+
           {/* Productos */}
           <div className="px-5 py-3 space-y-3">
             {carrito.map(item => {
               const precio = item.precio * (1 - item.descuento / 100)
               const sub = precio * item.cantidad
+              const precioDisplay = moneda === 'USD' && tipoCambio ? precio / tipoCambio : precio
+              const subDisplay    = moneda === 'USD' && tipoCambio ? sub / tipoCambio : sub
+              const sym = moneda === 'USD' ? 'USD $' : '$'
+              const fmt = (n: number) => moneda === 'USD' ? n.toFixed(2) : n.toLocaleString('es-MX')
               return (
                 <div key={item.id} className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-zinc-700">{item.nombre}</p>
                     <p className="text-xs text-zinc-400 mt-0.5">
-                      {item.cantidad > 1 ? `${item.cantidad} × $${precio.toLocaleString('es-MX')}` : ''}
+                      {item.cantidad > 1 ? `${item.cantidad} × ${sym}${fmt(precioDisplay)}` : ''}
                       {item.descuento > 0 ? `${item.cantidad > 1 ? ' · ' : ''}Desc. ${item.descuento}%` : ''}
                     </p>
                   </div>
-                  <span className="text-sm font-bold text-zinc-800 ml-4 flex-shrink-0">${sub.toLocaleString('es-MX')}</span>
+                  <span className="text-sm font-bold text-zinc-800 ml-4 flex-shrink-0">{sym}{fmt(subDisplay)}</span>
                 </div>
               )
             })}
@@ -812,7 +851,14 @@ ${entregaHtml}
               </div>
               <div className="text-right">
                 <p className="text-xs text-zinc-400">Total venta</p>
-                <p className="text-2xl font-bold text-[#0B0E14]">${total.toLocaleString('es-MX')}</p>
+                {moneda === 'USD' && tipoCambio ? (
+                  <>
+                    <p className="text-2xl font-bold text-blue-700">USD ${(total / tipoCambio).toFixed(2)}</p>
+                    <p className="text-xs text-zinc-400">${total.toLocaleString('es-MX')} MXN</p>
+                  </>
+                ) : (
+                  <p className="text-2xl font-bold text-[#0B0E14]">${total.toLocaleString('es-MX')}</p>
+                )}
               </div>
             </div>
             {modoPago === 'diferir' && (
@@ -1371,6 +1417,13 @@ ${entregaHtml}
                     </div>
                   </div>
 
+                  {/* Aviso si moneda USD pero método no es efectivo */}
+                  {moneda === 'USD' && metodoPago !== 'efectivo' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-md px-4 py-3 text-xs text-amber-700">
+                      El modo dólar solo aplica a pagos en efectivo. Cambia el método o regresa a pesos.
+                    </div>
+                  )}
+
                   {/* Anticipo — solo cuando se difiere */}
                   {modoPago === 'diferir' && (
                     <div>
@@ -1402,29 +1455,43 @@ ${entregaHtml}
 
               {/* Total */}
               <div className="bg-zinc-50 rounded-lg px-5 py-4">
-                {modoPago === 'diferir' && anticipo !== '' && Number(anticipo) > 0 ? (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm text-zinc-500">
-                      <span>Total venta</span>
-                      <span className="font-semibold">${total.toLocaleString('es-MX')}</span>
+                {(() => {
+                  const isUSD = !esCotizacion && metodoPago === 'efectivo' && moneda === 'USD' && tipoCambio
+                  const totalUSD = isUSD ? total / tipoCambio! : 0
+                  if (modoPago === 'diferir' && anticipo !== '' && Number(anticipo) > 0) {
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm text-zinc-500">
+                          <span>Total venta</span>
+                          <span className="font-semibold">{isUSD ? `USD $${totalUSD.toFixed(2)}` : `$${total.toLocaleString('es-MX')}`}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-emerald-700">
+                          <span>Anticipo</span>
+                          <span className="font-bold">− ${Number(anticipo).toLocaleString('es-MX')}</span>
+                        </div>
+                        <div className="border-t border-zinc-200 pt-2 flex justify-between">
+                          <span className="text-sm font-semibold text-zinc-700">Saldo pendiente</span>
+                          <span className="text-xl font-bold text-red-600">${(total - Number(anticipo)).toLocaleString('es-MX')}</span>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="text-center">
+                      <p className="text-xs text-zinc-400 mb-1">
+                        {esCotizacion ? 'Total estimado' : (modoPago === 'diferir' ? 'Total (pendiente de anticipo)' : 'Total a cobrar')}
+                      </p>
+                      {isUSD ? (
+                        <>
+                          <p className="text-3xl font-bold text-blue-700">USD ${totalUSD.toFixed(2)}</p>
+                          <p className="text-xs text-zinc-400 mt-0.5">${total.toLocaleString('es-MX')} MXN · TC ${tipoCambio!.toFixed(2)}</p>
+                        </>
+                      ) : (
+                        <p className="text-3xl font-bold text-[#0B0E14]">${total.toLocaleString('es-MX')}</p>
+                      )}
                     </div>
-                    <div className="flex justify-between text-sm text-emerald-700">
-                      <span>Anticipo</span>
-                      <span className="font-bold">− ${Number(anticipo).toLocaleString('es-MX')}</span>
-                    </div>
-                    <div className="border-t border-zinc-200 pt-2 flex justify-between">
-                      <span className="text-sm font-semibold text-zinc-700">Saldo pendiente</span>
-                      <span className="text-xl font-bold text-red-600">${(total - Number(anticipo)).toLocaleString('es-MX')}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <p className="text-xs text-zinc-400 mb-1">
-                      {esCotizacion ? 'Total estimado' : (modoPago === 'diferir' ? 'Total (pendiente de anticipo)' : 'Total a cobrar')}
-                    </p>
-                    <p className="text-3xl font-bold text-[#0B0E14]">${total.toLocaleString('es-MX')}</p>
-                  </div>
-                )}
+                  )
+                })()}
                 {clienteNombre && (
                   <p className="text-xs text-zinc-400 mt-2 text-center">{clienteNombre} {clienteApellido}</p>
                 )}

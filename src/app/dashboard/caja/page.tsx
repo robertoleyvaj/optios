@@ -13,6 +13,7 @@ import {
 type MetodoPago = 'efectivo' | 'debito' | 'credito' | 'transferencia'
 
 type ResumenMetodo = { monto: number; transacciones: number }
+type ResumenUSD = { monto: number; transacciones: number; tcPromedio: number }
 
 type CorteGuardado = {
   id: string
@@ -58,6 +59,7 @@ export default function CajaPage() {
 
   // ── Datos del día ──
   const [ventas, setVentas]       = useState<Record<MetodoPago, ResumenMetodo>>(RESUMEN_VACIO)
+  const [efectivoUSD, setEfectivoUSD] = useState<ResumenUSD>({ monto: 0, transacciones: 0, tcPromedio: 0 })
   const [historial, setHistorial] = useState<CorteGuardado[]>([])
   const [corteHoy, setCorteHoy]   = useState<CorteGuardado | null>(null)
   const [cargando, setCargando]   = useState(true)
@@ -67,17 +69,23 @@ export default function CajaPage() {
 
   // ── Formulario de corte ──
   const [efectivoContado, setEfectivoContado] = useState('')
+  const [efectivoUSDContado, setEfectivoUSDContado] = useState('')
   const [fondo, setFondo]     = useState('427')
   const [notas, setNotas]     = useState('')
   const [guardando, setGuardando] = useState(false)
 
   // ── Cálculos ──
-  const esperado   = ventas.efectivo.monto
-  const contado    = parseFloat(efectivoContado) || 0
-  const fondoNum   = parseFloat(fondo) || 0
-  const diferencia = contado - esperado
-  const entrega    = Math.max(0, contado - fondoNum)
-  const total      = Object.values(ventas).reduce((s, v) => s + v.monto, 0)
+  const esperado      = ventas.efectivo.monto
+  const esperadoUSD   = efectivoUSD.monto
+  const contado       = parseFloat(efectivoContado) || 0
+  const contadoUSD    = parseFloat(efectivoUSDContado) || 0
+  const fondoNum      = parseFloat(fondo) || 0
+  const diferencia    = contado - esperado
+  const diferenciaUSD = contadoUSD - esperadoUSD
+  const entrega       = Math.max(0, contado - fondoNum)
+  // Total en MXN: suma todos los métodos en MXN + USD convertidos a MXN al TC promedio
+  const totalMXN   = Object.values(ventas).reduce((s, v) => s + v.monto, 0)
+  const total      = totalMXN + (efectivoUSD.tcPromedio > 0 ? efectivoUSD.monto * efectivoUSD.tcPromedio : 0)
   const cerrado    = isClosed || corteHoy?.cerrado === true
 
   // ── Leer usuario del localStorage ──
@@ -101,7 +109,7 @@ export default function CajaPage() {
     // 1. Ventas del día agrupadas por método de pago
     const { data: ventasData } = await sb
       .from('ventas')
-      .select('metodo_pago, total, saldo')
+      .select('metodo_pago, total, saldo, moneda, tipo_cambio')
       .eq('sucursal', sucursal)
       .eq('estado', 'activa')
       .gte('created_at', `${hoy}T00:00:00`)
@@ -109,11 +117,17 @@ export default function CajaPage() {
 
     if (ventasData) {
       const resumen = JSON.parse(JSON.stringify(RESUMEN_VACIO)) as Record<MetodoPago, ResumenMetodo>
+      let usdMonto = 0, usdTx = 0, usdTCSum = 0
       for (const v of ventasData) {
         const key = v.metodo_pago as MetodoPago
-        if (resumen[key]) {
-          // Solo contamos lo realmente cobrado (total − saldo pendiente)
-          const recibido = Number(v.total) - Number(v.saldo ?? 0)
+        const recibido = Number(v.total) - Number(v.saldo ?? 0)
+        // USD efectivo → bucket aparte (total ya está en USD)
+        if (key === 'efectivo' && v.moneda === 'USD') {
+          usdMonto += recibido
+          usdTx++
+          usdTCSum += Number(v.tipo_cambio ?? 0)
+        } else if (resumen[key]) {
+          // Para MXN: convertir USD→MXN si aplica (no debería si lógica es correcta)
           resumen[key] = {
             monto:         resumen[key].monto + recibido,
             transacciones: resumen[key].transacciones + 1,
@@ -121,6 +135,7 @@ export default function CajaPage() {
         }
       }
       setVentas(resumen)
+      setEfectivoUSD({ monto: usdMonto, transacciones: usdTx, tcPromedio: usdTx > 0 ? usdTCSum / usdTx : 0 })
     }
 
     // 2. ¿Ya existe corte hoy?
@@ -165,14 +180,21 @@ export default function CajaPage() {
     const fechaFmt = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
     const horaFmt  = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 
-    const metodosRows = METODOS.map(m => {
-      const d = ventas[m.key]
-      return `<tr>
-        <td>${m.label}</td>
-        <td class="r">${d.transacciones} transacción${d.transacciones !== 1 ? 'es' : ''}</td>
-        <td class="r bold">$${d.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-      </tr>`
-    }).join('')
+    const metodosRows = [
+      ...METODOS.map(m => {
+        const d = ventas[m.key]
+        return `<tr>
+          <td>${m.label}</td>
+          <td class="r">${d.transacciones} tx</td>
+          <td class="r bold">$${d.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+        </tr>`
+      }),
+      efectivoUSD.transacciones > 0 ? `<tr>
+        <td>Efectivo USD</td>
+        <td class="r">${efectivoUSD.transacciones} tx</td>
+        <td class="r bold">USD $${efectivoUSD.monto.toFixed(2)}</td>
+      </tr>` : ''
+    ].join('')
 
     const difClass  = diferencia === 0 ? 'ok' : diferencia > 0 ? 'over' : 'short'
     const difLabel  = diferencia === 0
@@ -227,10 +249,17 @@ export default function CajaPage() {
 <div class="row big"><span>TOTAL DEL DÍA</span><span>$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></div>
 
 <div class="sep"></div>
-<div class="titulo">Conteo de efectivo</div>
+<div class="titulo">Conteo de efectivo — PESOS</div>
 <div class="row"><span>Esperado (sistema)</span><span>$${esperado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></div>
 <div class="row"><span>Contado físicamente</span><span>$${contado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></div>
 <div class="dif-box ${difClass}">${difLabel}</div>
+${efectivoUSD.transacciones > 0 ? `
+<div class="sep"></div>
+<div class="titulo">Caja dolares — USD</div>
+<div class="row"><span>Esperado (sistema)</span><span>USD $${esperadoUSD.toFixed(2)}</span></div>
+<div class="row"><span>Contado fisicamente</span><span>USD $${contadoUSD.toFixed(2)}</span></div>
+<div class="dif-box">${diferenciaUSD === 0 ? 'Sin diferencia' : diferenciaUSD > 0 ? `Sobrante: +$${diferenciaUSD.toFixed(2)} USD` : `Faltante: -$${Math.abs(diferenciaUSD).toFixed(2)} USD`}</div>
+` : ''}
 
 <div class="sep"></div>
 <div class="row"><span>Fondo en caja</span><span>$${fondoNum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></div>
@@ -268,6 +297,10 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
     const sb  = createClient()
     const hoy = new Date().toISOString().split('T')[0]
 
+    const notasConUSD = efectivoUSD.transacciones > 0
+      ? `[USD] Sistema: $${esperadoUSD.toFixed(2)} · Contado: $${contadoUSD.toFixed(2)} · Dif: ${diferenciaUSD >= 0 ? '+' : ''}$${diferenciaUSD.toFixed(2)} | ${notas}`
+      : notas
+
     const payload = {
       fecha:            hoy,
       sucursal:         usuario.sucursal,
@@ -278,7 +311,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
       diferencia,
       fondo:            fondoNum,
       entrega,
-      notas,
+      notas:            notasConUSD,
       cerrado:          true,
     }
 
@@ -417,9 +450,26 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                   </div>
                 )
               })}
+              {/* Fila extra: Efectivo USD */}
+              <div className="flex items-center gap-4 px-5 py-3.5 bg-blue-50/50">
+                <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Banknote className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-700">Efectivo USD 🇺🇸</p>
+                  <p className="text-xs text-blue-400">
+                    {efectivoUSD.transacciones === 0
+                      ? 'Sin transacciones'
+                      : `${efectivoUSD.transacciones} transacción${efectivoUSD.transacciones !== 1 ? 'es' : ''}${efectivoUSD.tcPromedio > 0 ? ` · TC $${efectivoUSD.tcPromedio.toFixed(2)}` : ''}`}
+                  </p>
+                </div>
+                <p className={`text-base font-bold ${efectivoUSD.monto > 0 ? 'text-blue-700' : 'text-zinc-300'}`}>
+                  USD ${efectivoUSD.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
             </div>
             <div className="px-5 py-3.5 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center">
-              <span className="text-sm font-semibold text-zinc-600">Total del día</span>
+              <span className="text-sm font-semibold text-zinc-600">Total del día (MXN equiv.)</span>
               <span className="text-lg font-bold text-zinc-800">
                 ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
               </span>
@@ -432,23 +482,22 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
       <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
         <h3 className="text-sm font-bold text-zinc-700 mb-4">Conteo de efectivo</h3>
 
-        <div className="grid grid-cols-2 gap-5">
-          {/* Esperado */}
+        {/* ── Pesos MXN ── */}
+        <div className="grid grid-cols-2 gap-5 mb-5">
           <div className="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
-            <p className="text-xs font-semibold text-zinc-400 mb-1">Efectivo esperado (sistema)</p>
+            <p className="text-xs font-semibold text-zinc-400 mb-1">Esperado en pesos (sistema)</p>
             <p className="text-3xl font-bold text-zinc-700">
               ${esperado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </p>
             <p className="text-xs text-zinc-400 mt-1">
-              {ventas.efectivo.transacciones} cobro{ventas.efectivo.transacciones !== 1 ? 's' : ''} en efectivo
+              {ventas.efectivo.transacciones} cobro{ventas.efectivo.transacciones !== 1 ? 's' : ''} en MXN
             </p>
           </div>
 
-          {/* Contado */}
           <div>
-            <p className="text-xs font-semibold text-zinc-500 mb-1.5">Efectivo contado físicamente *</p>
+            <p className="text-xs font-semibold text-zinc-500 mb-1.5">Pesos contados físicamente *</p>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -tranzinc-y-1/2 text-zinc-400 font-bold">$</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
               <input
                 type="number"
                 value={efectivoContado}
@@ -481,6 +530,57 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                 </p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* ── Dólares USD ── */}
+        <div className="border-t border-zinc-100 pt-5">
+          <p className="text-xs font-bold text-blue-600 mb-3">🇺🇸 Caja dólares (USD)</p>
+          <div className="grid grid-cols-2 gap-5">
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <p className="text-xs font-semibold text-blue-400 mb-1">Esperado en dólares (sistema)</p>
+              <p className="text-3xl font-bold text-blue-700">
+                ${esperadoUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-xs text-blue-400 mt-1">
+                {efectivoUSD.transacciones} cobro{efectivoUSD.transacciones !== 1 ? 's' : ''} en USD
+                {efectivoUSD.tcPromedio > 0 ? ` · TC prom. $${efectivoUSD.tcPromedio.toFixed(2)}` : ''}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-zinc-500 mb-1.5">Dólares contados físicamente</p>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400 font-bold text-sm">USD</span>
+                <input
+                  type="number"
+                  value={efectivoUSDContado}
+                  onChange={e => setEfectivoUSDContado(e.target.value)}
+                  disabled={cerrado}
+                  className="w-full border-2 border-blue-200 rounded-lg pl-14 pr-4 py-4 text-2xl font-bold text-blue-800 focus:outline-none focus:border-blue-400 disabled:bg-zinc-50 disabled:text-zinc-400"
+                  placeholder="0.00"
+                />
+              </div>
+              {efectivoUSDContado !== '' && (
+                <div className={`mt-3 flex items-center gap-2 px-4 py-3 rounded-lg ${
+                  diferenciaUSD === 0 ? 'bg-emerald-50 border border-emerald-200'
+                  : diferenciaUSD > 0 ? 'bg-blue-50 border border-blue-200'
+                  : 'bg-red-50 border border-red-200'
+                }`}>
+                  {diferenciaUSD === 0
+                    ? <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    : <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />}
+                  <p className={`text-sm font-bold ${
+                    diferenciaUSD === 0 ? 'text-emerald-700' : diferenciaUSD > 0 ? 'text-blue-700' : 'text-red-700'
+                  }`}>
+                    {diferenciaUSD === 0
+                      ? 'Sin diferencia'
+                      : diferenciaUSD > 0
+                      ? `Sobrante: +$${diferenciaUSD.toFixed(2)} USD`
+                      : `Faltante: -$${Math.abs(diferenciaUSD).toFixed(2)} USD`}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
