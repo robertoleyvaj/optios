@@ -93,7 +93,7 @@ function imprimirTicket(v: Venta) {
   ).join('')
 
   const pagosHtml = v.modoPago === 'diferida' ? `
-    <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">💲 PAGOS REALIZADOS</div><div class="ph-line"></div></div>
+    <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">PAGOS REALIZADOS</div><div class="ph-line"></div></div>
     <table class="pagos">
       <tr><th>#</th><th>Fecha</th><th class="r">Pago</th></tr>
       ${pagosRows}
@@ -161,16 +161,16 @@ function imprimirTicket(v: Venta) {
 <div class="hdr">
   <div class="b1">${(SUCURSAL_CONFIG[v.sucursal]?.nombreLinea1 ?? v.sucursal).toUpperCase()}</div>
   ${SUCURSAL_CONFIG[v.sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[v.sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
-  <div class="dt">📅 ${fechaFmt} &nbsp;|&nbsp; 🕐 ${horaFmt}</div>
+  <div class="dt">${fechaFmt} &nbsp;|&nbsp; ${horaFmt}</div>
 </div>
 
 <div class="info-sec">
-  ${v.cliente ? `<div class="irow"><span>👤</span><span class="ilbl">Paciente:</span><span>${v.cliente}</span></div>` : ''}
-  ${v.telefono ? `<div class="irow"><span>📞</span><span class="ilbl">Teléfono:</span><span>${v.telefono}</span></div>` : ''}
+  ${v.cliente ? `<div class="irow"><span class="ilbl">Paciente:</span><span>${v.cliente}</span></div>` : ''}
+  ${v.telefono ? `<div class="irow"><span class="ilbl">Teléfono:</span><span>${v.telefono}</span></div>` : ''}
 </div>
 
 <div class="folio-box">
-  <div class="folio-accent">🏷</div>
+  <div class="folio-accent"></div>
   <div class="folio-text">
     <div class="folio-lbl">FOLIO DE VENTA</div>
     <div class="folio-num">${v.id}</div>
@@ -190,16 +190,13 @@ function imprimirTicket(v: Venta) {
 ${pagosHtml}
 
 <div class="icard">
-  <div class="ic">📅</div>
   <div>Fecha de entrega de <b>3 a 5</b> días hábiles a partir de la compra.</div>
 </div>
 <div class="icard">
-  <div class="ic">🛡</div>
   <div>Conserve este ticket para cualquier <b>aclaración o garantía.</b></div>
 </div>
 
 <div class="firma-sec">
-  <div class="fic">✍️</div>
   <div class="fblock">
     <div class="fline-rule"></div>
     <div class="flbl">Nombre y firma del comprador</div>
@@ -207,11 +204,11 @@ ${pagosHtml}
 </div>
 
 <div class="footer">
-  <div class="frow">📞 Tel. ${SUCURSAL_CONFIG[v.sucursal]?.telefono ?? '661 612 0316'} &nbsp;|&nbsp; WA ${SUCURSAL_CONFIG[v.sucursal]?.whatsapp ?? '664 834 3018'}</div>
-  <div class="frow">🕐 ${SUCURSAL_CONFIG[v.sucursal]?.horario ?? 'Lun–Sáb 10:00–18:00'}</div>
-  ${vendedorCorto ? `<div class="frow">👤 <span class="fatendio">Atendió: ${vendedorCorto}</span></div>` : ''}
-  <div class="frow">🌐 ${SUCURSAL_CONFIG[v.sucursal]?.web ?? 'gonmx.com'}</div>
-  <div class="fbar">· · · ❤ ¡Gracias por su compra! ❤ · · ·</div>
+  <div class="frow">Tel. ${SUCURSAL_CONFIG[v.sucursal]?.telefono ?? '661 612 0316'} &nbsp;|&nbsp; WA ${SUCURSAL_CONFIG[v.sucursal]?.whatsapp ?? '664 834 3018'}</div>
+  <div class="frow">${SUCURSAL_CONFIG[v.sucursal]?.horario ?? 'Lun–Sáb 10:00–18:00'}</div>
+  ${vendedorCorto ? `<div class="frow"><span class="fatendio">Atendió: ${vendedorCorto}</span></div>` : ''}
+  <div class="frow">${SUCURSAL_CONFIG[v.sucursal]?.web ?? 'gonmx.com'}</div>
+  <div class="fbar">· · · ¡Gracias por su compra! · · ·</div>
 </div>
 
 </body></html>`)

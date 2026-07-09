@@ -488,7 +488,7 @@ export default function NuevaVentaPage() {
       const saldo = total - anticoNum
 
       const pagosHtml = modoPago === 'diferir' ? `
-        <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">💲 PAGOS REALIZADOS</div><div class="ph-line"></div></div>
+        <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">PAGOS REALIZADOS</div><div class="ph-line"></div></div>
         <table class="pagos">
           <tr><th>#</th><th>Fecha</th><th class="r">Pago</th></tr>
           ${anticoNum > 0 ? `<tr><td>1</td><td>${fechaFmt}</td><td class="r">$${anticoNum.toLocaleString('es-MX')}</td></tr>` : ''}
@@ -500,8 +500,8 @@ export default function NuevaVentaPage() {
         </div>` : ''
 
       const entregaHtml = fechaEntrega
-        ? `<div class="icard"><div class="ic">📅</div><div>Fecha de entrega: <b>${fechaEntrega}</b></div></div>`
-        : `<div class="icard"><div class="ic">📅</div><div>Fecha de entrega de <b>3 a 5</b> días hábiles a partir de la compra.</div></div>`
+        ? `<div class="icard"><div>Fecha de entrega: <b>${fechaEntrega}</b></div></div>`
+        : `<div class="icard"><div>Fecha de entrega de <b>3 a 5</b> días hábiles a partir de la compra.</div></div>`
 
       const win = window.open('', '_blank', 'width=240,height=1000')
       if (!win) return
@@ -579,16 +579,16 @@ export default function NuevaVentaPage() {
 <div class="hdr">
   <div class="b1">${(SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal).toUpperCase()}</div>
   ${SUCURSAL_CONFIG[sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
-  <div class="dt">📅 ${fechaFmt} &nbsp;|&nbsp; 🕐 ${horaHoy}</div>
+  <div class="dt">${fechaFmt} &nbsp;|&nbsp; ${horaHoy}</div>
 </div>
 
 <div class="info-sec">
-  ${(clienteNombre || clienteApellido) ? `<div class="irow"><span>👤</span><span class="ilbl">Paciente:</span><span>${clienteNombre} ${clienteApellido}</span></div>` : ''}
-  ${clienteTelefono ? `<div class="irow"><span>📞</span><span class="ilbl">Teléfono:</span><span>${clienteTelefono}</span></div>` : ''}
+  ${(clienteNombre || clienteApellido) ? `<div class="irow"><span class="ilbl">Paciente:</span><span>${clienteNombre} ${clienteApellido}</span></div>` : ''}
+  ${clienteTelefono ? `<div class="irow"><span class="ilbl">Teléfono:</span><span>${clienteTelefono}</span></div>` : ''}
 </div>
 
 <div class="folio-box">
-  <div class="folio-accent">🏷</div>
+  <div class="folio-accent"></div>
   <div class="folio-text">
     <div class="folio-lbl">FOLIO DE VENTA</div>
     <div class="folio-num">${folio}</div>
@@ -610,12 +610,10 @@ ${pagosHtml}
 ${entregaHtml}
 
 <div class="icard">
-  <div class="ic">🛡</div>
   <div>Conserve este ticket para cualquier <b>aclaración o garantía.</b></div>
 </div>
 
 <div class="firma-sec">
-  <div class="fic">✍️</div>
   <div class="fblock">
     <div class="fline-rule"></div>
     <div class="flbl">Nombre y firma del comprador</div>
@@ -623,11 +621,11 @@ ${entregaHtml}
 </div>
 
 <div class="footer">
-  <div class="frow">📞 Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} &nbsp;|&nbsp; WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
-  <div class="frow">🕐 ${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun–Sáb 10:00–18:00'}</div>
-  ${atendioPor ? `<div class="frow">👤 <span class="fatendio">Atendió: ${atendioPor}</span></div>` : ''}
-  <div class="frow">🌐 ${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
-  <div class="fbar">· · · ❤ ¡Gracias por su compra! ❤ · · ·</div>
+  <div class="frow">Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} &nbsp;|&nbsp; WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
+  <div class="frow">${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun–Sáb 10:00–18:00'}</div>
+  ${atendioPor ? `<div class="frow"><span class="fatendio">Atendió: ${atendioPor}</span></div>` : ''}
+  <div class="frow">${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
+  <div class="fbar">· · · ¡Gracias por su compra! · · ·</div>
 </div>
 
 </body></html>`)
