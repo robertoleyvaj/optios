@@ -463,9 +463,11 @@ export default function NuevaVentaPage() {
 
     const handleImprimirTicket = () => {
       setNotaImpresa(true)
-      // Usuario que atendió
-      let atendioPor = ''
-      try { atendioPor = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')?.nombre || '' } catch {}
+      // Usuario que atendió — formato "Nombre A."
+      let atendioPorRaw = ''
+      try { atendioPorRaw = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')?.nombre || '' } catch {}
+      const _ap = atendioPorRaw.trim().split(/\s+/)
+      const atendioPor = _ap.length >= 2 ? `${_ap[0]} ${_ap[1][0].toUpperCase()}.` : _ap[0] || ''
 
       const fechaFmt = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
@@ -484,93 +486,148 @@ export default function NuevaVentaPage() {
       // Sección de pagos realizados (solo si hay anticipo diferido)
       const anticoNum = Number(anticipo || 0)
       const saldo = total - anticoNum
+
       const pagosHtml = modoPago === 'diferir' ? `
-        <div class="section-title">Pagos Realizados</div>
+        <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">💲 PAGOS REALIZADOS</div><div class="ph-line"></div></div>
         <table class="pagos">
-          <tr><th>#</th><th>Fecha</th><th>Pago</th></tr>
+          <tr><th>#</th><th>Fecha</th><th class="r">Pago</th></tr>
           ${anticoNum > 0 ? `<tr><td>1</td><td>${fechaFmt}</td><td class="r">$${anticoNum.toLocaleString('es-MX')}</td></tr>` : ''}
         </table>
-        ${anticoNum > 0 ? `<div class="pagos-total">$${anticoNum.toLocaleString('es-MX')}</div>` : ''}
+        <div class="pagos-total-row"><span>TOTAL PAGADO:</span><span>$${anticoNum.toLocaleString('es-MX')}</span></div>
         <div class="saldo-box">
-          Cantidad restante para liquidar el pago:<br>
-          <b>$${saldo.toLocaleString('es-MX')}</b>
+          <div class="saldo-lbl">Cantidad restante para liquidar el pago:</div>
+          <div class="saldo-val">$${saldo.toLocaleString('es-MX')}</div>
         </div>` : ''
 
       const entregaHtml = fechaEntrega
-        ? `<div class="entrega">Fecha de entrega: <b>${fechaEntrega}</b></div>`
-        : `<div class="entrega">Fecha de entrega de 3 a 5 días hábiles a partir de la compra.</div>`
+        ? `<div class="icard"><div class="ic">📅</div><div>Fecha de entrega: <b>${fechaEntrega}</b></div></div>`
+        : `<div class="icard"><div class="ic">📅</div><div>Fecha de entrega de <b>3 a 5</b> días hábiles a partir de la compra.</div></div>`
 
-      const win = window.open('', '_blank', 'width=330,height=900')
+      const win = window.open('', '_blank', 'width=240,height=1000')
       if (!win) return
       win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Ticket ${folio}</title>
 <style>
-  @page { size: 80mm auto; margin: 4mm 3mm; }
+  @page { size: 55mm auto; margin: 3mm 2mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Courier New', monospace; font-size: 11px; color: #000; width: 74mm; }
-  .hdr { text-align: center; padding-bottom: 7px; border-bottom: 2px solid #000; margin-bottom: 7px; }
-  .hdr .store { font-size: 16px; font-weight: 900; letter-spacing: 0.5px; }
-  .hdr .branch { font-size: 12px; font-weight: 700; }
-  .hdr .date { font-size: 10px; margin-top: 3px; }
-  .info { margin-bottom: 7px; padding-bottom: 7px; border-bottom: 1px dashed #000; font-size: 10.5px; }
-  .info div { margin: 1.5px 0; }
-  .folio { font-size: 12px; font-weight: 900; text-align: center; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin-bottom: 7px; }
-  table.prods { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 5px; }
-  table.prods th { border-bottom: 1px solid #000; padding: 2px 1px; text-align: left; font-size: 10px; }
-  .cant { width: 22px; }
-  .desc { padding: 2px 3px; }
-  .precio { text-align: right; white-space: nowrap; padding: 2px 0; }
-  table.prods td { vertical-align: top; padding: 2px 1px; }
-  .total-row { display: flex; justify-content: space-between; font-weight: 900; font-size: 13px; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin-bottom: 8px; }
-  .section-title { font-weight: 900; text-align: center; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 3px 0; margin: 6px 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; width: 51mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* ── Header ── */
+  .hdr { text-align: center; padding: 6px 0 10px; border-bottom: 2.5px solid #006868; margin-bottom: 9px; }
+  .hdr .b1 { font-size: 22px; font-weight: 900; color: #006868; letter-spacing: 1px; line-height: 1.1; }
+  .hdr .b2 { font-size: 16px; font-weight: 900; color: #006868; line-height: 1.2; }
+  .hdr .dt { font-size: 10px; color: #555; margin-top: 7px; }
+
+  /* ── Info section ── */
+  .info-sec { margin-bottom: 9px; padding-bottom: 9px; border-bottom: 1.5px dashed #bbb; }
+  .irow { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 11px; }
+  .ilbl { font-weight: 700; color: #333; min-width: 56px; font-size: 10.5px; }
+
+  /* ── Folio box ── */
+  .folio-box { display: flex; align-items: stretch; border: 1.5px solid #006868; border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
+  .folio-accent { background: #006868; color: white; padding: 6px 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .folio-text { flex: 1; text-align: center; padding: 5px 4px; background: #f0fafa; }
+  .folio-lbl { font-size: 8.5px; font-weight: 700; color: #006868; letter-spacing: 0.5px; }
+  .folio-num { font-size: 18px; font-weight: 900; color: #006868; }
+
+  /* ── Products table ── */
+  table.prods { width: 100%; border-collapse: collapse; margin-bottom: 7px; font-size: 10.5px; }
+  table.prods thead { background: #006868; color: white; }
+  table.prods th { padding: 4px 3px; text-align: left; font-size: 9.5px; font-weight: 700; letter-spacing: 0.3px; }
+  table.prods td { padding: 4px 3px; border-bottom: 1px solid #eee; vertical-align: top; line-height: 1.35; }
+  .tc { width: 22px; text-align: center; }
+  .tp { text-align: right; white-space: nowrap; }
+
+  /* ── Total ── */
+  .total-row { display: flex; align-items: center; justify-content: space-between; margin: 7px 0 11px; }
+  .tlbl { font-size: 15px; font-weight: 900; color: #222; }
+  .tval { background: #006868; color: white; font-size: 16px; font-weight: 900; padding: 5px 10px; border-radius: 5px; }
+
+  /* ── Pagos realizados ── */
+  .ph-title { display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; }
+  .ph-line { flex: 1; height: 1px; background: #bbb; }
+  .ph-txt { font-size: 9.5px; font-weight: 700; color: #006868; white-space: nowrap; }
   table.pagos { width: 100%; border-collapse: collapse; font-size: 10px; }
-  table.pagos th { text-align: left; font-weight: 700; padding: 1px 0; }
-  table.pagos .r { text-align: right; }
-  .pagos-total { text-align: right; font-weight: 900; border-top: 1px solid #000; padding-top: 2px; margin: 3px 0 6px; }
-  .saldo-box { border: 1px solid #000; padding: 5px; text-align: center; font-size: 11px; margin-bottom: 8px; }
-  .saldo-box b { font-size: 14px; }
-  .entrega { font-size: 10px; text-align: center; margin: 6px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; }
-  .conserva { font-size: 10px; text-align: center; margin: 6px 0; }
-  .firma { margin: 14px 0 6px; text-align: center; }
-  .firma-line { display: inline-block; border-top: 1px solid #000; width: 160px; padding-top: 3px; font-size: 10px; }
-  .footer { text-align: center; font-size: 10px; border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
-  .footer b { display: block; font-size: 11px; }
-  @media print { body { -webkit-print-color-adjust: exact; } }
+  table.pagos th { text-align: left; font-weight: 700; padding: 2px 2px; border-bottom: 1px solid #bbb; font-size: 9.5px; }
+  table.pagos td { padding: 3px 2px; border-bottom: 1px dotted #ddd; }
+  .r { text-align: right; }
+  .pagos-total-row { display: flex; justify-content: space-between; font-weight: 700; color: #006868; font-size: 11px; margin: 5px 0 9px; border-top: 1.5px solid #006868; padding-top: 4px; }
+  .saldo-box { border: 1.5px solid #006868; border-radius: 5px; padding: 8px 6px; text-align: center; margin-bottom: 10px; }
+  .saldo-lbl { font-size: 10px; color: #444; line-height: 1.3; }
+  .saldo-val { font-size: 19px; font-weight: 900; color: #006868; margin-top: 4px; }
+
+  /* ── Info cards (entrega / conserva) ── */
+  .icard { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1.5px dashed #ccc; font-size: 10px; line-height: 1.4; }
+  .ic { width: 28px; height: 28px; border-radius: 50%; background: #e3f4f4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; line-height: 28px; text-align: center; }
+
+  /* ── Firma ── */
+  .firma-sec { display: flex; align-items: center; gap: 8px; margin: 14px 0 10px; }
+  .fic { width: 30px; height: 30px; border-radius: 50%; background: #e3f4f4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
+  .fblock { flex: 1; }
+  .fline-rule { border-bottom: 1px solid #aaa; margin-bottom: 4px; height: 20px; }
+  .flbl { font-size: 9px; color: #666; text-align: center; }
+
+  /* ── Footer ── */
+  .footer { border-top: 2px solid #006868; padding-top: 8px; font-size: 9.5px; color: #333; margin-top: 4px; }
+  .frow { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 2.5px 0; text-align: center; }
+  .fatendio { font-weight: 700; color: #006868; display: block; text-align: center; margin: 3px 0; font-size: 10px; }
+  .fbar { background: #006868; color: white; text-align: center; padding: 8px 0; margin-top: 9px; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; }
+
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>
 
 <div class="hdr">
-  <div class="store">${(SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal).toUpperCase()}</div>
-  ${SUCURSAL_CONFIG[sucursal]?.nombreLinea2 ? `<div class="branch">${SUCURSAL_CONFIG[sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
-  <div class="date">${fechaFmt} &nbsp; ${horaHoy}</div>
+  <div class="b1">${(SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal).toUpperCase()}</div>
+  ${SUCURSAL_CONFIG[sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
+  <div class="dt">📅 ${fechaFmt} &nbsp;|&nbsp; 🕐 ${horaHoy}</div>
 </div>
 
-<div class="info">
-  ${(clienteNombre || clienteApellido) ? `<div><b>Paciente:</b> ${clienteNombre} ${clienteApellido}</div>` : ''}
-  ${clienteTelefono ? `<div><b>Teléfono:</b> ${clienteTelefono}</div>` : ''}
+<div class="info-sec">
+  ${(clienteNombre || clienteApellido) ? `<div class="irow"><span>👤</span><span class="ilbl">Paciente:</span><span>${clienteNombre} ${clienteApellido}</span></div>` : ''}
+  ${clienteTelefono ? `<div class="irow"><span>📞</span><span class="ilbl">Teléfono:</span><span>${clienteTelefono}</span></div>` : ''}
 </div>
 
-<div class="folio">Folio de venta: ${folio}</div>
+<div class="folio-box">
+  <div class="folio-accent">🏷</div>
+  <div class="folio-text">
+    <div class="folio-lbl">FOLIO DE VENTA</div>
+    <div class="folio-num">${folio}</div>
+  </div>
+</div>
 
 <table class="prods">
-  <thead><tr><th class="cant">Cant.</th><th class="desc">Desc.</th><th class="precio">Precio</th></tr></thead>
+  <thead><tr><th class="tc">CANT.</th><th>DESCRIPCIÓN</th><th class="tp">PRECIO</th></tr></thead>
   <tbody>${productosRows}</tbody>
 </table>
 
-<div class="total-row"><span>TOTAL:</span><span>$${total.toLocaleString('es-MX')}</span></div>
+<div class="total-row">
+  <span class="tlbl">TOTAL:</span>
+  <span class="tval">$${total.toLocaleString('es-MX')}</span>
+</div>
 
 ${pagosHtml}
 
 ${entregaHtml}
 
-<div class="conserva">Conserve este ticket para cualquier aclaración o garantía.</div>
+<div class="icard">
+  <div class="ic">🛡</div>
+  <div>Conserve este ticket para cualquier <b>aclaración o garantía.</b></div>
+</div>
 
-<div class="firma"><div class="firma-line">Nombre y firma del comprador</div></div>
+<div class="firma-sec">
+  <div class="fic">✍️</div>
+  <div class="fblock">
+    <div class="fline-rule"></div>
+    <div class="flbl">Nombre y firma del comprador</div>
+  </div>
+</div>
 
 <div class="footer">
-  <div>Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} &nbsp;|&nbsp; WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
-  <div>${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun–Sáb 10:00–18:00'}</div>
-  ${atendioPor ? `<b>Atendió: ${atendioPor}</b>` : ''}
-  <div>${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
+  <div class="frow">📞 Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} &nbsp;|&nbsp; WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
+  <div class="frow">🕐 ${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun–Sáb 10:00–18:00'}</div>
+  ${atendioPor ? `<div class="frow">👤 <span class="fatendio">Atendió: ${atendioPor}</span></div>` : ''}
+  <div class="frow">🌐 ${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
+  <div class="fbar">· · · ❤ ¡Gracias por su compra! ❤ · · ·</div>
 </div>
 
 </body></html>`)
