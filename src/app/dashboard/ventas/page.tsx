@@ -109,53 +109,53 @@ function imprimirTicket(v: Venta) {
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Ticket ${v.id}</title>
 <style>
-  @page { size: 55mm auto; margin: 0; }
+  @page { size: 58mm auto; margin: 0 5mm 4mm 5mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { height: auto; }
   body {
     font-family: 'Courier New', Courier, monospace;
-    font-size: 3mm;
+    font-size: 3.5mm;
+    font-weight: 500;
     color: #000;
     background: #fff;
-    width: 51mm;
-    padding: 2.5mm 2mm;
+    width: 100%;
     overflow: visible;
   }
-  .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.4mm solid #000; margin-bottom: 2.5mm; }
-  .b1  { font-size: 5mm; font-weight: 900; line-height: 1.2; }
-  .b2  { font-size: 4mm; font-weight: 900; line-height: 1.2; }
-  .dt  { font-size: 2.5mm; margin-top: 1.5mm; }
-  .info-sec { margin-bottom: 2.5mm; padding-bottom: 2mm; border-bottom: 0.3mm dashed #000; }
-  .irow { display: flex; padding: 0.8mm 0; font-size: 3mm; gap: 1mm; }
-  .ilbl { font-weight: 700; min-width: 17mm; flex-shrink: 0; }
-  .folio { text-align: center; border: 0.4mm solid #000; padding: 2mm 1mm; margin-bottom: 2.5mm; }
-  .folio-lbl { font-size: 2.5mm; }
-  .folio-num { font-size: 5mm; font-weight: 900; margin-top: 0.5mm; }
-  table.prods { width: 100%; border-collapse: collapse; margin-bottom: 1.5mm; font-size: 2.8mm; }
-  table.prods th { border-top: 0.4mm solid #000; border-bottom: 0.4mm solid #000; padding: 1.5mm 1mm; text-align: left; font-weight: 700; }
-  table.prods td { padding: 1.5mm 1mm; vertical-align: top; line-height: 1.35; }
-  .tc { width: 7mm; }
-  .tp { text-align: right; }
-  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 4.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2mm 0; margin-bottom: 2.5mm; }
-  .ph-title { text-align: center; font-weight: 900; font-size: 3mm; border-top: 0.3mm dashed #000; border-bottom: 0.3mm dashed #000; padding: 1.5mm 0; margin: 2mm 0 1.5mm; }
+  .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
+  .b1  { font-size: 6mm; font-weight: 900; line-height: 1.2; }
+  .b2  { font-size: 4.5mm; font-weight: 900; line-height: 1.2; }
+  .dt  { font-size: 3mm; margin-top: 1.5mm; }
+  .info-sec { margin-bottom: 3mm; padding-bottom: 2mm; border-bottom: 0.4mm dashed #000; }
+  .irow { display: flex; padding: 1mm 0; font-size: 3.5mm; gap: 1mm; }
+  .ilbl { font-weight: 700; min-width: 18mm; flex-shrink: 0; }
+  .folio { text-align: center; border: 0.5mm solid #000; padding: 2.5mm 1mm; margin-bottom: 3mm; }
+  .folio-lbl { font-size: 3mm; }
+  .folio-num { font-size: 6mm; font-weight: 900; margin-top: 1mm; }
+  table.prods { width: 100%; border-collapse: collapse; margin-bottom: 2mm; font-size: 3.2mm; }
+  table.prods th { border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 1.5mm 1mm; text-align: left; font-weight: 900; }
+  table.prods td { padding: 1.5mm 1mm; vertical-align: top; line-height: 1.4; }
+  .tc { width: 6mm; text-align: center; }
+  .tp { text-align: right; width: 14mm; }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; margin-bottom: 3mm; }
+  .ph-title { text-align: center; font-weight: 900; font-size: 3.2mm; border-top: 0.4mm dashed #000; border-bottom: 0.4mm dashed #000; padding: 1.5mm 0; margin: 2.5mm 0 2mm; }
   .ph-line { display: none; }
-  table.pagos { width: 100%; border-collapse: collapse; font-size: 2.8mm; }
-  table.pagos th { text-align: left; font-weight: 700; padding: 1mm 1mm; border-bottom: 0.3mm solid #000; }
-  table.pagos td { padding: 1mm 1mm; }
+  table.pagos { width: 100%; border-collapse: collapse; font-size: 3mm; }
+  table.pagos th { text-align: left; font-weight: 700; padding: 1mm; border-bottom: 0.4mm solid #000; }
+  table.pagos td { padding: 1mm; }
   .r { text-align: right; }
-  .pagos-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 3mm; border-top: 0.4mm solid #000; padding-top: 1.5mm; margin: 1.5mm 0 2.5mm; }
-  .saldo-box { border: 0.5mm solid #000; padding: 2.5mm 2mm; text-align: center; margin-bottom: 2.5mm; }
-  .saldo-lbl { font-size: 2.8mm; line-height: 1.4; }
-  .saldo-val { font-size: 5mm; font-weight: 900; margin-top: 1.5mm; }
-  .icard { padding: 2mm 0; border-top: 0.3mm dashed #000; font-size: 2.8mm; line-height: 1.4; }
-  .firma-sec { margin: 5mm 0 2.5mm; }
-  .fline-rule { border-bottom: 0.3mm solid #000; height: 5mm; }
-  .flbl { font-size: 2.5mm; text-align: center; margin-top: 1mm; }
-  .footer { border-top: 0.5mm solid #000; padding-top: 2.5mm; margin-top: 2mm; text-align: center; font-size: 2.8mm; line-height: 1.8; }
-  .fatendio { font-weight: 700; }
-  .fbar { margin-top: 2mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2mm 0; font-weight: 900; font-size: 3mm; }
+  .pagos-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.2mm; border-top: 0.5mm solid #000; padding-top: 1.5mm; margin: 1.5mm 0 3mm; }
+  .saldo-box { border: 0.5mm solid #000; padding: 3mm 2mm; text-align: center; margin-bottom: 3mm; }
+  .saldo-lbl { font-size: 3mm; line-height: 1.4; }
+  .saldo-val { font-size: 6mm; font-weight: 900; margin-top: 1.5mm; }
+  .icard { padding: 2.5mm 0; border-top: 0.4mm dashed #000; font-size: 3mm; line-height: 1.5; }
+  .firma-sec { margin: 6mm 0 3mm; }
+  .fline-rule { border-bottom: 0.4mm solid #000; height: 6mm; }
+  .flbl { font-size: 3mm; text-align: center; margin-top: 1mm; }
+  .footer { border-top: 0.5mm solid #000; padding-top: 3mm; margin-top: 2mm; text-align: center; font-size: 3mm; line-height: 2; }
+  .fatendio { font-weight: 900; }
+  .fbar { margin-top: 2.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; font-weight: 900; font-size: 3.5mm; }
   * { page-break-inside: avoid; break-inside: avoid; }
-  .tip { display: block; background: #fff8e1; border: 1px solid #e5a; padding: 5px 6px; margin-bottom: 8px; font-size: 8px; line-height: 1.5; }
+  .tip { display: block; background: #fff8e1; border: 1px solid #e5a; padding: 5px 6px; margin-bottom: 8px; font-size: 9px; line-height: 1.5; }
   @media print { .tip { display: none; } }
 </style></head><body>
 
