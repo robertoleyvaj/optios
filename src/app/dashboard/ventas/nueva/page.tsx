@@ -188,7 +188,7 @@ export default function NuevaVentaPage() {
           for (const id of ids) {
             const prod = catalogo.find(p => p.id === id)
             if (prod && !itemsAgregar.find(i => i.id === id)) {
-              itemsAgregar.push({ ...prod, cantidad: 1, descuento: 0 })
+              itemsAgregar.push({ ...prod, cantidad: 1, descuento: 0, uid: `rec-${id}-${Date.now()}`, par: 1 })
             }
           }
         }
