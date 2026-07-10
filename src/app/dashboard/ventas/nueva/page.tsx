@@ -76,7 +76,7 @@ const metodosPago = [
   { key: 'otros',         label: 'Otros',              icon: Clock     },
 ]
 
-type Item = { id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number }
+type Item = { uid: string; id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number; par: number }
 type Cliente = { id: string; nombre: string; apellido: string; telefono: string }
 
 // Colores disponibles por filtro (Fotocromático, Polarizado y Tinte piden color)
@@ -116,6 +116,8 @@ export default function NuevaVentaPage() {
   } | null>(null)
   const [fechaEntrega, setFechaEntrega] = useState('')
   const [carrito, setCarrito] = useState<Item[]>([])
+  const [parActivo, setParActivo] = useState(1)
+  const [numPares, setNumPares] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [modoPago, setModoPago] = useState<'liquidar' | 'diferir'>('liquidar')
   const [metodoPago, setMetodoPago] = useState('efectivo')
@@ -125,7 +127,7 @@ export default function NuevaVentaPage() {
   const [esCotizacion, setEsCotizacion] = useState(false)
   const [folioGuardado, setFolioGuardado] = useState('')
   const [errorGuardado, setErrorGuardado] = useState('')
-  const [folioLabGuardado, setFolioLabGuardado] = useState('')
+  const [folioLabGuardado, setFolioLabGuardado] = useState<string[]>([])
   const [notaImpresa, setNotaImpresa] = useState(false)
   const [ordenLabImpresa, setOrdenLabImpresa] = useState(false)
   const [busquedaProducto, setBusquedaProducto] = useState('')
@@ -244,12 +246,13 @@ export default function NuevaVentaPage() {
 
   const agregarDirecto = (p: typeof catalogo[0], colorSufijo?: string) => {
     const nombre = colorSufijo ? `${p.nombre} — ${colorSufijo}` : p.nombre
-    // Usar id único por color para permitir el mismo filtro en distintos colores
     const idVirtual = colorSufijo ? p.id * 1000 + p.nombre.length + colorSufijo.charCodeAt(0) : p.id
     setCarrito(prev => {
-      const ex = prev.find(i => i.id === idVirtual)
-      if (ex) return prev.map(i => i.id === idVirtual ? { ...i, cantidad: i.cantidad + 1 } : i)
-      return [...prev, { ...p, id: idVirtual, nombre, cantidad: 1, descuento: 0 }]
+      // Deduplicar solo dentro del mismo par
+      const ex = prev.find(i => i.id === idVirtual && i.par === parActivo)
+      if (ex) return prev.map(i => i.uid === ex.uid ? { ...i, cantidad: i.cantidad + 1 } : i)
+      const uid = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      return [...prev, { ...p, id: idVirtual, nombre, cantidad: 1, descuento: 0, par: parActivo, uid }]
     })
     setBusquedaProducto('')
     setShowBuscadorProducto(false)
@@ -266,25 +269,27 @@ export default function NuevaVentaPage() {
     agregarDirecto(p)
   }
 
-  const cambiarCantidad = (id: number, delta: number) =>
-    setCarrito(prev => prev.map(i => i.id === id ? { ...i, cantidad: Math.max(1, i.cantidad + delta) } : i))
+  const cambiarCantidad = (uid: string, delta: number) =>
+    setCarrito(prev => prev.map(i => i.uid === uid ? { ...i, cantidad: Math.max(1, i.cantidad + delta) } : i))
 
-  const cambiarDescuento = (id: number, val: string) => {
+  const cambiarDescuento = (uid: string, val: string) => {
     const n = Math.min(100, Math.max(0, parseInt(val) || 0))
-    setCarrito(prev => prev.map(i => i.id === id ? { ...i, descuento: n } : i))
+    setCarrito(prev => prev.map(i => i.uid === uid ? { ...i, descuento: n } : i))
   }
 
-  const eliminar = (id: number) => setCarrito(prev => prev.filter(i => i.id !== id))
+  const eliminar = (uid: string) => setCarrito(prev => prev.filter(i => i.uid !== uid))
 
   const limpiar = () => {
     setCarrito([])
+    setParActivo(1)
+    setNumPares(1)
     setCliente(null)
     setClienteNombre('')
     setClienteApellido('')
     setClienteTelefono('')
     setFechaEntrega('')
     setBusquedaCliente('')
-    setFolioLabGuardado('')
+    setFolioLabGuardado([])
     setNotaImpresa(false)
     setOrdenLabImpresa(false)
   }
@@ -384,6 +389,7 @@ export default function NuevaVentaPage() {
           cantidad:        i.cantidad,
           descuento:       i.descuento,
           subtotal:        pu * i.cantidad,
+          par:             i.par,
         }
       })
       await supabase.from('ventas_items').insert(items)
@@ -402,48 +408,26 @@ export default function NuevaVentaPage() {
         })
       }
 
-      // ── 5. Crear orden de laboratorio si hay micas ──────────
-      const tieneMicas = carrito.some(i =>
-        i.nombre.toLowerCase().includes('mica') ||
-        i.nombre.toLowerCase().includes('progres') ||
-        i.nombre.toLowerCase().includes('bifocal') ||
-        i.nombre.toLowerCase().includes('monofocal') ||
-        i.nombre.toLowerCase().includes('transitions')
-      )
+      // ── 5. Crear órdenes de laboratorio por par ─────────────
+      const isMica = (nombre: string) =>
+        ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
+      const isFiltro = (nombre: string) =>
+        ['filtro','antirreflejo','blue light','fotocrom','polariz','tinte'].some(k => nombre.toLowerCase().includes(k))
 
-      if (!cotizacion && tieneMicas) {
+      const parsConMicas = [...new Set(carrito.filter(i => isMica(i.nombre)).map(i => i.par))].sort()
+
+      if (!cotizacion && parsConMicas.length > 0) {
         const { data: ultimoL } = await supabase
           .from('ordenes_lab')
           .select('folio')
           .ilike('folio', 'L-%')
           .order('folio', { ascending: false })
           .limit(1)
-        const nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
-        const folioLab: string = `L-${String(nL).padStart(4, '0')}`
+        let nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
         const hoy = new Date().toISOString().split('T')[0]
 
-        // Armar texto de tipo mica y tratamientos desde carrito
-        const micasCarrito = carrito.filter(i =>
-          i.nombre.toLowerCase().includes('mica') ||
-          i.nombre.toLowerCase().includes('progres') ||
-          i.nombre.toLowerCase().includes('bifocal') ||
-          i.nombre.toLowerCase().includes('monofocal') ||
-          i.nombre.toLowerCase().includes('transitions')
-        ).map(i => i.nombre).join(', ')
-
-        const filtrosCarrito = carrito.filter(i =>
-          i.nombre.toLowerCase().includes('filtro') ||
-          i.nombre.toLowerCase().includes('antirreflejo') ||
-          i.nombre.toLowerCase().includes('blue light') ||
-          i.nombre.toLowerCase().includes('fotocrom') ||
-          i.nombre.toLowerCase().includes('polariz') ||
-          i.nombre.toLowerCase().includes('tinte')
-        ).map(i => i.nombre).join(', ')
-
-        // Formatear graduación OD/OI como texto para ordenes_lab
         const fmtOjo = (esf: string, cil: string, eje: string) =>
           [esf, cil, eje ? `${eje}°` : ''].filter(Boolean).join(' / ')
-
         const odTexto = recetaPaciente
           ? fmtOjo(recetaPaciente.od_esfera, recetaPaciente.od_cilindro, recetaPaciente.od_eje)
           : ''
@@ -451,26 +435,37 @@ export default function NuevaVentaPage() {
           ? fmtOjo(recetaPaciente.oi_esfera, recetaPaciente.oi_cilindro, recetaPaciente.oi_eje)
           : ''
 
-        await supabase.from('ordenes_lab').insert({
-          folio:            folioLab,
-          folio_venta:      folio,
-          venta_id:         ventaId,
-          paciente:         `${clienteNombre} ${clienteApellido}`.trim() || 'Sin nombre',
-          telefono:         clienteTelefono,
-          sucursal,
-          estado:           'recibido',
-          fecha_ingreso:    hoy,
-          fecha_promesa:    fechaEntrega || '',
-          precio_cliente:   total,
-          anticipo:         anticoNum,
-          od:               odTexto,
-          oi:               oiTexto,
-          add_graduacion:   recetaPaciente?.od_add || '',
-          dp:               recetaPaciente ? `${recetaPaciente.dp_od}/${recetaPaciente.dp_oi}` : '',
-          tipo_mica:        micasCarrito,
-          tratamiento:      filtrosCarrito,
-        })
-        setFolioLabGuardado(folioLab)
+        const foliosLab: string[] = []
+        for (const par of parsConMicas) {
+          const itemsPar = carrito.filter(i => i.par === par)
+          const micasPar = itemsPar.filter(i => isMica(i.nombre)).map(i => i.nombre).join(', ')
+          const filtrosPar = itemsPar.filter(i => isFiltro(i.nombre)).map(i => i.nombre).join(', ')
+          const subtotalPar = itemsPar.reduce((s, i) => s + i.precio * (1 - i.descuento / 100) * i.cantidad, 0)
+          const folioLab = `L-${String(nL).padStart(4, '0')}`
+          nL++
+
+          await supabase.from('ordenes_lab').insert({
+            folio:            folioLab,
+            folio_venta:      folio,
+            venta_id:         ventaId,
+            paciente:         `${clienteNombre} ${clienteApellido}`.trim() || 'Sin nombre',
+            telefono:         clienteTelefono,
+            sucursal,
+            estado:           'recibido',
+            fecha_ingreso:    hoy,
+            fecha_promesa:    fechaEntrega || '',
+            precio_cliente:   subtotalPar,
+            anticipo:         parsConMicas.length === 1 ? anticoNum : 0,
+            od:               odTexto,
+            oi:               oiTexto,
+            add_graduacion:   recetaPaciente?.od_add || '',
+            dp:               recetaPaciente ? `${recetaPaciente.dp_od}/${recetaPaciente.dp_oi}` : '',
+            tipo_mica:        micasPar,
+            tratamiento:      filtrosPar,
+          })
+          foliosLab.push(folioLab)
+        }
+        setFolioLabGuardado(foliosLab)
       }
 
       setFolioGuardado(folio)
@@ -502,16 +497,24 @@ export default function NuevaVentaPage() {
 
       const fechaFmt = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
-      // Filas de productos
-      const productosRows = carrito.map(item => {
-        const precioUnit = item.precio * (1 - item.descuento / 100)
-        const subtotalItem = precioUnit * item.cantidad
-        const descStr = item.descuento > 0 ? `<br><small>(−${item.descuento}%)</small>` : ''
-        return `<tr>
-          <td class="cant">${item.cantidad}</td>
-          <td class="desc">${item.nombre}${descStr}</td>
-          <td class="precio">$${subtotalItem.toLocaleString('es-MX')}</td>
-        </tr>`
+      // Filas de productos agrupados por par
+      const paresTicket = [...new Set(carrito.map(i => i.par))].sort()
+      const productosRows = paresTicket.map(par => {
+        const itemsPar = carrito.filter(i => i.par === par)
+        const headerRow = paresTicket.length > 1
+          ? `<tr><td colspan="3" style="padding:1.5mm 0 0.5mm;font-weight:900;font-size:3mm;border-top:0.3mm dashed #000;">— PAR ${par} —</td></tr>`
+          : ''
+        const rows = itemsPar.map(item => {
+          const precioUnit = item.precio * (1 - item.descuento / 100)
+          const subtotalItem = precioUnit * item.cantidad
+          const descStr = item.descuento > 0 ? `<br><small>(−${item.descuento}%)</small>` : ''
+          return `<tr>
+            <td class="cant">${item.cantidad}</td>
+            <td class="desc">${item.nombre}${descStr}</td>
+            <td class="precio">$${subtotalItem.toLocaleString('es-MX')}</td>
+          </tr>`
+        }).join('')
+        return headerRow + rows
       }).join('')
 
       // Sección de pagos realizados (solo si hay anticipo diferido)
@@ -652,14 +655,13 @@ ${entregaHtml}
       setTimeout(() => { win.print() }, 400)
     }
 
-    // ── Imprimir orden de laboratorio (placeholder — sin graduación) ──
-    const tieneMicasGuardado = carrito.some(i =>
-      i.nombre.toLowerCase().includes('mica') ||
-      i.nombre.toLowerCase().includes('progres') ||
-      i.nombre.toLowerCase().includes('bifocal') ||
-      i.nombre.toLowerCase().includes('monofocal') ||
-      i.nombre.toLowerCase().includes('transitions')
-    )
+    // ── Imprimir órdenes de laboratorio (una página por par con micas) ──
+    const isMicaFn = (nombre: string) =>
+      ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
+    const isFiltroFn = (nombre: string) =>
+      ['filtro','antirreflejo','blue','fotocrom','tinte','polariz'].some(k => nombre.toLowerCase().includes(k))
+    const parsConMicasGuardado = [...new Set(carrito.filter(i => isMicaFn(i.nombre)).map(i => i.par))].sort()
+    const tieneMicasGuardado = parsConMicasGuardado.length > 0
 
     const handleImprimirOrdenLab = () => {
       setOrdenLabImpresa(true)
@@ -669,12 +671,70 @@ ${entregaHtml}
       const nombreCompleto = `${clienteNombre} ${clienteApellido}`.trim()
       const win = window.open('', '_blank', 'width=420,height=640')
       if (!win) return
+
+      const pagesHTML = parsConMicasGuardado.map((par, idx) => {
+        const itemsPar = carrito.filter(i => i.par === par)
+        const micasPar = itemsPar.filter(i => isMicaFn(i.nombre)).map(i => i.nombre).join(' + ') || '—'
+        const filtrosPar = itemsPar.filter(i => isFiltroFn(i.nombre)).map(i => i.nombre).join(' + ')
+        const folioLab = folioLabGuardado[idx] ?? '—'
+        const parLabel = parsConMicasGuardado.length > 1 ? ` — Par ${par}` : ''
+        return `
+<div class="page">
+<div class="hdr">
+  <div class="hdr-left">
+    <h1>${sucursalNombre}${parLabel}</h1>
+    ${sucursalSub ? `<p style="font-size:9px;color:#aaa">${sucursalSub}</p>` : ''}
+    <p style="font-size:9px;color:#aaa">Orden de laboratorio</p>
+  </div>
+  <div class="hdr-right">
+    <div class="folio">${folioLab}</div>
+    <div style="font-size:9px;color:#888">${fechaFmt}</div>
+  </div>
+</div>
+<div class="paciente">${nombreCompleto || 'Sin nombre'}</div>
+<div style="font-size:9px;color:#888;margin-bottom:8px">${sucursal}</div>
+<hr class="sep">
+<table class="grad-table">
+  <thead><tr><th></th><th>Esfera</th><th>Cilindro</th><th>Eje</th><th>ADD</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="lbl">OD</td>
+      <td class="val">${recetaPaciente?.od_esfera || '—'}</td>
+      <td class="val">${recetaPaciente?.od_cilindro || '—'}</td>
+      <td class="val">${recetaPaciente?.od_eje ? recetaPaciente.od_eje + '°' : '—'}</td>
+      <td class="val">${recetaPaciente?.od_add || '—'}</td>
+    </tr>
+    <tr>
+      <td class="lbl">OI</td>
+      <td class="val">${recetaPaciente?.oi_esfera || '—'}</td>
+      <td class="val">${recetaPaciente?.oi_cilindro || '—'}</td>
+      <td class="val">${recetaPaciente?.oi_eje ? recetaPaciente.oi_eje + '°' : '—'}</td>
+      <td class="val">${recetaPaciente?.oi_add || '—'}</td>
+    </tr>
+    <tr><td class="lbl">D.P.</td><td class="val" colspan="4">${recetaPaciente?.dp_od ? recetaPaciente.dp_od + ' / ' + recetaPaciente.dp_oi + ' mm' : '—'}</td></tr>
+  </tbody>
+</table>
+<hr class="sep">
+<div class="mica-box">
+  <div class="mica-tipo">${micasPar}</div>
+  ${filtrosPar ? `<div class="mica-sub">Tratamiento: <b>${filtrosPar}</b></div>` : ''}
+</div>
+<div class="field"><span class="fl">Armazón:</span><span class="fv"></span></div>
+<div class="meta">
+  <span>Ingreso: <b>${new Date().toLocaleDateString('es-MX')}</b></span>
+  <span>Entrega: <b>${fechaEntrega || '___________'}</b></span>
+</div>
+<div class="firma">Recibido por: _________________________</div>
+</div>`
+      }).join('<div class="page-break"></div>')
+
       win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${folioLabGuardado}</title>
+<title>Órdenes Lab — ${folioLabGuardado.join(', ')}</title>
 <style>
   @page { size: 4in 6in; margin: 5mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 11px; color: #000; width: 100%; }
+  .page-break { page-break-after: always; }
   .hdr { display: flex; justify-content: space-between; align-items: center; background: #111; color: #fff; padding: 8px 10px; border-radius: 4px; margin-bottom: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .hdr-left h1 { font-size: 14px; font-weight: 900; letter-spacing: -0.3px; color: #fff; }
   .hdr-left p { font-size: 9px; color: #aaa; }
@@ -696,60 +756,7 @@ ${entregaHtml}
   .fv { border-bottom: 1px solid #aaa; flex: 1; min-width: 80px; }
   .meta { display: flex; justify-content: space-between; font-size: 9px; color: #555; margin: 6px 0; }
   .firma { border-top: 1px solid #000; margin-top: 10px; padding-top: 4px; text-align: right; font-size: 9px; color: #777; }
-</style></head><body>
-<div class="hdr">
-  <div class="hdr-left">
-    <h1>${sucursalNombre}</h1>
-    ${sucursalSub ? `<p style="font-size:9px;color:#888">${sucursalSub}</p>` : ''}
-    <p style="font-size:9px;color:#888">Orden de laboratorio</p>
-  </div>
-  <div class="hdr-right">
-    <div class="folio">${folioLabGuardado}</div>
-    <div style="font-size:9px;color:#888">${fechaFmt}</div>
-  </div>
-</div>
-
-<div class="paciente">${nombreCompleto || 'Sin nombre'}</div>
-<div style="font-size:9px;color:#888;margin-bottom:8px">${sucursal}</div>
-<hr class="sep">
-
-<table class="grad-table">
-  <thead><tr><th></th><th>Esfera</th><th>Cilindro</th><th>Eje</th><th>ADD</th></tr></thead>
-  <tbody>
-    <tr>
-      <td class="lbl">OD</td>
-      <td class="val">${recetaPaciente?.od_esfera || '—'}</td>
-      <td class="val">${recetaPaciente?.od_cilindro || '—'}</td>
-      <td class="val">${recetaPaciente?.od_eje ? recetaPaciente.od_eje + '°' : '—'}</td>
-      <td class="val">${recetaPaciente?.od_add || '—'}</td>
-    </tr>
-    <tr>
-      <td class="lbl">OI</td>
-      <td class="val">${recetaPaciente?.oi_esfera || '—'}</td>
-      <td class="val">${recetaPaciente?.oi_cilindro || '—'}</td>
-      <td class="val">${recetaPaciente?.oi_eje ? recetaPaciente.oi_eje + '°' : '—'}</td>
-      <td class="val">${recetaPaciente?.oi_add || '—'}</td>
-    </tr>
-    <tr><td class="lbl">D.P.</td><td class="val" colspan="4">${recetaPaciente?.dp_od ? recetaPaciente.dp_od + ' / ' + recetaPaciente.dp_oi + ' mm' : '—'}</td></tr>
-  </tbody>
-</table>
-
-<hr class="sep">
-
-<div class="mica-box">
-  <div class="mica-tipo">${carrito.filter(i => ['mica','monofocal','progres','bifocal','transitions'].some(k => i.nombre.toLowerCase().includes(k))).map(i => i.nombre).join(' + ') || '—'}</div>
-  ${carrito.filter(i => ['filtro','antirreflejo','blue','fotocrom','tinte','polariz'].some(k => i.nombre.toLowerCase().includes(k))).length > 0
-    ? `<div class="mica-sub">Tratamiento: <b>${carrito.filter(i => ['filtro','antirreflejo','blue','fotocrom','tinte','polariz'].some(k => i.nombre.toLowerCase().includes(k))).map(i => i.nombre).join(' + ')}</b></div>`
-    : ''}
-</div>
-
-<div class="field"><span class="fl">Armazón:</span><span class="fv"></span></div>
-<div class="meta">
-  <span>Ingreso: <b>${new Date().toLocaleDateString('es-MX')}</b></span>
-  <span>Entrega: <b>${fechaEntrega || '___________'}</b></span>
-</div>
-<div class="firma">Recibido por: _________________________</div>
-</body></html>`)
+</style></head><body>${pagesHTML}</body></html>`)
       win.document.close()
       setTimeout(() => { win.print() }, 300)
     }
@@ -788,29 +795,51 @@ ${entregaHtml}
             </div>
           )}
 
-          {/* Productos */}
-          <div className="px-5 py-3 space-y-3">
-            {carrito.map(item => {
-              const precio = item.precio * (1 - item.descuento / 100)
-              const sub = precio * item.cantidad
-              const precioDisplay = moneda === 'USD' && tipoCambio ? precio / tipoCambio : precio
-              const subDisplay    = moneda === 'USD' && tipoCambio ? sub / tipoCambio : sub
-              const sym = moneda === 'USD' ? 'USD $' : '$'
-              const fmt = (n: number) => moneda === 'USD' ? n.toFixed(2) : n.toLocaleString('es-MX')
-              return (
-                <div key={item.id} className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-zinc-700">{item.nombre}</p>
-                    <p className="text-xs text-zinc-400 mt-0.5">
-                      {item.cantidad > 1 ? `${item.cantidad} × ${sym}${fmt(precioDisplay)}` : ''}
-                      {item.descuento > 0 ? `${item.cantidad > 1 ? ' · ' : ''}Desc. ${item.descuento}%` : ''}
-                    </p>
-                  </div>
-                  <span className="text-sm font-bold text-zinc-800 ml-4 flex-shrink-0">{sym}{fmt(subDisplay)}</span>
-                </div>
-              )
-            })}
-          </div>
+          {/* Productos agrupados por par */}
+          {(() => {
+            const sym = moneda === 'USD' ? 'USD $' : '$'
+            const fmt = (n: number) => moneda === 'USD' ? n.toFixed(2) : n.toLocaleString('es-MX')
+            const pares = [...new Set(carrito.map(i => i.par))].sort()
+            return (
+              <div className="px-5 py-3 space-y-4">
+                {pares.map(par => {
+                  const itemsPar = carrito.filter(i => i.par === par)
+                  const subtotalPar = itemsPar.reduce((s, i) => s + i.precio * (1 - i.descuento / 100) * i.cantidad, 0)
+                  const subtotalDisplay = moneda === 'USD' && tipoCambio ? subtotalPar / tipoCambio : subtotalPar
+                  return (
+                    <div key={par}>
+                      {pares.length > 1 && (
+                        <div className="flex justify-between items-center mb-1.5 border-b border-zinc-100 pb-1">
+                          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Par {par}</span>
+                          <span className="text-xs font-bold text-zinc-500">{sym}{fmt(subtotalDisplay)}</span>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {itemsPar.map(item => {
+                          const precio = item.precio * (1 - item.descuento / 100)
+                          const sub = precio * item.cantidad
+                          const precioDisplay = moneda === 'USD' && tipoCambio ? precio / tipoCambio : precio
+                          const subDisplay    = moneda === 'USD' && tipoCambio ? sub / tipoCambio : sub
+                          return (
+                            <div key={item.uid} className="flex justify-between items-start">
+                              <div>
+                                <p className="text-sm font-medium text-zinc-700">{item.nombre}</p>
+                                <p className="text-xs text-zinc-400 mt-0.5">
+                                  {item.cantidad > 1 ? `${item.cantidad} × ${sym}${fmt(precioDisplay)}` : ''}
+                                  {item.descuento > 0 ? `${item.cantidad > 1 ? ' · ' : ''}Desc. ${item.descuento}%` : ''}
+                                </p>
+                              </div>
+                              <span className="text-sm font-bold text-zinc-800 ml-4 flex-shrink-0">{sym}{fmt(subDisplay)}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
 
           {/* Total + método de pago */}
           <div className="px-5 py-4 bg-zinc-50 border-t border-zinc-200 space-y-3">
@@ -854,10 +883,10 @@ ${entregaHtml}
             </div>
             <div className="divide-y divide-zinc-50">
               {[
-                { done: true,              label: 'Venta registrada',        sub: folio },
-                { done: !!folioLabGuardado,label: 'Orden de lab creada',     sub: folioLabGuardado },
-                { done: notaImpresa,       label: 'Nota de venta impresa',   sub: '' },
-                { done: ordenLabImpresa,   label: 'Orden de lab impresa',    sub: '' },
+                { done: true,                        label: 'Venta registrada',        sub: folio },
+                { done: folioLabGuardado.length > 0, label: 'Órdenes de lab creadas',  sub: folioLabGuardado.join(', ') },
+                { done: notaImpresa,                 label: 'Nota de venta impresa',   sub: '' },
+                { done: ordenLabImpresa,             label: 'Órdenes de lab impresas', sub: '' },
               ].map((step, i) => (
                 <div key={i} className="flex items-center gap-3 px-5 py-2.5">
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${step.done ? 'bg-emerald-500' : 'border-2 border-zinc-200'}`}>
@@ -889,7 +918,7 @@ ${entregaHtml}
             }`}
           >
             <Printer className="w-4 h-4" />
-            {ordenLabImpresa ? '✓ Orden de lab impresa' : `Imprimir orden de laboratorio (${folioLabGuardado})`}
+            {ordenLabImpresa ? '✓ Órdenes de lab impresas' : `Imprimir órdenes de laboratorio (${folioLabGuardado.join(', ')})`}
           </button>
         )}
         <div className="grid grid-cols-3 gap-3">
@@ -1055,8 +1084,49 @@ ${entregaHtml}
 
       {/* Productos */}
       <div className="bg-white rounded-lg border border-zinc-200/80">
-        <div className="px-6 py-4 border-b border-zinc-100">
-          <h2 className="text-sm font-semibold text-zinc-800">Productos</h2>
+        {/* Tabs de pares */}
+        <div className="flex items-center gap-1 px-4 pt-3 border-b border-zinc-100">
+          {Array.from({ length: numPares }, (_, i) => i + 1).map(par => {
+            const subtotalPar = carrito.filter(i => i.par === par).reduce((s, i) => s + (i.precio * (1 - i.descuento / 100) * i.cantidad), 0)
+            const esMicaPar   = carrito.some(i => i.par === par && ['mica','monofocal','progres','bifocal','transitions'].some(k => i.nombre.toLowerCase().includes(k)))
+            return (
+              <button
+                key={par}
+                onClick={() => setParActivo(par)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-t border-b-2 transition-all ${
+                  parActivo === par
+                    ? 'border-[#0D9488] text-[#0D9488] bg-[#0D9488]/5'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-600'
+                }`}
+              >
+                Par {par}
+                {esMicaPar && <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded font-bold">LAB</span>}
+                {subtotalPar > 0 && (
+                  <span className="text-xs opacity-60">${subtotalPar.toLocaleString('es-MX')}</span>
+                )}
+              </button>
+            )
+          })}
+          {numPares < 5 && (
+            <button
+              onClick={() => { const n = numPares + 1; setNumPares(n); setParActivo(n) }}
+              className="flex items-center gap-1 px-3 py-2.5 text-sm text-zinc-400 hover:text-teal-600 border-b-2 border-transparent hover:border-teal-300 transition-all"
+            >
+              <span className="text-base leading-none">+</span> Par
+            </button>
+          )}
+          {numPares > 1 && carrito.filter(i => i.par === parActivo).length === 0 && (
+            <button
+              onClick={() => {
+                const n = numPares - 1
+                setNumPares(n)
+                setParActivo(Math.min(parActivo, n))
+              }}
+              className="ml-auto text-xs text-red-400 hover:text-red-600 px-2 py-1"
+            >
+              Eliminar par {parActivo}
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -1123,7 +1193,7 @@ ${entregaHtml}
                 </tr>
               )}
 
-              {carrito.map(item => {
+              {carrito.filter(i => i.par === parActivo).map(item => {
                 const descMonto = item.precio * (item.descuento / 100)
                 const precioFinal = item.precio - descMonto
                 const subtotalItem = precioFinal * item.cantidad
@@ -1135,7 +1205,7 @@ ${entregaHtml}
                 const fmtPrecio = (n: number) => esUSDVista ? `USD $${n}` : `$${n.toLocaleString('es-MX')}`
 
                 return (
-                  <tr key={item.id} className="hover:bg-zinc-50/50 group">
+                  <tr key={item.uid} className="hover:bg-zinc-50/50 group">
                     <td className="px-6 py-3">
                       <span className="text-xs font-mono text-zinc-500">{item.sku}</span>
                     </td>
@@ -1149,11 +1219,11 @@ ${entregaHtml}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => cambiarCantidad(item.id, -1)} className="w-6 h-6 rounded bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-colors">
+                        <button onClick={() => cambiarCantidad(item.uid, -1)} className="w-6 h-6 rounded bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-colors">
                           <Minus className="w-3 h-3 text-zinc-600" />
                         </button>
                         <span className="w-8 text-center text-sm font-bold text-zinc-700">{item.cantidad}</span>
-                        <button onClick={() => cambiarCantidad(item.id, 1)} className="w-6 h-6 rounded bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-colors">
+                        <button onClick={() => cambiarCantidad(item.uid, 1)} className="w-6 h-6 rounded bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-colors">
                           <Plus className="w-3 h-3 text-zinc-600" />
                         </button>
                       </div>
@@ -1173,7 +1243,7 @@ ${entregaHtml}
                           min={0}
                           max={100}
                           value={item.descuento || ''}
-                          onChange={e => cambiarDescuento(item.id, e.target.value)}
+                          onChange={e => cambiarDescuento(item.uid, e.target.value)}
                           placeholder="0"
                           className="w-14 text-center text-sm border border-zinc-200 rounded-lg py-1 px-2 focus:outline-none focus:ring-1 focus:ring-[#0D9488] bg-zinc-50"
                         />
@@ -1184,7 +1254,7 @@ ${entregaHtml}
                       <span className="text-sm font-bold text-zinc-800">{fmtPrecio(subtotalDisplay)}</span>
                     </td>
                     <td className="px-2 py-3">
-                      <button onClick={() => eliminar(item.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-300 hover:text-red-400">
+                      <button onClick={() => eliminar(item.uid)} className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-300 hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -1354,15 +1424,17 @@ ${entregaHtml}
                   const precio = parseFloat(productoLibre.precio) || 0
                   const cantidad = parseInt(productoLibre.cantidad) || 1
                   if (!productoLibre.descripcion.trim() || precio <= 0) return
-                  const id = Date.now()
+                  const uid = `libre-${Date.now()}`
                   setCarrito(prev => [...prev, {
-                    id,
+                    uid,
+                    id: Date.now(),
                     nombre: productoLibre.descripcion.trim(),
                     precio,
                     cantidad,
                     sku: 'LIBRE',
                     stock: 999,
                     descuento: 0,
+                    par: parActivo,
                   }])
                   setShowProductoLibre(false)
                 }}
