@@ -1129,6 +1129,41 @@ ${entregaHtml}
           )}
         </div>
 
+        {/* Buscador de productos — fuera del overflow-x-auto para que el dropdown no se corte */}
+        <div className="px-6 py-2 relative border-b border-zinc-50">
+          <Search className="absolute left-9 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+          <input
+            value={busquedaProducto}
+            onChange={e => { setBusquedaProducto(e.target.value); setShowBuscadorProducto(true) }}
+            onFocus={() => setShowBuscadorProducto(true)}
+            placeholder="Buscar por código o descripción del producto..."
+            className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
+          />
+          {showBuscadorProducto && busquedaProducto && (
+            <div className="absolute top-full left-6 right-6 mt-1 bg-white border border-zinc-100 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
+              {productosFiltrados.slice(0, 8).map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => agregar(p)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-50 transition-colors text-left"
+                >
+                  <div>
+                    <span className="text-xs font-mono text-zinc-400 mr-3">{p.sku}</span>
+                    <span className="text-sm font-medium text-zinc-700">{p.nombre}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs text-zinc-400">Stock: {p.stock === 999 ? '∞' : p.stock}</span>
+                    <span className="text-sm font-bold text-zinc-800">${p.precio.toLocaleString('es-MX')}</span>
+                  </div>
+                </button>
+              ))}
+              {productosFiltrados.length === 0 && (
+                <div className="px-4 py-4 text-sm text-zinc-400 text-center">Sin resultados</div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -1144,47 +1179,10 @@ ${entregaHtml}
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              <tr>
-                <td colSpan={8} className="px-6 py-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
-                    <input
-                      value={busquedaProducto}
-                      onChange={e => { setBusquedaProducto(e.target.value); setShowBuscadorProducto(true) }}
-                      onFocus={() => setShowBuscadorProducto(true)}
-                      placeholder="Buscar por código o descripción del producto..."
-                      className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
-                    />
-                    {showBuscadorProducto && busquedaProducto && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-100 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
-                        {productosFiltrados.slice(0, 8).map(p => (
-                          <button
-                            key={p.id}
-                            onClick={() => agregar(p)}
-                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-50 transition-colors text-left"
-                          >
-                            <div>
-                              <span className="text-xs font-mono text-zinc-400 mr-3">{p.sku}</span>
-                              <span className="text-sm font-medium text-zinc-700">{p.nombre}</span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <span className="text-xs text-zinc-400">Stock: {p.stock === 999 ? '∞' : p.stock}</span>
-                              <span className="text-sm font-bold text-zinc-800">${p.precio.toLocaleString('es-MX')}</span>
-                            </div>
-                          </button>
-                        ))}
-                        {productosFiltrados.length === 0 && (
-                          <div className="px-4 py-4 text-sm text-zinc-400 text-center">Sin resultados</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </td>
-              </tr>
 
-              {carrito.length === 0 && (
+              {carrito.filter(i => i.par === parActivo).length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-10 text-center">
+                  <td colSpan={8} className="px-6 py-8 text-center">
                     <div className="flex flex-col items-center gap-2 text-zinc-300">
                       <Package className="w-10 h-10" />
                       <p className="text-sm">Busca y agrega productos arriba</p>
