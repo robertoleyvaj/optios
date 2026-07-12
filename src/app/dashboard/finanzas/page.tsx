@@ -121,16 +121,16 @@ function FinanzasPage() {
     const { inicio, fin } = getDateRange(periodo, desde, hasta)
     const supabase = createClient()
 
-    // Ingresos: ventas del período
+    // Cobrado: lo que efectivamente entró de ventas del período (total - saldo)
     let qVentas = supabase
       .from('ventas')
-      .select('total')
+      .select('total, saldo')
       .eq('es_cotizacion', false)
       .gte('created_at', `${inicio}T00:00:00`)
       .lte('created_at', `${fin}T23:59:59`)
     if (sucursal !== 'Todas') qVentas = qVentas.eq('sucursal', sucursal)
     const { data: ventasData } = await qVentas
-    setIngresos((ventasData || []).reduce((s, v) => s + v.total, 0))
+    setIngresos((ventasData || []).reduce((s, v) => s + (v.total - v.saldo), 0))
 
     // Costo lab: todas las órdenes con costo_lab > 0 en el período (por fecha_ingreso)
     let qLab = supabase
@@ -268,7 +268,7 @@ function FinanzasPage() {
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Ingresos',        value: ingresos,      icon: TrendingUp,   color: 'text-teal-600',    bg: 'bg-teal-50'   },
+              { label: 'Cobrado (ventas)', value: ingresos,      icon: TrendingUp,   color: 'text-teal-600',    bg: 'bg-teal-50'   },
               { label: 'Costo laboratorio', value: costoLab,    icon: FlaskConical, color: 'text-violet-600',  bg: 'bg-violet-50' },
               { label: 'Gastos operativos', value: totalGastos, icon: TrendingDown, color: 'text-red-500',     bg: 'bg-red-50'    },
               { label: 'Utilidad neta',   value: utilidadNeta,  icon: DollarSign,   color: utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600', bg: utilidadNeta >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
@@ -298,7 +298,7 @@ function FinanzasPage() {
             <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
               <h3 className="text-sm font-bold text-zinc-700 mb-3">Estado de resultados</h3>
               <div className="divide-y divide-zinc-100">
-                <ResumenRow label="Ingresos por ventas"      value={ingresos} />
+                <ResumenRow label="Cobrado en ventas del período" value={ingresos} />
                 <ResumenRow label="− Costo de laboratorio"   value={-costoLab} indent color="text-violet-600" />
                 <ResumenRow label="Utilidad bruta"            value={utilidadBruta} bold color={utilidadBruta >= 0 ? 'text-zinc-900' : 'text-red-600'} />
                 {CATEGORIAS_GASTO.map(cat => {
