@@ -1000,12 +1000,13 @@ function VistaRepartidor({ ordenes, onUpdate }: {
 // ─────────────────────────────────────────
 // Vista simplificada para vendedor
 // ─────────────────────────────────────────
-function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema }: {
+function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNuevaOrden }: {
   ordenes: OrdenLab[]
   sucursal: string
   onPrint: (o: OrdenLab) => void
   onUpdate: (id: number, changes: Partial<OrdenLab>) => void
   onProblema: (original: OrdenLab, motivo: string) => void
+  onNuevaOrden: () => void
 }) {
   const pendientes = ordenes
     .filter(o =>
@@ -1216,10 +1217,16 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema }: {
       {/* Header + stats */}
       <div className="flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-xl font-bold text-zinc-800">Mis órdenes de laboratorio</h1>
+          <h1 className="text-xl font-bold text-zinc-800">Laboratorio</h1>
           <p className="text-sm text-zinc-400 mt-0.5">{sucursal} · {pendientes.length} pendiente{pendientes.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={onNuevaOrden}
+            className="flex items-center gap-2 text-sm font-semibold text-white bg-zinc-900 px-4 py-2.5 rounded-lg hover:bg-zinc-800 transition-colors flex-shrink-0"
+          >
+            <Plus className="w-4 h-4" /> Nueva orden
+          </button>
           {[
             { label: 'Listas',    n: listos.length,   color: 'text-emerald-600', bg: 'bg-emerald-50' },
             { label: 'En camino', n: enCamino.length, color: 'text-blue-600',    bg: 'bg-blue-50' },
@@ -1568,23 +1575,21 @@ export default function LaboratorioPage() {
   const f = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
     setForm(prev => ({ ...prev, [k]: v }))
 
-  // Vista vendedor — simple y sin costos
-  if (esVendedor) {
-    return (
-      <>
-        <VistaVendedor
-          ordenes={ordenes}
-          sucursal={demoUser?.sucursal ?? 'Todas'}
-          onPrint={o => setPrintModal(o)}
-          onUpdate={(id, changes) => {
-            const orden = ordenes.find(o => o.id === id)
-            if (changes.estado) cambiarEstado(id, changes.estado)
-            else {
-              if (orden?.supabaseId) updateEnSupabase(orden.supabaseId, changes)
-              setOrdenes(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o))
-            }
-          }}
-          onProblema={async (original, motivo) => {
+  // ── Props compartidos para VistaTienda ──────────────────────
+  const vistaTiendaProps = {
+    ordenes,
+    sucursal: demoUser?.sucursal ?? 'Todas',
+    onPrint: (o: OrdenLab) => setPrintModal(o),
+    onNuevaOrden: () => { setForm(formVacio(demoUser?.sucursal)); setVentaVinculada(null); setModal(true) },
+    onUpdate: (id: number, changes: Partial<OrdenLab>) => {
+      const orden = ordenes.find(o => o.id === id)
+      if (changes.estado) cambiarEstado(id, changes.estado as EstadoOrden)
+      else {
+        if (orden?.supabaseId) updateEnSupabase(orden.supabaseId, changes)
+        setOrdenes(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o))
+      }
+    },
+    onProblema: async (original: OrdenLab, motivo: string) => {
             // 1. Marcar original como problema
             const hoy = new Date().toISOString().split('T')[0]
             setOrdenes(prev => prev.map(o => o.id === original.id
@@ -1682,11 +1687,7 @@ export default function LaboratorioPage() {
               archivado: false,
             }
             setOrdenes(prev => [nuevaOrden, ...prev])
-          }}
-        />
-        {printModal && <PrintModal orden={printModal} onClose={() => setPrintModal(null)} />}
-      </>
-    )
+          },
   }
 
   // Vista repartidor — flujo completo de mensajería
@@ -1699,7 +1700,11 @@ export default function LaboratorioPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <VistaVendedor {...vistaTiendaProps} />
+
+      {/* ── VISTA ADMIN (deshabilitada temporalmente, pendiente refactor) ── */}
+      {false && <div className="space-y-6">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-6">
@@ -2192,6 +2197,7 @@ export default function LaboratorioPage() {
         )}
       </div>
 
+      </div>}
       {/* ── MODAL IMPRIMIR ── */}
       {printModal && <PrintModal orden={printModal} onClose={() => setPrintModal(null)} />}
 
@@ -2428,6 +2434,6 @@ export default function LaboratorioPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
