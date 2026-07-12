@@ -511,18 +511,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   ordenes: OrdenLab[]
   onUpdate: (id: number, changes: Partial<OrdenLab>) => void
 }) {
-  const [selectedId,  setSelectedId] = useState<number | null>(null)
-  const [editMode,    setEditMode]   = useState(false)
-  const [savedNext,   setSavedNext]  = useState<number | null | 'none'>('none') // null=no next, number=nextId, 'none'=not saved
-  const [draft, setDraft] = useState<{
-    estado: EstadoOrden
-    laboratorio: string
-    costoLab: string
-    metodoPagoLab: 'transferencia' | 'efectivo' | ''
-    pagadoLab: boolean
-    fechaPromesa: string
-    notas: string
-  } | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
   const [llevandoDraft, setLlevandoDraft] = useState<{
     laboratorio: string
     fechaPromesa: string
@@ -538,13 +527,6 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     .filter(o => !['entregado', 'problema', 'en_sucursal', 'listo'].includes(o.estado))
     .sort((a, b) => (a.fechaIngreso ?? '').localeCompare(b.fechaIngreso ?? '') || a.folio.localeCompare(b.folio))
 
-  const ESTADO_OPTS = [
-    { value: 'recibido'       as EstadoOrden, label: 'Por llevar',     dot: 'bg-zinc-400'   },
-    { value: 'en_laboratorio' as EstadoOrden, label: 'En laboratorio', dot: 'bg-indigo-500'  },
-    { value: 'en_camino'      as EstadoOrden, label: 'En camino',      dot: 'bg-blue-500'    },
-    { value: 'en_sucursal'    as EstadoOrden, label: 'En sucursal',    dot: 'bg-amber-500'   },
-  ]
-
   const BADGE: Record<string, { bg: string; text: string; label: string }> = {
     recibido:       { bg: 'bg-zinc-100',   text: 'text-zinc-600',   label: 'Pendiente'      },
     en_laboratorio: { bg: 'bg-violet-50',  text: 'text-violet-700', label: 'En laboratorio' },
@@ -557,42 +539,9 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     en_camino: 'bg-teal-500', en_sucursal: 'bg-amber-500',
   }
 
-  const counts = {
-    porLlevar:  lista.filter(o => o.estado === 'recibido').length,
-    enLab:      lista.filter(o => o.estado === 'en_laboratorio').length,
-    enCamino:   lista.filter(o => o.estado === 'en_camino').length,
-    sinPagar:   lista.filter(o => o.costoLab > 0 && !o.pagadoLab).length,
-    atrasados:  lista.filter(o => o.fechaPromesa && new Date(o.fechaPromesa) < new Date(new Date().toDateString())).length,
-  }
-
-  const getNextId = (currentId: number) => {
-    const idx = lista.findIndex(o => o.id === currentId)
-    for (let i = idx + 1; i < lista.length; i++) {
-      if (lista[i].estado !== 'listo') return lista[i].id
-    }
-    return null
-  }
-
-  const getHistorial = (o: OrdenLab) => {
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - 15)
-    const dentro = (f: string) => f && new Date(f) >= cutoff
-
-    const ev: { fecha: string; label: string }[] = []
-    if (o.fechaIngreso     && dentro(o.fechaIngreso))    ev.push({ fecha: o.fechaIngreso,    label: 'Orden creada' })
-    if (o.fechaEnvioLab    && dentro(o.fechaEnvioLab))   ev.push({ fecha: o.fechaEnvioLab,   label: 'Llevada al laboratorio' })
-    if (o.fechaRecogidaLab && dentro(o.fechaRecogidaLab))ev.push({ fecha: o.fechaRecogidaLab,label: 'Recogida del laboratorio' })
-    if (o.fechaPagoLab     && dentro(o.fechaPagoLab))    ev.push({ fecha: o.fechaPagoLab,    label: `Pago registrado · ${o.metodoPagoLab === 'efectivo' ? 'Efectivo' : 'Transferencia'}` })
-    if (o.fechaEntrega     && dentro(o.fechaEntrega))    ev.push({ fecha: o.fechaEntrega,    label: 'Entregada en óptica' })
-    return ev
-  }
-
   const openOrder = (id: number) => {
     const o = lista.find(x => x.id === id)
     setSelectedId(id)
-    setEditMode(false)
-    setSavedNext('none')
-    setDraft(null)
     setLlevandoDraft({
       laboratorio: o?.laboratorio ?? '',
       fechaPromesa: o?.fechaPromesa ?? '',
@@ -604,98 +553,15 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     })
   }
 
-  const startEdit = (o: OrdenLab) => {
-    setDraft({
-      estado: o.estado as EstadoOrden,
-      laboratorio: o.laboratorio,
-      costoLab: o.costoLab > 0 ? String(o.costoLab) : '',
-      metodoPagoLab: o.metodoPagoLab,
-      pagadoLab: o.pagadoLab,
-      fechaPromesa: o.fechaPromesa,
-      notas: o.notas,
-    })
-    setEditMode(true)
-  }
-
-  const saveEdit = (o: OrdenLab) => {
-    if (!draft) return
-    const changes: Partial<OrdenLab> = {
-      estado: draft.estado,
-      laboratorio: draft.laboratorio,
-      costoLab: Number(draft.costoLab) || 0,
-      metodoPagoLab: draft.metodoPagoLab,
-      pagadoLab: draft.pagadoLab,
-      fechaPromesa: draft.fechaPromesa,
-      notas: draft.notas,
-    }
-    if (draft.estado === 'en_laboratorio' && !o.fechaEnvioLab)  changes.fechaEnvioLab    = dias(0)
-    if (draft.estado === 'en_camino'      && !o.fechaRecogidaLab) changes.fechaRecogidaLab = dias(0)
-    if (draft.estado === 'listo'          && !o.fechaEntrega)    changes.fechaEntrega     = dias(0)
-    if (draft.pagadoLab && !o.pagadoLab)                         changes.fechaPagoLab     = dias(0)
-    onUpdate(o.id, changes)
-    setSavedNext(getNextId(o.id))
-    setEditMode(false)
-    setDraft(null)
-  }
-
   const selected = lista.find(o => o.id === selectedId) ?? null
 
-  // ── Pantalla "¡Guardado!" ──────────────────────────────────
-  if (savedNext !== 'none' && selected) {
-    const nextOrder = savedNext !== null ? lista.find(o => o.id === savedNext) : null
-    return (
-      <div className="max-w-sm mx-auto">
-        <div className="bg-white rounded-2xl border border-zinc-100 p-8 text-center space-y-5 shadow-sm">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-zinc-800">¡Guardado!</p>
-            <p className="text-sm text-zinc-400 mt-1">
-              {nextOrder ? 'Vamos con la siguiente orden' : 'No hay más órdenes pendientes'}
-            </p>
-          </div>
-          {nextOrder && (
-            <div className="bg-zinc-50 rounded-xl p-4 text-left border border-zinc-100">
-              <p className="text-xs font-bold text-zinc-400">{nextOrder.folio}</p>
-              <p className="text-base font-bold text-zinc-800 mt-1">{nextOrder.paciente}</p>
-              <p className="text-xs text-zinc-400 mt-0.5">{nextOrder.tipoMica}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className={`w-2 h-2 rounded-full ${DOT[nextOrder.estado]}`} />
-                <span className="text-xs text-zinc-500">{BADGE[nextOrder.estado]?.label}</span>
-                <span className="text-xs text-zinc-400 ml-auto">{nextOrder.sucursal}</span>
-              </div>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <button onClick={() => { setSelectedId(null); setSavedNext('none') }}
-              className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 text-sm font-semibold rounded-xl hover:bg-zinc-50">
-              Ver lista
-            </button>
-            {nextOrder ? (
-              <button onClick={() => openOrder(nextOrder.id)}
-                className="flex-1 py-2.5 bg-[#0B0E14] text-white text-sm font-bold rounded-xl">
-                Siguiente →
-              </button>
-            ) : (
-              <button onClick={() => { setSelectedId(null); setSavedNext('none') }}
-                className="flex-1 py-2.5 bg-[#0B0E14] text-white text-sm font-bold rounded-xl">
-                Terminar
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   // ── Vista "Llevar al lab" — órdenes recibido ──────────────
-  if (selected && selected.estado === 'recibido' && !editMode) {
+  if (selected && selected.estado === 'recibido') {
     const o = selected
     return (
       <div className="max-w-sm mx-auto space-y-3">
         <div className="flex items-center justify-between">
-          <button onClick={() => { setSelectedId(null); setDraft(null) }}
+          <button onClick={() => setSelectedId(null)}
             className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
             <ChevronLeft className="w-4 h-4" /> Órdenes
           </button>
@@ -752,7 +618,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
               notas: llevandoDraft.notas,
               fechaEnvioLab: new Date().toISOString().split('T')[0],
             })
-            setSavedNext(getNextId(o.id))
+            setSelectedId(null)
           }}
           className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold rounded-xl transition-colors ${
             llevandoDraft.laboratorio
@@ -767,14 +633,14 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   }
 
   // ── Vista "Recoger del lab" — órdenes en_laboratorio ──────
-  if (selected && selected.estado === 'en_laboratorio' && !editMode) {
+  if (selected && selected.estado === 'en_laboratorio') {
     const o = selected
     const hoy = new Date().toISOString().split('T')[0]
     const listaHoy = o.fechaPromesa === hoy
     return (
       <div className="max-w-sm mx-auto space-y-3">
         <div className="flex items-center justify-between">
-          <button onClick={() => { setSelectedId(null); setDraft(null) }}
+          <button onClick={() => { setSelectedId(null) }}
             className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
             <ChevronLeft className="w-4 h-4" /> Órdenes
           </button>
@@ -854,7 +720,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
               fechaRecogidaLab: new Date().toISOString().split('T')[0],
               fechaPagoLab: new Date().toISOString().split('T')[0],
             })
-            setSavedNext(getNextId(o.id))
+            setSelectedId(null)
           }}
           className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold rounded-xl transition-colors ${
             recogendoDraft.costoLab && recogendoDraft.metodoPagoLab
@@ -864,22 +730,17 @@ function VistaRepartidor({ ordenes, onUpdate }: {
         >
           <Truck className="w-4 h-4" /> Ya lo recogí, voy en camino a la óptica
         </button>
-
-        <button onClick={() => startEdit(o)}
-          className="w-full py-2.5 border border-zinc-200 text-zinc-500 text-sm font-medium rounded-xl hover:bg-zinc-50 transition-colors">
-          Editar detalles
-        </button>
       </div>
     )
   }
 
   // ── Vista "Entregar en sucursal" — órdenes en_camino ─────
-  if (selected && selected.estado === 'en_camino' && !editMode) {
+  if (selected && selected.estado === 'en_camino') {
     const o = selected
     return (
       <div className="max-w-sm mx-auto space-y-3">
         <div className="flex items-center justify-between">
-          <button onClick={() => { setSelectedId(null); setDraft(null) }}
+          <button onClick={() => { setSelectedId(null) }}
             className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
             <ChevronLeft className="w-4 h-4" /> Órdenes
           </button>
@@ -907,7 +768,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
         <button
           onClick={() => {
             onUpdate(o.id, { estado: 'en_sucursal' })
-            setSavedNext(getNextId(o.id))
+            setSelectedId(null)
           }}
           className="w-full flex items-center justify-center gap-2 py-3.5 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors"
         >
@@ -917,226 +778,48 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     )
   }
 
-  // ── Vista detalle ──────────────────────────────────────────
-  if (selected) {
-    const o = selected
-    const badge = BADGE[o.estado]
-    const hist  = getHistorial(o)
-    const hasCosto = o.costoLab > 0 || (draft && Number(draft.costoLab) > 0)
-
-    return (
-      <div className="max-w-sm mx-auto space-y-3">
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <button onClick={() => { setSelectedId(null); setEditMode(false); setDraft(null) }}
-            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
-            <ChevronLeft className="w-4 h-4" /> Órdenes
-          </button>
-          <span className="text-sm font-bold text-zinc-500">{o.folio}</span>
-          <div className="w-20" />
-        </div>
-
-        {/* Card */}
-        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-          {/* Paciente */}
-          <div className="px-4 pt-4 pb-3 border-b border-zinc-100">
-            <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
-            <p className="text-sm text-zinc-400 mt-0.5">
-              {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
-            </p>
-          </div>
-
-          {/* Filas de campos */}
-          <div className="px-4">
-            <FormRow label="Sucursal">
-              <span className="text-sm font-medium text-zinc-700">{o.sucursal}</span>
-            </FormRow>
-
-            <FormRow label="Laboratorio">
-              {editMode && draft ? (
-                <select value={draft.laboratorio}
-                  onChange={e => setDraft(d => d ? { ...d, laboratorio: e.target.value } : d)}
-                  className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488]">
-                  <option value="">Sin asignar</option>
-                  {LABORATORIOS.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-              ) : (
-                <span className="text-sm font-medium text-zinc-700">{o.laboratorio || '—'}</span>
-              )}
-            </FormRow>
-
-            <FormRow label="Estado">
-              {editMode && draft ? (
-                <div className="space-y-1.5">
-                  {ESTADO_OPTS.map(opt => (
-                    <button key={opt.value}
-                      onClick={() => setDraft(d => d ? { ...d, estado: opt.value } : d)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
-                        draft.estado === opt.value
-                          ? 'bg-[#0B0E14] text-white'
-                          : 'bg-zinc-50 text-zinc-700 hover:bg-zinc-100'
-                      }`}>
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${opt.dot}`} />
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${badge.bg} ${badge.text}`}>
-                    {badge.label}
-                  </span>
-                  {o.costoLab > 0 && !o.pagadoLab && (
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-600">
-                      Pago pendiente
-                    </span>
-                  )}
-                  {o.urgente && (
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-50 text-red-600">URGENTE</span>
-                  )}
-                </div>
-              )}
-            </FormRow>
-
-            <FormRow label="Costo">
-              {editMode && draft ? (
-                <input type="number" value={draft.costoLab} placeholder="$0"
-                  onChange={e => setDraft(d => d ? { ...d, costoLab: e.target.value } : d)}
-                  className="border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] w-32" />
-              ) : (
-                <span className="text-sm font-semibold text-zinc-800">
-                  {o.costoLab > 0 ? `$${o.costoLab.toLocaleString('es-MX')}` : '—'}
-                </span>
-              )}
-            </FormRow>
-
-            {hasCosto && (
-              <FormRow label="Pago al lab">
-                {editMode && draft ? (
-                  <div className="flex gap-2 flex-wrap">
-                    {([
-                      { v: '' as const,              label: 'Pendiente'     },
-                      { v: 'transferencia' as const, label: 'Transferencia' },
-                      { v: 'efectivo' as const,      label: 'Efectivo'      },
-                    ]).map(m => (
-                      <button key={m.v}
-                        onClick={() => setDraft(d => d ? { ...d, metodoPagoLab: m.v, pagadoLab: m.v !== '' } : d)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                          draft.metodoPagoLab === m.v
-                            ? 'bg-[#0B0E14] text-white border-[#0B0E14]'
-                            : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
-                        }`}>
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <span className={`text-sm font-medium ${o.pagadoLab ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {o.pagadoLab
-                      ? `Pagado · ${o.metodoPagoLab === 'efectivo' ? 'Efectivo' : 'Transferencia'}`
-                      : 'Pendiente'}
-                  </span>
-                )}
-              </FormRow>
-            )}
-
-            <FormRow label="Observaciones">
-              {editMode && draft ? (
-                <textarea value={draft.notas} rows={2} placeholder="—"
-                  onChange={e => setDraft(d => d ? { ...d, notas: e.target.value } : d)}
-                  className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] resize-none" />
-              ) : (
-                <span className="text-sm text-zinc-500">{o.notas || '—'}</span>
-              )}
-            </FormRow>
-          </div>
-
-          {/* Historial */}
-          {hist.length > 0 && (
-            <div className="px-4 pb-4 pt-1">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-3">Historial</p>
-              <div className="space-y-2">
-                {hist.map((ev, i) => (
-                  <div key={i} className="flex items-center gap-2.5 text-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 flex-shrink-0" />
-                    <span className="text-zinc-400 flex-shrink-0">{ev.fecha}</span>
-                    <span className="text-zinc-600 font-medium">{ev.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Acciones rápidas */}
-        {!editMode && o.estado === 'en_camino' && (
-          <button
-            onClick={() => { onUpdate(o.id, { estado: 'listo', fechaEntrega: new Date().toISOString().split('T')[0] }); setSavedNext(getNextId(o.id)) }}
-            className="w-full flex items-center justify-center gap-2 py-3.5 bg-[#0B0E14] text-white text-sm font-bold rounded-xl hover:bg-zinc-700 transition-colors"
-          >
-            <CheckCircle2 className="w-4 h-4" /> Ya lo dejé en {o.sucursal}
-          </button>
-        )}
-
-        {/* Botones edición */}
-        {editMode && draft ? (
-          <div className="flex gap-2">
-            <button onClick={() => { setEditMode(false); setDraft(null) }}
-              className="flex-1 py-3 border border-zinc-200 text-zinc-600 text-sm font-semibold rounded-xl hover:bg-zinc-50">
-              Cancelar
-            </button>
-            <button onClick={() => saveEdit(o)}
-              className="flex-1 py-3 bg-[#0B0E14] text-white text-sm font-bold rounded-xl hover:bg-zinc-700">
-              Guardar
-            </button>
-          </div>
-        ) : (
-          <button onClick={() => startEdit(o)}
-            className="w-full py-3.5 border border-zinc-200 text-zinc-600 text-sm font-semibold rounded-xl hover:bg-zinc-50 transition-colors">
-            Editar detalles
-          </button>
-        )}
-      </div>
-    )
-  }
-
   // ── Lista por secciones ────────────────────────────────────
-  const porLlevarList  = lista.filter(o => o.estado === 'recibido')
-  const enLabList      = lista.filter(o => o.estado === 'en_laboratorio')
-  const enCaminoList   = lista.filter(o => o.estado === 'en_camino')
-  // Sergio no ve 'en_sucursal' ni 'listo' en su lista activa — ya terminó su parte
-  const hoy            = new Date().toISOString().split('T')[0]
+  const porLlevarList = lista.filter(o => o.estado === 'recibido')
+  const enLabList     = lista.filter(o => o.estado === 'en_laboratorio')
+  const enCaminoList  = lista.filter(o => o.estado === 'en_camino')
+  const hoy           = new Date().toISOString().split('T')[0]
+  const sinPagarCount = lista.filter(o => o.costoLab > 0 && !o.pagadoLab).length
 
   const OrdenRow = ({ o }: { o: OrdenLab }) => {
-    const b = BADGE[o.estado]
-    const sinPagar = o.costoLab > 0 && !o.pagadoLab
-    const listaHoy = o.fechaPromesa === hoy
+    const sinPagar  = o.costoLab > 0 && !o.pagadoLab
+    const listaHoy  = o.fechaPromesa === hoy
+    const accionLabel =
+      o.estado === 'recibido'       ? 'Llevar al lab →' :
+      o.estado === 'en_laboratorio' ? 'Recoger →' :
+      o.estado === 'en_camino'      ? 'Entregar →' : ''
 
     return (
       <button onClick={() => openOrder(o.id)}
-        className="w-full flex items-stretch hover:bg-zinc-50 transition-colors text-left group">
+        className="w-full flex items-stretch hover:bg-zinc-50 transition-colors text-left">
         <div className="flex items-center pl-4 pr-3">
           <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT[o.estado]}`} />
         </div>
         <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-100">
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-0.5">
             <span className="text-xs font-bold text-zinc-400">{o.folio}</span>
-            {o.fechaPromesa && (
-              <span className={`text-xs font-semibold ${listaHoy ? 'text-emerald-600' : 'text-zinc-400'}`}>
-                {listaHoy ? 'Listo hoy' : o.fechaPromesa.replace(/^\d{4}-/, '').replace('-', '/')}
-              </span>
-            )}
+            <span className="text-xs font-semibold text-zinc-400">
+              {accionLabel}
+            </span>
           </div>
           <p className="text-sm font-semibold text-zinc-800 leading-tight">
             {o.paciente}
             {o.urgente && <span className="ml-1 text-red-500 text-xs">⚡</span>}
           </p>
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex items-center gap-2 mt-1">
             <span className="text-xs text-zinc-400">{o.sucursal}</span>
-            {o.laboratorio && <span className="text-xs text-indigo-600">· {o.laboratorio}</span>}
+            {o.laboratorio && <span className="text-xs text-violet-600">· {o.laboratorio}</span>}
+            {o.fechaPromesa && (
+              <span className={`text-xs font-semibold ${listaHoy ? 'text-emerald-600' : 'text-zinc-400'}`}>
+                · {listaHoy ? 'Hoy' : o.fechaPromesa.replace(/^\d{4}-/, '').replace('-', '/')}
+              </span>
+            )}
             {sinPagar && (
-              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">Sin pagar</span>
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 ml-auto">Sin pagar</span>
             )}
           </div>
         </div>
@@ -1155,52 +838,52 @@ function VistaRepartidor({ ordenes, onUpdate }: {
         </div>
       )}
 
-      {/* Resumen + botón para iniciar */}
-      {lista.length > 0 && (
-        <div className="bg-white rounded-xl border border-zinc-200 p-5 space-y-4">
-          <div>
-            <p className="text-base font-semibold text-zinc-800">Órdenes pendientes</p>
-            <div className="flex flex-wrap gap-3 mt-2">
-              {counts.porLlevar > 0 && <span className="text-xs font-medium text-zinc-500 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-300" />{counts.porLlevar} por llevar</span>}
-              {counts.enLab     > 0 && <span className="text-xs font-medium text-violet-600 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-400" />{counts.enLab} en laboratorio</span>}
-              {counts.enCamino  > 0 && <span className="text-xs font-medium text-teal-600 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-teal-400" />{counts.enCamino} en camino</span>}
-            </div>
-          </div>
-          <button onClick={() => openOrder(lista[0].id)}
-            className="w-full py-3 bg-zinc-900 text-white text-sm font-bold rounded-xl hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
-            <ArrowRight className="w-4 h-4" /> Iniciar — {lista[0].paciente}
-          </button>
-        </div>
-      )}
-
-      {/* Lista completa (referencia) */}
-      {lista.length > 0 && (
+      {/* Por llevar */}
+      {porLlevarList.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2 px-1">Todas las órdenes</p>
-          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
-            {lista.map(o => <OrdenRow key={o.id} o={o} />)}
-          </div>
-        </div>
-      )}
-
-      {/* En sucursal — pendientes de verificar (Sergio ya no las ve) */}
-      {lista.filter(o => o.estado === 'en_sucursal').length > 0 && (
-        <div>
-          <p className="text-xs font-bold text-amber-600 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-            Llegaron — pendientes de verificar · {lista.filter(o => o.estado === 'en_sucursal').length}
+          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-zinc-400 inline-block" />
+            Por llevar · {porLlevarList.length}
           </p>
-          <div className="bg-white rounded-xl border border-amber-200 overflow-hidden divide-y divide-zinc-100">
-            {lista.filter(o => o.estado === 'en_sucursal').map(o => <OrdenRow key={o.id} o={o} />)}
+          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
+            {porLlevarList.map(o => <OrdenRow key={o.id} o={o} />)}
+          </div>
+        </div>
+      )}
+
+      {/* En laboratorio */}
+      {enLabList.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-violet-600 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />
+            En laboratorio · {enLabList.length}
+          </p>
+          <div className="bg-white rounded-xl border border-violet-100 overflow-hidden divide-y divide-zinc-100">
+            {enLabList.map(o => <OrdenRow key={o.id} o={o} />)}
+          </div>
+        </div>
+      )}
+
+      {/* En camino */}
+      {enCaminoList.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-teal-600 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-teal-500 inline-block" />
+            En camino · {enCaminoList.length}
+          </p>
+          <div className="bg-white rounded-xl border border-teal-100 overflow-hidden divide-y divide-zinc-100">
+            {enCaminoList.map(o => <OrdenRow key={o.id} o={o} />)}
           </div>
         </div>
       )}
 
       {/* Sin pagar */}
-      {counts.sinPagar > 0 && (
+      {sinPagarCount > 0 && (
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
           <DollarSign className="w-4 h-4 text-amber-500 flex-shrink-0" />
-          <p className="text-xs text-amber-700 font-semibold">{counts.sinPagar} {counts.sinPagar === 1 ? 'orden pendiente' : 'órdenes pendientes'} de pago al laboratorio</p>
+          <p className="text-xs text-amber-700 font-semibold">
+            {sinPagarCount} {sinPagarCount === 1 ? 'orden pendiente' : 'órdenes pendientes'} de pago al laboratorio
+          </p>
         </div>
       )}
 
