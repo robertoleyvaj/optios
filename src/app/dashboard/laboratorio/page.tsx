@@ -61,6 +61,11 @@ type OrdenLab = {
   verificado: boolean         // lente revisado al llegar a la óptica
   notasVerificacion: string   // qué se revisó / problema encontrado
   motivoRetraso: string       // por qué se retrasó (si aplica)
+  // Garantía
+  folioOrigen: string         // folio de la orden original (solo en garantías)
+  esGarantia: boolean         // true = orden de reposición por garantía
+  motivoProblema: string      // motivo del problema al verificar
+  archivado: boolean          // true = repartidor ya recogió la orden problema
 }
 
 type HistorialItem = {
@@ -135,6 +140,7 @@ const formVacio = (sucursalDefault = 'Baja Visión'): Omit<OrdenLab, 'id' | 'fol
   pagadoLab: false, fechaPagoLab: '', metodoPagoLab: '' as const,
   estado: 'recibido', costoLab: 0, precioCliente: 0, anticipo: 0, notas: '',
   verificado: false, notasVerificacion: '', motivoRetraso: '',
+  folioOrigen: '', esGarantia: false, motivoProblema: '', archivado: false,
 })
 
 function diasRestantes(fecha: string) {
@@ -261,6 +267,17 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
       ? `<div style="border-top:1px dashed #ccc;padding:6px 0;font-size:9px;color:#555"><b>Obs:</b> ${orden.notas}</div>`
       : ''
 
+    const garantiaHtml = orden.esGarantia
+      ? `<div style="background:#7C3AED;color:#fff;text-align:center;font-size:13px;font-weight:900;letter-spacing:2px;padding:6px 0;margin-bottom:8px;border-radius:3px;">🔄 GARANTÍA</div>`
+      : ''
+
+    const motivoHtml = orden.esGarantia && orden.motivoProblema
+      ? `<div style="border-top:1px dashed #ccc;margin-top:8px;padding-top:6px;font-size:9px;color:#555">
+           <b>Motivo de reposición:</b> ${orden.motivoProblema}
+           ${orden.folioOrigen ? `<br/><span style="color:#aaa">Orden original: ${orden.folioOrigen}</span>` : ''}
+         </div>`
+      : ''
+
     const win = window.open('', '_blank', 'width=420,height=640')
     if (!win) return
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -292,6 +309,7 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
   .firma-area { border-top: 1px solid #000; margin-top: 10px; padding-top: 4px; text-align: right; font-size: 9px; color: #777; }
   .folio-ref { font-size: 9px; font-family: monospace; color: #555; }
 </style></head><body>
+  ${garantiaHtml}
   ${orden.urgente ? `<div style="background:#000;color:#fff;text-align:center;font-size:22px;font-weight:900;letter-spacing:3px;padding:7px 0;margin-bottom:8px;border-radius:3px;">⚡ URGENTE</div>` : ''}
 
   <div class="hdr">
@@ -330,6 +348,7 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
   <div class="armazon"><b>Armazón:</b> ${armazonStr}</div>
 
   ${notasHtml}
+  ${motivoHtml}
 
   <div class="meta">
     <span>Ingreso: <b>${orden.fechaIngreso}</b></span>
@@ -524,8 +543,13 @@ function VistaRepartidor({ ordenes, onUpdate }: {
 
   // Sergio solo ve las órdenes que todavía requieren su acción
   const lista = ordenes
-    .filter(o => !['entregado', 'problema', 'en_sucursal', 'listo'].includes(o.estado))
+    .filter(o => !['entregado', 'problema', 'en_sucursal', 'listo'].includes(o.estado) && !o.archivado)
     .sort((a, b) => (a.fechaIngreso ?? '').localeCompare(b.fechaIngreso ?? '') || a.folio.localeCompare(b.folio))
+
+  // Órdenes problema: el vendedor marcó un defecto, Sergio debe recogerlas y llevarlas de vuelta al lab
+  const problemaList = ordenes
+    .filter(o => o.estado === 'problema' && !o.archivado)
+    .sort((a, b) => a.folio.localeCompare(b.folio))
 
   const BADGE: Record<string, { bg: string; text: string; label: string }> = {
     recibido:       { bg: 'bg-zinc-100',   text: 'text-zinc-600',   label: 'Pendiente'      },
@@ -554,6 +578,54 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   }
 
   const selected = lista.find(o => o.id === selectedId) ?? null
+
+  // ── Vista "Regresar al lab" — órdenes problema ────────────
+  if (selected && selected.estado === 'problema') {
+    const o = selected
+    return (
+      <div className="max-w-sm mx-auto space-y-3">
+        <div className="flex items-center justify-between">
+          <button onClick={() => setSelectedId(null)}
+            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
+            <ChevronLeft className="w-4 h-4" /> Órdenes
+          </button>
+          <span className="text-sm font-bold text-zinc-500">{o.folio}</span>
+          <div className="w-20" />
+        </div>
+
+        <div className="bg-white rounded-xl border border-red-200 overflow-hidden">
+          <div className="h-1 bg-red-400" />
+          <div className="px-4 pt-4 pb-3 border-b border-zinc-100">
+            <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
+            <p className="text-sm text-zinc-400 mt-0.5">
+              {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
+            </p>
+            <p className="text-xs text-zinc-400 mt-1">{o.sucursal} · {o.laboratorio}</p>
+          </div>
+          <div className="px-4 py-4">
+            <div className="flex items-center gap-2 bg-red-50 text-red-700 rounded-lg px-3 py-2.5 text-sm font-medium">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              Lente llegó con problema
+            </div>
+            {o.motivoProblema && (
+              <p className="text-xs text-zinc-500 mt-2 px-1"><b>Motivo:</b> {o.motivoProblema}</p>
+            )}
+            <p className="text-xs text-zinc-400 mt-3">Recoge el lente de la óptica y regresa al laboratorio para reposición.</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            onUpdate(o.id, { archivado: true })
+            setSelectedId(null)
+          }}
+          className="w-full flex items-center justify-center gap-2 py-3.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors"
+        >
+          <ArrowRight className="w-4 h-4" /> Ya lo recogí y lo llevé al lab
+        </button>
+      </div>
+    )
+  }
 
   // ── Vista "Llevar al lab" — órdenes recibido ──────────────
   if (selected && selected.estado === 'recibido') {
@@ -877,6 +949,40 @@ function VistaRepartidor({ ordenes, onUpdate }: {
         </div>
       )}
 
+      {/* Regresar al lab (problema) */}
+      {problemaList.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-red-500 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+            Regresar al lab · {problemaList.length}
+          </p>
+          <div className="bg-white rounded-xl border border-red-100 overflow-hidden divide-y divide-zinc-100">
+            {problemaList.map(o => (
+              <button key={o.id} onClick={() => openOrder(o.id)}
+                className="w-full flex items-stretch hover:bg-red-50 transition-colors text-left">
+                <div className="flex items-center pl-4 pr-3">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-red-400" />
+                </div>
+                <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-100">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-xs font-bold text-zinc-400">{o.folio}</span>
+                    <span className="text-xs font-semibold text-red-500">Regresar al lab →</span>
+                  </div>
+                  <p className="text-sm font-semibold text-zinc-800 leading-tight">{o.paciente}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-zinc-400">{o.sucursal}</span>
+                    {o.laboratorio && <span className="text-xs text-violet-600">· {o.laboratorio}</span>}
+                    {o.motivoProblema && (
+                      <span className="text-xs text-red-400 truncate">· {o.motivoProblema}</span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Sin pagar */}
       {sinPagarCount > 0 && (
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
@@ -894,16 +1000,18 @@ function VistaRepartidor({ ordenes, onUpdate }: {
 // ─────────────────────────────────────────
 // Vista simplificada para vendedor
 // ─────────────────────────────────────────
-function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate }: {
+function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema }: {
   ordenes: OrdenLab[]
   sucursal: string
   onPrint: (o: OrdenLab) => void
   onUpdate: (id: number, changes: Partial<OrdenLab>) => void
+  onProblema: (original: OrdenLab, motivo: string) => void
 }) {
   const pendientes = ordenes
     .filter(o =>
       (sucursal === 'Todas' || o.sucursal === sucursal) &&
-      o.estado !== 'entregado'
+      o.estado !== 'entregado' &&
+      !o.archivado
     )
     .sort((a, b) => b.fechaIngreso.localeCompare(a.fechaIngreso)) // más recientes primero
 
@@ -913,29 +1021,45 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate }: {
   const problemas = pendientes.filter(o => o.estado === 'problema')
 
   const EntregaCard = ({ o }: { o: OrdenLab }) => {
-    const cfg = ESTADO_CONFIG[o.estado]
+    const [showProblema, setShowProblema] = useState(false)
+    const [motivoInput, setMotivoInput]   = useState('')
+
+    const cfg = ESTADO_CONFIG[o.estado] ?? ESTADO_CONFIG['recibido']
     const Icon = cfg.icon
     const dr = diasRestantes(o.fechaPromesa)
     const vencida = dr !== null && dr < 0
 
+    const borderColor =
+      o.estado === 'listo'    ? 'border-emerald-200' :
+      o.estado === 'problema' ? 'border-red-200' :
+      o.esGarantia            ? 'border-purple-200' :
+      vencida                 ? 'border-amber-200' : 'border-zinc-100'
+
     return (
-      <div className={`bg-white rounded-lg border shadow-sm overflow-hidden ${
-        o.estado === 'listo' ? 'border-emerald-200' :
-        o.estado === 'problema' ? 'border-red-200' :
-        vencida ? 'border-amber-200' : 'border-zinc-100'
-      }`}>
-        {/* Banda de color según estado */}
-        {o.estado === 'listo' && <div className="h-1 bg-emerald-400" />}
+      <div className={`bg-white rounded-lg border shadow-sm overflow-hidden ${borderColor}`}>
+        {/* Banda de color */}
+        {o.estado === 'listo'    && <div className="h-1 bg-emerald-400" />}
         {o.estado === 'problema' && <div className="h-1 bg-red-400" />}
-        {vencida && o.estado !== 'listo' && <div className="h-1 bg-amber-400" />}
+        {o.esGarantia && o.estado !== 'problema' && <div className="h-1 bg-purple-400" />}
+        {vencida && !['listo','problema'].includes(o.estado) && !o.esGarantia && <div className="h-1 bg-amber-400" />}
 
         <div className="p-4 space-y-3">
           {/* Header */}
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="text-sm font-bold text-zinc-800">{o.paciente}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-sm font-bold text-zinc-800">{o.paciente}</p>
+                {o.esGarantia && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded uppercase tracking-wide">Garantía</span>
+                )}
+              </div>
               <p className="text-xs text-zinc-400 mt-0.5">{o.telefono} · {o.folio}</p>
-              {o.folioVenta && (
+              {o.folioOrigen && (
+                <p className="text-xs text-purple-400 flex items-center gap-1 mt-0.5">
+                  <Link2 className="w-2.5 h-2.5" /> Repone {o.folioOrigen}
+                </p>
+              )}
+              {o.folioVenta && !o.folioOrigen && (
                 <p className="text-xs text-zinc-400 flex items-center gap-1 mt-0.5">
                   <Link2 className="w-2.5 h-2.5" /> {o.folioVenta}
                 </p>
@@ -954,57 +1078,116 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate }: {
             </span>
             <span className={`${vencida ? 'text-red-500 font-semibold' : dr === 0 ? 'text-amber-500 font-semibold' : dr !== null && dr <= 2 ? 'text-amber-500' : 'text-zinc-400'}`}>
               {dr === null ? '' : vencida ? `Venció hace ${Math.abs(dr)}d` : dr === 0 ? 'Hoy' : `${dr} días`}
-              {' · '}{o.fechaPromesa}
+              {o.fechaPromesa ? ` · ${o.fechaPromesa}` : ''}
             </span>
           </div>
 
-          {/* Notas si hay problema */}
-          {o.estado === 'problema' && o.notas && (
+          {/* Motivo problema (garantías y problemas) */}
+          {o.motivoProblema && (
             <div className="flex items-start gap-2 bg-red-50 rounded px-3 py-2 text-xs text-red-700">
               <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5 text-red-500" />
-              {o.notas}
+              {o.motivoProblema}
             </div>
           )}
 
-          {/* Pipeline de estado */}
-          <div className="flex items-center gap-0 pt-1 border-t border-zinc-100">
-            {[
-              { label: 'Pendiente', done: true },
-              { label: 'En lab',    done: ['en_laboratorio','en_camino','en_sucursal','listo','entregado'].includes(o.estado) },
-              { label: 'Listo',     done: ['listo','entregado'].includes(o.estado) },
-              { label: 'Entregado', done: o.estado === 'entregado' },
-            ].map((step, i) => (
-              <React.Fragment key={step.label}>
-                {i > 0 && (
-                  <div className={`flex-1 h-0.5 mb-3 ${step.done ? 'bg-emerald-400' : 'bg-zinc-200'}`} />
-                )}
-                <div className="flex flex-col items-center gap-0.5">
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-                    step.done ? 'bg-emerald-500' : 'bg-zinc-200'
-                  }`}>
-                    {step.done && (
-                      <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" fill="none" stroke="white" strokeWidth="1.8">
-                        <polyline points="1.5,5 4,7.5 8.5,2.5"/>
-                      </svg>
-                    )}
-                  </div>
-                  <span className={`text-[10px] leading-tight text-center ${step.done ? 'text-emerald-600' : 'text-zinc-400'}`}>
-                    {step.label}
-                  </span>
-                </div>
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* Acción principal según estado */}
-          {o.estado === 'en_sucursal' && (
-            <button
-              onClick={() => onUpdate(o.id, { estado: 'listo' })}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" /> Lente verificado — marcar listo
-            </button>
+          {/* Orden problema: esperando a Sergio */}
+          {o.estado === 'problema' && (
+            <div className="flex items-center gap-2 bg-zinc-50 rounded px-3 py-2 text-xs text-zinc-500">
+              <Truck className="w-3 h-3 flex-shrink-0 text-zinc-400" />
+              Esperando a que Sergio recoja el lente
+            </div>
           )}
+
+          {/* Pipeline de estado (no mostrar en problema) */}
+          {o.estado !== 'problema' && (
+            <div className="flex items-center gap-0 pt-1 border-t border-zinc-100">
+              {[
+                { label: 'Pendiente', done: true },
+                { label: 'En lab',    done: ['en_laboratorio','en_camino','en_sucursal','listo','entregado'].includes(o.estado) },
+                { label: 'Listo',     done: ['listo','entregado'].includes(o.estado) },
+                { label: 'Entregado', done: o.estado === 'entregado' },
+              ].map((step, i) => (
+                <React.Fragment key={step.label}>
+                  {i > 0 && (
+                    <div className={`flex-1 h-0.5 mb-3 ${step.done ? 'bg-emerald-400' : 'bg-zinc-200'}`} />
+                  )}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                      step.done ? 'bg-emerald-500' : 'bg-zinc-200'
+                    }`}>
+                      {step.done && (
+                        <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" fill="none" stroke="white" strokeWidth="1.8">
+                          <polyline points="1.5,5 4,7.5 8.5,2.5"/>
+                        </svg>
+                      )}
+                    </div>
+                    <span className={`text-[10px] leading-tight text-center ${step.done ? 'text-emerald-600' : 'text-zinc-400'}`}>
+                      {step.label}
+                    </span>
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+
+          {/* Acciones según estado */}
+          {o.estado === 'en_sucursal' && !showProblema && (
+            <div className="space-y-2">
+              <button
+                onClick={() => onUpdate(o.id, { estado: 'listo' })}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" /> Lente verificado — marcar listo
+              </button>
+              <button
+                onClick={() => setShowProblema(true)}
+                className="w-full flex items-center justify-center gap-2 py-2 border border-red-200 text-red-600 text-xs font-semibold rounded-lg hover:bg-red-50 transition-colors"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" /> Hay un problema con el lente
+              </button>
+            </div>
+          )}
+
+          {/* Input de motivo problema */}
+          {o.estado === 'en_sucursal' && showProblema && (
+            <div className="space-y-2 border border-red-200 rounded-lg p-3 bg-red-50">
+              <p className="text-xs font-semibold text-red-700">¿Cuál es el problema?</p>
+              <textarea
+                value={motivoInput}
+                onChange={e => setMotivoInput(e.target.value)}
+                rows={2}
+                placeholder="Ej: tinte llegó incorrecto, graduación muy diferente…"
+                className="w-full border border-red-200 rounded px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-red-400 resize-none"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowProblema(false); setMotivoInput('') }}
+                  className="flex-1 py-1.5 text-xs font-semibold text-zinc-500 border border-zinc-200 rounded hover:bg-zinc-100 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={!motivoInput.trim()}
+                  onClick={() => {
+                    if (motivoInput.trim()) {
+                      onProblema(o, motivoInput.trim())
+                      setShowProblema(false)
+                      setMotivoInput('')
+                    }
+                  }}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${
+                    motivoInput.trim()
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+                  }`}
+                >
+                  Confirmar problema
+                </button>
+              </div>
+            </div>
+          )}
+
           {o.estado === 'listo' && (
             <button
               onClick={() => onUpdate(o.id, { estado: 'entregado', fechaEntrega: new Date().toISOString().split('T')[0] })}
@@ -1020,7 +1203,7 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate }: {
               onClick={() => onPrint(o)}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors"
             >
-              <Printer className="w-3.5 h-3.5" /> Imprimir orden
+              <Printer className="w-3.5 h-3.5" /> {o.esGarantia ? 'Imprimir etiqueta garantía' : 'Imprimir orden'}
             </button>
           </div>
         </div>
@@ -1154,6 +1337,10 @@ function rowToOrden(r: Record<string, unknown>, idx: number): OrdenLab {
     verificado: (r.verificado as boolean) ?? false,
     notasVerificacion: (r.notas_verificacion as string) ?? '',
     motivoRetraso: (r.motivo_retraso as string) ?? '',
+    folioOrigen:    (r.folio_origen as string) ?? '',
+    esGarantia:     (r.es_garantia as boolean) ?? false,
+    motivoProblema: (r.motivo_problema as string) ?? '',
+    archivado:      (r.archivado as boolean) ?? false,
   }
 }
 
@@ -1226,6 +1413,8 @@ export default function LaboratorioPage() {
     if (changes.verificado         !== undefined) dbChanges.verificado           = changes.verificado
     if (changes.notasVerificacion  !== undefined) dbChanges.notas_verificacion   = changes.notasVerificacion
     if (changes.motivoRetraso      !== undefined) dbChanges.motivo_retraso       = changes.motivoRetraso
+    if (changes.archivado          !== undefined) dbChanges.archivado            = changes.archivado
+    if (changes.motivoProblema     !== undefined) dbChanges.motivo_problema      = changes.motivoProblema
     await supabase.from('ordenes_lab').update(dbChanges).eq('id', supabaseId)
   }, [])
 
@@ -1394,6 +1583,105 @@ export default function LaboratorioPage() {
               if (orden?.supabaseId) updateEnSupabase(orden.supabaseId, changes)
               setOrdenes(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o))
             }
+          }}
+          onProblema={async (original, motivo) => {
+            // 1. Marcar original como problema
+            const hoy = new Date().toISOString().split('T')[0]
+            setOrdenes(prev => prev.map(o => o.id === original.id
+              ? { ...o, estado: 'problema', motivoProblema: motivo }
+              : o
+            ))
+            if (original.supabaseId) {
+              await updateEnSupabase(original.supabaseId, { estado: 'problema', motivoProblema: motivo })
+              await logHistorial(original.supabaseId, {
+                tipo: 'estado',
+                estadoAntes: original.estado,
+                estadoDespues: 'problema',
+                notas: motivo,
+                sucursal: original.sucursal,
+              })
+            }
+
+            // 2. Crear nueva orden de garantía en Supabase
+            const supabase = createClient()
+            const { data: ultimoL } = await supabase
+              .from('ordenes_lab').select('folio').ilike('folio', 'L-%')
+              .order('folio', { ascending: false }).limit(1)
+            const nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
+            const folioNuevo = `L-${String(nL).padStart(4, '0')}`
+
+            const { data: inserted } = await supabase.from('ordenes_lab').insert({
+              folio:               folioNuevo,
+              folio_venta:         original.folioVenta,
+              paciente:            original.paciente,
+              telefono:            original.telefono,
+              sucursal:            original.sucursal,
+              tipo_mica:           original.tipoMica,
+              armazon:             original.armazon,
+              descripcion_armazon: original.descripcionArmazon,
+              od:                  original.od,
+              oi:                  original.oi,
+              add_graduacion:      original.add,
+              dp:                  original.dp,
+              altura:              original.altura,
+              tratamiento:         original.tratamiento,
+              color_tratamiento:   original.colorTratamiento,
+              urgente:             original.urgente,
+              fecha_ingreso:       hoy,
+              fecha_promesa:       '',
+              estado:              'recibido',
+              costo_lab:           0,
+              precio_cliente:      original.precioCliente,
+              anticipo:            original.anticipo,
+              notas:               '',
+              folio_origen:        original.folio,
+              es_garantia:         true,
+              motivo_problema:     motivo,
+            }).select('id').single()
+
+            // 3. Agregar nueva orden al estado local
+            const nuevaOrden: OrdenLab = {
+              id: Date.now(),
+              folio: folioNuevo,
+              supabaseId: inserted?.id ?? '',
+              folioVenta: original.folioVenta,
+              paciente: original.paciente,
+              telefono: original.telefono,
+              sucursal: original.sucursal,
+              laboratorio: '',
+              tipoMica: original.tipoMica,
+              armazon: original.armazon,
+              descripcionArmazon: original.descripcionArmazon,
+              od: original.od,
+              oi: original.oi,
+              add: original.add,
+              dp: original.dp,
+              altura: original.altura,
+              tratamiento: original.tratamiento,
+              colorTratamiento: original.colorTratamiento,
+              urgente: original.urgente,
+              fechaIngreso: hoy,
+              fechaPromesa: '',
+              fechaEntrega: '',
+              fechaEnvioLab: '',
+              fechaRecogidaLab: '',
+              pagadoLab: false,
+              fechaPagoLab: '',
+              metodoPagoLab: '',
+              estado: 'recibido',
+              costoLab: 0,
+              precioCliente: original.precioCliente,
+              anticipo: original.anticipo,
+              notas: '',
+              verificado: false,
+              notasVerificacion: '',
+              motivoRetraso: '',
+              folioOrigen: original.folio,
+              esGarantia: true,
+              motivoProblema: motivo,
+              archivado: false,
+            }
+            setOrdenes(prev => [nuevaOrden, ...prev])
           }}
         />
         {printModal && <PrintModal orden={printModal} onClose={() => setPrintModal(null)} />}
