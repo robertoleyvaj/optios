@@ -633,7 +633,7 @@ export default function NuevaConsultaPage() {
     setGuardando(true)
     try {
       const supabase = createClient()
-      await supabase.from('recetas').insert({
+      const { error } = await supabase.from('recetas').insert({
         paciente_id:   pId,
         fecha:         new Date().toISOString().split('T')[0],
         od_esfera:     rxOd.esfera    || null,
@@ -647,9 +647,11 @@ export default function NuevaConsultaPage() {
         dp_od:         rxDpOd         || null,
         dp_oi:         rxDpOi         || null,
       })
-      router.push('/dashboard/expedientes')
+      if (error) { alert('Error al guardar receta: ' + error.message); return }
+      const nombre = encodeURIComponent(`${pNombre} ${pApellido}`.trim())
+      router.push(`/dashboard/ventas/nueva?pacienteId=${pId}&nombre=${nombre}`)
     } catch (err) {
-      alert('Error al guardar: ' + (err instanceof Error ? err.message : String(err)))
+      alert('Error: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setGuardando(false)
     }
