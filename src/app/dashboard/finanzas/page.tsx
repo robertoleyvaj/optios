@@ -1,470 +1,487 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import RequireRol from '@/components/RequireRol'
 import {
-  TrendingUp, TrendingDown, DollarSign, CreditCard,
-  Plus, Search, ChevronDown, Filter, X, Save,
-  Banknote, Building2, ArrowUpRight, ArrowDownRight,
-  BarChart2,
+  TrendingUp, TrendingDown, DollarSign, FlaskConical,
+  Plus, X, Save, ChevronDown, Trash2,
 } from 'lucide-react'
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, BarChart, Bar, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 
-// ─────────────────────────────────────────
+// ─────────────────────────────────────────────
 // Tipos
-// ─────────────────────────────────────────
-type TipoMovimiento = 'ingreso' | 'gasto'
-type Movimiento = {
-  id: number
-  tipo: TipoMovimiento
+// ─────────────────────────────────────────────
+type Periodo = 'semana' | 'mes' | 'trimestre' | 'anio' | 'personalizado'
+
+type Gasto = {
+  id: string
+  fecha: string
   concepto: string
   categoria: string
-  sucursal: string
-  metodo: string
   monto: number
-  fecha: string
+  sucursal: string
   notas: string
 }
 
-// ─────────────────────────────────────────
+// ─────────────────────────────────────────────
 // Constantes
-// ─────────────────────────────────────────
-const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
-
-const CATEGORIAS_INGRESO = ['Venta de productos', 'Servicios ópticos', 'Lentes de contacto', 'Anticipos', 'Otros ingresos']
-const CATEGORIAS_GASTO   = ['Renta', 'Nómina', 'Laboratorio', 'Compra de mercancía', 'Servicios (luz, agua, internet)', 'Publicidad', 'Mantenimiento', 'Otros gastos']
-
-const METODOS_PAGO = ['Efectivo', 'Tarjeta débito', 'Tarjeta crédito', 'Transferencia', 'Cheque']
-
-const COMISION_DEBITO  = 0.015
-const COMISION_CREDITO = 0.029
-
-// ─────────────────────────────────────────
-// Mock data — mes actual
-// ─────────────────────────────────────────
-const dias = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0] }
-
-const MOVIMIENTOS_MOCK: Movimiento[] = [
-  { id: 1,  tipo: 'ingreso', concepto: 'Venta V-0041 — María González',  categoria: 'Venta de productos',    sucursal: 'Baja Visión',    metodo: 'Tarjeta crédito',  monto: 4800,  fecha: dias(-1), notas: '' },
-  { id: 2,  tipo: 'ingreso', concepto: 'Venta V-0040 — Carlos Ruiz',     categoria: 'Lentes de contacto',    sucursal: '5 de Mayo',      metodo: 'Efectivo',         monto: 1200,  fecha: dias(-1), notas: '' },
-  { id: 3,  tipo: 'ingreso', concepto: 'Venta V-0039 — Ana López',       categoria: 'Venta de productos',    sucursal: 'Plaza Laureles', metodo: 'Tarjeta débito',   monto: 6200,  fecha: dias(-1), notas: '' },
-  { id: 4,  tipo: 'gasto',   concepto: 'Pago laboratorio — Óptika Lab',  categoria: 'Laboratorio',           sucursal: '5 de Mayo',      metodo: 'Transferencia',    monto: 3200,  fecha: dias(-2), notas: 'Órdenes LAB-0040, LAB-0036' },
-  { id: 5,  tipo: 'ingreso', concepto: 'Venta V-0038 — Pedro Sánchez',   categoria: 'Venta de productos',    sucursal: 'Baja Visión',    metodo: 'Efectivo',         monto: 2100,  fecha: dias(-2), notas: '' },
-  { id: 6,  tipo: 'gasto',   concepto: 'Renta junio — Baja Visión',      categoria: 'Renta',                 sucursal: 'Baja Visión',    metodo: 'Transferencia',    monto: 12000, fecha: dias(-5), notas: '' },
-  { id: 7,  tipo: 'gasto',   concepto: 'Renta junio — 5 de Mayo',        categoria: 'Renta',                 sucursal: '5 de Mayo',      metodo: 'Transferencia',    monto: 9500,  fecha: dias(-5), notas: '' },
-  { id: 8,  tipo: 'gasto',   concepto: 'Renta junio — Plaza Laureles',   categoria: 'Renta',                 sucursal: 'Plaza Laureles', metodo: 'Transferencia',    monto: 11000, fecha: dias(-5), notas: '' },
-  { id: 9,  tipo: 'ingreso', concepto: 'Venta V-0037 — Laura Martínez',  categoria: 'Lentes de contacto',    sucursal: 'Baja Visión',    metodo: 'Efectivo',         monto: 450,   fecha: dias(-3), notas: '' },
-  { id: 10, tipo: 'ingreso', concepto: 'Venta V-0036 — Jorge Herrera',   categoria: 'Venta de productos',    sucursal: 'Plaza Laureles', metodo: 'Tarjeta crédito',  monto: 7400,  fecha: dias(-3), notas: '' },
-  { id: 11, tipo: 'gasto',   concepto: 'Nómina quincenal',               categoria: 'Nómina',                sucursal: 'Baja Visión',    metodo: 'Transferencia',    monto: 18000, fecha: dias(-8), notas: 'Primera quincena junio' },
-  { id: 12, tipo: 'gasto',   concepto: 'Servicios — Luz y agua',         categoria: 'Servicios (luz, agua, internet)', sucursal: 'Baja Visión', metodo: 'Efectivo', monto: 1800, fecha: dias(-10), notas: '' },
-  { id: 13, tipo: 'ingreso', concepto: 'Venta V-0035 — Sofía Ramos',     categoria: 'Venta de productos',    sucursal: 'Baja Visión',    metodo: 'Tarjeta débito',   monto: 3200,  fecha: dias(-4), notas: '' },
-  { id: 14, tipo: 'ingreso', concepto: 'Anticipo — Miguel Torres',       categoria: 'Anticipos',             sucursal: 'Plaza Laureles', metodo: 'Efectivo',         monto: 1500,  fecha: dias(0),  notas: 'Anticipo orden LAB-0042' },
-  { id: 15, tipo: 'gasto',   concepto: 'Compra armazones — Proveedor',   categoria: 'Compra de mercancía',   sucursal: 'Baja Visión',    metodo: 'Transferencia',    monto: 8500,  fecha: dias(-7), notas: '25 unidades surtido mixto' },
+// ─────────────────────────────────────────────
+const PERIODOS: { key: Periodo; label: string }[] = [
+  { key: 'semana',        label: 'Esta semana'   },
+  { key: 'mes',           label: 'Este mes'      },
+  { key: 'trimestre',     label: 'Trimestre'     },
+  { key: 'anio',          label: 'Este año'      },
+  { key: 'personalizado', label: 'Personalizado' },
 ]
 
-// Datos para gráficas — semanas del mes
-const DATA_SEMANAL = [
-  { semana: 'Sem 1', ingresos: 42000, gastos: 28000 },
-  { semana: 'Sem 2', ingresos: 38500, gastos: 22000 },
-  { semana: 'Sem 3', ingresos: 51200, gastos: 31000 },
-  { semana: 'Sem 4', ingresos: 26150, gastos: 8000  },
-]
-
-// Datos por sucursal
-const DATA_SUCURSAL = [
-  { nombre: 'Baja Visión',    ingresos: 68400, gastos: 42000 },
-  { nombre: '5 de Mayo',      ingresos: 44200, gastos: 29500 },
-  { nombre: 'Plaza Laureles', ingresos: 45250, gastos: 28000 },
-]
-
-const formVacio = (): Omit<Movimiento, 'id'> => ({
-  tipo: 'gasto', concepto: '', categoria: CATEGORIAS_GASTO[0],
-  sucursal: 'Baja Visión', metodo: 'Efectivo',
-  monto: 0, fecha: dias(0), notas: '',
-})
-
-function comisionBancaria(monto: number, metodo: string) {
-  if (metodo === 'Tarjeta débito')  return monto * COMISION_DEBITO
-  if (metodo === 'Tarjeta crédito') return monto * COMISION_CREDITO
-  return 0
+const CATEGORIAS_GASTO = ['renta', 'nomina', 'comisiones', 'servicios', 'compras', 'otros']
+const CATEGORIAS_LABEL: Record<string, string> = {
+  renta:      'Renta',
+  nomina:     'Nómina',
+  comisiones: 'Comisiones',
+  servicios:  'Servicios',
+  compras:    'Compras',
+  otros:      'Otros',
 }
 
-// ─────────────────────────────────────────
-// Page
-// ─────────────────────────────────────────
-function FinanzasPage() {
-  const [movimientos, setMovimientos] = useState<Movimiento[]>(MOVIMIENTOS_MOCK)
-  const [busqueda, setBusqueda] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState<'todos' | TipoMovimiento>('todos')
-  const [filtroSucursal, setFiltroSucursal] = useState('Todas')
-  const [modal, setModal] = useState(false)
-  const [form, setForm] = useState<Omit<Movimiento, 'id'>>(formVacio())
-  const [graficaVista, setGraficaVista] = useState<'tendencia' | 'sucursal'>('tendencia')
+const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles', 'General']
 
-  const filtrados = movimientos.filter(m => {
-    const q = busqueda.toLowerCase()
-    const matchQ = m.concepto.toLowerCase().includes(q) || m.categoria.toLowerCase().includes(q)
-    const matchT = filtroTipo === 'todos' || m.tipo === filtroTipo
-    const matchS = filtroSucursal === 'Todas' || m.sucursal === filtroSucursal
-    return matchQ && matchT && matchS
+// ─────────────────────────────────────────────
+// Utilidades
+// ─────────────────────────────────────────────
+function getDateRange(periodo: Periodo, desde = '', hasta = '') {
+  const hoy = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const fmt = (d: Date)   => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+  const fin = fmt(hoy)
+
+  if (periodo === 'personalizado') return { inicio: desde || fin, fin: hasta || fin }
+  if (periodo === 'semana') {
+    const d = new Date(hoy); const dia = hoy.getDay() || 7
+    d.setDate(hoy.getDate() - dia + 1); return { inicio: fmt(d), fin }
+  }
+  if (periodo === 'mes')       return { inicio: `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-01`, fin }
+  if (periodo === 'trimestre') {
+    const q = Math.floor(hoy.getMonth() / 3)
+    return { inicio: `${hoy.getFullYear()}-${pad(q*3+1)}-01`, fin }
+  }
+  return { inicio: `${hoy.getFullYear()}-01-01`, fin }
+}
+
+const $$ = (n: number) =>
+  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n)
+
+const hoy = () => new Date().toISOString().split('T')[0]
+
+// ─────────────────────────────────────────────
+// Sub-componentes
+// ─────────────────────────────────────────────
+function ResumenRow({ label, value, bold, color, indent }: {
+  label: string; value: number; bold?: boolean; color?: string; indent?: boolean
+}) {
+  const textColor = color || (bold ? 'text-zinc-900' : 'text-zinc-600')
+  return (
+    <div className={`flex justify-between items-center py-2 ${indent ? 'pl-4' : ''} ${bold ? 'border-t border-zinc-200 mt-1 pt-3' : ''}`}>
+      <span className={`text-sm ${bold ? 'font-bold' : 'font-normal'} ${textColor}`}>{label}</span>
+      <span className={`text-sm font-semibold ${textColor}`}>{$$(value)}</span>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Página
+// ─────────────────────────────────────────────
+function FinanzasPage() {
+  const [periodo,    setPeriodo]    = useState<Periodo>('mes')
+  const [desde,      setDesde]      = useState('')
+  const [hasta,      setHasta]      = useState('')
+  const [sucursal,   setSucursal]   = useState('Todas')
+
+  // Datos
+  const [ingresos,   setIngresos]   = useState(0)
+  const [costoLab,   setCostoLab]   = useState(0)
+  const [gastos,     setGastos]     = useState<Gasto[]>([])
+  const [porLab,     setPorLab]     = useState<{ nombre: string; total: number; count: number }[]>([])
+  const [cargando,   setCargando]   = useState(true)
+
+  // Modal
+  const [modal,       setModal]       = useState(false)
+  const [guardando,   setGuardando]   = useState(false)
+  const [formGasto,   setFormGasto]   = useState({
+    fecha: hoy(), concepto: '', categoria: 'renta',
+    monto: '', sucursal: 'General', notas: '',
   })
 
-  const totalIngresos   = movimientos.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
-  const totalGastos     = movimientos.filter(m => m.tipo === 'gasto').reduce((s, m) => s + m.monto, 0)
-  const utilidad        = totalIngresos - totalGastos
-  const comisiones      = movimientos
-    .filter(m => m.tipo === 'ingreso')
-    .reduce((s, m) => s + comisionBancaria(m.monto, m.metodo), 0)
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    const { inicio, fin } = getDateRange(periodo, desde, hasta)
+    const supabase = createClient()
 
-  const guardar = () => {
-    setMovimientos(prev => [{ id: Date.now(), ...form }, ...prev])
+    // Ingresos: ventas del período
+    let qVentas = supabase
+      .from('ventas')
+      .select('total')
+      .eq('es_cotizacion', false)
+      .gte('created_at', `${inicio}T00:00:00`)
+      .lte('created_at', `${fin}T23:59:59`)
+    if (sucursal !== 'Todas') qVentas = qVentas.eq('sucursal', sucursal)
+    const { data: ventasData } = await qVentas
+    setIngresos((ventasData || []).reduce((s, v) => s + v.total, 0))
+
+    // Costo lab: ordenes pagadas en el período
+    let qLab = supabase
+      .from('ordenes_lab')
+      .select('costo_lab, laboratorio')
+      .eq('pagado_lab', true)
+      .gte('fecha_pago_lab', inicio)
+      .lte('fecha_pago_lab', fin)
+    if (sucursal !== 'Todas') qLab = qLab.eq('sucursal', sucursal)
+    const { data: labData } = await qLab
+    const labRows = labData || []
+    setCostoLab(labRows.reduce((s, r) => s + (r.costo_lab || 0), 0))
+
+    // Agrupado por laboratorio
+    const byLab: Record<string, { total: number; count: number }> = {}
+    labRows.forEach(r => {
+      const lab = r.laboratorio || 'Sin especificar'
+      byLab[lab] = byLab[lab] || { total: 0, count: 0 }
+      byLab[lab].total += r.costo_lab || 0
+      byLab[lab].count += 1
+    })
+    setPorLab(Object.entries(byLab)
+      .map(([nombre, { total, count }]) => ({ nombre, total, count }))
+      .sort((a, b) => b.total - a.total))
+
+    // Gastos manuales
+    let qGastos = supabase
+      .from('gastos')
+      .select('*')
+      .gte('fecha', inicio)
+      .lte('fecha', fin)
+      .order('fecha', { ascending: false })
+    if (sucursal !== 'Todas') qGastos = qGastos.eq('sucursal', sucursal)
+    const { data: gastosData } = await qGastos
+    setGastos(gastosData || [])
+
+    setCargando(false)
+  }, [periodo, desde, hasta, sucursal])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  // ── Cálculos ──────────────────────────────
+  const totalGastos    = gastos.reduce((s, g) => s + g.monto, 0)
+  const utilidadBruta  = ingresos - costoLab
+  const utilidadNeta   = utilidadBruta - totalGastos
+  const margen         = ingresos > 0 ? Math.round((utilidadNeta / ingresos) * 100) : 0
+
+  // Gastos por categoría para gráfica
+  const porCategoria = CATEGORIAS_GASTO.map(cat => ({
+    name: CATEGORIAS_LABEL[cat],
+    total: gastos.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0),
+  })).filter(c => c.total > 0)
+
+  // ── Guardar gasto ──
+  const guardarGasto = async () => {
+    if (!formGasto.concepto || !formGasto.monto) return
+    setGuardando(true)
+    const supabase = createClient()
+    const { data, error } = await supabase.from('gastos').insert({
+      fecha:     formGasto.fecha,
+      concepto:  formGasto.concepto,
+      categoria: formGasto.categoria,
+      monto:     parseFloat(formGasto.monto),
+      sucursal:  formGasto.sucursal,
+      notas:     formGasto.notas || null,
+    }).select().single()
+
+    if (error) { alert('Error: ' + error.message); setGuardando(false); return }
+    setGastos(prev => [data, ...prev])
     setModal(false)
+    setFormGasto({ fecha: hoy(), concepto: '', categoria: 'renta', monto: '', sucursal: 'General', notas: '' })
+    setGuardando(false)
   }
 
-  const f = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
-    setForm(prev => ({ ...prev, [k]: v }))
+  // ── Eliminar gasto ──
+  const eliminarGasto = async (id: string) => {
+    if (!confirm('¿Eliminar este gasto?')) return
+    const supabase = createClient()
+    await supabase.from('gastos').delete().eq('id', id)
+    setGastos(prev => prev.filter(g => g.id !== id))
+  }
 
-  const cats = form.tipo === 'ingreso' ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO
+  const { inicio, fin } = getDateRange(periodo, desde, hasta)
 
   return (
     <div className="space-y-5">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Finanzas</h1>
-          <p className="text-sm text-zinc-400 mt-0.5">Ingresos, gastos y flujo de caja — Junio 2026</p>
+          <p className="text-sm text-zinc-400 mt-0.5">
+            {inicio === fin ? inicio : `${inicio} → ${fin}`}
+          </p>
         </div>
-        <button onClick={() => { setForm(formVacio()); setModal(true) }}
-          className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27] active:scale-[0.98] transition-all">
-          <Plus className="w-4 h-4" /> Registrar movimiento
-        </button>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          {
-            label: 'Ingresos del mes', value: totalIngresos, color: 'text-emerald-600',
-            bg: 'bg-emerald-50', icon: ArrowUpRight, trend: '+12% vs mayo',
-          },
-          {
-            label: 'Gastos del mes', value: totalGastos, color: 'text-red-500',
-            bg: 'bg-red-50', icon: ArrowDownRight, trend: '-3% vs mayo',
-          },
-          {
-            label: 'Utilidad neta', value: utilidad, color: utilidad >= 0 ? 'text-zinc-800' : 'text-red-600',
-            bg: 'bg-zinc-100', icon: DollarSign, trend: `Margen ${Math.round((utilidad / totalIngresos) * 100)}%`,
-          },
-          {
-            label: 'Comisiones bancarias', value: comisiones, color: 'text-amber-600',
-            bg: 'bg-amber-50', icon: CreditCard, trend: 'Débito 1.5% · Crédito 2.9%',
-          },
-        ].map(k => {
-          const Icon = k.icon
-          return (
-            <div key={k.label} className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-zinc-400">{k.label}</p>
-                <div className={`w-8 h-8 rounded ${k.bg} flex items-center justify-center`}>
-                  <Icon className={`w-4 h-4 ${k.color}`} />
-                </div>
-              </div>
-              <p className={`text-2xl font-bold mt-2 ${k.color}`}>
-                ${Math.abs(k.value).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </p>
-              <p className="text-xs text-zinc-400 mt-0.5">{k.trend}</p>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Gráficas */}
-      <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-sm font-bold text-zinc-700">Flujo del mes</h3>
-          <div className="flex items-center border border-zinc-200 rounded overflow-hidden">
-            {[
-              { key: 'tendencia', label: 'Por semana' },
-              { key: 'sucursal',  label: 'Por sucursal' },
-            ].map(v => (
-              <button key={v.key} onClick={() => setGraficaVista(v.key as typeof graficaVista)}
-                className={`px-4 py-2 text-xs font-medium transition-colors ${graficaVista === v.key ? 'bg-[#0B0E14] text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>
-                {v.label}
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Período */}
+          <div className="flex bg-zinc-100 rounded-lg p-1 gap-0.5">
+            {PERIODOS.map(p => (
+              <button key={p.key} onClick={() => setPeriodo(p.key)}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  periodo === p.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                }`}>
+                {p.label}
               </button>
             ))}
           </div>
-        </div>
-
-        {graficaVista === 'tendencia' ? (
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={DATA_SEMANAL} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gIngresos" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0D9488" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#0D9488" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gGastos" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#EF4444" stopOpacity={0.1} />
-                  <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="semana" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false}
-                tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, '']}
-                contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }} />
-              <Area type="monotone" dataKey="ingresos" name="Ingresos" stroke="#0D9488" strokeWidth={2} fill="url(#gIngresos)" />
-              <Area type="monotone" dataKey="gastos"   name="Gastos"   stroke="#EF4444" strokeWidth={2} fill="url(#gGastos)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={DATA_SUCURSAL} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-              <XAxis dataKey="nombre" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false}
-                tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, '']}
-                contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }} />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-              <Bar dataKey="ingresos" name="Ingresos" fill="#0D9488" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="gastos"   name="Gastos"   fill="#0B0E14" radius={[4, 4, 0, 0]} opacity={0.7} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* Desglose por método de pago */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { metodo: 'Efectivo',         icon: Banknote,  color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { metodo: 'Tarjeta débito',   icon: CreditCard, color: 'text-blue-600',   bg: 'bg-blue-50' },
-          { metodo: 'Tarjeta crédito',  icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50' },
-          { metodo: 'Transferencia',    icon: Building2,  color: 'text-zinc-600',  bg: 'bg-zinc-100' },
-        ].map(({ metodo, icon: Icon, color, bg }) => {
-          const total = movimientos.filter(m => m.tipo === 'ingreso' && m.metodo === metodo).reduce((s, m) => s + m.monto, 0)
-          const comision = comisionBancaria(total, metodo)
-          return (
-            <div key={metodo} className="bg-white rounded-lg px-4 py-4 border border-zinc-200/80 flex items-center gap-4">
-              <div className={`w-10 h-10 rounded ${bg} flex items-center justify-center flex-shrink-0`}>
-                <Icon className={`w-4 h-4 ${color}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-zinc-400">{metodo}</p>
-                <p className="text-base font-bold text-zinc-800">${total.toLocaleString('es-MX')}</p>
-                {comision > 0 && (
-                  <p className="text-xs text-amber-500">Comisión: ${comision.toLocaleString('es-MX', { maximumFractionDigits: 0 })}</p>
-                )}
-              </div>
+          {/* Sucursal */}
+          <select value={sucursal} onChange={e => setSucursal(e.target.value)}
+            className="border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white text-zinc-700 focus:outline-none">
+            {['Todas', 'Baja Visión', '5 de Mayo', 'Plaza Laureles'].map(s => <option key={s}>{s}</option>)}
+          </select>
+          {/* Rango personalizado */}
+          {periodo === 'personalizado' && (
+            <div className="flex items-center gap-1.5">
+              <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
+                className="border border-zinc-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none" />
+              <span className="text-zinc-400 text-xs">→</span>
+              <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
+                className="border border-zinc-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none" />
             </div>
-          )
-        })}
-      </div>
-
-      {/* Tabla de movimientos */}
-      <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-100">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
-            <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
-              placeholder="Buscar movimiento..." />
-          </div>
-          <div className="flex items-center border border-zinc-200 rounded overflow-hidden">
-            {[
-              { key: 'todos',    label: 'Todos' },
-              { key: 'ingreso',  label: 'Ingresos' },
-              { key: 'gasto',    label: 'Gastos' },
-            ].map(v => (
-              <button key={v.key} onClick={() => setFiltroTipo(v.key as typeof filtroTipo)}
-                className={`px-3 py-2 text-xs font-medium transition-colors ${filtroTipo === v.key ? 'bg-[#0B0E14] text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>
-                {v.label}
-              </button>
-            ))}
-          </div>
-          <div className="relative">
-            <select value={filtroSucursal} onChange={e => setFiltroSucursal(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded text-zinc-600 focus:outline-none">
-              {['Todas', ...SUCURSALES].map(s => <option key={s}>{s}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
-          </div>
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-zinc-400">
-            <Filter className="w-3.5 h-3.5" />
-            {filtrados.length} movimientos
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-100">
-                {['Fecha', 'Concepto', 'Categoría', 'Sucursal', 'Método', 'Monto'].map(h => (
-                  <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-50">
-              {filtrados.map(m => {
-                const comision = comisionBancaria(m.monto, m.metodo)
-                return (
-                  <tr key={m.id} className="hover:bg-zinc-50 transition-colors">
-                    <td className="px-5 py-3.5 text-xs text-zinc-400 whitespace-nowrap">{m.fecha}</td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${m.tipo === 'ingreso' ? 'bg-emerald-500' : 'bg-red-400'}`} />
-                        <span className="text-sm text-zinc-700 font-medium">{m.concepto}</span>
-                      </div>
-                      {m.notas && <p className="text-xs text-zinc-400 ml-3.5 mt-0.5">{m.notas}</p>}
-                    </td>
-                    <td className="px-5 py-3.5 text-xs text-zinc-500">{m.categoria}</td>
-                    <td className="px-5 py-3.5 text-xs text-zinc-500">{m.sucursal}</td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-xs text-zinc-500">{m.metodo}</span>
-                      {comision > 0 && (
-                        <p className="text-xs text-amber-500">-${comision.toFixed(0)}</p>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`text-sm font-bold ${m.tipo === 'ingreso' ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {m.tipo === 'ingreso' ? '+' : '-'}${m.monto.toLocaleString('es-MX')}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {filtrados.length === 0 && (
-            <div className="text-center py-16 text-zinc-400 text-sm">Sin movimientos con ese criterio</div>
           )}
-        </div>
-
-        {/* Totales del filtro */}
-        <div className="border-t border-zinc-100 px-5 py-3 flex items-center justify-between bg-zinc-50">
-          <span className="text-xs text-zinc-400">{filtrados.length} movimientos mostrados</span>
-          <div className="flex items-center gap-6 text-sm">
-            <span className="text-emerald-600 font-semibold">
-              +${filtrados.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0).toLocaleString('es-MX')}
-            </span>
-            <span className="text-red-500 font-semibold">
-              -${filtrados.filter(m => m.tipo === 'gasto').reduce((s, m) => s + m.monto, 0).toLocaleString('es-MX')}
-            </span>
-          </div>
+          {/* Agregar gasto */}
+          <button onClick={() => setModal(true)}
+            className="flex items-center gap-1.5 bg-[#0B0E14] text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#1A1D27]">
+            <Plus className="w-3.5 h-3.5" /> Registrar gasto
+          </button>
         </div>
       </div>
 
-      {/* ── MODAL NUEVO MOVIMIENTO ── */}
+      {cargando ? (
+        <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">Cargando…</div>
+      ) : (
+        <>
+          {/* KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Ingresos',        value: ingresos,      icon: TrendingUp,   color: 'text-teal-600',    bg: 'bg-teal-50'   },
+              { label: 'Costo laboratorio', value: costoLab,    icon: FlaskConical, color: 'text-violet-600',  bg: 'bg-violet-50' },
+              { label: 'Gastos operativos', value: totalGastos, icon: TrendingDown, color: 'text-red-500',     bg: 'bg-red-50'    },
+              { label: 'Utilidad neta',   value: utilidadNeta,  icon: DollarSign,   color: utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600', bg: utilidadNeta >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
+            ].map(k => {
+              const Icon = k.icon
+              return (
+                <div key={k.label} className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-zinc-400">{k.label}</p>
+                    <div className={`w-8 h-8 rounded ${k.bg} flex items-center justify-center`}>
+                      <Icon className={`w-4 h-4 ${k.color}`} />
+                    </div>
+                  </div>
+                  <p className={`text-2xl font-bold mt-2 ${k.color}`}>{$$(k.value)}</p>
+                  {k.label === 'Utilidad neta' && (
+                    <p className="text-xs text-zinc-400 mt-0.5">Margen {margen}%</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Estado de resultados + Por laboratorio */}
+          <div className="grid md:grid-cols-2 gap-5">
+
+            {/* Estado de resultados */}
+            <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
+              <h3 className="text-sm font-bold text-zinc-700 mb-3">Estado de resultados</h3>
+              <div className="divide-y divide-zinc-100">
+                <ResumenRow label="Ingresos por ventas"      value={ingresos} />
+                <ResumenRow label="− Costo de laboratorio"   value={-costoLab} indent color="text-violet-600" />
+                <ResumenRow label="Utilidad bruta"            value={utilidadBruta} bold color={utilidadBruta >= 0 ? 'text-zinc-900' : 'text-red-600'} />
+                {CATEGORIAS_GASTO.map(cat => {
+                  const total = gastos.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0)
+                  if (total === 0) return null
+                  return <ResumenRow key={cat} label={`− ${CATEGORIAS_LABEL[cat]}`} value={-total} indent color="text-red-500" />
+                })}
+                <ResumenRow label="Utilidad neta" value={utilidadNeta} bold color={utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600'} />
+              </div>
+            </div>
+
+            {/* Por laboratorio */}
+            <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
+              <h3 className="text-sm font-bold text-zinc-700 mb-3">Gasto por laboratorio</h3>
+              {porLab.length === 0 ? (
+                <p className="text-sm text-zinc-400 text-center py-8">Sin órdenes pagadas en este período</p>
+              ) : (
+                <>
+                  <div className="space-y-3 mb-4">
+                    {porLab.map(lab => {
+                      const pct = costoLab > 0 ? Math.round((lab.total / costoLab) * 100) : 0
+                      return (
+                        <div key={lab.nombre}>
+                          <div className="flex justify-between items-baseline mb-1">
+                            <span className="text-sm text-zinc-700 truncate max-w-[60%]">{lab.nombre}</span>
+                            <span className="text-xs text-zinc-400">{lab.count} órdenes · {$$(lab.total)}</span>
+                          </div>
+                          <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.max(pct, 2)}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {porLab.length > 1 && (
+                    <ResponsiveContainer width="100%" height={120}>
+                      <BarChart data={porLab.map(l => ({ name: l.nombre.split(' ')[0], total: l.total }))}
+                        margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                        <Tooltip formatter={(v: unknown) => [$$(Number(v)), 'Costo']}
+                          contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                        <Bar dataKey="total" fill="#7C3AED" radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Gastos manuales */}
+          <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+              <h3 className="text-sm font-bold text-zinc-700">
+                Gastos registrados
+                <span className="ml-2 text-xs font-normal text-zinc-400">{gastos.length} registros</span>
+              </h3>
+              {gastos.length > 0 && (
+                <span className="text-sm font-semibold text-red-500">{$$(totalGastos)}</span>
+              )}
+            </div>
+
+            {gastos.length === 0 ? (
+              <div className="text-center py-12 text-zinc-400">
+                <p className="text-sm">Sin gastos registrados en este período</p>
+                <button onClick={() => setModal(true)}
+                  className="mt-3 text-xs text-teal-600 hover:underline font-medium">
+                  + Registrar primer gasto
+                </button>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-100">
+                    {['Fecha', 'Concepto', 'Categoría', 'Sucursal', 'Monto', ''].map(h => (
+                      <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50">
+                  {gastos.map(g => (
+                    <tr key={g.id} className="hover:bg-zinc-50 transition-colors group">
+                      <td className="px-5 py-3 text-xs text-zinc-400 whitespace-nowrap">{g.fecha}</td>
+                      <td className="px-5 py-3">
+                        <p className="text-sm text-zinc-700 font-medium">{g.concepto}</p>
+                        {g.notas && <p className="text-xs text-zinc-400 mt-0.5">{g.notas}</p>}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="text-xs bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full">
+                          {CATEGORIAS_LABEL[g.categoria] || g.categoria}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-xs text-zinc-500">{g.sucursal}</td>
+                      <td className="px-5 py-3 text-sm font-semibold text-red-500">−{$$(g.monto)}</td>
+                      <td className="px-5 py-3">
+                        <button onClick={() => eliminarGasto(g.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-300 hover:text-red-400">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── MODAL REGISTRAR GASTO ── */}
       {modal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
-              <h2 className="text-base font-bold text-zinc-800">Registrar movimiento</h2>
+              <h2 className="text-base font-bold text-zinc-800">Registrar gasto</h2>
               <button onClick={() => setModal(false)}><X className="w-5 h-5 text-zinc-400" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
 
-              {/* Tipo */}
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { v: 'ingreso', l: 'Ingreso', c: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-                    { v: 'gasto',   l: 'Gasto',   c: 'text-red-600 bg-red-50 border-red-200' },
-                  ].map(opt => (
-                    <button key={opt.v} onClick={() => { f('tipo', opt.v as TipoMovimiento); f('categoria', opt.v === 'ingreso' ? CATEGORIAS_INGRESO[0] : CATEGORIAS_GASTO[0]) }}
-                      className={`py-2.5 rounded text-sm font-bold border transition-all ${form.tipo === opt.v ? opt.c : 'border-zinc-200 text-zinc-400 hover:bg-zinc-50'}`}>
-                      {opt.l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Concepto *</label>
-                <input value={form.concepto} onChange={e => f('concepto', e.target.value)}
-                  className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                  placeholder="Descripción del movimiento" />
+                <input value={formGasto.concepto}
+                  onChange={e => setFormGasto(f => ({ ...f, concepto: e.target.value }))}
+                  placeholder="Ej. Renta julio Baja Visión"
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Categoría</label>
-                  <div className="relative">
-                    <select value={form.categoria} onChange={e => f('categoria', e.target.value)}
-                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
-                      {cats.map(c => <option key={c}>{c}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  </div>
+                  <select value={formGasto.categoria}
+                    onChange={e => setFormGasto(f => ({ ...f, categoria: e.target.value }))}
+                    className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none">
+                    {CATEGORIAS_GASTO.map(c => <option key={c} value={c}>{CATEGORIAS_LABEL[c]}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sucursal</label>
-                  <div className="relative">
-                    <select value={form.sucursal} onChange={e => f('sucursal', e.target.value)}
-                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
-                      {SUCURSALES.map(s => <option key={s}>{s}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  </div>
+                  <select value={formGasto.sucursal}
+                    onChange={e => setFormGasto(f => ({ ...f, sucursal: e.target.value }))}
+                    className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none">
+                    {SUCURSALES.map(s => <option key={s}>{s}</option>)}
+                  </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Método de pago</label>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Monto *</label>
                   <div className="relative">
-                    <select value={form.metodo} onChange={e => f('metodo', e.target.value)}
-                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
-                      {METODOS_PAGO.map(m => <option key={m}>{m}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
+                    <input type="number" value={formGasto.monto}
+                      onChange={e => setFormGasto(f => ({ ...f, monto: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-full border border-zinc-200 rounded-lg pl-7 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Fecha</label>
-                  <input type="date" value={form.fecha} onChange={e => f('fecha', e.target.value)}
-                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                  <input type="date" value={formGasto.fecha}
+                    onChange={e => setFormGasto(f => ({ ...f, fecha: e.target.value }))}
+                    className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none" />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Monto *</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -tranzinc-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
-                  <input type="number" value={form.monto || ''} onChange={e => f('monto', parseFloat(e.target.value) || 0)}
-                    className="w-full border border-zinc-200 rounded pl-7 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                    placeholder="0.00" />
-                </div>
-                {comisionBancaria(form.monto, form.metodo) > 0 && (
-                  <p className="text-xs text-amber-500 mt-1 flex items-center gap-1">
-                    <CreditCard className="w-3 h-3" />
-                    Comisión bancaria: ${comisionBancaria(form.monto, form.metodo).toFixed(2)}
-                    · Neto: ${(form.monto - comisionBancaria(form.monto, form.metodo)).toFixed(2)}
-                  </p>
-                )}
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Notas</label>
-                <textarea value={form.notas} onChange={e => f('notas', e.target.value)} rows={3}
-                  className="w-full border border-zinc-200 rounded px-3 py-3 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none placeholder:text-zinc-400"
-                  placeholder="Referencia, número de factura, observaciones..." />
+                <textarea value={formGasto.notas}
+                  onChange={e => setFormGasto(f => ({ ...f, notas: e.target.value }))}
+                  rows={2} placeholder="Referencia, observaciones..."
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none resize-none" />
               </div>
             </div>
             <div className="px-6 pb-5 flex gap-3">
               <button onClick={() => setModal(false)}
-                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded-lg text-sm font-semibold hover:bg-zinc-50">
                 Cancelar
               </button>
-              <button onClick={guardar} disabled={!form.concepto || !form.monto}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40">
-                <Save className="w-4 h-4" /> Guardar
+              <button onClick={guardarGasto}
+                disabled={!formGasto.concepto || !formGasto.monto || guardando}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded-lg text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40">
+                <Save className="w-4 h-4" />
+                {guardando ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
           </div>
