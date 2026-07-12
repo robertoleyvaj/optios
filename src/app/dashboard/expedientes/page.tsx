@@ -411,11 +411,12 @@ function ExpedientesContent() {
   // Consultas count del paciente seleccionado
   const [consultasCount, setConsultasCount] = useState(0)
 
-  // Abrir modal automáticamente si viene de ?nuevo=true
+  // Si viene de ?nuevo=true, redirigir al wizard en vez de abrir el modal
   // Pre-llenar búsqueda si viene de ?search=... (desde el buscador del header)
   useEffect(() => {
     if (searchParams.get('nuevo') === 'true') {
-      setModalPaciente(true)
+      router.replace('/dashboard/expedientes/nuevo')
+      return
     }
     const q = searchParams.get('search')
     if (q) setBusqueda(q)
