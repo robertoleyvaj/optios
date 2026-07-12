@@ -894,10 +894,11 @@ function VistaRepartidor({ ordenes, onUpdate }: {
 // ─────────────────────────────────────────
 // Vista simplificada para vendedor
 // ─────────────────────────────────────────
-function VistaVendedor({ ordenes, sucursal, onPrint }: {
+function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate }: {
   ordenes: OrdenLab[]
   sucursal: string
   onPrint: (o: OrdenLab) => void
+  onUpdate: (id: number, changes: Partial<OrdenLab>) => void
 }) {
   const pendientes = ordenes
     .filter(o =>
@@ -968,10 +969,10 @@ function VistaVendedor({ ordenes, sucursal, onPrint }: {
           {/* Pipeline de estado */}
           <div className="flex items-center gap-0 pt-1 border-t border-zinc-100">
             {[
-              { label: 'Pendiente',  done: true },
-              { label: 'En lab',     done: ['en_laboratorio','listo','en_camino','entregado'].includes(o.estado) },
-              { label: 'Listo',      done: ['listo','en_camino','entregado'].includes(o.estado) },
-              { label: 'Entregado',  done: ['en_camino','entregado'].includes(o.estado) },
+              { label: 'Pendiente', done: true },
+              { label: 'En lab',    done: ['en_laboratorio','en_camino','en_sucursal','listo','entregado'].includes(o.estado) },
+              { label: 'Listo',     done: ['listo','entregado'].includes(o.estado) },
+              { label: 'Entregado', done: o.estado === 'entregado' },
             ].map((step, i) => (
               <React.Fragment key={step.label}>
                 {i > 0 && (
@@ -994,6 +995,24 @@ function VistaVendedor({ ordenes, sucursal, onPrint }: {
               </React.Fragment>
             ))}
           </div>
+
+          {/* Acción principal según estado */}
+          {o.estado === 'en_sucursal' && (
+            <button
+              onClick={() => onUpdate(o.id, { estado: 'listo' })}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" /> Lente verificado — marcar listo
+            </button>
+          )}
+          {o.estado === 'listo' && (
+            <button
+              onClick={() => onUpdate(o.id, { estado: 'entregado', fechaEntrega: new Date().toISOString().split('T')[0] })}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-lg hover:bg-zinc-700 transition-colors"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" /> Entregado al paciente
+            </button>
+          )}
 
           {/* Imprimir */}
           <div className="flex items-center justify-end border-t border-zinc-100 pt-2">
@@ -1349,6 +1368,14 @@ export default function LaboratorioPage() {
           ordenes={ordenes}
           sucursal={demoUser?.sucursal ?? 'Todas'}
           onPrint={o => setPrintModal(o)}
+          onUpdate={(id, changes) => {
+            const orden = ordenes.find(o => o.id === id)
+            if (changes.estado) cambiarEstado(id, changes.estado)
+            else {
+              if (orden?.supabaseId) updateEnSupabase(orden.supabaseId, changes)
+              setOrdenes(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o))
+            }
+          }}
         />
         {printModal && <PrintModal orden={printModal} onClose={() => setPrintModal(null)} />}
       </>
