@@ -1008,12 +1008,19 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNue
   onProblema: (original: OrdenLab, motivo: string) => void
   onNuevaOrden: () => void
 }) {
+  const [busquedaLocal, setBusquedaLocal] = useState('')
+
   const pendientes = ordenes
-    .filter(o =>
-      (sucursal === 'Todas' || o.sucursal === sucursal) &&
-      o.estado !== 'entregado' &&
-      !o.archivado
-    )
+    .filter(o => {
+      const matchSucursal = sucursal === 'Todas' || o.sucursal === sucursal
+      const matchEstado   = o.estado !== 'entregado' && !o.archivado
+      const q = busquedaLocal.toLowerCase().trim()
+      const matchBusqueda = !q ||
+        o.paciente.toLowerCase().includes(q) ||
+        o.folio.toLowerCase().includes(q) ||
+        o.tipoMica.toLowerCase().includes(q)
+      return matchSucursal && matchEstado && matchBusqueda
+    })
     .sort((a, b) => b.fechaIngreso.localeCompare(a.fechaIngreso)) // más recientes primero
 
   const listos   = pendientes.filter(o => o.estado === 'listo')
@@ -1240,10 +1247,26 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNue
         </div>
       </div>
 
+      {/* Buscador local */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+        <input
+          value={busquedaLocal}
+          onChange={e => setBusquedaLocal(e.target.value)}
+          placeholder="Buscar paciente, folio o tipo de mica..."
+          className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-300/50 placeholder:text-zinc-400"
+        />
+        {busquedaLocal && (
+          <button onClick={() => setBusquedaLocal('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
       {pendientes.length === 0 ? (
         <div className="text-center py-16 text-zinc-400 text-sm">
           <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-zinc-200" />
-          Sin órdenes pendientes
+          {busquedaLocal ? `Sin resultados para "${busquedaLocal}"` : 'Sin órdenes pendientes'}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-5 items-start">
