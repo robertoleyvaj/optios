@@ -56,6 +56,22 @@ type OrdenLab = {
   precioCliente: number
   anticipo: number
   notas: string
+  // Rastreo extendido
+  verificado: boolean         // lente revisado al llegar a la óptica
+  notasVerificacion: string   // qué se revisó / problema encontrado
+  motivoRetraso: string       // por qué se retrasó (si aplica)
+}
+
+type HistorialItem = {
+  id: string
+  created_at: string
+  evento: 'estado' | 'contacto' | 'verificacion' | 'nota'
+  estado_antes?: string
+  estado_despues?: string
+  canal?: string
+  resultado?: string
+  notas?: string
+  registrado_por?: string
 }
 
 // ─────────────────────────────────────────
@@ -116,6 +132,7 @@ const formVacio = (sucursalDefault = 'Baja Visión'): Omit<OrdenLab, 'id' | 'fol
   fechaEnvioLab: '', fechaRecogidaLab: '',
   pagadoLab: false, fechaPagoLab: '', metodoPagoLab: '' as const,
   estado: 'recibido', costoLab: 0, precioCliente: 0, anticipo: 0, notas: '',
+  verificado: false, notasVerificacion: '', motivoRetraso: '',
 })
 
 function diasRestantes(fecha: string) {
@@ -1341,6 +1358,9 @@ function rowToOrden(r: Record<string, unknown>, idx: number): OrdenLab {
     precioCliente: Number(r.precio_cliente) ?? 0,
     anticipo: Number(r.anticipo) ?? 0,
     notas: (r.notas as string) ?? '',
+    verificado: (r.verificado as boolean) ?? false,
+    notasVerificacion: (r.notas_verificacion as string) ?? '',
+    motivoRetraso: (r.motivo_retraso as string) ?? '',
   }
 }
 
@@ -1355,6 +1375,12 @@ export default function LaboratorioPage() {
   const [form, setForm] = useState<Omit<OrdenLab, 'id' | 'folio'>>(formVacio())
   const [ventaVinculada, setVentaVinculada] = useState<VentaRef | null>(null)
   const [printModal, setPrintModal] = useState<OrdenLab | null>(null)
+  const [historial, setHistorial] = useState<HistorialItem[]>([])
+  const [contactModal, setContactModal] = useState<{
+    canal: 'llamada' | 'whatsapp' | 'presencial'
+    resultado: 'contesto' | 'no_contesto' | 'buzon' | 'enviado'
+    notas: string
+  } | null>(null)
 
   // Usuario activo — leído en useEffect para evitar hidratación SSR/cliente
   const [demoUser, setDemoUser] = useState<{ rol: string; sucursal: string; nombre: string } | null>(null)
@@ -1402,10 +1428,50 @@ export default function LaboratorioPage() {
     if (changes.notas            !== undefined) dbChanges.notas               = changes.notas
     if (changes.fechaPromesa     !== undefined) dbChanges.fecha_promesa       = changes.fechaPromesa
     if (changes.fechaEnvioLab    !== undefined) dbChanges.fecha_envio_lab     = changes.fechaEnvioLab
-    if (changes.fechaRecogidaLab !== undefined) dbChanges.fecha_recogida_lab  = changes.fechaRecogidaLab
-    if (changes.fechaEntrega     !== undefined) dbChanges.fecha_entrega       = changes.fechaEntrega
+    if (changes.fechaRecogidaLab   !== undefined) dbChanges.fecha_recogida_lab   = changes.fechaRecogidaLab
+    if (changes.fechaEntrega       !== undefined) dbChanges.fecha_entrega        = changes.fechaEntrega
+    if (changes.verificado         !== undefined) dbChanges.verificado           = changes.verificado
+    if (changes.notasVerificacion  !== undefined) dbChanges.notas_verificacion   = changes.notasVerificacion
+    if (changes.motivoRetraso      !== undefined) dbChanges.motivo_retraso       = changes.motivoRetraso
     await supabase.from('ordenes_lab').update(dbChanges).eq('id', supabaseId)
   }, [])
+
+  // ── Log automático de eventos en historial ──────────────────
+  const logHistorial = useCallback(async (
+    supabaseId: string,
+    evento: {
+      tipo: HistorialItem['evento']
+      estadoAntes?: string; estadoDespues?: string
+      canal?: string; resultado?: string
+      notas?: string; sucursal?: string
+    }
+  ) => {
+    if (!supabaseId) return
+    const supabase = createClient()
+    await supabase.from('ordenes_lab_historial').insert({
+      orden_id:       supabaseId,
+      evento:         evento.tipo,
+      estado_antes:   evento.estadoAntes,
+      estado_despues: evento.estadoDespues,
+      canal:          evento.canal,
+      resultado:      evento.resultado,
+      notas:          evento.notas,
+      registrado_por: demoUser?.nombre,
+      sucursal:       evento.sucursal,
+    })
+  }, [demoUser])
+
+  const fetchHistorial = useCallback(async (supabaseId: string) => {
+    if (!supabaseId) return
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('ordenes_lab_historial')
+      .select('*')
+      .eq('orden_id', supabaseId)
+      .order('created_at', { ascending: true })
+    if (data) setHistorial(data as HistorialItem[])
+  }, [])
+
   const esVendedor   = demoUser?.rol === 'vendedor'
   const esRepartidor = demoUser?.rol === 'repartidor'
 
@@ -1446,7 +1512,7 @@ export default function LaboratorioPage() {
     }))
   }
 
-  const cambiarEstado = async (id: number, estado: EstadoOrden) => {
+  const cambiarEstado = async (id: number, estado: EstadoOrden, notasExtra?: string) => {
     const hoy = new Date().toISOString().split('T')[0]
     const orden = ordenes.find(o => o.id === id)
     const changes: Partial<OrdenLab> = { estado }
@@ -1455,7 +1521,18 @@ export default function LaboratorioPage() {
     if (estado === 'entregado'      && orden && !orden.fechaEntrega)      changes.fechaEntrega     = hoy
     setOrdenes(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o))
     if (detalle?.id === id) setDetalle(prev => prev ? { ...prev, ...changes } : null)
-    if (orden?.supabaseId) await updateEnSupabase(orden.supabaseId, changes)
+    if (orden?.supabaseId) {
+      await updateEnSupabase(orden.supabaseId, changes)
+      await logHistorial(orden.supabaseId, {
+        tipo: 'estado',
+        estadoAntes: orden.estado,
+        estadoDespues: estado,
+        notas: notasExtra,
+        sucursal: orden.sucursal,
+      })
+      // Refresh historial si esta orden está en el detalle
+      if (detalle?.id === id) fetchHistorial(orden.supabaseId)
+    }
   }
 
   const guardar = async () => {
@@ -1640,7 +1717,10 @@ export default function LaboratorioPage() {
                   const vencida = dr !== null && dr < 0 && o.estado !== 'entregado'
                   const isSelected = detalle?.id === o.id
                   return (
-                    <tr key={o.id} onClick={() => setDetalle(isSelected ? null : o)}
+                    <tr key={o.id} onClick={() => {
+                      if (isSelected) { setDetalle(null); setHistorial([]); setContactModal(null) }
+                      else { setDetalle(o); setContactModal(null); if (o.supabaseId) fetchHistorial(o.supabaseId) }
+                    }}
                       className={`cursor-pointer transition-colors group ${isSelected ? 'bg-zinc-50' : 'hover:bg-zinc-50/70'}`}>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
@@ -1735,7 +1815,7 @@ export default function LaboratorioPage() {
                   <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${ESTADO_CONFIG[detalle.estado].bg} ${ESTADO_CONFIG[detalle.estado].text}`}>
                     {ESTADO_CONFIG[detalle.estado].label}
                   </span>
-                  <button onClick={() => setDetalle(null)}
+                  <button onClick={() => { setDetalle(null); setHistorial([]); setContactModal(null) }}
                     className="p-1 text-zinc-300 hover:text-zinc-500 transition-colors rounded-md hover:bg-zinc-100 flex-shrink-0">
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1803,24 +1883,173 @@ export default function LaboratorioPage() {
                 </div>
               </div>
 
-              {/* Historial timeline */}
-              {[detalle.fechaIngreso, detalle.fechaEnvioLab, detalle.fechaRecogidaLab, detalle.fechaPagoLab, detalle.fechaEntrega].some(Boolean) && (
+              {/* Verificación — solo cuando está listo */}
+              {detalle.estado === 'listo' && (
                 <div className="px-5 py-4 border-t border-zinc-50">
-                  <p className="text-xs font-medium text-zinc-400 mb-3">Historial</p>
-                  <div className="space-y-2">
-                    {[
-                      { f: detalle.fechaIngreso,    l: 'Orden creada' },
-                      { f: detalle.fechaEnvioLab,   l: 'Enviada al laboratorio' },
-                      { f: detalle.fechaRecogidaLab,l: 'Recogida del laboratorio' },
-                      { f: detalle.fechaPagoLab,    l: 'Pago registrado' },
-                      { f: detalle.fechaEntrega,    l: 'Entregada al cliente' },
-                    ].filter(e => e.f).map((e, i) => (
-                      <div key={i} className="flex items-start gap-2.5 text-xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-200 flex-shrink-0 mt-1" />
-                        <span className="text-zinc-400 flex-shrink-0 tabular-nums">{e.f}</span>
-                        <span className="text-zinc-600">{e.l}</span>
+                  <p className="text-xs font-medium text-zinc-400 mb-3">Verificación del lente</p>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2.5 cursor-pointer">
+                      <input type="checkbox" checked={detalle.verificado}
+                        onChange={async e => {
+                          const checked = e.target.checked
+                          const updated = { ...detalle, verificado: checked }
+                          setOrdenes(prev => prev.map(o => o.id === detalle.id ? updated : o))
+                          setDetalle(updated)
+                          if (detalle.supabaseId) {
+                            await updateEnSupabase(detalle.supabaseId, { verificado: checked })
+                            await logHistorial(detalle.supabaseId, {
+                              tipo: 'verificacion',
+                              notas: checked ? 'Lente verificado ✓' : 'Verificación cancelada',
+                              sucursal: detalle.sucursal,
+                            })
+                            fetchHistorial(detalle.supabaseId)
+                          }
+                        }}
+                        className="w-4 h-4 rounded accent-emerald-600" />
+                      <span className={`text-sm font-medium ${detalle.verificado ? 'text-emerald-600' : 'text-zinc-500'}`}>
+                        {detalle.verificado ? 'Lente verificado ✓' : 'Marcar como verificado'}
+                      </span>
+                    </label>
+                    <textarea value={detalle.notasVerificacion}
+                      onChange={async e => {
+                        const val = e.target.value
+                        setDetalle(prev => prev ? { ...prev, notasVerificacion: val } : null)
+                        setOrdenes(prev => prev.map(o => o.id === detalle.id ? { ...o, notasVerificacion: val } : o))
+                      }}
+                      onBlur={async () => {
+                        if (detalle.supabaseId)
+                          await updateEnSupabase(detalle.supabaseId, { notasVerificacion: detalle.notasVerificacion })
+                      }}
+                      rows={2}
+                      placeholder="Notas de verificación (estado del lente, armazón, etc.)"
+                      className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-emerald-400 resize-none" />
+                  </div>
+                </div>
+              )}
+
+              {/* Registrar contacto */}
+              {detalle.estado === 'listo' && (
+                <div className="px-5 py-4 border-t border-zinc-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-medium text-zinc-400">Contacto con paciente</p>
+                    {!contactModal && (
+                      <button onClick={() => setContactModal({ canal: 'llamada', resultado: 'contesto', notas: '' })}
+                        className="text-xs text-zinc-500 hover:text-zinc-700 flex items-center gap-1 border border-zinc-200 rounded-lg px-2 py-1 hover:bg-zinc-50 transition-colors">
+                        <Phone className="w-3 h-3" /> Registrar
+                      </button>
+                    )}
+                  </div>
+                  {contactModal && (
+                    <div className="space-y-2.5 bg-zinc-50 rounded-lg p-3 border border-zinc-200">
+                      <div>
+                        <p className="text-xs text-zinc-400 mb-1.5">Canal</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {([
+                            { v: 'llamada' as const,    l: '📞 Llamada' },
+                            { v: 'whatsapp' as const,   l: '💬 WhatsApp' },
+                            { v: 'presencial' as const, l: '🏪 Presencial' },
+                          ]).map(c => (
+                            <button key={c.v} onClick={() => setContactModal(m => m ? { ...m, canal: c.v } : m)}
+                              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${contactModal.canal === c.v ? 'bg-zinc-800 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}>
+                              {c.l}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                      <div>
+                        <p className="text-xs text-zinc-400 mb-1.5">Resultado</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {([
+                            { v: 'contesto' as const,     l: 'Contestó' },
+                            { v: 'no_contesto' as const,  l: 'No contestó' },
+                            { v: 'buzon' as const,        l: 'Buzón' },
+                            { v: 'enviado' as const,      l: 'Msg enviado' },
+                          ]).map(r => (
+                            <button key={r.v} onClick={() => setContactModal(m => m ? { ...m, resultado: r.v } : m)}
+                              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${contactModal.resultado === r.v ? 'bg-zinc-800 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}>
+                              {r.l}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <input value={contactModal.notas}
+                        onChange={e => setContactModal(m => m ? { ...m, notas: e.target.value } : m)}
+                        placeholder="Notas (opcional)"
+                        className="w-full text-xs border border-zinc-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+                      <div className="flex gap-2">
+                        <button onClick={async () => {
+                          if (!detalle.supabaseId || !contactModal) return
+                          await logHistorial(detalle.supabaseId, {
+                            tipo: 'contacto',
+                            canal: contactModal.canal,
+                            resultado: contactModal.resultado,
+                            notas: contactModal.notas,
+                            sucursal: detalle.sucursal,
+                          })
+                          await fetchHistorial(detalle.supabaseId)
+                          setContactModal(null)
+                        }}
+                          className="flex-1 py-2 bg-zinc-800 text-white text-xs font-medium rounded-lg hover:bg-zinc-700 transition-colors">
+                          Guardar
+                        </button>
+                        <button onClick={() => setContactModal(null)}
+                          className="px-3 py-2 border border-zinc-200 text-zinc-500 text-xs rounded-lg hover:bg-zinc-50 transition-colors">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Historial timeline — desde DB */}
+              {historial.length > 0 && (
+                <div className="px-5 py-4 border-t border-zinc-50">
+                  <p className="text-xs font-medium text-zinc-400 mb-3">Historial completo</p>
+                  <div className="space-y-2.5">
+                    {historial.map(h => {
+                      const fecha = new Date(h.created_at).toLocaleString('es-MX', {
+                        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                      })
+                      const EVENTO_LABEL: Record<string, { dot: string; label: string }> = {
+                        estado:       { dot: 'bg-indigo-300', label: '→' },
+                        contacto:     { dot: 'bg-blue-300',   label: '📞' },
+                        verificacion: { dot: 'bg-emerald-300',label: '✓' },
+                        nota:         { dot: 'bg-zinc-300',   label: '·' },
+                      }
+                      const ev = EVENTO_LABEL[h.evento] ?? { dot: 'bg-zinc-200', label: '·' }
+                      return (
+                        <div key={h.id} className="flex items-start gap-2.5 text-xs">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${ev.dot}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-1.5 flex-wrap">
+                              <span className="text-zinc-400 tabular-nums flex-shrink-0">{fecha}</span>
+                              {h.evento === 'estado' && (
+                                <span className="text-zinc-600">
+                                  {h.estado_antes && <span className="text-zinc-400">{ESTADO_CONFIG[h.estado_antes as EstadoOrden]?.label ?? h.estado_antes}</span>}
+                                  {' → '}
+                                  <span className="font-medium">{ESTADO_CONFIG[h.estado_despues as EstadoOrden]?.label ?? h.estado_despues}</span>
+                                </span>
+                              )}
+                              {h.evento === 'contacto' && (
+                                <span className="text-zinc-600">
+                                  {h.canal} · <span className="font-medium">{h.resultado?.replace('_', ' ')}</span>
+                                </span>
+                              )}
+                              {h.evento === 'verificacion' && (
+                                <span className="text-emerald-600 font-medium">{h.notas ?? 'Verificado'}</span>
+                              )}
+                            </div>
+                            {h.notas && h.evento !== 'verificacion' && (
+                              <p className="text-zinc-400 mt-0.5 leading-snug">{h.notas}</p>
+                            )}
+                            {h.registrado_por && (
+                              <p className="text-zinc-300 mt-0.5">{h.registrado_por}</p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}
