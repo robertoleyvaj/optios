@@ -469,7 +469,7 @@ export default function VentasPage() {
                     ? v.items.map(i => i.nombre + (i.cantidad > 1 ? ` x${i.cantidad}` : '')).join(' + ')
                     : '—'
                   return (
-                    <tr key={v.id} onClick={() => { setDetalle(v); setShowAbono(false); setAbonoMonto('') }}
+                    <tr key={v.uuid} onClick={() => { setDetalle(v); setShowAbono(false); setAbonoMonto('') }}
                       className="hover:bg-zinc-50 transition-colors cursor-pointer group">
                       <td className="px-5 py-3.5">
                         <span className="text-xs font-mono font-semibold text-zinc-500">{v.id}</span>
