@@ -106,9 +106,9 @@ const dias = (n: number) => {
   const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]
 }
 
-const formVacio = (): Omit<OrdenLab, 'id' | 'folio'> => ({
+const formVacio = (sucursalDefault = 'Baja Visión'): Omit<OrdenLab, 'id' | 'folio'> => ({
   supabaseId: '',
-  folioVenta: '', paciente: '', telefono: '', sucursal: 'Baja Visión',
+  folioVenta: '', paciente: '', telefono: '', sucursal: sucursalDefault,
   laboratorio: 'Laboratorio Visión', tipoMica: 'Monofocal antirreflejante',
   armazon: 'comprado', descripcionArmazon: '',
   od: '', oi: '', add: '', dp: '', altura: '', tratamiento: 'ninguno', colorTratamiento: '', urgente: false,
@@ -1568,7 +1568,7 @@ export default function LaboratorioPage() {
             )}
           </div>
         </div>
-        <button onClick={() => { setForm(formVacio()); setVentaVinculada(null); setModal(true) }}
+        <button onClick={() => { setForm(formVacio(demoUser?.sucursal)); setVentaVinculada(null); setModal(true) }}
           className="flex items-center gap-2 text-sm font-medium text-white bg-zinc-900 px-4 py-2.5 rounded-lg hover:bg-zinc-800 active:scale-[0.98] transition-all flex-shrink-0">
           <Plus className="w-4 h-4" /> Nueva orden
         </button>
@@ -1898,7 +1898,7 @@ export default function LaboratorioPage() {
                         <p className="text-xs text-zinc-400">Datos auto-completados desde la venta</p>
                       </div>
                     </div>
-                    <button onClick={() => { setVentaVinculada(null); setForm(formVacio()) }}
+                    <button onClick={() => { setVentaVinculada(null); setForm(formVacio(demoUser?.sucursal)) }}
                       className="p-2 rounded border border-zinc-200 hover:bg-white text-zinc-400 hover:text-zinc-600">
                       <X className="w-4 h-4" />
                     </button>
