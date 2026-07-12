@@ -656,7 +656,13 @@ export default function NuevaConsultaPage() {
   }
 
   const puedeAvanzar = () => {
-    if (paso === 1) return pNombre.trim().length > 0 && pApellido.trim().length > 0
+    if (paso === 1) return (
+      pNombre.trim().length > 0 &&
+      pApellido.trim().length > 0 &&
+      pFechaNac.length > 0 &&
+      pSexo.length > 0 &&
+      pTelefono.trim().length > 0
+    )
     return true
   }
 
@@ -733,53 +739,53 @@ export default function NuevaConsultaPage() {
             </div>
           </div>
 
-          {/* Teléfono */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
-            <div className="flex gap-2">
-              <select value={pLada} onChange={e => setPLada(e.target.value)}
-                className="border border-zinc-200 rounded px-2 py-2 bg-zinc-50 text-xs text-zinc-600 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 cursor-pointer">
-                {[
-                  { code: '+52', label: 'MX +52' }, { code: '+1',   label: 'US +1'   },
-                  { code: '+1',  label: 'CA +1'  }, { code: '+34',  label: 'ES +34'  },
-                  { code: '+33', label: 'FR +33' }, { code: '+49',  label: 'DE +49'  },
-                  { code: '+39', label: 'IT +39' }, { code: '+44',  label: 'UK +44'  },
-                  { code: '+31', label: 'NL +31' }, { code: '+57',  label: 'CO +57'  },
-                  { code: '+54', label: 'AR +54' }, { code: '+56',  label: 'CL +56'  },
-                  { code: '+55', label: 'BR +55' }, { code: '+51',  label: 'PE +51'  },
-                  { code: '+58', label: 'VE +58' }, { code: '+593', label: 'EC +593' },
-                  { code: '+502',label: 'GT +502'}, { code: '+503', label: 'SV +503' },
-                ].map((p, i) => <option key={i} value={p.code}>{p.label}</option>)}
-              </select>
-              <input
-                type="tel"
-                value={pTelefono}
-                onChange={e => setPTelefono(e.target.value)}
-                placeholder="6611234567"
-                className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-              />
+          {/* Teléfono + WhatsApp en la misma fila */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Teléfono */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono *</label>
+              <div className="flex gap-1.5">
+                <select value={pLada} onChange={e => setPLada(e.target.value)}
+                  className="border border-zinc-200 rounded px-1.5 py-2 bg-zinc-50 text-xs text-zinc-600 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 cursor-pointer w-24 flex-shrink-0">
+                  {[
+                    { code: '+52', label: 'MX +52' }, { code: '+1',   label: 'US +1'   },
+                    { code: '+1',  label: 'CA +1'  }, { code: '+34',  label: 'ES +34'  },
+                    { code: '+33', label: 'FR +33' }, { code: '+49',  label: 'DE +49'  },
+                    { code: '+39', label: 'IT +39' }, { code: '+44',  label: 'UK +44'  },
+                    { code: '+57', label: 'CO +57' }, { code: '+54',  label: 'AR +54'  },
+                    { code: '+55', label: 'BR +55' }, { code: '+51',  label: 'PE +51'  },
+                  ].map((p, i) => <option key={i} value={p.code}>{p.label}</option>)}
+                </select>
+                <input
+                  type="tel"
+                  value={pTelefono}
+                  onChange={e => setPTelefono(e.target.value)}
+                  placeholder="6611234567"
+                  className="flex-1 min-w-0 border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* WhatsApp con botón copiar */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-500 mb-1.5">WhatsApp</label>
-            <div className="flex gap-2">
-              <input
-                type="tel"
-                value={pWhatsapp}
-                onChange={e => setPWhatsapp(e.target.value)}
-                placeholder={pTelefono ? `${pLada}${pTelefono}` : '+526611234567'}
-                className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 font-mono"
-              />
-              {pTelefono && (
+            {/* WhatsApp */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">WhatsApp</label>
+              <div className="flex gap-1.5">
+                <input
+                  type="tel"
+                  value={pWhatsapp}
+                  onChange={e => setPWhatsapp(e.target.value)}
+                  placeholder={pTelefono ? `${pLada}${pTelefono}` : '+526611234567'}
+                  className="flex-1 min-w-0 border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                />
                 <button
                   type="button"
                   onClick={() => setPWhatsapp(`${pLada}${pTelefono}`)}
-                  className="px-3 py-2 border border-[#0D9488] text-[#0D9488] rounded text-xs font-semibold hover:bg-[#0D9488]/5 transition-all flex-shrink-0 whitespace-nowrap">
-                  = mismo número
+                  disabled={!pTelefono}
+                  title="Copiar mismo número"
+                  className="px-2.5 py-2 border border-zinc-200 text-zinc-500 rounded text-xs font-bold hover:border-[#0D9488] hover:text-[#0D9488] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0">
+                  =
                 </button>
-              )}
+              </div>
             </div>
           </div>
 
