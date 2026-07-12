@@ -690,7 +690,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   }
 
   // ── Vista "Llevar al lab" — órdenes recibido ──────────────
-  if (selected && selected.estado === 'recibido') {
+  if (selected && selected.estado === 'recibido' && !editMode) {
     const o = selected
     return (
       <div className="max-w-sm mx-auto space-y-3">
@@ -739,7 +739,11 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           </div>
         </div>
 
+        {!llevandoDraft.laboratorio && (
+          <p className="text-xs text-center text-red-500 font-medium -mb-1">Selecciona el laboratorio antes de continuar</p>
+        )}
         <button
+          disabled={!llevandoDraft.laboratorio}
           onClick={() => {
             onUpdate(o.id, {
               estado: 'en_laboratorio',
@@ -750,7 +754,11 @@ function VistaRepartidor({ ordenes, onUpdate }: {
             })
             setSavedNext(getNextId(o.id))
           }}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors"
+          className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold rounded-xl transition-colors ${
+            llevandoDraft.laboratorio
+              ? 'bg-violet-600 text-white hover:bg-violet-700'
+              : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+          }`}
         >
           <ArrowRight className="w-4 h-4" /> Ya lo dejé en el laboratorio
         </button>
@@ -759,7 +767,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   }
 
   // ── Vista "Recoger del lab" — órdenes en_laboratorio ──────
-  if (selected && selected.estado === 'en_laboratorio') {
+  if (selected && selected.estado === 'en_laboratorio' && !editMode) {
     const o = selected
     const hoy = new Date().toISOString().split('T')[0]
     const listaHoy = o.fechaPromesa === hoy
@@ -830,19 +838,29 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           </div>
         </div>
 
+        {(!recogendoDraft.costoLab || !recogendoDraft.metodoPagoLab) && (
+          <p className="text-xs text-center text-red-500 font-medium -mb-1">
+            {!recogendoDraft.costoLab ? 'Ingresa cuánto cobró el lab' : 'Selecciona cómo pagaste'}
+          </p>
+        )}
         <button
+          disabled={!recogendoDraft.costoLab || !recogendoDraft.metodoPagoLab}
           onClick={() => {
             onUpdate(o.id, {
               estado: 'en_camino',
               costoLab: Number(recogendoDraft.costoLab) || 0,
               metodoPagoLab: recogendoDraft.metodoPagoLab,
-              pagadoLab: recogendoDraft.metodoPagoLab !== '',
+              pagadoLab: true,
               fechaRecogidaLab: new Date().toISOString().split('T')[0],
-              ...(recogendoDraft.metodoPagoLab !== '' ? { fechaPagoLab: new Date().toISOString().split('T')[0] } : {}),
+              fechaPagoLab: new Date().toISOString().split('T')[0],
             })
             setSavedNext(getNextId(o.id))
           }}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors"
+          className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold rounded-xl transition-colors ${
+            recogendoDraft.costoLab && recogendoDraft.metodoPagoLab
+              ? 'bg-teal-600 text-white hover:bg-teal-700'
+              : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+          }`}
         >
           <Truck className="w-4 h-4" /> Ya lo recogí, voy en camino a la óptica
         </button>
@@ -856,7 +874,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   }
 
   // ── Vista "Entregar en sucursal" — órdenes en_camino ─────
-  if (selected && selected.estado === 'en_camino') {
+  if (selected && selected.estado === 'en_camino' && !editMode) {
     const o = selected
     return (
       <div className="max-w-sm mx-auto space-y-3">
@@ -1127,51 +1145,45 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   }
 
   return (
-    <div className="max-w-sm mx-auto space-y-5">
+    <div className="max-w-sm mx-auto space-y-4">
 
       {lista.length === 0 && (
         <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">
-          <p className="text-sm text-zinc-400">Sin órdenes activas</p>
+          <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
+          <p className="text-sm font-medium text-zinc-500">Todo al día</p>
+          <p className="text-xs text-zinc-400 mt-1">Sin órdenes pendientes</p>
         </div>
       )}
 
-      {/* Por llevar */}
-      {porLlevarList.length > 0 && (
+      {/* Resumen + botón para iniciar */}
+      {lista.length > 0 && (
+        <div className="bg-white rounded-xl border border-zinc-200 p-5 space-y-4">
+          <div>
+            <p className="text-base font-semibold text-zinc-800">Órdenes pendientes</p>
+            <div className="flex flex-wrap gap-3 mt-2">
+              {counts.porLlevar > 0 && <span className="text-xs font-medium text-zinc-500 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-zinc-300" />{counts.porLlevar} por llevar</span>}
+              {counts.enLab     > 0 && <span className="text-xs font-medium text-violet-600 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-400" />{counts.enLab} en laboratorio</span>}
+              {counts.enCamino  > 0 && <span className="text-xs font-medium text-teal-600 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-teal-400" />{counts.enCamino} en camino</span>}
+            </div>
+          </div>
+          <button onClick={() => openOrder(lista[0].id)}
+            className="w-full py-3 bg-zinc-900 text-white text-sm font-bold rounded-xl hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2">
+            <ArrowRight className="w-4 h-4" /> Iniciar — {lista[0].paciente}
+          </button>
+        </div>
+      )}
+
+      {/* Lista completa (referencia) */}
+      {lista.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-2 px-1">
-            Por llevar al lab · {porLlevarList.length}
-          </p>
+          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2 px-1">Todas las órdenes</p>
           <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
-            {porLlevarList.map(o => <OrdenRow key={o.id} o={o} />)}
+            {lista.map(o => <OrdenRow key={o.id} o={o} />)}
           </div>
         </div>
       )}
 
-      {/* En laboratorio */}
-      {enLabList.length > 0 && (
-        <div>
-          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-2 px-1">
-            En laboratorio · {enLabList.length}
-          </p>
-          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
-            {enLabList.map(o => <OrdenRow key={o.id} o={o} />)}
-          </div>
-        </div>
-      )}
-
-      {/* En camino */}
-      {enCaminoList.length > 0 && (
-        <div>
-          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-2 px-1">
-            En camino a la óptica · {enCaminoList.length}
-          </p>
-          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
-            {enCaminoList.map(o => <OrdenRow key={o.id} o={o} />)}
-          </div>
-        </div>
-      )}
-
-      {/* En sucursal — pendientes de verificar */}
+      {/* En sucursal — pendientes de verificar (Sergio ya no las ve) */}
       {lista.filter(o => o.estado === 'en_sucursal').length > 0 && (
         <div>
           <p className="text-xs font-bold text-amber-600 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
