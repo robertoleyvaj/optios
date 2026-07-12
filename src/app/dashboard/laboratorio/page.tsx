@@ -17,6 +17,7 @@ type EstadoOrden =
   | 'recibido'
   | 'en_laboratorio'
   | 'en_camino'
+  | 'en_sucursal'
   | 'listo'
   | 'entregado'
   | 'problema'
@@ -93,15 +94,16 @@ type VentaRef = {
 // Config estados
 // ─────────────────────────────────────────
 const ESTADO_CONFIG: Record<EstadoOrden, { label: string; bg: string; text: string; dot: string; icon: React.ElementType }> = {
-  recibido:       { label: 'Recibido',            bg: 'bg-zinc-100',  text: 'text-zinc-600',   dot: '#94A3B8', icon: Package },
-  en_laboratorio: { label: 'En laboratorio',      bg: 'bg-indigo-50',  text: 'text-indigo-700',  dot: '#6366F1', icon: Clock },
-  en_camino:      { label: 'En camino',           bg: 'bg-blue-50',    text: 'text-blue-700',    dot: '#3B82F6', icon: Truck },
-  listo:          { label: 'Listo para entregar', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: '#10B981', icon: CheckCircle2 },
-  entregado:      { label: 'Entregado',           bg: 'bg-zinc-100',  text: 'text-zinc-400',   dot: '#CBD5E1', icon: CheckCircle2 },
-  problema:       { label: 'Con problema',        bg: 'bg-red-50',     text: 'text-red-600',     dot: '#EF4444', icon: AlertTriangle },
+  recibido:       { label: 'Recibido',            bg: 'bg-zinc-100',   text: 'text-zinc-600',   dot: '#94A3B8', icon: Package },
+  en_laboratorio: { label: 'En laboratorio',      bg: 'bg-indigo-50',  text: 'text-indigo-700', dot: '#6366F1', icon: Clock },
+  en_camino:      { label: 'En camino',           bg: 'bg-blue-50',    text: 'text-blue-700',   dot: '#3B82F6', icon: Truck },
+  en_sucursal:    { label: 'En sucursal',         bg: 'bg-amber-50',   text: 'text-amber-700',  dot: '#F59E0B', icon: Package },
+  listo:          { label: 'Listo para entregar', bg: 'bg-emerald-50', text: 'text-emerald-700',dot: '#10B981', icon: CheckCircle2 },
+  entregado:      { label: 'Entregado',           bg: 'bg-zinc-100',   text: 'text-zinc-400',   dot: '#CBD5E1', icon: CheckCircle2 },
+  problema:       { label: 'Con problema',        bg: 'bg-red-50',     text: 'text-red-600',    dot: '#EF4444', icon: AlertTriangle },
 }
 
-const FLUJO: EstadoOrden[] = ['recibido', 'en_laboratorio', 'en_camino', 'listo', 'entregado']
+const FLUJO: EstadoOrden[] = ['recibido', 'en_laboratorio', 'en_camino', 'en_sucursal', 'listo', 'entregado']
 
 const TIPOS_MICA = [
   'Monofocal blanca',
@@ -531,34 +533,34 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     metodoPagoLab: 'transferencia' | 'efectivo' | ''
   }>({ costoLab: '', metodoPagoLab: '' })
 
+  // Sergio solo ve las órdenes que todavía requieren su acción
   const lista = ordenes
-    .filter(o => o.estado !== 'entregado' && o.estado !== 'problema')
+    .filter(o => !['entregado', 'problema', 'en_sucursal', 'listo'].includes(o.estado))
     .sort((a, b) => (a.fechaIngreso ?? '').localeCompare(b.fechaIngreso ?? '') || a.folio.localeCompare(b.folio))
 
   const ESTADO_OPTS = [
-    { value: 'recibido'       as EstadoOrden, label: 'Por llevar',      dot: 'bg-zinc-400'   },
-    { value: 'en_laboratorio' as EstadoOrden, label: 'En laboratorio',  dot: 'bg-indigo-500'  },
-    { value: 'en_camino'      as EstadoOrden, label: 'En camino',       dot: 'bg-blue-500'    },
-    { value: 'listo'          as EstadoOrden, label: 'Listo',           dot: 'bg-emerald-500' },
+    { value: 'recibido'       as EstadoOrden, label: 'Por llevar',     dot: 'bg-zinc-400'   },
+    { value: 'en_laboratorio' as EstadoOrden, label: 'En laboratorio', dot: 'bg-indigo-500'  },
+    { value: 'en_camino'      as EstadoOrden, label: 'En camino',      dot: 'bg-blue-500'    },
+    { value: 'en_sucursal'    as EstadoOrden, label: 'En sucursal',    dot: 'bg-amber-500'   },
   ]
 
   const BADGE: Record<string, { bg: string; text: string; label: string }> = {
-    recibido:       { bg: 'bg-zinc-100',  text: 'text-zinc-600',   label: 'Por llevar'      },
-    en_laboratorio: { bg: 'bg-indigo-50',  text: 'text-indigo-700',  label: 'En laboratorio'  },
-    en_camino:      { bg: 'bg-blue-50',    text: 'text-blue-700',    label: 'En camino'       },
-    listo:          { bg: 'bg-emerald-50', text: 'text-emerald-700', label: 'Listo'           },
+    recibido:       { bg: 'bg-zinc-100',  text: 'text-zinc-600',   label: 'Por llevar'     },
+    en_laboratorio: { bg: 'bg-indigo-50',  text: 'text-indigo-700', label: 'En laboratorio' },
+    en_camino:      { bg: 'bg-blue-50',    text: 'text-blue-700',   label: 'En camino'      },
+    en_sucursal:    { bg: 'bg-amber-50',   text: 'text-amber-700',  label: 'En sucursal'    },
   }
 
   const DOT: Record<string, string> = {
     recibido: 'bg-zinc-400', en_laboratorio: 'bg-indigo-500',
-    en_camino: 'bg-blue-500', listo: 'bg-emerald-500',
+    en_camino: 'bg-blue-500', en_sucursal: 'bg-amber-500',
   }
 
   const counts = {
     porLlevar:  lista.filter(o => o.estado === 'recibido').length,
     enLab:      lista.filter(o => o.estado === 'en_laboratorio').length,
     enCamino:   lista.filter(o => o.estado === 'en_camino').length,
-    listos:     lista.filter(o => o.estado === 'listo').length,
     sinPagar:   lista.filter(o => o.costoLab > 0 && !o.pagadoLab).length,
     atrasados:  lista.filter(o => o.fechaPromesa && new Date(o.fechaPromesa) < new Date(new Date().toDateString())).length,
   }
@@ -853,6 +855,50 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     )
   }
 
+  // ── Vista "Entregar en sucursal" — órdenes en_camino ─────
+  if (selected && selected.estado === 'en_camino') {
+    const o = selected
+    return (
+      <div className="max-w-sm mx-auto space-y-3">
+        <div className="flex items-center justify-between">
+          <button onClick={() => { setSelectedId(null); setDraft(null) }}
+            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
+            <ChevronLeft className="w-4 h-4" /> Órdenes
+          </button>
+          <span className="text-sm font-bold text-zinc-500">{o.folio}</span>
+          <div className="w-20" />
+        </div>
+
+        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+          <div className="px-4 pt-4 pb-3 border-b border-zinc-100">
+            <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
+            <p className="text-sm text-zinc-400 mt-0.5">
+              {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
+            </p>
+            <p className="text-xs text-zinc-400 mt-1">{o.sucursal} · {o.laboratorio}</p>
+          </div>
+          <div className="px-4 py-4">
+            <div className="flex items-center gap-2 bg-blue-50 text-blue-700 rounded-lg px-3 py-2.5 text-sm font-medium">
+              <Truck className="w-4 h-4 flex-shrink-0" />
+              En camino a la óptica
+            </div>
+            <p className="text-xs text-zinc-400 mt-3">Cuando llegues a la sucursal y entregues el lente, marca la entrega:</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            onUpdate(o.id, { estado: 'en_sucursal' })
+            setSavedNext(getNextId(o.id))
+          }}
+          className="w-full flex items-center justify-center gap-2 py-3.5 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors"
+        >
+          <Package className="w-4 h-4" /> Ya lo entregué en la óptica
+        </button>
+      </div>
+    )
+  }
+
   // ── Vista detalle ──────────────────────────────────────────
   if (selected) {
     const o = selected
@@ -1041,6 +1087,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   const porLlevarList  = lista.filter(o => o.estado === 'recibido')
   const enLabList      = lista.filter(o => o.estado === 'en_laboratorio')
   const enCaminoList   = lista.filter(o => o.estado === 'en_camino')
+  // Sergio no ve 'en_sucursal' ni 'listo' en su lista activa — ya terminó su parte
   const hoy            = new Date().toISOString().split('T')[0]
 
   const OrdenRow = ({ o }: { o: OrdenLab }) => {
@@ -1120,6 +1167,19 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           </p>
           <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
             {enCaminoList.map(o => <OrdenRow key={o.id} o={o} />)}
+          </div>
+        </div>
+      )}
+
+      {/* En sucursal — pendientes de verificar */}
+      {lista.filter(o => o.estado === 'en_sucursal').length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-amber-600 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+            Llegaron — pendientes de verificar · {lista.filter(o => o.estado === 'en_sucursal').length}
+          </p>
+          <div className="bg-white rounded-xl border border-amber-200 overflow-hidden divide-y divide-zinc-100">
+            {lista.filter(o => o.estado === 'en_sucursal').map(o => <OrdenRow key={o.id} o={o} />)}
           </div>
         </div>
       )}
@@ -1489,6 +1549,7 @@ export default function LaboratorioPage() {
   const porLlevar    = activas.filter(o => o.estado === 'recibido').length
   const enLab        = activas.filter(o => o.estado === 'en_laboratorio').length
   const enCamino     = activas.filter(o => o.estado === 'en_camino').length
+  const enSucursal   = activas.filter(o => o.estado === 'en_sucursal').length
   const listas       = activas.filter(o => o.estado === 'listo').length
   const problemas    = activas.filter(o => o.estado === 'problema').length
   const sinPagar     = ordenes.filter(o => o.costoLab > 0 && !o.pagadoLab).length
@@ -1517,7 +1578,7 @@ export default function LaboratorioPage() {
     const orden = ordenes.find(o => o.id === id)
     const changes: Partial<OrdenLab> = { estado }
     if (estado === 'en_laboratorio' && orden && !orden.fechaEnvioLab)    changes.fechaEnvioLab    = hoy
-    if (estado === 'listo'          && orden && !orden.fechaRecogidaLab)  changes.fechaRecogidaLab = hoy
+    if (estado === 'en_sucursal'    && orden && !orden.fechaRecogidaLab)  changes.fechaRecogidaLab = hoy
     if (estado === 'entregado'      && orden && !orden.fechaEntrega)      changes.fechaEntrega     = hoy
     setOrdenes(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o))
     if (detalle?.id === id) setDetalle(prev => prev ? { ...prev, ...changes } : null)
@@ -1618,10 +1679,11 @@ export default function LaboratorioPage() {
           {/* Compact summary — single line */}
           <div className="flex items-center gap-3 mt-2 flex-wrap">
             {[
-              { n: porLlevar, label: 'por llevar',     dot: 'bg-zinc-300',   text: 'text-zinc-700' },
-              { n: enLab,     label: 'en lab',         dot: 'bg-indigo-400',  text: 'text-indigo-600' },
-              { n: enCamino,  label: 'en camino',      dot: 'bg-blue-400',    text: 'text-blue-600' },
-              { n: listas,    label: 'listos',         dot: 'bg-emerald-400', text: 'text-emerald-600' },
+              { n: porLlevar,  label: 'por llevar',    dot: 'bg-zinc-300',   text: 'text-zinc-700' },
+              { n: enLab,      label: 'en lab',        dot: 'bg-indigo-400',  text: 'text-indigo-600' },
+              { n: enCamino,   label: 'en camino',     dot: 'bg-blue-400',    text: 'text-blue-600' },
+              { n: enSucursal, label: 'en sucursal',   dot: 'bg-amber-400',   text: 'text-amber-600' },
+              { n: listas,     label: 'listos',        dot: 'bg-emerald-400', text: 'text-emerald-600' },
             ].map((s, i) => (
               <React.Fragment key={s.label}>
                 {i > 0 && <span className="text-zinc-200 text-xs">·</span>}
@@ -1661,12 +1723,13 @@ export default function LaboratorioPage() {
             Todas <span className={`ml-1 ${filtroEstado === 'todas' ? 'text-zinc-400' : 'text-zinc-300'}`}>{activas.length}</span>
           </button>
           {([
-            { key: 'recibido'       as EstadoOrden, label: 'Por llevar',    dot: 'bg-zinc-300',   n: porLlevar },
-            { key: 'en_laboratorio' as EstadoOrden, label: 'En lab',        dot: 'bg-indigo-400',  n: enLab },
-            { key: 'en_camino'      as EstadoOrden, label: 'En camino',     dot: 'bg-blue-400',    n: enCamino },
-            { key: 'listo'          as EstadoOrden, label: 'Listos',        dot: 'bg-emerald-400', n: listas },
-            { key: 'entregado'      as EstadoOrden, label: 'Entregados',    dot: 'bg-zinc-200',   n: ordenes.filter(o => o.estado === 'entregado').length },
-            { key: 'problema'       as EstadoOrden, label: 'Problema',      dot: 'bg-red-400',     n: problemas },
+            { key: 'recibido'       as EstadoOrden, label: 'Por llevar',  dot: 'bg-zinc-300',   n: porLlevar },
+            { key: 'en_laboratorio' as EstadoOrden, label: 'En lab',      dot: 'bg-indigo-400',  n: enLab },
+            { key: 'en_camino'      as EstadoOrden, label: 'En camino',   dot: 'bg-blue-400',    n: enCamino },
+            { key: 'en_sucursal'    as EstadoOrden, label: 'En sucursal', dot: 'bg-amber-400',   n: enSucursal },
+            { key: 'listo'          as EstadoOrden, label: 'Listos',      dot: 'bg-emerald-400', n: listas },
+            { key: 'entregado'      as EstadoOrden, label: 'Entregados',  dot: 'bg-zinc-200',    n: ordenes.filter(o => o.estado === 'entregado').length },
+            { key: 'problema'       as EstadoOrden, label: 'Problema',    dot: 'bg-red-400',     n: problemas },
           ]).map(chip => (
             <button key={chip.key} onClick={() => setFiltroEstado(chip.key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
@@ -1883,8 +1946,8 @@ export default function LaboratorioPage() {
                 </div>
               </div>
 
-              {/* Verificación — solo cuando está listo */}
-              {detalle.estado === 'listo' && (
+              {/* Verificación — cuando llega a la sucursal, antes de marcar listo */}
+              {detalle.estado === 'en_sucursal' && (
                 <div className="px-5 py-4 border-t border-zinc-50">
                   <p className="text-xs font-medium text-zinc-400 mb-3">Verificación del lente</p>
                   <div className="space-y-3">
@@ -1927,7 +1990,7 @@ export default function LaboratorioPage() {
                 </div>
               )}
 
-              {/* Registrar contacto */}
+              {/* Registrar contacto — solo cuando ya está verificado y listo */}
               {detalle.estado === 'listo' && (
                 <div className="px-5 py-4 border-t border-zinc-50">
                   <div className="flex items-center justify-between mb-3">
@@ -2060,13 +2123,19 @@ export default function LaboratorioPage() {
                 {detalle.estado === 'listo' && (
                   <button onClick={() => cambiarEstado(detalle.id, 'entregado')}
                     className="w-full flex items-center justify-center gap-2 py-2.5 bg-zinc-900 text-white text-sm font-medium rounded-lg hover:bg-zinc-800 transition-colors">
-                    <CheckCircle2 className="w-4 h-4" /> Marcar como entregado
+                    <CheckCircle2 className="w-4 h-4" /> Marcar como entregado al paciente
+                  </button>
+                )}
+                {detalle.estado === 'en_sucursal' && (
+                  <button onClick={() => cambiarEstado(detalle.id, 'listo')}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors">
+                    <CheckCircle2 className="w-4 h-4" /> Lente verificado — marcar listo
                   </button>
                 )}
                 {detalle.estado === 'en_camino' && (
-                  <button onClick={() => cambiarEstado(detalle.id, 'listo')}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors">
-                    <CheckCircle2 className="w-4 h-4" /> Llegó del lab — marcar listo
+                  <button onClick={() => cambiarEstado(detalle.id, 'en_sucursal')}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors">
+                    <Package className="w-4 h-4" /> Llegó a la óptica — pendiente verificar
                   </button>
                 )}
 
