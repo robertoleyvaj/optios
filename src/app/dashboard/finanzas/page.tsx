@@ -132,13 +132,13 @@ function FinanzasPage() {
     const { data: ventasData } = await qVentas
     setIngresos((ventasData || []).reduce((s, v) => s + v.total, 0))
 
-    // Costo lab: ordenes pagadas en el período
+    // Costo lab: todas las órdenes con costo_lab > 0 en el período (por fecha_ingreso)
     let qLab = supabase
       .from('ordenes_lab')
       .select('costo_lab, laboratorio')
-      .eq('pagado_lab', true)
-      .gte('fecha_pago_lab', inicio)
-      .lte('fecha_pago_lab', fin)
+      .gt('costo_lab', 0)
+      .gte('fecha_ingreso', inicio)
+      .lte('fecha_ingreso', fin)
     if (sucursal !== 'Todas') qLab = qLab.eq('sucursal', sucursal)
     const { data: labData } = await qLab
     const labRows = labData || []
