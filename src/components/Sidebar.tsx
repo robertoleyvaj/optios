@@ -65,7 +65,7 @@ const MENU_CORE: MenuItem[] = [
 const MENU_GESTION: MenuItem[] = [
   { type: 'sep', label: 'Gestión', key: '_sep_gestion' },
   { href: '/dashboard/inventario',  label: 'Inventario',       icon: Package,    key: 'inventario' },
-  { href: '/dashboard/reportes',    label: 'Reportes',         icon: BarChart3,  key: 'reportes',  pronto: true },
+  { href: '/dashboard/reportes',    label: 'Reportes',         icon: BarChart3,  key: 'reportes' },
   { href: '/dashboard/analitica',   label: 'Analítica',        icon: Microscope, key: 'analitica', pronto: true },
   { href: '/dashboard/finanzas',    label: 'Finanzas',         icon: DollarSign, key: 'finanzas',  pronto: true },
   { href: '/dashboard/usuarios',    label: 'Usuarios',         icon: Users,      key: 'usuarios',  pronto: true },
