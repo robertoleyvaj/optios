@@ -636,6 +636,7 @@ export default function NuevaConsultaPage() {
       const { error } = await supabase.from('recetas').insert({
         paciente_id:   pId,
         fecha:         new Date().toISOString().split('T')[0],
+        tipo:          'rapida',
         od_esfera:     rxOd.esfera    || null,
         od_cilindro:   rxOd.cilindro  || null,
         od_eje:        rxOd.eje       || null,
