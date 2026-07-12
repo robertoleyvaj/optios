@@ -20,29 +20,32 @@ export default function CheckInModal() {
         if (!raw) return
         const u = JSON.parse(raw)
         if (!u.nombre) return
-        // El repartidor se mueve entre todas las sucursales — no necesita check-in
         if (u.rol === 'repartidor') return
         setNombre(u.nombre)
         setApodo(u.apodo ?? u.nombre.split(' ')[0])
 
-        // Verificar si ya hay check-in hoy
-        const sb = createClient()
         const hoy = new Date().toISOString().split('T')[0]
-        const { data } = await sb
-          .from('check_ins')
-          .select('id, sucursal')
-          .eq('usuario_nombre', u.nombre)
-          .eq('fecha', hoy)
-          .single()
 
-        if (data) {
-          // Ya hizo check-in — actualizar localStorage con sucursal actual
-          const updated = { ...u, sucursal: data.sucursal }
-          localStorage.setItem('optios_demo_user', JSON.stringify(updated))
-        } else {
-          // No hay check-in hoy → mostrar modal
-          setVisible(true)
-        }
+        // Primero revisar localStorage — si ya hizo check-in hoy, no mostrar modal
+        if (u.checkInDate === hoy && u.sucursal) return
+
+        // Intentar verificar en DB (best-effort, puede fallar si la tabla no existe)
+        try {
+          const sb = createClient()
+          const { data } = await sb
+            .from('check_ins')
+            .select('id, sucursal')
+            .eq('usuario_nombre', u.nombre)
+            .eq('fecha', hoy)
+            .single()
+          if (data) {
+            localStorage.setItem('optios_demo_user', JSON.stringify({ ...u, sucursal: data.sucursal, checkInDate: hoy }))
+            return
+          }
+        } catch { /* tabla no existe aún, ignorar */ }
+
+        // No hay check-in hoy → mostrar modal
+        setVisible(true)
       } catch { /* noop */ }
     }
     verificar()
@@ -57,11 +60,12 @@ export default function CheckInModal() {
         { usuario_nombre: nombre, sucursal, fecha: hoy },
         { onConflict: 'usuario_nombre,fecha' }
       )
-      // Actualizar localStorage
+      // Guardar sucursal + fecha en localStorage (evita el loop al recargar)
       const raw = localStorage.getItem('optios_demo_user')
       if (raw) {
         const u = JSON.parse(raw)
-        localStorage.setItem('optios_demo_user', JSON.stringify({ ...u, sucursal }))
+        const hoy = new Date().toISOString().split('T')[0]
+        localStorage.setItem('optios_demo_user', JSON.stringify({ ...u, sucursal, checkInDate: hoy }))
       }
       setHecho(true)
       setTimeout(() => window.location.reload(), 800)
