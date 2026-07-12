@@ -1050,44 +1050,63 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate }: {
         </div>
       </div>
 
-      {/* Listas primero */}
-      {listos.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-emerald-600 mb-2 flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5" /> LISTAS PARA ENTREGAR ({listos.length})
-          </p>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            {listos.map(o => <EntregaCard key={o.id} o={o} />)}
-          </div>
-        </div>
-      )}
-
-      {/* En camino */}
-      {enCamino.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-blue-600 mb-2 flex items-center gap-1.5">
-            <Truck className="w-3.5 h-3.5" /> EN CAMINO ({enCamino.length})
-          </p>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            {enCamino.map(o => <EntregaCard key={o.id} o={o} />)}
-          </div>
-        </div>
-      )}
-
-      {/* Otras */}
-      {otros.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-zinc-400 mb-2">EN PROCESO ({otros.length})</p>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            {otros.map(o => <EntregaCard key={o.id} o={o} />)}
-          </div>
-        </div>
-      )}
-
-      {pendientes.length === 0 && (
+      {pendientes.length === 0 ? (
         <div className="text-center py-16 text-zinc-400 text-sm">
           <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-zinc-200" />
           Sin órdenes pendientes
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-5 items-start">
+
+          {/* Columna izquierda: En proceso */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-zinc-100">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                En proceso
+              </p>
+              <span className="text-xs font-bold text-zinc-400">
+                · {[...enCamino, ...otros].length}
+              </span>
+            </div>
+
+            {enCamino.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-blue-500 flex items-center gap-1.5 px-0.5">
+                  <Truck className="w-3 h-3" /> En camino
+                </p>
+                {enCamino.map(o => <EntregaCard key={o.id} o={o} />)}
+              </div>
+            )}
+
+            {otros.length > 0 && (
+              <div className="space-y-2">
+                {enCamino.length > 0 && (
+                  <p className="text-[11px] font-semibold text-zinc-400 px-0.5">En laboratorio / recibido</p>
+                )}
+                {otros.map(o => <EntregaCard key={o.id} o={o} />)}
+              </div>
+            )}
+
+            {[...enCamino, ...otros].length === 0 && (
+              <p className="text-xs text-zinc-300 text-center py-8">Sin órdenes en proceso</p>
+            )}
+          </div>
+
+          {/* Columna derecha: Listos para entrega */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-emerald-100">
+              <p className="text-xs font-bold text-emerald-600 uppercase tracking-wide flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Listos para entrega
+              </p>
+              <span className="text-xs font-bold text-emerald-400">· {listos.length}</span>
+            </div>
+
+            {listos.length > 0
+              ? listos.map(o => <EntregaCard key={o.id} o={o} />)
+              : <p className="text-xs text-zinc-300 text-center py-8">Sin lentes listos aún</p>
+            }
+          </div>
+
         </div>
       )}
     </div>
