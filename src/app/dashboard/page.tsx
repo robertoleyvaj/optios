@@ -374,7 +374,7 @@ const statusMap = {
 // Tipos para la vista vendedor
 // ─────────────────────────────────────────
 type PacienteReal = { id: string; nombre: string; apellido: string; telefono: string }
-type LabListo     = { id: string; folio: string; paciente: string }
+type LabListo     = { id: string; folio: string; paciente: string; estado?: string; fecha_promesa?: string }
 
 // ─────────────────────────────────────────
 // Vista dashboard activo para vendedor
@@ -408,8 +408,10 @@ function calcularBono(ventas: number): { actual: number; siguiente: { meta: numb
   return { actual, siguiente }
 }
 
+const SUCURSALES_LISTA = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
+
 // ─────────────────────────────────────────
-function VistaVendedor({ nombre, nombreCompleto, sucursal }: { nombre: string; nombreCompleto: string; sucursal: string }) {
+function VistaVendedor({ nombre, nombreCompleto, sucursal, isAdmin }: { nombre: string; nombreCompleto: string; sucursal: string; isAdmin: boolean }) {
   const router = useRouter()
   const [query, setQuery]               = useState('')
   const [paciente, setPaciente]         = useState<PacienteReal | null>(null)
@@ -417,39 +419,61 @@ function VistaVendedor({ nombre, nombreCompleto, sucursal }: { nombre: string; n
   const [mostrarNuevo, setMostrarNuevo] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Para admin/gerente con "Todas": selector de sucursal activa
+  const [sucursalActual, setSucursalActual] = useState<string>(
+    sucursal && sucursal !== 'Todas' ? sucursal : 'Baja Visión'
+  )
+  const sucursalEfectiva = sucursal === 'Todas' ? sucursalActual : sucursal
+
   // Datos reales de Supabase
-  const [ventasHoy, setVentasHoy]         = useState(0)
-  const [recientes, setRecientes]         = useState<PacienteReal[]>([])
-  const [listosHoy, setListosHoy]         = useState<LabListo[]>([])
+  const [ventasHoy, setVentasHoy]           = useState(0)
+  const [recientes, setRecientes]           = useState<PacienteReal[]>([])
+  const [listosSemana, setListosSemana]     = useState<LabListo[]>([])
+  const [citasHoy, setCitasHoy]             = useState<{ id: string; hora: string; paciente: string; tipo: string; estado: string }[]>([])
   const [busqResultados, setBusqResultados] = useState<PacienteReal[]>([])
 
-  // Carga inicial: recientes, listos, ventas hoy
+  // Carga inicial: recientes, listos semana, ventas hoy, citas hoy
   useEffect(() => {
-    if (!sucursal) return
+    if (!sucursalEfectiva) return
     const fetchData = async () => {
       const { createClient } = await import('@/lib/supabase/client')
-      const sb  = createClient()
-      // Hora local para que el conteo se reinicie a medianoche México
+      const sb   = createClient()
       const now2 = new Date()
       const startHoy2 = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(), 0, 0, 0, 0)
       const endHoy2   = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(), 23, 59, 59, 999)
+      // Esta semana (lunes pasado → domingo próximo)
+      const diaSem = now2.getDay() === 0 ? 6 : now2.getDay() - 1  // 0=lun … 6=dom
+      const startSemana = new Date(startHoy2.getTime() - diaSem * 86400000)
+      const endSemana   = new Date(startSemana.getTime() + 7 * 86400000 - 1)
+      const hoyStr = now2.toISOString().split('T')[0]
 
-      const [pRec, vHoy, listos] = await Promise.all([
+      const [pRec, vHoy, listos, citas] = await Promise.all([
         sb.from('pacientes').select('id,nombre,apellido,telefono').order('created_at', { ascending: false }).limit(6),
-        // Sus propias ventas (por atendido_por) — no las de toda la sucursal
         sb.from('ventas').select('total,saldo')
-          .eq('atendido_por', nombreCompleto)
+          .eq('sucursal', sucursalEfectiva)
           .gte('created_at', startHoy2.toISOString())
           .lte('created_at', endHoy2.toISOString()),
-        sb.from('ordenes_lab').select('id,folio,paciente').eq('sucursal', sucursal).eq('estado', 'listo').order('fecha_ingreso', { ascending: true }).limit(5),
+        sb.from('ordenes_lab').select('id,folio,paciente,estado,fecha_promesa')
+          .eq('sucursal', sucursalEfectiva)
+          .in('estado', ['recibido', 'en proceso', 'listo'])
+          .gte('fecha_ingreso', startSemana.toISOString().split('T')[0])
+          .lte('fecha_ingreso', endSemana.toISOString().split('T')[0])
+          .order('fecha_promesa', { ascending: true })
+          .limit(10),
+        sb.from('citas').select('id,hora,paciente,tipo,estado')
+          .eq('fecha', hoyStr)
+          .eq('sucursal', sucursalEfectiva)
+          .order('hora', { ascending: true })
+          .limit(8),
       ])
 
-      if (pRec.data)  setRecientes(pRec.data)
-      if (vHoy.data)  setVentasHoy(vHoy.data.reduce((s, v) => s + Number(v.total), 0))
-      if (listos.data) setListosHoy(listos.data)
+      if (pRec.data)   setRecientes(pRec.data)
+      if (vHoy.data)   setVentasHoy(vHoy.data.reduce((s, v) => s + Number(v.total) - Number(v.saldo ?? 0), 0))
+      if (listos.data) setListosSemana(listos.data)
+      if (citas.data)  setCitasHoy(citas.data as { id: string; hora: string; paciente: string; tipo: string; estado: string }[])
     }
     fetchData()
-  }, [sucursal, nombreCompleto])
+  }, [sucursalEfectiva, nombreCompleto])
 
   // Búsqueda en tiempo real con debounce
   useEffect(() => {
@@ -492,19 +516,35 @@ function VistaVendedor({ nombre, nombreCompleto, sucursal }: { nombre: string; n
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900">Hola, {nombre.split(' ')[0]}</h1>
-          <p className="text-sm text-zinc-400 mt-0.5 capitalize">{fechaHoy} · {sucursal}</p>
+          <p className="text-sm text-zinc-400 mt-0.5 capitalize">{fechaHoy}</p>
         </div>
         <div className="flex items-center gap-5 text-right">
           <div>
-            <p className="text-xs text-zinc-400">Ventas hoy</p>
+            <p className="text-xs text-zinc-400">Cobrado hoy</p>
             <p className="text-sm font-bold text-zinc-800">${ventasHoy.toLocaleString('es-MX', { minimumFractionDigits: 0 })}</p>
           </div>
           <div>
-            <p className="text-xs text-zinc-400">Listos</p>
-            <p className="text-sm font-bold text-emerald-600">{listosHoy.length}</p>
+            <p className="text-xs text-zinc-400">Semana</p>
+            <p className="text-sm font-bold text-emerald-600">{listosSemana.length} listos</p>
           </div>
         </div>
       </div>
+
+      {/* ── Selector de sucursal (solo admin/gerente con "Todas") ── */}
+      {sucursal === 'Todas' && (
+        <div className="flex gap-2">
+          {SUCURSALES_LISTA.map(s => (
+            <button key={s} onClick={() => setSucursalActual(s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                sucursalActual === s
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+              }`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Barra de búsqueda ── */}
       <div className="relative">
@@ -633,27 +673,55 @@ function VistaVendedor({ nombre, nombreCompleto, sucursal }: { nombre: string; n
             </div>
           </div>
 
-          {/* Listos para entregar */}
+          {/* Trabajos de la semana */}
           <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
-            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Listos para entregar</h2>
-            {listosHoy.length > 0 ? (
+            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Trabajos semana</h2>
+            {listosSemana.length > 0 ? (
               <div className="space-y-0.5">
-                {listosHoy.map(l => (
-                  <div key={l.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
-                    <FlaskConical className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-zinc-800 truncate">{l.paciente}</p>
-                      <p className="text-xs text-zinc-400">{l.folio}</p>
+                {listosSemana.map(l => {
+                  const esListo = l.estado === 'listo'
+                  return (
+                    <div key={l.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
+                      <FlaskConical className={`w-4 h-4 flex-shrink-0 ${esListo ? 'text-emerald-500' : 'text-amber-400'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-800 truncate">{l.paciente}</p>
+                        <p className="text-xs text-zinc-400">{l.folio}</p>
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        esListo ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'
+                      }`}>{esListo ? 'Listo' : l.estado}</span>
                     </div>
-                    <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex-shrink-0">Listo</span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
-              <p className="text-xs text-zinc-400 px-2 py-2">Sin lentes listos por ahora.</p>
+              <p className="text-xs text-zinc-400 px-2 py-2">Sin trabajos esta semana.</p>
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* ── Citas de hoy ── */}
+      {inIdle && citasHoy.length > 0 && (
+        <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
+          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Citas de hoy</h2>
+          <div className="space-y-0.5">
+            {citasHoy.map(c => (
+              <div key={c.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
+                <span className="text-xs font-mono text-zinc-400 w-12 flex-shrink-0">{c.hora?.slice(0,5)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-800 truncate">{c.paciente}</p>
+                  <p className="text-xs text-zinc-400 capitalize">{c.tipo}</p>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                  c.estado === 'confirmada' ? 'bg-emerald-50 text-emerald-600' :
+                  c.estado === 'cancelada'  ? 'bg-red-50 text-red-500' :
+                  'bg-zinc-100 text-zinc-500'
+                }`}>{c.estado}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -680,14 +748,6 @@ export default function DashboardPage() {
   const [usuario, setUsuario] = useState<{ nombre: string; rol: string; sucursal: string } | null>(null)
   const router = useRouter()
 
-  const [kpis, setKpis] = useState({ ventasHoy: 0, ventasAyer: 0, labTotal: 0, labListos: 0, porCobrar: 0, cuentasPendientes: 0 })
-  const [chartData, setChartData] = useState<{ semana: string; ventas: number }[]>([])
-  const [totalMes, setTotalMes] = useState(0)
-  const [ventasRealesPorSucursal, setVentasRealesPorSucursal] = useState<Record<string, number>>({})
-  const [ventasHoySucursal, setVentasHoySucursal] = useState<Record<string, number>>({})
-  const [efectivoHoySucursal, setEfectivoHoySucursal] = useState<Record<string, number>>({})
-  const [citasHoy, setCitasHoy] = useState<{ id: string; hora: string; paciente: string; tipo: string; estado: string }[]>([])
-
   useEffect(() => {
     try {
       const raw = localStorage.getItem('optios_demo_user')
@@ -701,216 +761,19 @@ export default function DashboardPage() {
     } catch { /* noop */ }
   }, [router])
 
-  // Fetch datos reales de Supabase para el dashboard admin/gerente
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const { createClient } = await import('@/lib/supabase/client')
-        const sb = createClient()
-        const now = new Date()
-        // Usar tiempo LOCAL para evitar que ventas de tarde/noche en México queden fuera del rango UTC
-        const startHoy  = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
-        const endHoy    = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-        const startAyer = new Date(startHoy.getTime() - 86400000)
-        const endAyer   = new Date(startHoy.getTime() - 1)
-        const primerDia = new Date(now.getFullYear(), now.getMonth(), 1)
-
-        const [vHoy, vAyer, lab, cuentas, ventasMes] = await Promise.all([
-          sb.from('ventas').select('total,saldo,sucursal,metodo_pago')
-            .gte('created_at', startHoy.toISOString()).lte('created_at', endHoy.toISOString()),
-          sb.from('ventas').select('total,saldo')
-            .gte('created_at', startAyer.toISOString()).lte('created_at', endAyer.toISOString()),
-          sb.from('ordenes_lab').select('estado'),
-          sb.from('ventas').select('saldo').gt('saldo', 0),
-          sb.from('ventas').select('created_at,total,saldo,sucursal')
-            .gte('created_at', primerDia.toISOString()),
-        ])
-
-        // Ventas del día = total bruto (lo vendido, no lo cobrado)
-        // Efectivo recibido = total - saldo (lo que ya entró en caja)
-        const calcGross = (arr: { total: unknown }[]) =>
-          arr.reduce((s, v) => s + Number(v.total), 0)
-
-        const totalHoy  = calcGross(vHoy.data  ?? [])
-        const totalAyer = calcGross(vAyer.data ?? [])
-
-        // Breakdown hoy por sucursal y efectivo por sucursal
-        const ventasSucHoy:   Record<string, number> = {}
-        const efectivoSucHoy: Record<string, number> = {}
-        for (const v of (vHoy.data ?? [])) {
-          const cobrado = Number(v.total) - Number(v.saldo ?? 0)  // lo ya cobrado
-          ventasSucHoy[v.sucursal] = (ventasSucHoy[v.sucursal] ?? 0) + Number(v.total) // gross
-          if ((v.metodo_pago ?? '').toLowerCase().includes('efectivo')) {
-            efectivoSucHoy[v.sucursal] = (efectivoSucHoy[v.sucursal] ?? 0) + cobrado  // efectivo recibido
-          }
-        }
-        setVentasHoySucursal(ventasSucHoy)
-        setEfectivoHoySucursal(efectivoSucHoy)
-
-        setKpis({
-          ventasHoy:          totalHoy,
-          ventasAyer:         totalAyer,
-          labTotal:           (lab.data ?? []).filter(o => !['listo','entregado'].includes(o.estado)).length,
-          labListos:          (lab.data ?? []).filter(o => o.estado === 'listo').length,
-          porCobrar:          (cuentas.data ?? []).reduce((s,v) => s + Number(v.saldo ?? 0), 0),
-          cuentasPendientes:  (cuentas.data ?? []).length,
-        })
-
-        // Ventas del mes: por semana (gráfica) y por sucursal (metas) — total bruto
-        const semMap: Record<number, number> = {}
-        const sucMap: Record<string, number> = {}
-        for (const v of (ventasMes.data ?? [])) {
-          const gross = Number(v.total)
-          const dia = new Date(v.created_at).getDate()
-          const sem = Math.ceil(dia / 7)
-          semMap[sem] = (semMap[sem] ?? 0) + gross
-          sucMap[v.sucursal] = (sucMap[v.sucursal] ?? 0) + gross
-        }
-        const lbls = ['Sem 1\n1–7','Sem 2\n8–14','Sem 3\n15–21','Sem 4\n22–28','Sem 5\n29+']
-        setChartData([1,2,3,4,5].filter(k => semMap[k] !== undefined).map(k => ({ semana: lbls[k-1], ventas: semMap[k] })))
-        setTotalMes(Object.values(sucMap).reduce((s, v) => s + v, 0))
-        setVentasRealesPorSucursal(sucMap)
-
-        // Citas de hoy desde Supabase
-        const hoyStr = new Date().toISOString().split('T')[0]
-        const { data: citasData } = await sb.from('citas').select('id,hora,paciente,tipo,estado')
-          .eq('fecha', hoyStr).order('hora', { ascending: true }).limit(10)
-        if (citasData) setCitasHoy(citasData as { id: string; hora: string; paciente: string; tipo: string; estado: string }[])
-      } catch { /* noop */ }
-    }
-    fetchDashboardData()
-  }, [])
-
-  const esAdmin    = !usuario || usuario.rol === 'administrador' || usuario.rol === 'gerente'
-  const esDueno    = !usuario || usuario.rol === 'administrador'
-  const esVendedor = usuario?.rol === 'vendedor'
-  const sucursalFiltro = esAdmin ? null : usuario?.sucursal ?? null
+  const esRepartidor = usuario?.rol === 'repartidor'
+  const esAdmin      = !usuario || usuario.rol === 'administrador' || usuario.rol === 'gerente'
   const nombreUsuario = usuario?.nombre ?? 'Usuario'
   const apodoUsuario  = (usuario as { apodo?: string } | null)?.apodo ?? nombreUsuario.split(' ')[0]
 
-  // Vendedor: flujo guiado de atención
-  if (esVendedor) {
-    return <VistaVendedor nombre={apodoUsuario} nombreCompleto={nombreUsuario} sucursal={usuario?.sucursal ?? ''} />
-  }
-
   // Repartidor: redirigido a laboratorio (no renderizar nada mientras)
-  if (usuario?.rol === 'repartidor') return null
+  if (esRepartidor) return null
 
-  return (
-    <div className="space-y-5">
-
-      {/* Greeting */}
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Hola, {apodoUsuario}</h1>
-        <p className="text-sm text-zinc-400 mt-0.5">
-          {esDueno
-            ? 'Aquí está el resumen de hoy en todas las sucursales.'
-            : esAdmin
-            ? `Resumen de hoy en todas las sucursales.`
-            : `Resumen de hoy en ${sucursalFiltro}.`}
-        </p>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
-        <VentasDiaCard total={kpis.ventasHoy} ayer={kpis.ventasAyer} porSucursal={ventasHoySucursal} />
-        <CajaCard sucursalFiltro={sucursalFiltro} efectivoReal={efectivoHoySucursal} />
-        <StatCard
-          label="En laboratorio"
-          value={String(kpis.labTotal)}
-          icon={Package}
-          iconBg="bg-amber-50"
-          iconColor="text-amber-500"
-          trend="neutral"
-          trendLabel={`${kpis.labListos} listo${kpis.labListos !== 1 ? 's' : ''} para entregar`}
-        />
-        <StatCard
-          label="Por cobrar"
-          value={`$${kpis.porCobrar.toLocaleString('es-MX')}`}
-          icon={DollarSign}
-          iconBg="bg-rose-50"
-          iconColor="text-rose-500"
-          trend={kpis.cuentasPendientes > 0 ? 'down' : 'neutral'}
-          trendLabel={`${kpis.cuentasPendientes} cuenta${kpis.cuentasPendientes !== 1 ? 's' : ''} pendiente${kpis.cuentasPendientes !== 1 ? 's' : ''}`}
-        />
-      </div>
-
-      {/* Metas del mes */}
-      <MetasCard sucursalFiltro={sucursalFiltro} esAdmin={esAdmin} ventasReales={ventasRealesPorSucursal} />
-
-      {/* Main grid */}
-      <div className="grid grid-cols-3 gap-4">
-
-        {/* Sales chart — spans 2 cols */}
-        <div className="col-span-2 bg-white rounded-lg p-5 border border-zinc-200/80">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-800">Ventas del mes — {monthLabel}</h2>
-              <p className="text-xs text-zinc-400 mt-0.5">Total acumulado: ${totalMes.toLocaleString('es-MX')} MXN</p>
-            </div>
-            <span className="text-xs font-medium text-[#0D9488] bg-[#0D9488]/10 px-3 py-1 rounded-full">
-              Mes actual
-            </span>
-          </div>
-          {chartData.length === 0 && (
-            <div className="h-[200px] flex items-center justify-center text-zinc-300 text-sm">
-              Sin ventas registradas este mes
-            </div>
-          )}
-          {chartData.length > 0 && <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0D9488" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#0D9488" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="semana" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-              <Tooltip
-                contentStyle={{ background: '#0B0E14', border: 'none', borderRadius: 10, color: '#fff', fontSize: 12 }}
-                formatter={(v: unknown) => [`$${Number(v).toLocaleString('es-MX')}`, 'Ventas']}
-              />
-              <Area type="monotone" dataKey="ventas" stroke="#0D9488" strokeWidth={2.5} fill="url(#salesGrad)" dot={{ fill: '#0D9488', r: 4, strokeWidth: 0 }} />
-            </AreaChart>
-          </ResponsiveContainer>}
-        </div>
-
-        {/* Próximas citas — datos reales */}
-        <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-zinc-800">Próximas citas</h2>
-            <button onClick={() => router.push('/dashboard/agenda')}
-              className="text-xs text-[#0D9488] font-medium hover:underline">Ver todas</button>
-          </div>
-          {citasHoy.length === 0 ? (
-            <div className="text-center py-6 text-xs text-zinc-400">
-              <Clock className="w-8 h-8 mx-auto mb-2 text-zinc-200" />
-              No hay citas programadas para hoy
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {citasHoy.map((a) => {
-                const s = statusMap[a.estado as keyof typeof statusMap] ?? statusMap.pendiente
-                const StatusIcon = s.icon
-                return (
-                  <div key={a.id} className="flex items-center gap-3">
-                    <div className="w-10 h-8 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-bold text-zinc-500">{a.hora?.slice(0,5)}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-zinc-700 truncate">{a.paciente}</p>
-                      <p className="text-xs text-zinc-400">{a.tipo}</p>
-                    </div>
-                    <StatusIcon className={`w-4 h-4 flex-shrink-0 ${s.color}`} />
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+  // Todos los demás roles: home unificado
+  return <VistaVendedor
+    nombre={apodoUsuario}
+    nombreCompleto={nombreUsuario}
+    sucursal={usuario?.sucursal ?? 'Todas'}
+    isAdmin={esAdmin}
+  />
 }
