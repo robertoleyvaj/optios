@@ -324,6 +324,7 @@ export default function NuevaConsultaPage() {
   const [consultaId, setConsultaId] = useState<string | null>(null)
   const [pacienteId, setPacienteId] = useState<string | null>(pacienteIdParam)
   const [pacienteNombre, setPacienteNombre] = useState('')
+  const [modoConsulta, setModoConsulta]     = useState<null | 'especializada' | 'rapida'>(null)
 
   // ── Datos paso 1: Paciente ──
   const [pNombre, setPNombre]             = useState('')
@@ -598,6 +599,8 @@ export default function NuevaConsultaPage() {
         setGuardando(false)
       }
     }
+    // Paso 1 (nuevo paciente): no avanzar — mostrar selector de tipo de consulta
+    if (paso === 1) return
     const siguiente = Math.min(paso + 1, 9)
     setPaso(siguiente)
     setPasoMaximo(p => Math.max(p, siguiente))
@@ -623,6 +626,35 @@ export default function NuevaConsultaPage() {
     }
   }
 
+  // ── Guardar consulta rápida (solo graduación) ──
+  const guardarRapida = async () => {
+    const pId = pacienteId
+    if (!pId) return
+    setGuardando(true)
+    try {
+      const supabase = createClient()
+      await supabase.from('recetas').insert({
+        paciente_id:   pId,
+        fecha:         new Date().toISOString().split('T')[0],
+        od_esfera:     rxOd.esfera    || null,
+        od_cilindro:   rxOd.cilindro  || null,
+        od_eje:        rxOd.eje       || null,
+        od_add:        rxOd.add       || null,
+        oi_esfera:     rxOi.esfera    || null,
+        oi_cilindro:   rxOi.cilindro  || null,
+        oi_eje:        rxOi.eje       || null,
+        oi_add:        rxOi.add       || null,
+        dp_od:         rxDpOd         || null,
+        dp_oi:         rxDpOi         || null,
+      })
+      router.push('/dashboard/expedientes')
+    } catch (err) {
+      alert('Error al guardar: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   const puedeAvanzar = () => {
     if (paso === 1) return pNombre.trim().length > 0 && pApellido.trim().length > 0
     return true
@@ -633,6 +665,44 @@ export default function NuevaConsultaPage() {
   // ─────────────────────────────────────────────
 
   const renderPaso = () => {
+    // ── SELECTOR: Paciente creado, elegir tipo de consulta ──
+    if (pacienteId && modoConsulta === null) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-base font-bold text-zinc-800">¿Qué tipo de consulta realizarás?</h2>
+            <p className="text-sm text-zinc-400 mt-0.5">Paciente registrado: <span className="font-semibold text-zinc-600">{pacienteNombre || `${pNombre} ${pApellido}`}</span></p>
+          </div>
+
+          <button
+            onClick={() => { setModoConsulta('especializada'); setPaso(2); setPasoMaximo(2) }}
+            className="w-full flex items-start gap-4 p-5 border-2 border-zinc-200 rounded-xl hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all text-left group"
+          >
+            <div className="w-10 h-10 rounded-lg bg-zinc-100 group-hover:bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0 transition-colors">
+              <Eye className="w-5 h-5 text-zinc-500 group-hover:text-[#0D9488]" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-zinc-800">Consulta especializada</p>
+              <p className="text-xs text-zinc-400 mt-1">Historia clínica completa · hábitos · síntomas · refracción · diagnóstico · prescripción · recomendaciones comerciales</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setModoConsulta('rapida')}
+            className="w-full flex items-start gap-4 p-5 border-2 border-zinc-200 rounded-xl hover:border-zinc-400 hover:bg-zinc-50 transition-all text-left group"
+          >
+            <div className="w-10 h-10 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+              <FileText className="w-5 h-5 text-zinc-500" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-zinc-800">Consulta rápida</p>
+              <p className="text-xs text-zinc-400 mt-1">Solo guardar graduación — ideal para cuando el paciente trae receta o ya se revisó en otro lugar</p>
+            </div>
+          </button>
+        </div>
+      )
+    }
+
     switch (paso) {
       // ── PASO 1: Datos del paciente ─────────────
       case 1: return (
@@ -1387,6 +1457,49 @@ export default function NuevaConsultaPage() {
   }
 
   // ─────────────────────────────────────────────
+  // Layout consulta rápida
+  // ─────────────────────────────────────────────
+  if (modoConsulta === 'rapida') {
+    return (
+      <div className="min-h-screen bg-zinc-50">
+        <div className="bg-white border-b border-zinc-200 px-6 py-4 flex items-center gap-4">
+          <button onClick={() => setModoConsulta(null)}
+            className="flex items-center gap-2 text-zinc-400 hover:text-zinc-600 text-sm transition-colors">
+            <ChevronLeft className="w-4 h-4" /> Atrás
+          </button>
+          <div className="h-4 w-px bg-zinc-200" />
+          <h1 className="text-sm font-bold text-zinc-700">
+            Consulta rápida — {pacienteNombre || `${pNombre} ${pApellido}`}
+          </h1>
+        </div>
+        <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+          <div className="bg-white rounded-lg border border-zinc-200/80 p-6 space-y-6">
+            <div>
+              <h2 className="text-base font-bold text-zinc-800">Graduación</h2>
+              <p className="text-sm text-zinc-400 mt-0.5">Llena los datos que tengas. Todos los campos son opcionales.</p>
+            </div>
+            <RxSection label="Ojo derecho / Ojo izquierdo" od={rxOd} oi={rxOi} setOd={setRxOd} setOi={setRxOi} showAdd showDp dpOd={rxDpOd} dpOi={rxDpOi} setDpOd={setRxDpOd} setDpOi={setRxDpOi} highlight />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setModoConsulta(null)}
+              className="px-4 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50 transition-all">
+              Cancelar
+            </button>
+            <button
+              onClick={guardarRapida}
+              disabled={guardando}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 disabled:opacity-40 transition-all">
+              {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-4 h-4" />}
+              Guardar graduación
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─────────────────────────────────────────────
   // Layout principal
   // ─────────────────────────────────────────────
   return (
@@ -1405,8 +1518,8 @@ export default function NuevaConsultaPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-6">
-        {/* Steps indicator */}
-        <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
+        {/* Steps indicator — ocultar en selector y en paso 1 */}
+        <div className={`flex items-center gap-1 mb-6 overflow-x-auto pb-1 ${(pacienteId && modoConsulta === null) ? 'hidden' : ''}`}>
           {STEPS.map((s, idx) => {
             const done  = paso > s.id && s.id <= pasoMaximo
             const activ = paso === s.id
@@ -1436,8 +1549,8 @@ export default function NuevaConsultaPage() {
           {renderPaso()}
         </div>
 
-        {/* Navegación */}
-        <div className="flex items-center justify-between mt-4">
+        {/* Navegación — ocultar en selector */}
+        <div className={`flex items-center justify-between mt-4 ${(pacienteId && modoConsulta === null) ? 'hidden' : ''}`}>
           <button
             onClick={() => setPaso(p => Math.max(p - 1, 1))}
             disabled={paso === 1}
