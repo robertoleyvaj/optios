@@ -94,13 +94,13 @@ type VentaRef = {
 // Config estados
 // ─────────────────────────────────────────
 const ESTADO_CONFIG: Record<EstadoOrden, { label: string; bg: string; text: string; dot: string; icon: React.ElementType }> = {
-  recibido:       { label: 'Recibido',            bg: 'bg-zinc-100',   text: 'text-zinc-600',   dot: '#94A3B8', icon: Package },
-  en_laboratorio: { label: 'En laboratorio',      bg: 'bg-indigo-50',  text: 'text-indigo-700', dot: '#6366F1', icon: Clock },
-  en_camino:      { label: 'En camino',           bg: 'bg-blue-50',    text: 'text-blue-700',   dot: '#3B82F6', icon: Truck },
-  en_sucursal:    { label: 'En sucursal',         bg: 'bg-amber-50',   text: 'text-amber-700',  dot: '#F59E0B', icon: Package },
-  listo:          { label: 'Listo para entregar', bg: 'bg-emerald-50', text: 'text-emerald-700',dot: '#10B981', icon: CheckCircle2 },
-  entregado:      { label: 'Entregado',           bg: 'bg-zinc-100',   text: 'text-zinc-400',   dot: '#CBD5E1', icon: CheckCircle2 },
-  problema:       { label: 'Con problema',        bg: 'bg-red-50',     text: 'text-red-600',    dot: '#EF4444', icon: AlertTriangle },
+  recibido:       { label: 'Pendiente',     bg: 'bg-zinc-100',    text: 'text-zinc-600',   dot: '#94A3B8', icon: Package },
+  en_laboratorio: { label: 'En laboratorio',bg: 'bg-violet-50',   text: 'text-violet-700', dot: '#7C3AED', icon: Clock },
+  en_camino:      { label: 'En camino',     bg: 'bg-teal-50',     text: 'text-teal-700',   dot: '#0D9488', icon: Truck },
+  en_sucursal:    { label: 'Por verificar', bg: 'bg-amber-50',    text: 'text-amber-700',  dot: '#F59E0B', icon: Package },
+  listo:          { label: 'Listo',         bg: 'bg-emerald-50',  text: 'text-emerald-700',dot: '#10B981', icon: CheckCircle2 },
+  entregado:      { label: 'Entregado',     bg: 'bg-zinc-100',    text: 'text-zinc-400',   dot: '#CBD5E1', icon: CheckCircle2 },
+  problema:       { label: 'Con problema',  bg: 'bg-red-50',      text: 'text-red-600',    dot: '#EF4444', icon: AlertTriangle },
 }
 
 const FLUJO: EstadoOrden[] = ['recibido', 'en_laboratorio', 'en_camino', 'en_sucursal', 'listo', 'entregado']
@@ -546,15 +546,15 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   ]
 
   const BADGE: Record<string, { bg: string; text: string; label: string }> = {
-    recibido:       { bg: 'bg-zinc-100',  text: 'text-zinc-600',   label: 'Por llevar'     },
-    en_laboratorio: { bg: 'bg-indigo-50',  text: 'text-indigo-700', label: 'En laboratorio' },
-    en_camino:      { bg: 'bg-blue-50',    text: 'text-blue-700',   label: 'En camino'      },
-    en_sucursal:    { bg: 'bg-amber-50',   text: 'text-amber-700',  label: 'En sucursal'    },
+    recibido:       { bg: 'bg-zinc-100',   text: 'text-zinc-600',   label: 'Pendiente'      },
+    en_laboratorio: { bg: 'bg-violet-50',  text: 'text-violet-700', label: 'En laboratorio' },
+    en_camino:      { bg: 'bg-teal-50',    text: 'text-teal-700',   label: 'En camino'      },
+    en_sucursal:    { bg: 'bg-amber-50',   text: 'text-amber-700',  label: 'Por verificar'  },
   }
 
   const DOT: Record<string, string> = {
-    recibido: 'bg-zinc-400', en_laboratorio: 'bg-indigo-500',
-    en_camino: 'bg-blue-500', en_sucursal: 'bg-amber-500',
+    recibido: 'bg-zinc-400', en_laboratorio: 'bg-violet-500',
+    en_camino: 'bg-teal-500', en_sucursal: 'bg-amber-500',
   }
 
   const counts = {
@@ -1679,10 +1679,10 @@ export default function LaboratorioPage() {
           {/* Compact summary — single line */}
           <div className="flex items-center gap-3 mt-2 flex-wrap">
             {[
-              { n: porLlevar,  label: 'por llevar',    dot: 'bg-zinc-300',   text: 'text-zinc-700' },
-              { n: enLab,      label: 'en lab',        dot: 'bg-indigo-400',  text: 'text-indigo-600' },
-              { n: enCamino,   label: 'en camino',     dot: 'bg-blue-400',    text: 'text-blue-600' },
-              { n: enSucursal, label: 'en sucursal',   dot: 'bg-amber-400',   text: 'text-amber-600' },
+              { n: porLlevar,  label: 'pendientes',    dot: 'bg-zinc-300',    text: 'text-zinc-700' },
+              { n: enLab,      label: 'en laboratorio',dot: 'bg-violet-400',  text: 'text-violet-600' },
+              { n: enCamino,   label: 'en camino',     dot: 'bg-teal-400',    text: 'text-teal-600' },
+              { n: enSucursal, label: 'por verificar', dot: 'bg-amber-400',   text: 'text-amber-600' },
               { n: listas,     label: 'listos',        dot: 'bg-emerald-400', text: 'text-emerald-600' },
             ].map((s, i) => (
               <React.Fragment key={s.label}>
@@ -1723,13 +1723,13 @@ export default function LaboratorioPage() {
             Todas <span className={`ml-1 ${filtroEstado === 'todas' ? 'text-zinc-400' : 'text-zinc-300'}`}>{activas.length}</span>
           </button>
           {([
-            { key: 'recibido'       as EstadoOrden, label: 'Por llevar',  dot: 'bg-zinc-300',   n: porLlevar },
-            { key: 'en_laboratorio' as EstadoOrden, label: 'En lab',      dot: 'bg-indigo-400',  n: enLab },
-            { key: 'en_camino'      as EstadoOrden, label: 'En camino',   dot: 'bg-blue-400',    n: enCamino },
-            { key: 'en_sucursal'    as EstadoOrden, label: 'En sucursal', dot: 'bg-amber-400',   n: enSucursal },
-            { key: 'listo'          as EstadoOrden, label: 'Listos',      dot: 'bg-emerald-400', n: listas },
-            { key: 'entregado'      as EstadoOrden, label: 'Entregados',  dot: 'bg-zinc-200',    n: ordenes.filter(o => o.estado === 'entregado').length },
-            { key: 'problema'       as EstadoOrden, label: 'Problema',    dot: 'bg-red-400',     n: problemas },
+            { key: 'recibido'       as EstadoOrden, label: 'Pendientes',    dot: 'bg-zinc-300',   n: porLlevar },
+            { key: 'en_laboratorio' as EstadoOrden, label: 'En laboratorio',dot: 'bg-violet-400', n: enLab },
+            { key: 'en_camino'      as EstadoOrden, label: 'En camino',    dot: 'bg-teal-400',   n: enCamino },
+            { key: 'en_sucursal'    as EstadoOrden, label: 'Por verificar',dot: 'bg-amber-400',  n: enSucursal },
+            { key: 'listo'          as EstadoOrden, label: 'Listos',       dot: 'bg-emerald-400',n: listas },
+            { key: 'entregado'      as EstadoOrden, label: 'Entregados',   dot: 'bg-zinc-200',   n: ordenes.filter(o => o.estado === 'entregado').length },
+            { key: 'problema'       as EstadoOrden, label: 'Problema',     dot: 'bg-red-400',    n: problemas },
           ]).map(chip => (
             <button key={chip.key} onClick={() => setFiltroEstado(chip.key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
