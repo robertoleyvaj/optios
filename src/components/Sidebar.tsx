@@ -22,11 +22,17 @@ const ROL_LABEL: Record<Rol, string> = {
   repartidor:    'Repartidor',
 }
 
-// Módulos a los que tiene acceso cada rol
+// Módulos core: todos los roles de tienda los ven
+const CORE = ['dashboard','ventas','agenda','expedientes','laboratorio','caja','inbox']
+
+// Módulos de gestión: solo gerente y admin
+const GESTION_GERENTE = ['inventario','reportes']
+const GESTION_ADMIN   = [...GESTION_GERENTE, 'analitica','finanzas','usuarios','ajustes']
+
 const PERMISOS: Record<Rol, string[]> = {
-  administrador: ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','finanzas','reportes','analitica','usuarios','ajustes','inbox'],
-  gerente:       ['dashboard','ventas','agenda','expedientes','inventario','laboratorio','caja','inbox'],
-  vendedor:      ['dashboard','ventas','agenda','expedientes','laboratorio','caja','mi-desempeno','inbox'],
+  administrador: [...CORE, ...GESTION_ADMIN],
+  gerente:       [...CORE, ...GESTION_GERENTE],
+  vendedor:      [...CORE],
   repartidor:    ['laboratorio','inbox'],
 }
 
@@ -34,29 +40,41 @@ const PERMISOS: Record<Rol, string[]> = {
 // Definición del menú completo
 // ─────────────────────────────────────────
 type SubItem = { href: string; label: string; icon: React.ElementType }
-type MenuItem = { href: string; label: string; icon: React.ElementType; key: string; subItems?: SubItem[] }
+type MenuItem =
+  | { type?: 'item'; href: string; label: string; icon: React.ElementType; key: string; pronto?: boolean; subItems?: SubItem[] }
+  | { type: 'sep'; label: string; key: string }
 
-const MENU_ITEMS: MenuItem[] = [
-  { href: '/dashboard',                  label: 'Inicio',       icon: LayoutDashboard, key: 'dashboard' },
+// Módulos core — todos los roles de tienda
+const MENU_CORE: MenuItem[] = [
+  { href: '/dashboard',             label: 'Inicio',      icon: LayoutDashboard, key: 'dashboard' },
   {
-    href: '/dashboard/ventas',           label: 'Ventas',       icon: ShoppingCart,    key: 'ventas',
+    href: '/dashboard/ventas',      label: 'Ventas',      icon: ShoppingCart,    key: 'ventas',
     subItems: [
-      { href: '/dashboard/ventas/nueva', label: 'Nueva venta',  icon: Plus },
-      { href: '/dashboard/ventas',       label: 'Historial',    icon: Clock },
+      { href: '/dashboard/ventas/nueva', label: 'Nueva venta', icon: Plus },
+      { href: '/dashboard/ventas',       label: 'Historial',   icon: Clock },
     ],
   },
-  { href: '/dashboard/agenda',           label: 'Agenda',       icon: CalendarDays,    key: 'agenda' },
-  { href: '/dashboard/expedientes',      label: 'Expedientes',  icon: FolderOpen,      key: 'expedientes' },
-  { href: '/dashboard/inventario',       label: 'Inventario',   icon: Package,         key: 'inventario' },
-  { href: '/dashboard/laboratorio',      label: 'Laboratorio',  icon: FlaskConical,    key: 'laboratorio' },
-  { href: '/dashboard/caja',             label: 'Caja',         icon: Wallet,          key: 'caja' },
-  { href: '/dashboard/mi-desempeno',    label: 'Mi desempeño', icon: TrendingUp,      key: 'mi-desempeno' },
-  { href: '/dashboard/finanzas',         label: 'Finanzas',     icon: DollarSign,      key: 'finanzas' },
-  { href: '/dashboard/reportes',         label: 'Reportes',     icon: BarChart3,       key: 'reportes' },
-  { href: '/dashboard/analitica',        label: 'Analítica Clínica', icon: Microscope, key: 'analitica' },
-  { href: '/dashboard/inbox',            label: 'Inbox',        icon: Mail,            key: 'inbox' },
-  { href: '/dashboard/usuarios',         label: 'Usuarios',     icon: Users,           key: 'usuarios' },
-  { href: '/dashboard/ajustes',          label: 'Ajustes',      icon: Settings,        key: 'ajustes' },
+  { href: '/dashboard/agenda',      label: 'Agenda',      icon: CalendarDays,    key: 'agenda' },
+  { href: '/dashboard/expedientes', label: 'Expedientes', icon: FolderOpen,      key: 'expedientes' },
+  { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical,    key: 'laboratorio' },
+  { href: '/dashboard/caja',        label: 'Caja',        icon: Wallet,          key: 'caja' },
+  { href: '/dashboard/inbox',       label: 'Inbox',       icon: Mail,            key: 'inbox' },
+]
+
+// Módulos de gestión — gerente y admin
+const MENU_GESTION: MenuItem[] = [
+  { type: 'sep', label: 'Gestión', key: '_sep_gestion' },
+  { href: '/dashboard/inventario',  label: 'Inventario',       icon: Package,    key: 'inventario' },
+  { href: '/dashboard/reportes',    label: 'Reportes',         icon: BarChart3,  key: 'reportes',  pronto: true },
+  { href: '/dashboard/analitica',   label: 'Analítica',        icon: Microscope, key: 'analitica', pronto: true },
+  { href: '/dashboard/finanzas',    label: 'Finanzas',         icon: DollarSign, key: 'finanzas',  pronto: true },
+  { href: '/dashboard/usuarios',    label: 'Usuarios',         icon: Users,      key: 'usuarios',  pronto: true },
+  { href: '/dashboard/ajustes',     label: 'Ajustes',          icon: Settings,   key: 'ajustes',   pronto: true },
+]
+
+const MENU_REPARTIDOR: MenuItem[] = [
+  { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical, key: 'laboratorio' },
+  { href: '/dashboard/inbox',       label: 'Inbox',       icon: Mail,         key: 'inbox' },
 ]
 
 const USUARIO_DEFAULT = { nombre: 'Usuario', apodo: 'Usuario', iniciales: 'U', rol: 'vendedor' as Rol, sucursal: '' }
@@ -89,7 +107,12 @@ export default function Sidebar() {
     router.push('/login')
   }
 
-  const itemsVisibles = MENU_ITEMS.filter(item => puedeVer(item.key))
+  // Construir menú según rol
+  const menuBase = usuario.rol === 'repartidor' ? MENU_REPARTIDOR : MENU_CORE
+  const menuExtra = usuario.rol === 'administrador' || usuario.rol === 'gerente' ? MENU_GESTION : []
+  const itemsVisibles = [...menuBase, ...menuExtra].filter(item =>
+    item.type === 'sep' || puedeVer(item.key)
+  )
 
   return (
     <aside className="w-64 bg-[#0B0E14] flex flex-col h-screen flex-shrink-0">
@@ -110,24 +133,40 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
         {itemsVisibles.map((item) => {
+          // Separador de sección
+          if (item.type === 'sep') {
+            return (
+              <div key={item.key} className="pt-4 pb-1 px-3">
+                <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">{item.label}</p>
+              </div>
+            )
+          }
+
           const Icon = item.icon
           const isParentActive = pathname === item.href || pathname.startsWith(item.href + '/')
           const hasSubItems = !!item.subItems
           const showSub = hasSubItems && isParentActive
+          const pronto = item.pronto
 
           return (
             <div key={item.href}>
               <Link
-                href={item.href}
+                href={pronto ? '#' : item.href}
+                onClick={pronto ? (e) => e.preventDefault() : undefined}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100 ${
-                  isParentActive
+                  pronto
+                    ? 'text-white/20 cursor-default'
+                    : isParentActive
                     ? 'bg-white/[0.07] text-white'
                     : 'text-white/45 hover:text-white/90 hover:bg-white/[0.04]'
                 }`}
               >
-                <Icon className={`w-[15px] h-[15px] flex-shrink-0 ${isParentActive ? 'text-[#2DD4BF]' : ''}`} />
+                <Icon className={`w-[15px] h-[15px] flex-shrink-0 ${isParentActive && !pronto ? 'text-[#2DD4BF]' : ''}`} />
                 <span className="flex-1">{item.label}</span>
-                {hasSubItems && (
+                {pronto && (
+                  <span className="text-[9px] font-bold text-white/20 uppercase tracking-wide">Pronto</span>
+                )}
+                {hasSubItems && !pronto && (
                   <ChevronDown className={`w-3 h-3 transition-transform ${showSub ? 'rotate-180' : ''}`} />
                 )}
               </Link>
