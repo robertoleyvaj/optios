@@ -3,751 +3,157 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
-import {
-  TrendingUp,
-  TrendingDown,
-  ShoppingCart,
-  Package,
-  DollarSign,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Banknote,
-  ChevronDown,
-  ChevronUp,
-  Store,
-  Target,
-  Pencil,
-  Check,
-  X,
   Search,
+  ShoppingCart,
   UserPlus,
+  Calendar,
   FlaskConical,
+  Phone,
+  CheckCircle2,
+  AlertTriangle,
+  Banknote,
+  ChevronRight,
+  ArrowRight,
+  Activity,
 } from 'lucide-react'
 
-// Mes actual
-const now = new Date()
-const monthName = now.toLocaleString('es-MX', { month: 'long', year: 'numeric' })
-const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1)
+// ─── Types ───────────────────────────────────────────────────────────────────
+type PacienteResult = { id: string; nombre: string; apellido: string; telefono: string }
+type CitaItem       = { id: string; hora: string; paciente: string; tipo: string; estado: string }
+type TrabajoItem    = { id: string; folio: string; paciente: string; estado: string; fecha_promesa?: string }
+type ActividadItem  = { id: string; tipo: string; descripcion: string; hora: string; folio?: string }
 
-const SUCURSAL_COLORS: Record<string, string> = {
-  'Baja Visión':   '#0D9488',
-  '5 de Mayo':     '#1B3A6B',
-  'Plaza Laureles':'#6366F1',
-}
+const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
-// --- Sub-components ---
-function StatCard({
-  label,
-  value,
+// ─── QuickActionCard ──────────────────────────────────────────────────────────
+function QuickActionCard({
   icon: Icon,
-  iconBg,
-  iconColor,
-  trend,
-  trendLabel,
+  label,
+  sublabel,
+  primaryLabel,
+  secondaryLabel,
+  onPrimary,
+  onSecondary,
 }: {
-  label: string
-  value: string
   icon: React.ElementType
-  iconBg: string
-  iconColor: string
-  trend: 'up' | 'down' | 'neutral'
-  trendLabel: string
+  label: string
+  sublabel: string
+  primaryLabel: string
+  secondaryLabel: string
+  onPrimary: () => void
+  onSecondary: () => void
 }) {
   return (
-    <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-      <div className="flex items-start justify-between">
+    <div className="bg-white rounded-2xl border border-zinc-100 p-4 shadow-sm flex flex-col gap-3 hover:shadow-md transition-shadow">
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-zinc-50 flex items-center justify-center flex-shrink-0">
+          <Icon className="w-4 h-4 text-zinc-600" />
+        </div>
         <div>
-          <p className="text-sm text-zinc-500 font-medium">{label}</p>
-          <p className="text-2xl font-bold text-zinc-800 mt-1">{value}</p>
-        </div>
-        <div className={`w-11 h-11 rounded-md ${iconBg} flex items-center justify-center`}>
-          <Icon className={`w-5 h-5 ${iconColor}`} />
+          <p className="text-sm font-semibold text-zinc-900 leading-tight">{label}</p>
+          <p className="text-[11px] text-zinc-400 leading-tight mt-0.5">{sublabel}</p>
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-1">
-        {trend === 'up' ? (
-          <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-        ) : trend === 'down' ? (
-          <TrendingDown className="w-3.5 h-3.5 text-red-400" />
-        ) : null}
-        <span className={`text-xs font-medium ${
-          trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-red-400' : 'text-zinc-400'
-        }`}>
-          {trendLabel}
-        </span>
+      <div className="flex gap-2">
+        <button onClick={onPrimary}
+          className="flex-1 py-2 bg-zinc-900 text-white text-xs font-semibold rounded-lg hover:bg-zinc-800 active:scale-[0.98] transition-all">
+          {primaryLabel}
+        </button>
+        <button onClick={onSecondary}
+          className="flex-1 py-2 border border-zinc-200 text-zinc-600 text-xs font-medium rounded-lg hover:bg-zinc-50 active:scale-[0.98] transition-all">
+          {secondaryLabel}
+        </button>
       </div>
     </div>
   )
 }
 
-// Ventas del día — expandable por sucursal
-function VentasDiaCard({ total, ayer, porSucursal }: {
-  total: number
-  ayer: number
-  porSucursal: Record<string, number>
+// ─── TaskRow ──────────────────────────────────────────────────────────────────
+function TaskRow({
+  icon,
+  label,
+  count,
+  colorClass,
+  onClick,
+}: {
+  icon: React.ReactNode
+  label: string
+  count: number
+  colorClass: string
+  onClick: () => void
 }) {
-  const [open, setOpen] = useState(false)
-  const pct = ayer > 0 ? Math.round(((total - ayer) / ayer) * 100) : null
-  const secs = Object.entries(porSucursal).filter(([, v]) => v > 0)
-  const maxVal = Math.max(...secs.map(([, v]) => v), 1)
-
+  if (count === 0) return null
   return (
-    <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-      <button
-        onClick={() => secs.length > 0 && setOpen(!open)}
-        className={`w-full p-5 flex items-start justify-between text-left ${secs.length > 0 ? 'hover:bg-zinc-50 transition-colors' : ''}`}
-      >
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm text-zinc-500 font-medium">Ventas del día</p>
-            {secs.length > 0 && (open
-              ? <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
-              : <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
-            )}
-          </div>
-          <p className="text-2xl font-bold text-zinc-800 mt-1">${total.toLocaleString('es-MX')}</p>
-        </div>
-        <div className="w-11 h-11 rounded-md bg-[#0D9488]/10 flex items-center justify-center">
-          <ShoppingCart className="w-5 h-5 text-[#0D9488]" />
-        </div>
-      </button>
-
-      {open && secs.length > 0 && (
-        <div className="border-t border-zinc-100 px-5 pb-4 pt-3 space-y-3">
-          {secs.map(([suc, val]) => {
-            const color = SUCURSAL_COLORS[suc] ?? '#94A3B8'
-            return (
-              <div key={suc} className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
-                  <Store className="w-3.5 h-3.5" style={{ color }} />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-medium text-zinc-600">{suc}</span>
-                    <span className="text-xs font-bold text-zinc-800">${val.toLocaleString('es-MX')}</span>
-                  </div>
-                  <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.round((val / maxVal) * 100)}%`, background: color }} />
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {!open && (
-        <div className="px-5 pb-4 mt-1">
-          <div className="flex items-center gap-1">
-            {pct !== null && (pct >= 0
-              ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-              : <TrendingDown className="w-3.5 h-3.5 text-red-400" />
-            )}
-            <span className={`text-xs font-medium ${pct === null ? 'text-zinc-400' : pct >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
-              {pct !== null ? `${pct >= 0 ? '+' : ''}${pct}% vs ayer` : 'Sin ventas ayer'}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
+    <button onClick={onClick}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-50 transition-colors text-left group">
+      <span className="flex-shrink-0">{icon}</span>
+      <span className="flex-1 text-sm text-zinc-700">{label}</span>
+      <span className={`text-sm font-bold ${colorClass}`}>{count}</span>
+      <ChevronRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-zinc-500 transition-colors flex-shrink-0" />
+    </button>
   )
 }
 
-// Efectivo recibido hoy — expandable por sucursal
-function CajaCard({ sucursalFiltro, efectivoReal }: { sucursalFiltro: string | null; efectivoReal: Record<string, number> }) {
-  const [open, setOpen] = useState(false)
-
-  const entradas = sucursalFiltro
-    ? Object.entries(efectivoReal).filter(([s]) => s === sucursalFiltro)
-    : Object.entries(efectivoReal)
-  const total = entradas.reduce((s, [, v]) => s + v, 0)
-  const maxVal = Math.max(...entradas.map(([, v]) => v), 1)
-  const hasDatos = entradas.length > 0
-
+// ─── PendingBlock ─────────────────────────────────────────────────────────────
+function PendingBlock({
+  icon: Icon,
+  label,
+  sublabel,
+  bgClass,
+  iconClass,
+  textClass,
+  subClass,
+  arrowClass,
+  onClick,
+}: {
+  icon: React.ElementType
+  label: string
+  sublabel: string
+  bgClass: string
+  iconClass: string
+  textClass: string
+  subClass: string
+  arrowClass: string
+  onClick: () => void
+}) {
   return (
-    <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-      <button
-        onClick={() => !sucursalFiltro && hasDatos && setOpen(!open)}
-        className={`w-full p-5 flex items-start justify-between text-left ${!sucursalFiltro && hasDatos ? 'hover:bg-zinc-50 transition-colors' : ''}`}
-      >
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm text-zinc-500 font-medium">Efectivo recibido</p>
-            {!sucursalFiltro && hasDatos && (open
-              ? <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
-              : <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
-            )}
-          </div>
-          <p className="text-2xl font-bold text-zinc-800 mt-1">${total.toLocaleString('es-MX')}</p>
-        </div>
-        <div className="w-11 h-11 rounded-md bg-emerald-50 flex items-center justify-center">
-          <Banknote className="w-5 h-5 text-emerald-500" />
-        </div>
-      </button>
-
-      {!sucursalFiltro && open && hasDatos && (
-        <div className="border-t border-zinc-100 px-5 pb-4 pt-3 space-y-3">
-          {entradas.map(([suc, val]) => {
-            const color = SUCURSAL_COLORS[suc] ?? '#94A3B8'
-            return (
-              <div key={suc} className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
-                  <Store className="w-3.5 h-3.5" style={{ color }} />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-medium text-zinc-600">{suc}</span>
-                    <span className="text-xs font-bold text-zinc-800">${val.toLocaleString('es-MX')}</span>
-                  </div>
-                  <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${Math.round((val / maxVal) * 100)}%`, background: color }} />
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {!open && (
-        <div className="px-5 pb-4 mt-1">
-          <div className="flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-xs font-medium text-emerald-500">
-              {hasDatos ? `${entradas.length} sucursal${entradas.length !== 1 ? 'es' : ''} con efectivo` : 'Sin efectivo registrado hoy'}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MetasCard({ sucursalFiltro, esAdmin, ventasReales }: { sucursalFiltro: string | null; esAdmin: boolean; ventasReales: Record<string, number> }) {
-  // Calcular días del mes y días transcurridos
-  const hoy = new Date()
-  const diaActual = hoy.getDate()
-  const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate()
-  const fraccionMes = diaActual / diasEnMes
-
-  const [editando, setEditando] = useState(false)
-  const [metas, setMetas] = useState([
-    { sucursal: 'Baja Visión', meta: 150000, color: '#0D9488' },
-    { sucursal: '5 de Mayo', meta: 120000, color: '#1B3A6B' },
-    { sucursal: 'Plaza Laureles', meta: 130000, color: '#6366F1' },
-  ])
-  const [draft, setDraft] = useState(metas.map(m => ({ ...m })))
-
-  // Filtrar por sucursal si no es admin
-  const metasFiltradas = sucursalFiltro
-    ? metas.filter(m => m.sucursal === sucursalFiltro)
-    : metas
-  const draftFiltrado = sucursalFiltro
-    ? draft.filter(m => m.sucursal === sucursalFiltro)
-    : draft
-
-  const guardar = () => {
-    setMetas(draft)
-    setEditando(false)
-  }
-
-  const cancelar = () => {
-    setDraft(metas.map(m => ({ ...m })))
-    setEditando(false)
-  }
-
-  return (
-    <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Target className="w-4 h-4 text-[#0D9488]" />
-          <h2 className="text-sm font-semibold text-zinc-800">Metas del mes</h2>
-          <span className="text-xs text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">
-            Día {diaActual} de {diasEnMes}
-          </span>
-        </div>
-        {esAdmin && (!editando ? (
-          <button
-            onClick={() => setEditando(true)}
-            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-          >
-            <Pencil className="w-3 h-3" />
-            Editar metas
-          </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <button onClick={cancelar} className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600">
-              <X className="w-3 h-3" /> Cancelar
-            </button>
-            <button onClick={guardar} className="flex items-center gap-1 text-xs text-[#0D9488] font-medium hover:text-teal-600">
-              <Check className="w-3 h-3" /> Guardar
-            </button>
-          </div>
-        ))}
+    <button onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3.5 py-3 ${bgClass} rounded-xl transition-opacity hover:opacity-90 text-left`}>
+      <Icon className={`w-4 h-4 flex-shrink-0 ${iconClass}`} />
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium leading-tight ${textClass}`}>{label}</p>
+        <p className={`text-xs mt-0.5 ${subClass}`}>{sublabel}</p>
       </div>
-
-      <div className={`grid gap-4 ${metasFiltradas.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
-        {(editando ? draftFiltrado : metasFiltradas).map((s) => {
-          const draftIdx = draft.findIndex(d => d.sucursal === s.sucursal)
-          const actual = ventasReales[s.sucursal] ?? 0
-          const esperado = Math.round(s.meta * fraccionMes)
-          const diferencia = actual - esperado
-          const adelante = diferencia >= 0
-          const pctActual = Math.min((actual / s.meta) * 100, 100)
-          const pctEsperado = Math.min(fraccionMes * 100, 100)
-
-          return (
-            <div key={s.sucursal} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-700">{s.sucursal}</span>
-                {editando ? (
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-zinc-400">$</span>
-                    <input
-                      type="number"
-                      value={draft[draftIdx].meta}
-                      onChange={(e) => {
-                        const next = [...draft]
-                        next[draftIdx] = { ...next[draftIdx], meta: Number(e.target.value) }
-                        setDraft(next)
-                      }}
-                      className="w-24 text-xs border border-zinc-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#0D9488] text-right"
-                    />
-                  </div>
-                ) : (
-                  <span className="text-xs text-zinc-400">Meta: ${s.meta.toLocaleString('es-MX')}</span>
-                )}
-              </div>
-
-              {/* Barra con marcador de esperado */}
-              <div className="relative h-2 bg-zinc-100 rounded-full overflow-visible">
-                {/* Progreso actual */}
-                <div
-                  className="absolute top-0 left-0 h-full rounded-full transition-all"
-                  style={{ width: `${pctActual}%`, background: s.color }}
-                />
-                {/* Línea de esperado */}
-                <div
-                  className="absolute top-[-3px] h-[14px] w-0.5 bg-zinc-400 rounded-full z-10"
-                  style={{ left: `${pctEsperado}%` }}
-                  title={`Esperado al día ${diaActual}: $${esperado.toLocaleString('es-MX')}`}
-                />
-              </div>
-
-              {/* Números */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-zinc-800">${actual.toLocaleString('es-MX')}</p>
-                  <p className="text-xs text-zinc-400">de ${s.meta.toLocaleString('es-MX')}</p>
-                </div>
-                <div className={`text-right ${adelante ? 'text-emerald-500' : 'text-red-400'}`}>
-                  <p className="text-xs font-bold">
-                    {adelante ? '+' : '-'}${Math.abs(diferencia).toLocaleString('es-MX')}
-                  </p>
-                  <p className="text-xs opacity-70">{adelante ? 'adelante' : 'abajo'} del ritmo</p>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
+      <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 ${arrowClass}`} />
+    </button>
   )
 }
 
-const statusMap = {
-  confirmada: { label: 'Confirmada', icon: CheckCircle2, color: 'text-emerald-500' },
-  pendiente: { label: 'Pendiente', icon: Clock, color: 'text-amber-500' },
-  cancelada: { label: 'Cancelada', icon: XCircle, color: 'text-red-400' },
-}
-
-// ─────────────────────────────────────────
-// Tipos para la vista vendedor
-// ─────────────────────────────────────────
-type PacienteReal = { id: string; nombre: string; apellido: string; telefono: string }
-type LabListo     = { id: string; folio: string; paciente: string; estado?: string; fecha_promesa?: string }
-
-// ─────────────────────────────────────────
-// Vista dashboard activo para vendedor
-// ─────────────────────────────────────────
-// ── Comisiones y bonos ───────────────────────────────────────────
-const BONOS_TABLA = [
-  { meta: 50000,  bono: 500  },
-  { meta: 100000, bono: 800  },
-  { meta: 150000, bono: 1200 },
-  { meta: 200000, bono: 4050 },
-  { meta: 230000, bono: 5100 },
-  { meta: 250000, bono: 5800 },
-  { meta: 265000, bono: 6325 },
-  { meta: 300000, bono: 7550 },
-]
-
-function calcularComision(ventas: number): number {
-  if (ventas <= 0) return 0
-  if (ventas <= 100000) return ventas * 0.015
-  if (ventas <= 150000) return 1500 + (ventas - 100000) * 0.02
-  return 1500 + 1000 + (ventas - 150000) * 0.025
-}
-
-function calcularBono(ventas: number): { actual: number; siguiente: { meta: number; bono: number } | null } {
-  let actual = 0
-  let siguiente = null
-  for (const b of BONOS_TABLA) {
-    if (ventas >= b.meta) actual = b.bono
-    else { siguiente = b; break }
-  }
-  return { actual, siguiente }
-}
-
-const SUCURSALES_LISTA = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
-
-// ─────────────────────────────────────────
-function VistaVendedor({ nombre, nombreCompleto, sucursal, isAdmin }: { nombre: string; nombreCompleto: string; sucursal: string; isAdmin: boolean }) {
+// ─── DashboardPage ────────────────────────────────────────────────────────────
+export default function DashboardPage() {
   const router = useRouter()
-  const [query, setQuery]               = useState('')
-  const [paciente, setPaciente]         = useState<PacienteReal | null>(null)
-  const [nuevoForm, setNuevoForm]       = useState({ nombre: '', telefono: '' })
-  const [mostrarNuevo, setMostrarNuevo] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Para admin/gerente con "Todas": selector de sucursal activa
-  const [sucursalActual, setSucursalActual] = useState<string>(
-    sucursal && sucursal !== 'Todas' ? sucursal : 'Baja Visión'
-  )
-  const sucursalEfectiva = sucursal === 'Todas' ? sucursalActual : sucursal
+  const [usuario, setUsuario] = useState<{
+    nombre: string; apodo?: string; rol: string; sucursal: string
+  } | null>(null)
+  const [sucursalActual, setSucursalActual] = useState('Baja Visión')
 
-  // Datos reales de Supabase
-  const [ventasHoy, setVentasHoy]           = useState(0)
-  const [recientes, setRecientes]           = useState<PacienteReal[]>([])
-  const [listosSemana, setListosSemana]     = useState<LabListo[]>([])
-  const [citasHoy, setCitasHoy]             = useState<{ id: string; hora: string; paciente: string; tipo: string; estado: string }[]>([])
-  const [busqResultados, setBusqResultados] = useState<PacienteReal[]>([])
+  // Search
+  const [query, setQuery]                   = useState('')
+  const [busqResultados, setBusqResultados] = useState<PacienteResult[]>([])
+  const [showDropdown, setShowDropdown]     = useState(false)
 
-  // Carga inicial: recientes, listos semana, ventas hoy, citas hoy
-  useEffect(() => {
-    if (!sucursalEfectiva) return
-    const fetchData = async () => {
-      const { createClient } = await import('@/lib/supabase/client')
-      const sb   = createClient()
-      const now2 = new Date()
-      const startHoy2 = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(), 0, 0, 0, 0)
-      const endHoy2   = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(), 23, 59, 59, 999)
-      // Esta semana (lunes pasado → domingo próximo)
-      const diaSem = now2.getDay() === 0 ? 6 : now2.getDay() - 1  // 0=lun … 6=dom
-      const startSemana = new Date(startHoy2.getTime() - diaSem * 86400000)
-      const endSemana   = new Date(startSemana.getTime() + 7 * 86400000 - 1)
-      const hoyStr = now2.toISOString().split('T')[0]
+  // Dashboard data
+  const [ventasSucursal, setVentasSucursal]         = useState(0)
+  const [ventasPropias, setVentasPropias]           = useState(0)
+  const [citasHoy, setCitasHoy]                     = useState<CitaItem[]>([])
+  const [trabajosListos, setTrabajosListos]         = useState<TrabajoItem[]>([])
+  const [trabajosRetrasados, setTrabajosRetrasados] = useState<TrabajoItem[]>([])
+  const [saldosPendientes, setSaldosPendientes]     = useState(0)
+  const [actividad, setActividad]                   = useState<ActividadItem[]>([])
 
-      const [pRec, vHoy, listos, citas] = await Promise.all([
-        sb.from('pacientes').select('id,nombre,apellido,telefono').order('created_at', { ascending: false }).limit(6),
-        sb.from('ventas').select('total,saldo')
-          .eq('sucursal', sucursalEfectiva)
-          .gte('created_at', startHoy2.toISOString())
-          .lte('created_at', endHoy2.toISOString()),
-        sb.from('ordenes_lab').select('id,folio,paciente,estado,fecha_promesa')
-          .eq('sucursal', sucursalEfectiva)
-          .in('estado', ['recibido', 'en proceso', 'listo'])
-          .gte('fecha_ingreso', startSemana.toISOString().split('T')[0])
-          .lte('fecha_ingreso', endSemana.toISOString().split('T')[0])
-          .order('fecha_promesa', { ascending: true })
-          .limit(10),
-        sb.from('citas').select('id,hora,paciente,tipo,estado')
-          .eq('fecha', hoyStr)
-          .eq('sucursal', sucursalEfectiva)
-          .order('hora', { ascending: true })
-          .limit(8),
-      ])
-
-      if (pRec.data)   setRecientes(pRec.data)
-      if (vHoy.data)   setVentasHoy(vHoy.data.reduce((s, v) => s + Number(v.total) - Number(v.saldo ?? 0), 0))
-      if (listos.data) setListosSemana(listos.data)
-      if (citas.data)  setCitasHoy(citas.data as { id: string; hora: string; paciente: string; tipo: string; estado: string }[])
-    }
-    fetchData()
-  }, [sucursalEfectiva, nombreCompleto])
-
-  // Búsqueda en tiempo real con debounce
-  useEffect(() => {
-    if (query.trim().length === 0) { setBusqResultados([]); return }
-    const timer = setTimeout(async () => {
-      const { createClient } = await import('@/lib/supabase/client')
-      const sb = createClient()
-      const q  = query.trim()
-      const { data } = await sb
-        .from('pacientes')
-        .select('id,nombre,apellido,telefono')
-        .or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,telefono.ilike.%${q}%`)
-        .order('nombre', { ascending: true })
-        .limit(8)
-      setBusqResultados(data ?? [])
-    }, 200)
-    return () => clearTimeout(timer)
-  }, [query])
-
-  const nombreDisplay = (p: PacienteReal) => `${p.nombre} ${p.apellido}`.trim()
-  const iniciales     = (p: PacienteReal) => `${p.nombre[0] ?? ''}${p.apellido?.[0] ?? ''}`.toUpperCase() || '?'
-
-  const seleccionar = (p: PacienteReal) => { setPaciente(p); setQuery(''); setMostrarNuevo(false) }
-
-  const irAVenta = (p?: PacienteReal) => {
-    const target = p ?? paciente
-    if (target?.id) router.push(`/dashboard/ventas/nueva?pacienteId=${target.id}`)
-    else             router.push('/dashboard/ventas/nueva')
-  }
-
-  const limpiar = () => { setPaciente(null); setQuery(''); setMostrarNuevo(false); setNuevoForm({ nombre: '', telefono: '' }) }
-
-  const inIdle   = !query && !paciente && !mostrarNuevo
-  const fechaHoy = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
-
-  return (
-    <div className="max-w-2xl mx-auto space-y-4 pt-1">
-
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-900">Hola, {nombre.split(' ')[0]}</h1>
-          <p className="text-sm text-zinc-400 mt-0.5 capitalize">{fechaHoy}</p>
-        </div>
-        <div className="flex items-center gap-5 text-right">
-          <div>
-            <p className="text-xs text-zinc-400">Cobrado hoy</p>
-            <p className="text-sm font-bold text-zinc-800">${ventasHoy.toLocaleString('es-MX', { minimumFractionDigits: 0 })}</p>
-          </div>
-          <div>
-            <p className="text-xs text-zinc-400">Semana</p>
-            <p className="text-sm font-bold text-emerald-600">{listosSemana.length} listos</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Selector de sucursal (solo admin/gerente con "Todas") ── */}
-      {sucursal === 'Todas' && (
-        <div className="flex gap-2">
-          {SUCURSALES_LISTA.map(s => (
-            <button key={s} onClick={() => setSucursalActual(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                sucursalActual === s
-                  ? 'bg-zinc-900 text-white'
-                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
-              }`}>
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* ── Barra de búsqueda ── */}
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={e => { setQuery(e.target.value); setPaciente(null) }}
-          placeholder="Buscar paciente por nombre o teléfono..."
-          className="w-full border border-zinc-200 rounded-xl pl-10 pr-10 py-3.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-zinc-200 placeholder:text-zinc-400 shadow-sm"
-        />
-        {query && (
-          <button onClick={() => setQuery('')}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 text-lg leading-none">×</button>
-        )}
-      </div>
-
-      {/* ── Resultados de búsqueda ── */}
-      {query.trim().length > 0 && (
-        <div className="border border-zinc-100 rounded-xl overflow-hidden bg-white shadow-sm divide-y divide-zinc-50">
-          {busqResultados.length > 0
-            ? busqResultados.map(p => (
-                <button key={p.id} onClick={() => seleccionar(p)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-zinc-50 transition-colors group">
-                  <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-zinc-500 group-hover:bg-zinc-200 transition-colors">
-                    {iniciales(p)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-zinc-800">{nombreDisplay(p)}</p>
-                    <p className="text-xs text-zinc-400 mt-0.5">{p.telefono}</p>
-                  </div>
-                  <span className="text-zinc-300 text-sm">›</span>
-                </button>
-              ))
-            : (
-              <div className="px-4 py-4 text-center">
-                <p className="text-sm text-zinc-500 mb-3">No se encontró &ldquo;{query}&rdquo;</p>
-                <button onClick={() => { setNuevoForm({ nombre: query, telefono: '' }); setMostrarNuevo(true); setQuery('') }}
-                  className="text-sm font-medium text-zinc-900 underline underline-offset-2">
-                  Registrar &ldquo;{query}&rdquo; como nuevo
-                </button>
-              </div>
-            )
-          }
-        </div>
-      )}
-
-      {/* ── Paciente seleccionado ── */}
-      {paciente && !query && (
-        <div className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-sm font-bold text-zinc-600 flex-shrink-0">
-                {iniciales(paciente)}
-              </div>
-              <div>
-                <p className="text-base font-semibold text-zinc-900">{nombreDisplay(paciente)}</p>
-                {paciente.telefono && <p className="text-xs text-zinc-400">{paciente.telefono}</p>}
-              </div>
-            </div>
-            <button onClick={limpiar} className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors">
-              Cambiar ×
-            </button>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => irAVenta()}
-              className="flex-1 py-3.5 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 active:scale-[0.98] transition-all">
-              Crear venta →
-            </button>
-            <button onClick={() => router.push(`/dashboard/expedientes?paciente=${paciente.id}`)}
-              className="px-4 py-3.5 border border-zinc-200 text-zinc-600 text-sm font-medium rounded-xl hover:bg-zinc-50 transition-all">
-              Expediente
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Formulario paciente nuevo ── */}
-      {mostrarNuevo && (
-        <div className="border border-zinc-200 rounded-xl bg-white p-4 space-y-3">
-          <p className="text-sm font-semibold text-zinc-700">Datos del paciente nuevo</p>
-          <input autoFocus value={nuevoForm.nombre}
-            onChange={e => setNuevoForm(f => ({ ...f, nombre: e.target.value }))}
-            placeholder="Nombre completo *"
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-200 placeholder:text-zinc-400" />
-          <input value={nuevoForm.telefono}
-            onChange={e => setNuevoForm(f => ({ ...f, telefono: e.target.value }))}
-            placeholder="Teléfono (opcional)"
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-200 placeholder:text-zinc-400" />
-          <div className="flex gap-2 pt-1">
-            <button onClick={limpiar}
-              className="flex-1 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-500 hover:bg-zinc-50">
-              Cancelar
-            </button>
-            <button disabled={!nuevoForm.nombre.trim()}
-              onClick={() => router.push(`/dashboard/expedientes?nuevo=true&nombre=${encodeURIComponent(nuevoForm.nombre)}&telefono=${encodeURIComponent(nuevoForm.telefono)}`)}
-              className="flex-1 py-2 bg-zinc-900 text-white rounded-lg text-sm font-semibold hover:bg-zinc-800 disabled:opacity-40 transition-colors">
-              Registrar →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Dashboard idle: recientes + listos ── */}
-      {inIdle && (
-        <div className="grid grid-cols-2 gap-4">
-
-          {/* Recientes */}
-          <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
-            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Recientes</h2>
-            <div className="space-y-0.5">
-              {recientes.length > 0 ? recientes.map(p => (
-                <button key={p.id} onClick={() => seleccionar(p)}
-                  className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-zinc-50 transition-colors text-left group">
-                  <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 flex-shrink-0 group-hover:bg-zinc-200 transition-colors">
-                    {iniciales(p)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-zinc-800 truncate">{nombreDisplay(p)}</p>
-                  </div>
-                  <span className="text-zinc-200 group-hover:text-zinc-400 text-sm transition-colors">›</span>
-                </button>
-              )) : (
-                <p className="text-xs text-zinc-400 px-2 py-2">Sin pacientes aún.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Trabajos de la semana */}
-          <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
-            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Trabajos semana</h2>
-            {listosSemana.length > 0 ? (
-              <div className="space-y-0.5">
-                {listosSemana.map(l => {
-                  const esListo = l.estado === 'listo'
-                  return (
-                    <div key={l.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
-                      <FlaskConical className={`w-4 h-4 flex-shrink-0 ${esListo ? 'text-emerald-500' : 'text-amber-400'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-800 truncate">{l.paciente}</p>
-                        <p className="text-xs text-zinc-400">{l.folio}</p>
-                      </div>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
-                        esListo ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'
-                      }`}>{esListo ? 'Listo' : l.estado}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-xs text-zinc-400 px-2 py-2">Sin trabajos esta semana.</p>
-            )}
-          </div>
-
-        </div>
-      )}
-
-      {/* ── Citas de hoy ── */}
-      {inIdle && citasHoy.length > 0 && (
-        <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Citas de hoy</h2>
-          <div className="space-y-0.5">
-            {citasHoy.map(c => (
-              <div key={c.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
-                <span className="text-xs font-mono text-zinc-400 w-12 flex-shrink-0">{c.hora?.slice(0,5)}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-800 truncate">{c.paciente}</p>
-                  <p className="text-xs text-zinc-400 capitalize">{c.tipo}</p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
-                  c.estado === 'confirmada' ? 'bg-emerald-50 text-emerald-600' :
-                  c.estado === 'cancelada'  ? 'bg-red-50 text-red-500' :
-                  'bg-zinc-100 text-zinc-500'
-                }`}>{c.estado}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Acciones rápidas ── */}
-      {inIdle && (
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => irAVenta()}
-            className="flex items-center justify-center gap-2 py-3 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 active:scale-[0.98] transition-all">
-            <ShoppingCart className="w-4 h-4" /> Nueva venta
-          </button>
-          <button onClick={() => router.push('/dashboard/expedientes?nuevo=true')}
-            className="flex items-center justify-center gap-2 py-3 border border-zinc-200 text-zinc-700 text-sm font-medium rounded-xl hover:bg-zinc-50 active:scale-[0.98] transition-all">
-            <UserPlus className="w-4 h-4" /> Paciente nuevo
-          </button>
-        </div>
-      )}
-
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────
-export default function DashboardPage() {
-  const [usuario, setUsuario] = useState<{ nombre: string; rol: string; sucursal: string } | null>(null)
-  const router = useRouter()
-
+  // Auth
   useEffect(() => {
     try {
       const raw = localStorage.getItem('optios_demo_user')
@@ -756,24 +162,408 @@ export default function DashboardPage() {
         setUsuario(u)
         if (u.rol === 'repartidor') {
           router.replace('/dashboard/laboratorio')
+          return
+        }
+        if (u.sucursal && u.sucursal !== 'Todas') {
+          setSucursalActual(u.sucursal)
         }
       }
     } catch { /* noop */ }
   }, [router])
 
-  const esRepartidor = usuario?.rol === 'repartidor'
-  const esAdmin      = !usuario || usuario.rol === 'administrador' || usuario.rol === 'gerente'
-  const nombreUsuario = usuario?.nombre ?? 'Usuario'
-  const apodoUsuario  = (usuario as { apodo?: string } | null)?.apodo ?? nombreUsuario.split(' ')[0]
+  const sucursalEfectiva = usuario?.sucursal === 'Todas' ? sucursalActual : (usuario?.sucursal ?? 'Baja Visión')
 
-  // Repartidor: redirigido a laboratorio (no renderizar nada mientras)
-  if (esRepartidor) return null
+  // Data fetch
+  useEffect(() => {
+    if (!usuario) return
+    const fetchAll = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const sb       = createClient()
+        const now      = new Date()
+        const startHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+        const endHoy   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+        const hoyStr   = now.toISOString().split('T')[0]
 
-  // Todos los demás roles: home unificado
-  return <VistaVendedor
-    nombre={apodoUsuario}
-    nombreCompleto={nombreUsuario}
-    sucursal={usuario?.sucursal ?? 'Todas'}
-    isAdmin={esAdmin}
-  />
+        const [vSuc, vProp, citas, listos, retrasados, saldos, actVentas] = await Promise.all([
+          // Ventas cobradas hoy en la sucursal
+          sb.from('ventas').select('total,saldo')
+            .eq('sucursal', sucursalEfectiva)
+            .gte('created_at', startHoy.toISOString())
+            .lte('created_at', endHoy.toISOString()),
+          // Ventas cobradas hoy del usuario
+          sb.from('ventas').select('total,saldo')
+            .eq('atendido_por', usuario.nombre)
+            .gte('created_at', startHoy.toISOString())
+            .lte('created_at', endHoy.toISOString()),
+          // Citas de hoy
+          sb.from('citas').select('id,hora,paciente,tipo,estado')
+            .eq('fecha', hoyStr)
+            .eq('sucursal', sucursalEfectiva)
+            .order('hora', { ascending: true })
+            .limit(12),
+          // Trabajos listos (pacientes por llamar + entregar)
+          sb.from('ordenes_lab').select('id,folio,paciente,estado,fecha_promesa')
+            .eq('sucursal', sucursalEfectiva)
+            .eq('estado', 'listo')
+            .order('fecha_promesa', { ascending: true })
+            .limit(20),
+          // Trabajos retrasados (fecha_promesa vencida y sin entregar)
+          sb.from('ordenes_lab').select('id,folio,paciente,estado,fecha_promesa')
+            .eq('sucursal', sucursalEfectiva)
+            .in('estado', ['recibido', 'en proceso'])
+            .not('fecha_promesa', 'is', null)
+            .lt('fecha_promesa', hoyStr)
+            .order('fecha_promesa', { ascending: true })
+            .limit(10),
+          // Saldos pendientes (count)
+          sb.from('ventas').select('id', { count: 'exact', head: true })
+            .eq('sucursal', sucursalEfectiva)
+            .gt('saldo', 0),
+          // Actividad reciente (ventas de hoy)
+          sb.from('ventas').select('id,folio,paciente_nombre,created_at,total')
+            .eq('sucursal', sucursalEfectiva)
+            .gte('created_at', startHoy.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(8),
+        ])
+
+        const cobrado = (arr: { total: number; saldo: number }[]) =>
+          arr.reduce((s, v) => s + Number(v.total) - Number(v.saldo ?? 0), 0)
+
+        setVentasSucursal(cobrado(vSuc.data ?? []))
+        setVentasPropias(cobrado(vProp.data ?? []))
+        setCitasHoy((citas.data ?? []) as CitaItem[])
+        setTrabajosListos((listos.data ?? []) as TrabajoItem[])
+        setTrabajosRetrasados((retrasados.data ?? []) as TrabajoItem[])
+        setSaldosPendientes(saldos.count ?? 0)
+
+        const act: ActividadItem[] = (actVentas.data ?? []).map((v: {
+          id: string; folio: string; paciente_nombre: string; created_at: string; total: number
+        }) => ({
+          id: v.id,
+          tipo: 'venta',
+          descripcion: `Venta · ${v.paciente_nombre ?? '—'}`,
+          hora: new Date(v.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+          folio: v.folio,
+        }))
+        setActividad(act)
+      } catch { /* noop */ }
+    }
+    fetchAll()
+  }, [usuario, sucursalEfectiva])
+
+  // Búsqueda con debounce
+  useEffect(() => {
+    if (query.trim().length === 0) { setBusqResultados([]); return }
+    const t = setTimeout(async () => {
+      const { createClient } = await import('@/lib/supabase/client')
+      const sb = createClient()
+      const { data } = await sb.from('pacientes')
+        .select('id,nombre,apellido,telefono')
+        .or(`nombre.ilike.%${query.trim()}%,apellido.ilike.%${query.trim()}%,telefono.ilike.%${query.trim()}%`)
+        .limit(6)
+      setBusqResultados(data ?? [])
+    }, 200)
+    return () => clearTimeout(t)
+  }, [query])
+
+  if (!usuario) return null
+
+  const esTodas   = usuario.sucursal === 'Todas'
+  const apodo     = usuario.apodo ?? usuario.nombre.split(' ')[0]
+  const fechaRaw  = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
+  const fechaLabel = fechaRaw.charAt(0).toUpperCase() + fechaRaw.slice(1)
+  const sinTareas  = trabajosListos.length === 0 && citasHoy.length === 0
+                  && trabajosRetrasados.length === 0 && saldosPendientes === 0
+
+  return (
+    <div className="flex flex-col gap-4 h-full">
+
+      {/* ── Selector de sucursal (admin/gerente con "Todas") ─────────────── */}
+      {esTodas && (
+        <div className="flex gap-2">
+          {SUCURSALES.map(s => (
+            <button key={s} onClick={() => setSucursalActual(s)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                sucursalActual === s
+                  ? 'bg-zinc-900 text-white shadow-sm'
+                  : 'bg-white border border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700'
+              }`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Hola, {apodo}</h1>
+          <p className="text-sm text-zinc-400 mt-0.5">{fechaLabel}</p>
+        </div>
+        <div className="flex items-end gap-10 text-right">
+          <div>
+            <p className="text-xs text-zinc-400 mb-1">Ventas sucursal</p>
+            <p className="text-2xl font-bold text-zinc-900 leading-none tabular-nums">
+              ${ventasSucursal.toLocaleString('es-MX')}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-400 mb-1">Tus ventas</p>
+            <p className="text-2xl font-bold text-zinc-900 leading-none tabular-nums">
+              ${ventasPropias.toLocaleString('es-MX')}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Buscador ─────────────────────────────────────────────────────── */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={e => { setQuery(e.target.value); setShowDropdown(true) }}
+          onFocus={() => setShowDropdown(true)}
+          onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+          placeholder="Buscar paciente por nombre, teléfono o expediente..."
+          className="w-full bg-white border border-zinc-200 rounded-2xl pl-11 pr-10 py-3.5 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-300 shadow-sm transition-all"
+        />
+        {query && (
+          <button onClick={() => { setQuery(''); setBusqResultados([]) }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 text-xl leading-none">×</button>
+        )}
+
+        {/* Dropdown de resultados */}
+        {showDropdown && busqResultados.length > 0 && (
+          <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden divide-y divide-zinc-50">
+            {busqResultados.map(p => (
+              <button key={p.id}
+                onClick={() => { router.push(`/dashboard/ventas/nueva?pacienteId=${p.id}`); setQuery('') }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-zinc-50 text-left transition-colors">
+                <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500 flex-shrink-0">
+                  {p.nombre[0]}{p.apellido?.[0] ?? ''}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-800">{p.nombre} {p.apellido}</p>
+                  <p className="text-xs text-zinc-400">{p.telefono}</p>
+                </div>
+                <span className="text-xs text-blue-500 font-medium flex-shrink-0 whitespace-nowrap">
+                  Nueva venta ›
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Acciones rápidas ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-4 gap-3">
+        <QuickActionCard
+          icon={ShoppingCart} label="Ventas" sublabel="Registrar o consultar"
+          primaryLabel="Nueva venta" secondaryLabel="Buscar venta"
+          onPrimary={() => router.push('/dashboard/ventas/nueva')}
+          onSecondary={() => router.push('/dashboard/ventas')}
+        />
+        <QuickActionCard
+          icon={UserPlus} label="Pacientes" sublabel="Expedientes y registros"
+          primaryLabel="Nuevo expediente" secondaryLabel="Agendar consulta"
+          onPrimary={() => router.push('/dashboard/expedientes?nuevo=true')}
+          onSecondary={() => router.push('/dashboard/agenda?nuevo=true')}
+        />
+        <QuickActionCard
+          icon={Calendar} label="Agenda" sublabel="Citas del día"
+          primaryLabel="Ver agenda hoy" secondaryLabel="Nueva cita"
+          onPrimary={() => router.push('/dashboard/agenda')}
+          onSecondary={() => router.push('/dashboard/agenda?nuevo=true')}
+        />
+        <QuickActionCard
+          icon={FlaskConical} label="Laboratorio" sublabel="Órdenes y entregas"
+          primaryLabel="Ver trabajos" secondaryLabel="Registrar entrega"
+          onPrimary={() => router.push('/dashboard/laboratorio')}
+          onSecondary={() => router.push('/dashboard/laboratorio')}
+        />
+      </div>
+
+      {/* ── Grid principal ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-5 gap-4 flex-1 min-h-0 pb-1">
+
+        {/* ── Columna izquierda (3/5) ── */}
+        <div className="col-span-3 flex flex-col gap-4 min-h-0">
+
+          {/* Mi trabajo de hoy */}
+          <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm">
+            <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+              Mi trabajo de hoy
+            </p>
+            {sinTareas ? (
+              <p className="text-sm text-zinc-400 py-4 text-center">Todo al día ✓</p>
+            ) : (
+              <div className="space-y-0.5">
+                <TaskRow
+                  icon={<Phone className="w-4 h-4 text-blue-500" />}
+                  label="Pacientes listos para llamar"
+                  count={trabajosListos.length}
+                  colorClass="text-blue-600"
+                  onClick={() => router.push('/dashboard/laboratorio')}
+                />
+                <TaskRow
+                  icon={<Calendar className="w-4 h-4 text-zinc-500" />}
+                  label="Citas programadas hoy"
+                  count={citasHoy.length}
+                  colorClass="text-zinc-700"
+                  onClick={() => router.push('/dashboard/agenda')}
+                />
+                <TaskRow
+                  icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                  label="Trabajos listos para entregar"
+                  count={trabajosListos.length}
+                  colorClass="text-emerald-600"
+                  onClick={() => router.push('/dashboard/laboratorio')}
+                />
+                <TaskRow
+                  icon={<AlertTriangle className="w-4 h-4 text-amber-500" />}
+                  label="Trabajos retrasados"
+                  count={trabajosRetrasados.length}
+                  colorClass="text-amber-600"
+                  onClick={() => router.push('/dashboard/laboratorio')}
+                />
+                <TaskRow
+                  icon={<Banknote className="w-4 h-4 text-rose-500" />}
+                  label="Saldos pendientes de cobro"
+                  count={saldosPendientes}
+                  colorClass="text-rose-600"
+                  onClick={() => router.push('/dashboard/ventas')}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Agenda de hoy */}
+          <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm flex-1 min-h-0 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-3 flex-shrink-0">
+              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Agenda de hoy</p>
+              <button onClick={() => router.push('/dashboard/agenda')}
+                className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-700 transition-colors">
+                Ver todo <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+            {citasHoy.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 py-4">
+                <Calendar className="w-7 h-7 text-zinc-200 mb-2" />
+                <p className="text-sm text-zinc-400">Sin citas hoy</p>
+                <button onClick={() => router.push('/dashboard/agenda?nuevo=true')}
+                  className="mt-2 text-xs font-medium text-blue-500 hover:underline">
+                  Agendar cita →
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-0.5 overflow-y-auto flex-1">
+                {citasHoy.map(c => (
+                  <div key={c.id}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-50 transition-colors cursor-pointer">
+                    <span className="text-xs font-mono text-zinc-400 w-10 flex-shrink-0">{c.hora?.slice(0,5)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-zinc-800 truncate">{c.paciente}</p>
+                      <p className="text-xs text-zinc-400 capitalize">{c.tipo}</p>
+                    </div>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                      c.estado === 'confirmada' ? 'bg-emerald-50 text-emerald-600' :
+                      c.estado === 'cancelada'  ? 'bg-red-50 text-red-400' :
+                      'bg-zinc-100 text-zinc-500'
+                    }`}>{c.estado}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Columna derecha (2/5) ── */}
+        <div className="col-span-2 flex flex-col gap-4 min-h-0">
+
+          {/* Pendientes */}
+          <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm">
+            <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-3">Pendientes</p>
+            <div className="space-y-2">
+              {trabajosRetrasados.length > 0 && (
+                <PendingBlock
+                  icon={AlertTriangle}
+                  label="Trabajos retrasados"
+                  sublabel={`${trabajosRetrasados.length} orden${trabajosRetrasados.length !== 1 ? 'es' : ''} vencida${trabajosRetrasados.length !== 1 ? 's' : ''}`}
+                  bgClass="bg-amber-50 hover:bg-amber-100"
+                  iconClass="text-amber-500"
+                  textClass="text-amber-800"
+                  subClass="text-amber-600"
+                  arrowClass="text-amber-300"
+                  onClick={() => router.push('/dashboard/laboratorio')}
+                />
+              )}
+              {trabajosListos.length > 0 && (
+                <PendingBlock
+                  icon={CheckCircle2}
+                  label="Listos para entregar"
+                  sublabel={`${trabajosListos.length} trabajo${trabajosListos.length !== 1 ? 's' : ''} esperando`}
+                  bgClass="bg-emerald-50 hover:bg-emerald-100"
+                  iconClass="text-emerald-500"
+                  textClass="text-emerald-800"
+                  subClass="text-emerald-600"
+                  arrowClass="text-emerald-300"
+                  onClick={() => router.push('/dashboard/laboratorio')}
+                />
+              )}
+              {saldosPendientes > 0 && (
+                <PendingBlock
+                  icon={Banknote}
+                  label="Saldos pendientes"
+                  sublabel={`${saldosPendientes} venta${saldosPendientes !== 1 ? 's' : ''} con saldo`}
+                  bgClass="bg-red-50 hover:bg-red-100"
+                  iconClass="text-rose-500"
+                  textClass="text-rose-800"
+                  subClass="text-rose-500"
+                  arrowClass="text-rose-300"
+                  onClick={() => router.push('/dashboard/ventas')}
+                />
+              )}
+              {trabajosRetrasados.length === 0 && trabajosListos.length === 0 && saldosPendientes === 0 && (
+                <p className="text-sm text-zinc-400 text-center py-3">Sin excepciones ✓</p>
+              )}
+            </div>
+          </div>
+
+          {/* Actividad reciente */}
+          <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm flex-1 min-h-0 overflow-hidden flex flex-col">
+            <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-3 flex-shrink-0">
+              Actividad reciente
+            </p>
+            {actividad.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 py-4">
+                <Activity className="w-7 h-7 text-zinc-200 mb-2" />
+                <p className="text-sm text-zinc-400">Sin actividad hoy</p>
+              </div>
+            ) : (
+              <div className="space-y-0.5 overflow-y-auto flex-1">
+                {actividad.map(a => (
+                  <button key={a.id}
+                    onClick={() => router.push('/dashboard/ventas')}
+                    className="w-full flex items-start gap-3 px-2 py-2.5 rounded-xl hover:bg-zinc-50 transition-colors text-left">
+                    <div className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <ShoppingCart className="w-3 h-3 text-zinc-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-zinc-700 truncate">{a.descripcion}</p>
+                      {a.folio && <p className="text-xs text-zinc-400">{a.folio}</p>}
+                    </div>
+                    <span className="text-xs text-zinc-400 flex-shrink-0 mt-0.5">{a.hora}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
 }
