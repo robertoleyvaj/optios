@@ -64,7 +64,7 @@ export default function CheckInModal() {
         localStorage.setItem('optios_demo_user', JSON.stringify({ ...u, sucursal }))
       }
       setHecho(true)
-      setTimeout(() => setVisible(false), 800)
+      setTimeout(() => window.location.reload(), 800)
     } catch {
       setGuardando(false)
     }
