@@ -138,6 +138,28 @@ export default function NuevaVentaPage() {
   // Modal de selección de color para filtros (Fotocromático, Polarizado, Tinte)
   const [pendingFiltro, setPendingFiltro] = useState<typeof catalogo[0] | null>(null)
 
+  // Catálogo dinámico de lentes de contacto (desde Supabase productos_catalogo)
+  const [catalogoLC, setCatalogoLC] = useState<typeof catalogo>([])
+  useEffect(() => {
+    createClient()
+      .from('productos_catalogo')
+      .select('nombre, precio_publico')
+      .eq('activo', true)
+      .order('nombre')
+      .then(({ data }) => {
+        if (data) {
+          setCatalogoLC(data.map((p, i) => ({
+            id: 9000 + i,
+            nombre: p.nombre,
+            categoria: 'Lentes de Contacto',
+            precio: p.precio_publico,
+            sku: 'LC',
+            stock: 999,
+          })))
+        }
+      })
+  }, [])
+
   // Moneda en efectivo (MXN / USD)
   const [moneda, setMoneda] = useState<'MXN' | 'USD'>('MXN') // moneda de cobro (solo efectivo)
   const [tipoCambio, setTipoCambio] = useState<number | null>(null)
@@ -227,7 +249,7 @@ export default function NuevaVentaPage() {
     })
   }, [busquedaCliente, showClienteDropdown])
 
-  const productosFiltrados = catalogo.filter(p =>
+  const productosFiltrados = [...catalogo, ...catalogoLC].filter(p =>
     p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase()) ||
     p.sku.toLowerCase().includes(busquedaProducto.toLowerCase())
   )
@@ -423,8 +445,9 @@ export default function NuevaVentaPage() {
         ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
       const isFiltro = (nombre: string) =>
         ['filtro','antirreflejo','blue light','fotocrom','polariz','tinte'].some(k => nombre.toLowerCase().includes(k))
+      const isLC = (sku: string) => sku === 'LC'
 
-      const parsConMicas = [...new Set(carrito.filter(i => isMica(i.nombre)).map(i => i.par))].sort()
+      const parsConMicas = [...new Set(carrito.filter(i => isMica(i.nombre) || isLC(i.sku)).map(i => i.par))].sort()
 
       if (!cotizacion && parsConMicas.length > 0) {
         const { data: ultimoL } = await supabase
@@ -448,7 +471,7 @@ export default function NuevaVentaPage() {
         const foliosLab: string[] = []
         for (const par of parsConMicas) {
           const itemsPar = carrito.filter(i => i.par === par)
-          const micasPar = itemsPar.filter(i => isMica(i.nombre)).map(i => i.nombre).join(', ')
+          const micasPar = itemsPar.filter(i => isMica(i.nombre) || isLC(i.sku)).map(i => i.nombre).join(', ')
           const filtrosPar = itemsPar.filter(i => isFiltro(i.nombre)).map(i => i.nombre).join(', ')
           const subtotalPar = itemsPar.reduce((s, i) => s + i.precio * (1 - i.descuento / 100) * i.cantidad, 0)
           const folioLab = `L-${String(nL).padStart(4, '0')}`
@@ -670,7 +693,8 @@ ${entregaHtml}
       ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
     const isFiltroFn = (nombre: string) =>
       ['filtro','antirreflejo','blue','fotocrom','tinte','polariz'].some(k => nombre.toLowerCase().includes(k))
-    const parsConMicasGuardado = [...new Set(carrito.filter(i => isMicaFn(i.nombre)).map(i => i.par))].sort()
+    const isLCFn = (sku: string) => sku === 'LC'
+    const parsConMicasGuardado = [...new Set(carrito.filter(i => isMicaFn(i.nombre) || isLCFn(i.sku)).map(i => i.par))].sort()
     const tieneMicasGuardado = parsConMicasGuardado.length > 0
 
     const handleImprimirOrdenLab = () => {
@@ -684,7 +708,7 @@ ${entregaHtml}
 
       const pagesHTML = parsConMicasGuardado.map((par, idx) => {
         const itemsPar = carrito.filter(i => i.par === par)
-        const micasPar = itemsPar.filter(i => isMicaFn(i.nombre)).map(i => i.nombre).join(' + ') || '—'
+        const micasPar = itemsPar.filter(i => isMicaFn(i.nombre) || isLCFn(i.sku)).map(i => i.nombre).join(' + ') || '—'
         const filtrosPar = itemsPar.filter(i => isFiltroFn(i.nombre)).map(i => i.nombre).join(' + ')
         const folioLab = folioLabGuardado[idx] ?? '—'
         const parLabel = parsConMicasGuardado.length > 1 ? ` — Par ${par}` : ''
@@ -1104,7 +1128,9 @@ ${entregaHtml}
         <div className="flex items-center gap-1 px-4 pt-3 border-b border-zinc-100">
           {Array.from({ length: numPares }, (_, i) => i + 1).map(par => {
             const subtotalPar = carrito.filter(i => i.par === par).reduce((s, i) => s + (i.precio * (1 - i.descuento / 100) * i.cantidad), 0)
-            const esMicaPar   = carrito.some(i => i.par === par && ['mica','monofocal','progres','bifocal','transitions'].some(k => i.nombre.toLowerCase().includes(k)))
+            const esMicaPar   = carrito.some(i => i.par === par && (
+              ['mica','monofocal','progres','bifocal','transitions'].some(k => i.nombre.toLowerCase().includes(k)) || i.sku === 'LC'
+            ))
             return (
               <button
                 key={par}
@@ -1157,20 +1183,20 @@ ${entregaHtml}
           />
           {showBuscadorProducto && busquedaProducto && (
             <div className="absolute top-full left-6 right-6 mt-1 bg-white border border-zinc-100 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
-              {productosFiltrados.slice(0, 8).map(p => (
+              {productosFiltrados.slice(0, 10).map(p => (
                 <button
                   key={p.id}
                   onClick={() => agregar(p)}
                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-50 transition-colors text-left"
                 >
-                  <div>
-                    <span className="text-xs font-mono text-zinc-400 mr-3">{p.sku}</span>
+                  <div className="flex items-center gap-2">
+                    {p.sku === 'LC'
+                      ? <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">LC</span>
+                      : <span className="text-xs font-mono text-zinc-400">{p.sku}</span>
+                    }
                     <span className="text-sm font-medium text-zinc-700">{p.nombre}</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs text-zinc-400">Stock: {p.stock === 999 ? '∞' : p.stock}</span>
-                    <span className="text-sm font-bold text-zinc-800">${p.precio.toLocaleString('es-MX')}</span>
-                  </div>
+                  <span className="text-sm font-bold text-zinc-800">${p.precio.toLocaleString('es-MX')}</span>
                 </button>
               ))}
               {productosFiltrados.length === 0 && (
