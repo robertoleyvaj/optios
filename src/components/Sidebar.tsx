@@ -69,7 +69,7 @@ const MENU_GESTION: MenuItem[] = [
   { href: '/dashboard/analitica',   label: 'Analítica',        icon: Microscope, key: 'analitica', pronto: true },
   { href: '/dashboard/finanzas',    label: 'Finanzas',         icon: DollarSign, key: 'finanzas' },
   { href: '/dashboard/usuarios',    label: 'Usuarios',         icon: Users,      key: 'usuarios',  pronto: true },
-  { href: '/dashboard/ajustes',     label: 'Ajustes',          icon: Settings,   key: 'ajustes',   pronto: true },
+  { href: '/dashboard/ajustes',     label: 'Ajustes',          icon: Settings,   key: 'ajustes' },
 ]
 
 const MENU_REPARTIDOR: MenuItem[] = [
