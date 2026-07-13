@@ -12,7 +12,7 @@ import {
 // ─────────────────────────────────────────────
 // Tipos
 // ─────────────────────────────────────────────
-type Periodo = 'semana' | 'mes' | 'trimestre' | 'anio' | 'personalizado'
+type Periodo = 'hoy' | 'semana' | 'mes' | 'trimestre' | 'anio' | 'personalizado'
 
 type Venta = {
   id: string
@@ -35,6 +35,7 @@ type VentaItem = {
 // Constantes
 // ─────────────────────────────────────────────
 const PERIODOS: { key: Periodo; label: string }[] = [
+  { key: 'hoy',           label: 'Hoy'           },
   { key: 'semana',        label: 'Esta semana'   },
   { key: 'mes',           label: 'Este mes'      },
   { key: 'trimestre',     label: 'Trimestre'     },
@@ -67,8 +68,10 @@ function getDateRange(periodo: Periodo, desde = '', hasta = '') {
   const hoy = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const fmt = (d: Date)   => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
-  const fin = fmt(hoy)
+  // Usar hora Tijuana para la fecha de hoy
+  const fin = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
 
+  if (periodo === 'hoy')           return { inicio: fin, fin }
   if (periodo === 'personalizado') return { inicio: desde || fin, fin: hasta || fin }
   if (periodo === 'semana') {
     const d = new Date(hoy)
@@ -149,7 +152,7 @@ function BarRow({ label, value, max, sub, color }: {
 // Página
 // ─────────────────────────────────────────────
 function ReportesPage() {
-  const [periodo,    setPeriodo]    = useState<Periodo>('mes')
+  const [periodo,    setPeriodo]    = useState<Periodo>('hoy')
   const [desde,      setDesde]      = useState('')
   const [hasta,      setHasta]      = useState('')
   const [sucursal,   setSucursal]   = useState('Todas')
@@ -319,13 +322,15 @@ function ReportesPage() {
         <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">
           Cargando datos…
         </div>
-      ) : ventas.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-zinc-400 gap-2">
-          <BarChart3 className="w-10 h-10 opacity-20" />
-          <p className="text-sm">Sin ventas en este período</p>
-        </div>
       ) : (
         <>
+          {ventas.length === 0 && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+              <BarChart3 className="w-4 h-4 text-zinc-300" />
+              <p className="text-sm text-zinc-400">Sin ventas en este período — mostrando en cero</p>
+            </div>
+          )}
+
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KPICard
