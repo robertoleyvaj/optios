@@ -39,12 +39,13 @@ const PERIODOS: { key: Periodo; label: string }[] = [
   { key: 'personalizado', label: 'Personalizado' },
 ]
 
-const CATEGORIAS_GASTO = ['renta', 'nomina', 'comisiones', 'servicios', 'compras', 'otros']
+const CATEGORIAS_GASTO = ['renta', 'nomina', 'bono_diario', 'comisiones', 'servicios', 'compras', 'otros']
 const CATEGORIAS_LABEL: Record<string, string> = {
-  renta:      'Renta',
-  nomina:     'Nómina',
-  comisiones: 'Comisiones',
-  servicios:  'Servicios',
+  renta:       'Renta',
+  nomina:      'Nómina',
+  bono_diario: 'Bono diario',
+  comisiones:  'Comisiones',
+  servicios:   'Servicios',
   compras:    'Compras',
   otros:      'Otros',
 }
