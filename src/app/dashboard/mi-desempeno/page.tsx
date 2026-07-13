@@ -232,6 +232,12 @@ export default function MiDesempenoPage() {
   const des          = esGerente ? desgloseGerente(ventasMes) : desgloseVendedor(ventasMes)
   const BONOS_TABLA  = esGerente ? G_BONOS : V_BONOS
 
+  // Valor a mostrar del siguiente bono (acumulado para gerente, incremental para vendedor)
+  const bonoSiguienteValor = bonoSiguiente
+    ? (esGerente ? (bonoSiguiente as typeof G_BONOS[0]).acumulado : bonoSiguiente.bono)
+    : 0
+  const bonoSiguienteIncremental = bonoSiguiente?.bono ?? 0
+
   const nombreMes = new Date(anio, mes, 1).toLocaleString('es-MX', { month: 'long', year: 'numeric' })
 
   const irMesAnterior  = () => { if (mes === 0) { setMes(11); setAnio(a => a - 1) } else setMes(m => m - 1) }
@@ -368,10 +374,10 @@ export default function MiDesempenoPage() {
               <>
                 <div>
                   <p className="text-2xl font-semibold text-zinc-900 tracking-tight">
-                    {fmt('acumulado' in bonoSiguiente ? bonoSiguiente.acumulado : bonoSiguiente.bono)}
+                    {fmt(bonoSiguienteValor)}
                   </p>
-                  {esGerente && 'acumulado' in bonoSiguiente && (
-                    <p className="text-xs text-zinc-400">+{fmt(bonoSiguiente.bono)} adicional al llegar</p>
+                  {esGerente && bonoSiguiente && (
+                    <p className="text-xs text-zinc-400">+{fmt(bonoSiguienteIncremental)} adicional al llegar</p>
                   )}
                 </div>
                 <ProgressBar pct={pctBono} color="bg-emerald-500" />
@@ -547,7 +553,7 @@ export default function MiDesempenoPage() {
           <div className="text-right flex-shrink-0">
             <p className="text-xs text-white/50">Próximo bono {esGerente ? 'acumulado' : ''}</p>
             <p className="text-lg font-bold text-amber-400">
-              {fmt('acumulado' in bonoSiguiente ? bonoSiguiente.acumulado : bonoSiguiente.bono)}
+              {fmt(bonoSiguienteValor)}
             </p>
           </div>
         )}
