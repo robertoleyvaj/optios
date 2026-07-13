@@ -2,26 +2,42 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { TrendingUp, Zap, Award, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { TrendingUp, Zap, Award, ChevronLeft, ChevronRight, ExternalLink, Star } from 'lucide-react'
 import Link from 'next/link'
 
-// ── Comisiones y bonos ───────────────────────────────────────────
+// ── Bono diario ──────────────────────────────────────────────────
+const BONO_DIARIO_META  = 10_000   // llega a $10k en el día
+const BONO_DIARIO_MONTO = 200      // → $200 extra
+
+// ── Comisiones y bonos mensuales ─────────────────────────────────
 const BONOS_TABLA = [
-  { meta: 50000,  bono: 500  },
-  { meta: 100000, bono: 800  },
-  { meta: 150000, bono: 1200 },
-  { meta: 200000, bono: 4050 },
-  { meta: 230000, bono: 5100 },
-  { meta: 250000, bono: 5800 },
-  { meta: 265000, bono: 6325 },
-  { meta: 300000, bono: 7550 },
+  { meta:  50_000, bono:   500 },
+  { meta: 100_000, bono:   800 },
+  { meta: 150_000, bono: 1_200 },
+  { meta: 200_000, bono: 4_050 },
+  { meta: 230_000, bono: 5_100 },
+  { meta: 250_000, bono: 5_800 },
+  { meta: 265_000, bono: 6_325 },
+  { meta: 300_000, bono: 7_550 },
 ]
 
 function calcularComision(ventas: number): number {
   if (ventas <= 0) return 0
-  if (ventas <= 100000) return ventas * 0.015
-  if (ventas <= 150000) return 1500 + (ventas - 100000) * 0.02
-  return 1500 + 1000 + (ventas - 150000) * 0.025
+  if (ventas <= 100_000) return ventas * 0.015
+  if (ventas <= 150_000) return 1_500 + (ventas - 100_000) * 0.02
+  return 1_500 + 1_000 + (ventas - 150_000) * 0.025
+}
+
+/** Desglose por tramo */
+function desgloseComision(ventas: number) {
+  const t1 = Math.min(ventas, 100_000)
+  const t2 = ventas > 100_000 ? Math.min(ventas - 100_000, 50_000) : 0
+  const t3 = ventas > 150_000 ? ventas - 150_000 : 0
+  return [
+    { label: '$0 – $100,000',       tasa: '1.5%', base: t1, ganado: t1 * 0.015 },
+    { label: '$100,001 – $150,000', tasa: '2%',   base: t2, ganado: t2 * 0.02  },
+    { label: '$150,001 +',          tasa: '2.5%', base: t3, ganado: t3 * 0.025 },
+  ]
 }
 
 function calcularBono(ventas: number) {
@@ -72,12 +88,15 @@ function ProgressBar({ pct, color }: { pct: number; color: string }) {
 
 export default function MiDesempenoPage() {
   const now = new Date()
-  const [mes, setMes] = useState(now.getMonth())
+  const [mes,  setMes]  = useState(now.getMonth())
   const [anio, setAnio] = useState(now.getFullYear())
-  const [ventasMes, setVentasMes] = useState(0)
-  const [ordenes, setOrdenes] = useState(0)
-  const [metaMes, setMetaMes] = useState(200000)
-  const [nombre, setNombre] = useState('')
+
+  const [ventasMes,  setVentasMes]  = useState(0)
+  const [ventasHoy,  setVentasHoy]  = useState(0)
+  const [ordenes,    setOrdenes]    = useState(0)
+  const [metaMes,    setMetaMes]    = useState(200_000)
+  const [nombre,     setNombre]     = useState('')
+  const [sucursal,   setSucursal]   = useState('')
 
   // Leer usuario del localStorage
   useEffect(() => {
@@ -86,56 +105,73 @@ export default function MiDesempenoPage() {
       if (raw) {
         const u = JSON.parse(raw)
         setNombre(u.nombre ?? '')
+        setSucursal(u.sucursal ?? '')
       }
     } catch { /* noop */ }
   }, [])
 
-  // Fetch ventas del mes seleccionado
+  // Fetch ventas del mes seleccionado + ventas de hoy
   useEffect(() => {
     if (!nombre) return
     const fetchData = async () => {
       try {
-        const sb = createClient()
+        const sb  = createClient()
+        const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
         const inicio = new Date(anio, mes, 1).toISOString()
-        const fin = new Date(anio, mes + 1, 0, 23, 59, 59).toISOString()
+        const fin    = new Date(anio, mes + 1, 0, 23, 59, 59).toISOString()
+        const esMesActualFetch = mes === now.getMonth() && anio === now.getFullYear()
 
-        const { data: ventas } = await sb
-          .from('ventas')
-          .select('total')
-          .eq('atendido_por', nombre)
-          .eq('estado', 'activa')
-          .gte('created_at', inicio)
-          .lte('created_at', fin)
+        const [rMes, rHoy] = await Promise.all([
+          sb.from('ventas').select('total')
+            .eq('atendido_por', nombre)
+            .eq('es_cotizacion', false)
+            .gte('created_at', inicio)
+            .lte('created_at', fin),
+          esMesActualFetch
+            ? sb.from('ventas').select('total')
+                .eq('atendido_por', nombre)
+                .eq('es_cotizacion', false)
+                .gte('created_at', `${hoyStr}T00:00:00`)
+                .lte('created_at', `${hoyStr}T23:59:59`)
+            : Promise.resolve({ data: [] }),
+        ])
 
-        if (ventas) {
-          setVentasMes(ventas.reduce((s, v) => s + Number(v.total), 0))
-          setOrdenes(ventas.length)
-        }
+        const lista = rMes.data || []
+        setVentasMes(lista.reduce((s, v) => s + Number(v.total), 0))
+        setOrdenes(lista.length)
+        setVentasHoy(((rHoy as { data: { total: number }[] | null }).data || []).reduce((s, v) => s + Number(v.total), 0))
 
-        // Fetch meta del mes (tabla metas_vendedor si existe)
+        // Meta desde tabla `metas` (sucursal, mes) — misma que usan las gerentes
         const mesStr = `${anio}-${String(mes + 1).padStart(2, '0')}`
-        const { data: meta } = await sb
-          .from('metas_vendedor')
-          .select('meta_monto')
-          .eq('vendedor_nombre', nombre)
-          .eq('mes', mesStr)
-          .single()
-        if (meta?.meta_monto) setMetaMes(Number(meta.meta_monto))
-        else setMetaMes(200000)
+        if (sucursal) {
+          const { data: meta } = await sb.from('metas')
+            .select('meta').eq('sucursal', sucursal).eq('mes', mesStr).maybeSingle()
+          setMetaMes(meta ? Number(meta.meta) : 200_000)
+        }
       } catch { /* usa defaults */ }
     }
     fetchData()
-  }, [nombre, mes, anio])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nombre, sucursal, mes, anio])
 
   const comision = calcularComision(ventasMes)
   const { actual: bonoActual, siguiente: bonoSiguiente } = calcularBono(ventasMes)
   const totalExtra = comision + bonoActual
-  const pctMeta = Math.min((ventasMes / metaMes) * 100, 100)
+  const pctMeta = Math.min((ventasMes / (metaMes || 1)) * 100, 100)
   const pctBono = bonoSiguiente
     ? Math.min((ventasMes / bonoSiguiente.meta) * 100, 100)
     : 100
   const diasMes = new Date(anio, mes + 1, 0).getDate()
   const promedioDia = ordenes > 0 ? ventasMes / diasMes : 0
+
+  // Bono diario
+  const esMesActual     = mes === now.getMonth() && anio === now.getFullYear()
+  const bonoDiarioOk    = esMesActual && ventasHoy >= BONO_DIARIO_META
+  const pctDiario       = esMesActual ? Math.min(Math.round((ventasHoy / BONO_DIARIO_META) * 100), 100) : 0
+  const faltaDiario     = Math.max(0, BONO_DIARIO_META - ventasHoy)
+
+  // Desglose comisión
+  const des = desgloseComision(ventasMes)
 
   const nombreMes = new Date(anio, mes, 1).toLocaleString('es-MX', { month: 'long', year: 'numeric' })
   const esMesActual = mes === now.getMonth() && anio === now.getFullYear()
@@ -180,6 +216,32 @@ export default function MiDesempenoPage() {
           </button>
         </div>
       </div>
+
+      {/* ── BONO DIARIO (solo mes actual) ── */}
+      {esMesActual && (
+        <div className={`rounded-2xl p-5 border flex items-center gap-5 ${bonoDiarioOk ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-zinc-100 shadow-sm'}`}>
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${bonoDiarioOk ? 'bg-emerald-500' : 'bg-zinc-100'}`}>
+            <Zap className={`w-6 h-6 ${bonoDiarioOk ? 'text-white' : 'text-zinc-400'}`} />
+          </div>
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className={`text-sm font-semibold ${bonoDiarioOk ? 'text-emerald-700' : 'text-zinc-600'}`}>
+                {bonoDiarioOk ? `¡Bono del día desbloqueado! +${fmt(BONO_DIARIO_MONTO)} 🎉` : `Bono del día · ${fmt(BONO_DIARIO_MONTO)} si llegas a ${fmt(BONO_DIARIO_META)}`}
+              </p>
+              <span className="text-sm font-bold text-zinc-700">{fmt(ventasHoy)} hoy</span>
+            </div>
+            <div className="h-2.5 bg-zinc-200/60 rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${pctDiario}%`, background: bonoDiarioOk ? '#10B981' : pctDiario >= 70 ? '#F59E0B' : '#6366F1' }} />
+            </div>
+            {!bonoDiarioOk && (
+              <p className="text-xs text-zinc-400">
+                Te faltan <span className="font-semibold text-zinc-600">{fmt(faltaDiario)}</span> para el bono de hoy
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-4 gap-4">
@@ -343,6 +405,71 @@ export default function MiDesempenoPage() {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* ── Desglose comisión ── */}
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-4 h-4 text-zinc-500" />
+          <h2 className="text-sm font-semibold text-zinc-700">Desglose de comisión</h2>
+        </div>
+        <div className="space-y-0">
+          {des.map((t, i) => (
+            <div key={i} className={`flex items-center justify-between py-3 ${i < des.length - 1 ? 'border-b border-zinc-100' : ''}`}>
+              <div className="flex items-center gap-3">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.base > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-zinc-100 text-zinc-400'}`}>{t.tasa}</span>
+                <div>
+                  <p className={`text-sm ${t.base > 0 ? 'text-zinc-700' : 'text-zinc-300'}`}>{t.label}</p>
+                  {t.base > 0 && <p className="text-xs text-zinc-400">sobre {fmt(t.base)}</p>}
+                </div>
+              </div>
+              <p className={`text-sm font-bold ${t.ganado > 0 ? 'text-indigo-600' : 'text-zinc-300'}`}>{t.ganado > 0 ? fmt(t.ganado) : '—'}</p>
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-3 border-t border-zinc-200 mt-1">
+            <p className="text-sm font-bold text-zinc-700">Total comisión del mes</p>
+            <p className="text-base font-bold text-indigo-600">{fmt(comision)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Escalera de bonos ── */}
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Award className="w-4 h-4 text-zinc-500" />
+          <h2 className="text-sm font-semibold text-zinc-700">Escalera de bonos del mes</h2>
+        </div>
+        <div className="space-y-2">
+          {BONOS_TABLA.map((tier, i) => {
+            const alcanzado   = ventasMes >= tier.meta
+            const esSiguiente = !alcanzado && (i === 0 || ventasMes >= BONOS_TABLA[i - 1].meta)
+            return (
+              <div key={tier.meta}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl ${
+                  alcanzado   ? 'bg-emerald-50 border border-emerald-200' :
+                  esSiguiente ? 'bg-amber-50  border border-amber-200'   :
+                                'bg-zinc-50   border border-zinc-100'
+                }`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                  alcanzado   ? 'bg-emerald-500 text-white' :
+                  esSiguiente ? 'bg-amber-400   text-white' :
+                                'bg-zinc-200    text-zinc-400'
+                }`}>{alcanzado ? '✓' : i + 1}</div>
+                <div className="flex-1">
+                  <p className={`text-sm font-semibold ${alcanzado ? 'text-emerald-700' : esSiguiente ? 'text-amber-700' : 'text-zinc-400'}`}>
+                    {fmt(tier.meta)}
+                    {esSiguiente && <span className="ml-2 text-xs font-normal text-amber-600">← te faltan {fmt(tier.meta - ventasMes)}</span>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Star className={`w-3.5 h-3.5 ${alcanzado ? 'text-emerald-400' : esSiguiente ? 'text-amber-400' : 'text-zinc-300'}`} />
+                  <p className={`text-sm font-bold ${alcanzado ? 'text-emerald-600' : esSiguiente ? 'text-amber-600' : 'text-zinc-300'}`}>{fmt(tier.bono)}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <p className="text-xs text-zinc-400 mt-3">Bonos no acumulables — solo aplica el del rango máximo alcanzado en el mes.</p>
       </div>
 
       {/* ── Banner motivacional ── */}

@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   DollarSign, BarChart3, CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Microscope,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Microscope, Star,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -23,7 +23,7 @@ const ROL_LABEL: Record<Rol, string> = {
 }
 
 // Módulos core: todos los roles de tienda los ven
-const CORE = ['dashboard','ventas','agenda','expedientes','laboratorio','caja','inbox']
+const CORE = ['dashboard','ventas','agenda','expedientes','laboratorio','caja','inbox','mi-desempeno']
 
 // Módulos de gestión: solo gerente y admin
 const GESTION_GERENTE = ['inventario','reportes']
@@ -57,8 +57,9 @@ const MENU_CORE: MenuItem[] = [
   { href: '/dashboard/agenda',      label: 'Agenda',      icon: CalendarDays,    key: 'agenda' },
   { href: '/dashboard/expedientes', label: 'Expedientes', icon: FolderOpen,      key: 'expedientes' },
   { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical,    key: 'laboratorio' },
-  { href: '/dashboard/caja',        label: 'Caja',        icon: Wallet,          key: 'caja' },
-  { href: '/dashboard/inbox',       label: 'Inbox',       icon: Mail,            key: 'inbox' },
+  { href: '/dashboard/caja',          label: 'Caja',          icon: Wallet,          key: 'caja' },
+  { href: '/dashboard/inbox',         label: 'Inbox',         icon: Mail,            key: 'inbox' },
+  { href: '/dashboard/mi-desempeno',  label: 'Mi Desempeño',  icon: Star,            key: 'mi-desempeno' },
 ]
 
 // Módulos de gestión — gerente y admin
