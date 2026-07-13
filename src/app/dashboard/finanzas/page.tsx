@@ -218,7 +218,7 @@ function FinanzasPage() {
     if (editandoId) {
       const { error } = await supabase.from('gastos').update(payload).eq('id', editandoId)
       if (error) { alert('Error: ' + error.message); setGuardando(false); return }
-      setGastos(prev => prev.map(g => g.id === editandoId ? { ...g, ...payload } : g))
+      setGastos(prev => prev.map(g => g.id === editandoId ? { ...g, ...payload, notas: payload.notas ?? '' } : g))
     } else {
       const { data, error } = await supabase.from('gastos').insert(payload).select().single()
       if (error) { alert('Error: ' + error.message); setGuardando(false); return }
