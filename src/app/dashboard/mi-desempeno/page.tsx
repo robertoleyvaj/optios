@@ -496,7 +496,7 @@ export default function MiDesempenoPage() {
           {BONOS_TABLA.map((tier, i) => {
             const alcanzado   = ventasMes >= tier.meta
             const esSiguiente = !alcanzado && (i === 0 || ventasMes >= BONOS_TABLA[i - 1].meta)
-            const bonoMostrar = esGerente && 'acumulado' in tier ? tier.acumulado : tier.bono
+            const bonoMostrar = esGerente ? (tier as typeof G_BONOS[0]).acumulado : tier.bono
             return (
               <div key={tier.meta}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl ${
