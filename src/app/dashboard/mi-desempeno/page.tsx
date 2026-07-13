@@ -246,7 +246,7 @@ export default function MiDesempenoPage() {
   const mensajeMotivacional = () => {
     if (pctMeta >= 100) return '¡Alcanzaste la meta global! Excelente trabajo 🏆'
     if (pctMeta >= 80)  return '¡Casi llegamos! Las sucursales están a muy poco de la meta 💪'
-    if (pctMeta >= 50)  return '¡Buen ritmo! Sigue impulsando las ventas del grupo 💼'
+    if (pctMeta >= 50)  return '¡Buen ritmo! Sigue impulsando las ventas de las sucursales 💼'
     return 'Cada venta en las tres sucursales suma. ¡Vamos por la meta! 🚀'
   }
 
@@ -284,7 +284,7 @@ export default function MiDesempenoPage() {
               <p className={`text-sm font-semibold ${bonoDiarioOk ? 'text-emerald-700' : 'text-zinc-600'}`}>
                 {bonoDiarioOk
                   ? `¡Bono del día desbloqueado! +${fmt(BONO_DIARIO_MONTO)} 🎉`
-                  : `Bono del día · ${fmt(BONO_DIARIO_MONTO)} si ${esGerente ? 'el grupo llega' : 'llegas'} a ${fmt(BONO_DIARIO_META)}`}
+                  : `Bono del día · ${fmt(BONO_DIARIO_MONTO)} si ${esGerente ? 'las sucursales llegan' : 'llegas'} a ${fmt(BONO_DIARIO_META)}`}
               </p>
               <span className="text-sm font-bold text-zinc-700">{fmt(ventasHoy)} hoy</span>
             </div>
@@ -294,7 +294,7 @@ export default function MiDesempenoPage() {
             </div>
             {!bonoDiarioOk && (
               <p className="text-xs text-zinc-400">
-                {esGerente ? 'Le faltan al grupo ' : 'Te faltan '}
+                {esGerente ? 'Les faltan a las sucursales ' : 'Te faltan '}
                 <span className="font-semibold text-zinc-600">{fmt(faltaDiario)}</span> para el bono de hoy
               </p>
             )}
@@ -354,7 +354,7 @@ export default function MiDesempenoPage() {
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-zinc-500" />
           <h2 className="text-sm font-semibold text-zinc-700">
-            {esGerente ? 'Progreso global del grupo' : 'Tu progreso este mes'}
+            {esGerente ? 'Progreso global de las sucursales' : 'Tu progreso este mes'}
           </h2>
         </div>
         <div className="grid grid-cols-2 gap-6">
@@ -386,7 +386,7 @@ export default function MiDesempenoPage() {
                   <span>{fmt(bonoSiguiente.meta)}</span>
                 </div>
                 <p className="text-xs text-zinc-500">
-                  {esGerente ? 'Le faltan al grupo ' : 'Te faltan '}
+                  {esGerente ? 'Les faltan a las sucursales ' : 'Te faltan '}
                   <span className="font-semibold text-zinc-700">{fmt(bonoSiguiente.meta - ventasMes)}</span>
                   {' '}para el siguiente escalón
                 </p>
@@ -420,7 +420,7 @@ export default function MiDesempenoPage() {
             <p className="text-xs text-zinc-500">
               {pctMeta >= 100
                 ? <span className="font-semibold text-indigo-600">¡Meta superada este mes! 🎉</span>
-                : <>{esGerente ? 'Le faltan al grupo ' : 'Te faltan '}
+                : <>{esGerente ? 'Les faltan a las sucursales ' : 'Te faltan '}
                     <span className="font-semibold text-zinc-700">{fmt(metaMes - ventasMes)}</span> para la meta</>}
             </p>
           </div>
@@ -432,7 +432,7 @@ export default function MiDesempenoPage() {
         <div className="flex items-center gap-2 mb-5">
           <TrendingUp className="w-4 h-4 text-zinc-500" />
           <h2 className="text-sm font-semibold text-zinc-700">
-            {esGerente ? 'Ventas globales del grupo' : 'Resumen de ventas'}
+            {esGerente ? 'Ventas globales de las sucursales' : 'Resumen de ventas'}
           </h2>
         </div>
         <div className="flex items-center gap-8">
@@ -447,7 +447,7 @@ export default function MiDesempenoPage() {
           </div>
           <div className="w-px h-10 bg-zinc-100" />
           <div>
-            <p className="text-xs text-zinc-400 mb-1">Órdenes {esGerente ? 'del grupo' : 'realizadas'}</p>
+            <p className="text-xs text-zinc-400 mb-1">Órdenes {esGerente ? 'de las sucursales' : 'realizadas'}</p>
             <p className="text-2xl font-semibold text-zinc-900 tracking-tight">{ordenes}</p>
           </div>
           <div className="ml-auto">
