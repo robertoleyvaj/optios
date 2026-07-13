@@ -219,8 +219,15 @@ export default function VentasPage() {
   const [showAbono, setShowAbono]   = useState(false)
   const [abonoMonto, setAbonoMonto]   = useState('')
   const [abonoMetodo, setAbonoMetodo] = useState('efectivo')
+  const [usuarioNombre, setUsuarioNombre] = useState('')
 
-  useEffect(() => { cargar() }, [])
+  useEffect(() => {
+    cargar()
+    try {
+      const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
+      setUsuarioNombre(u.nombre ?? '')
+    } catch { /* noop */ }
+  }, [])
 
   // Cerrar modal con Escape
   useEffect(() => {
@@ -333,13 +340,27 @@ export default function VentasPage() {
     const monto = parseFloat(abonoMonto)
     if (!detalle || isNaN(monto) || monto <= 0) return
 
-    // Actualizar saldo en Supabase
     const nuevoSaldo = Math.max(0, saldoPendiente(detalle) - monto)
+    const esLiquidacion = nuevoSaldo === 0
     const supabase = createClient()
+
+    // 1. Actualizar saldo en ventas
     await supabase
       .from('ventas')
       .update({ saldo: nuevoSaldo })
       .eq('id', detalle.uuid)
+
+    // 2. Registrar pago en pagos_venta
+    await supabase.from('pagos_venta').insert({
+      venta_id:      detalle.uuid,
+      folio_venta:   detalle.folio,
+      paciente:      detalle.paciente,
+      monto,
+      metodo_pago:   abonoMetodo,
+      tipo:          esLiquidacion ? 'liquidacion' : 'abono',
+      sucursal:      detalle.sucursal,
+      registrado_por: usuarioNombre,
+    })
 
     const nuevoPago: Pago = {
       fecha: new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }),

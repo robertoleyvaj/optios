@@ -441,6 +441,20 @@ export default function NuevaVentaPage() {
         })
       }
 
+      // ── 4b. Registrar anticipo en pagos_venta ──────────────────
+      if (!cotizacion && anticoDB > 0) {
+        await supabase.from('pagos_venta').insert({
+          venta_id:       ventaId,
+          folio_venta:    folio,
+          paciente:       `${clienteNombre} ${clienteApellido}`.trim(),
+          monto:          anticoDB,
+          metodo_pago:    metodoPago,
+          tipo:           saldoDB === 0 ? 'liquidacion' : 'anticipo',
+          sucursal,
+          registrado_por: atendioPor,
+        })
+      }
+
       // ── 5. Crear órdenes de laboratorio por par ─────────────
       const isMica = (nombre: string) =>
         ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
