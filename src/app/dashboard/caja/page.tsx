@@ -793,9 +793,8 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           </div>
         </div>
 
-        {/* Dólares USD */}
-        {(efectivoUSD.monto > 0 || esperadoUSD > 0) && (
-          <div className="border-t border-zinc-100 pt-5">
+        {/* Dólares USD — siempre visible */}
+        <div className="border-t border-zinc-100 pt-5">
             <p className="text-xs font-bold text-blue-600 mb-3">🇺🇸 Caja dólares (USD)</p>
             <div className="grid grid-cols-2 gap-5">
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
@@ -844,7 +843,6 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
               </div>
             </div>
           </div>
-        )}
 
         {/* Fondo y entrega */}
         {efectivoContado !== '' && (
