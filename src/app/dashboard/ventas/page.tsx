@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -211,10 +212,14 @@ ${pagosHtml}
 // Page
 // ─────────────────────────────────────────
 export default function VentasPage() {
+  const searchParams = useSearchParams()
   const [ventas, setVentas]         = useState<Venta[]>([])
   const [cargando, setCargando]     = useState(true)
   const [busqueda, setBusqueda]     = useState('')
   const [sucursal, setSucursal]     = useState('Todas')
+  const [filtroPago, setFiltroPago] = useState<'todas' | 'pendientes' | 'liquidadas'>(
+    searchParams.get('pendientes') === '1' ? 'pendientes' : 'todas'
+  )
   const [detalle, setDetalle]       = useState<Venta | null>(null)
   const [showAbono, setShowAbono]   = useState(false)
   const [abonoMonto, setAbonoMonto]   = useState('')
@@ -226,6 +231,10 @@ export default function VentasPage() {
     try {
       const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
       setUsuarioNombre(u.nombre ?? '')
+      // Gerente y vendedor arrancan en su propia sucursal
+      if (u.rol !== 'administrador' && u.sucursal && u.sucursal !== 'Todas') {
+        setSucursal(u.sucursal)
+      }
     } catch { /* noop */ }
   }, [])
 
@@ -329,7 +338,11 @@ export default function VentasPage() {
     const matchQ = v.cliente.toLowerCase().includes(q) || v.id.toLowerCase().includes(q) ||
       v.items.some(i => i.nombre.toLowerCase().includes(q))
     const matchS = sucursal === 'Todas' || v.sucursal === sucursal
-    return matchQ && matchS
+    const sp = saldoPendiente(v)
+    const matchP = filtroPago === 'todas'
+      || (filtroPago === 'pendientes' && sp > 0)
+      || (filtroPago === 'liquidadas' && sp === 0)
+    return matchQ && matchS && matchP
   })
 
   const hoy = fechaHoy()
@@ -460,6 +473,16 @@ export default function VentasPage() {
               {SUCURSALES.map(s => <option key={s}>{s}</option>)}
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+          </div>
+          <div className="flex bg-zinc-100 rounded p-0.5 gap-0.5 text-xs">
+            {(['todas', 'pendientes', 'liquidadas'] as const).map(f => (
+              <button key={f} onClick={() => setFiltroPago(f)}
+                className={`px-2.5 py-1 rounded font-medium transition-all ${
+                  filtroPago === f ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                }`}>
+                {f === 'todas' ? 'Todas' : f === 'pendientes' ? 'Con saldo' : 'Liquidadas'}
+              </button>
+            ))}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-zinc-400 ml-auto">
             <Filter className="w-3.5 h-3.5" />

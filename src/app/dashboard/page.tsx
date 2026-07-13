@@ -220,6 +220,8 @@ export default function DashboardPage() {
           // Saldos pendientes (count)
           sb.from('ventas').select('id', { count: 'exact', head: true })
             .eq('sucursal', sucursalEfectiva)
+            .eq('estado', 'activa')
+            .eq('es_cotizacion', false)
             .gt('saldo', 0),
           // Actividad reciente (ventas de hoy)
           sb.from('ventas').select('id,folio,paciente_nombre,created_at,total')
@@ -435,7 +437,7 @@ export default function DashboardPage() {
                   label="Saldos pendientes de cobro"
                   count={saldosPendientes}
                   colorClass="text-rose-600"
-                  onClick={() => router.push('/dashboard/ventas')}
+                  onClick={() => router.push('/dashboard/ventas?pendientes=1')}
                 />
               </div>
             )}
@@ -524,7 +526,7 @@ export default function DashboardPage() {
                   textClass="text-rose-800"
                   subClass="text-rose-500"
                   arrowClass="text-rose-300"
-                  onClick={() => router.push('/dashboard/ventas')}
+                  onClick={() => router.push('/dashboard/ventas?pendientes=1')}
                 />
               )}
               {trabajosRetrasados.length === 0 && trabajosListos.length === 0 && saldosPendientes === 0 && (
@@ -547,7 +549,7 @@ export default function DashboardPage() {
               <div className="space-y-0.5 overflow-y-auto flex-1">
                 {actividad.map(a => (
                   <button key={a.id}
-                    onClick={() => router.push('/dashboard/ventas')}
+                    onClick={() => router.push('/dashboard/ventas?pendientes=1')}
                     className="w-full flex items-start gap-3 px-2 py-2.5 rounded-xl hover:bg-zinc-50 transition-colors text-left">
                     <div className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <ShoppingCart className="w-3 h-3 text-zinc-500" />
