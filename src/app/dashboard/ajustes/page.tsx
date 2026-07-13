@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import RequireRol from '@/components/RequireRol'
+import { createClient } from '@/lib/supabase/client'
 import {
   Store, CreditCard, Bell, Globe, Save,
-  Plus, X, Edit2, ChevronDown, CheckCircle2,
+  Plus, X, Edit2, ChevronDown, CheckCircle2, Target,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 type Sucursal = {
@@ -16,17 +18,200 @@ type Sucursal = {
   activa: boolean
 }
 
+const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
+
 const TABS = [
-  { key: 'sucursales', label: 'Sucursales',   icon: Store },
-  { key: 'pagos',      label: 'Pagos',         icon: CreditCard },
-  { key: 'sistema',    label: 'Sistema',       icon: Globe },
-  { key: 'notif',      label: 'Notificaciones',icon: Bell },
+  { key: 'sucursales', label: 'Sucursales',    icon: Store    },
+  { key: 'metas',      label: 'Metas',          icon: Target   },
+  { key: 'pagos',      label: 'Pagos',          icon: CreditCard },
+  { key: 'sistema',    label: 'Sistema',        icon: Globe    },
+  { key: 'notif',      label: 'Notificaciones', icon: Bell     },
 ]
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getMesLabel(mesStr: string) {
+  const [y, m] = mesStr.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+}
+
+function buildMeses(centerMes: string, count = 5): string[] {
+  const [y, m] = centerMes.split('-').map(Number)
+  const result: string[] = []
+  const half = Math.floor(count / 2)
+  for (let i = -half; i <= half; i++) {
+    const d = new Date(y, m - 1 + i, 1)
+    result.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  return result
+}
+
+function addMes(mes: string, delta: number): string {
+  const [y, m] = mes.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function hoyMes(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+// ── MetasTab ─────────────────────────────────────────────────────────────────
+function MetasTab() {
+  const supabase = createClient()
+
+  // Key: `${sucursal}|${mes}` → amount
+  const [valores, setValores] = useState<Record<string, string>>({})
+  const [guardando, setGuardando] = useState<string | null>(null) // sucursal|mes being saved
+  const [guardados, setGuardados] = useState<Set<string>>(new Set())
+  const [mesActivo, setMesActivo] = useState(hoyMes())
+  const [loading, setLoading] = useState(true)
+
+  const meses = buildMeses(mesActivo, 5)
+
+  const fetchMetas = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('metas')
+      .select('sucursal, mes, meta')
+      .in('mes', meses)
+    if (data) {
+      const map: Record<string, string> = {}
+      for (const row of data) {
+        map[`${row.sucursal}|${row.mes}`] = String(row.meta)
+      }
+      setValores(prev => ({ ...prev, ...map }))
+    }
+    setLoading(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mesActivo])
+
+  useEffect(() => { fetchMetas() }, [fetchMetas])
+
+  const guardarMeta = async (sucursal: string, mes: string) => {
+    const key = `${sucursal}|${mes}`
+    const raw = valores[key] || ''
+    const num = parseFloat(raw.replace(/,/g, ''))
+    if (isNaN(num) || num < 0) return
+
+    setGuardando(key)
+    await supabase.from('metas').upsert(
+      { sucursal, mes, meta: num },
+      { onConflict: 'sucursal,mes' }
+    )
+    setGuardando(null)
+    setGuardados(prev => new Set(prev).add(key))
+    setTimeout(() => setGuardados(prev => { const s = new Set(prev); s.delete(key); return s }), 2000)
+  }
+
+  const fmt = (v: string) => {
+    const n = parseFloat(v.replace(/,/g, ''))
+    if (isNaN(n)) return v
+    return n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  }
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-zinc-500">
+        Define la meta de ventas mensual por sucursal. Esta meta se muestra en Reportes y en el panel de gerentes.
+      </p>
+
+      {/* Navegador de meses */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <button onClick={() => setMesActivo(m => addMes(m, -1))}
+          className="p-1.5 rounded hover:bg-zinc-100 text-zinc-500 flex-shrink-0">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        {meses.map(mes => (
+          <button key={mes} onClick={() => setMesActivo(mes)}
+            className={`px-3 py-1.5 rounded text-sm font-medium capitalize whitespace-nowrap transition-colors flex-shrink-0 ${
+              mes === hoyMes() && mesActivo !== mes ? 'ring-1 ring-[#0D9488]/40' : ''
+            } ${mesActivo === mes ? 'bg-[#0B0E14] text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}>
+            {getMesLabel(mes)}
+          </button>
+        ))}
+        <button onClick={() => setMesActivo(m => addMes(m, 1))}
+          className="p-1.5 rounded hover:bg-zinc-100 text-zinc-500 flex-shrink-0">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Tabla de metas */}
+      {loading ? (
+        <div className="text-sm text-zinc-400 py-6 text-center">Cargando metas…</div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {SUCURSALES.map(suc => {
+            const key = `${suc}|${mesActivo}`
+            const val = valores[key] ?? ''
+            const isGuardando = guardando === key
+            const isGuardado  = guardados.has(key)
+            return (
+              <div key={suc} className="border border-zinc-200 rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[#0D9488]" />
+                  <span className="text-sm font-semibold text-zinc-800">{suc}</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                    Meta — {getMesLabel(mesActivo)}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={val}
+                      onChange={e => setValores(prev => ({ ...prev, [key]: e.target.value.replace(/[^0-9.]/g, '') }))}
+                      onBlur={() => guardarMeta(suc, mesActivo)}
+                      onKeyDown={e => { if (e.key === 'Enter') guardarMeta(suc, mesActivo) }}
+                      className="w-full border border-zinc-200 rounded-lg pl-7 pr-4 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 focus:border-[#0D9488]"
+                    />
+                  </div>
+                  {val && !isNaN(parseFloat(val)) && (
+                    <p className="text-xs text-zinc-400 mt-1">
+                      = ${fmt(val)} MXN
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => guardarMeta(suc, mesActivo)}
+                  disabled={isGuardando}
+                  className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isGuardado
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : 'bg-[#0B0E14] text-white hover:bg-[#1A1D27]'
+                  }`}>
+                  {isGuardado ? (
+                    <><CheckCircle2 className="w-4 h-4" /> Guardado</>
+                  ) : isGuardando ? (
+                    'Guardando…'
+                  ) : (
+                    <><Save className="w-4 h-4" /> Guardar</>
+                  )}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <p className="text-xs text-zinc-400">
+        Las metas se guardan automáticamente al presionar Enter o al salir del campo.
+        Puedes navegar entre meses para configurar meses futuros.
+      </p>
+    </div>
+  )
+}
+
+// ── AjustesPage ───────────────────────────────────────────────────────────────
 function AjustesPage() {
   const [tab, setTab] = useState('sucursales')
 
-  const [sucursales, setSucursales] = useState<Sucursal[]>([
+  const [sucursales] = useState<Sucursal[]>([
     { id: 1, nombre: 'Baja Visión',    direccion: 'Blvd. Benito Juárez, Playas de Rosarito, B.C.',                                telefono: '661 104 0431', horario: 'Lun-Dom 10:00–18:00', activa: true },
     { id: 2, nombre: '5 de Mayo',      direccion: 'Av. 5 de Mayo, a un costado de Funeraria San Gabriel, Playas de Rosarito, B.C.', telefono: '661 612 0316', horario: 'Lun-Sáb 10:00–18:00', activa: true },
     { id: 3, nombre: 'Plaza Laureles', direccion: 'Plaza Laureles, Playas de Rosarito, B.C.',                                       telefono: '661 104 0431', horario: 'Lun-Dom 10:00–18:00', activa: true },
@@ -55,10 +240,10 @@ function AjustesPage() {
 
       {/* Tabs */}
       <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-        <div className="flex border-b border-zinc-100 px-2">
+        <div className="flex border-b border-zinc-100 px-2 overflow-x-auto">
           {TABS.map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setTab(key)}
-              className={`flex items-center gap-2 px-5 py-4 text-sm font-medium border-b-2 transition-colors -mb-px ${tab === key ? 'border-[#0D9488] text-[#0B0E14]' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}>
+              className={`flex items-center gap-2 px-5 py-4 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap flex-shrink-0 ${tab === key ? 'border-[#0D9488] text-[#0B0E14]' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}>
               <Icon className="w-4 h-4" /> {label}
             </button>
           ))}
@@ -97,8 +282,19 @@ function AjustesPage() {
                   </div>
                 </div>
               ))}
+              <div className="mt-6 pt-5 border-t border-zinc-100 flex items-center gap-3">
+                <button onClick={guardar}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-[#1A1D27]">
+                  <Save className="w-4 h-4" />
+                  {saved ? '¡Guardado!' : 'Guardar cambios'}
+                </button>
+                {saved && <span className="text-sm text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Cambios guardados</span>}
+              </div>
             </div>
           )}
+
+          {/* ── METAS ── */}
+          {tab === 'metas' && <MetasTab />}
 
           {/* ── PAGOS ── */}
           {tab === 'pagos' && (
@@ -127,7 +323,7 @@ function AjustesPage() {
                       <input type="number" value={comDebito} onChange={e => setComDebito(e.target.value)}
                         className="border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 w-24 pr-7"
                         step="0.1" />
-                      <span className="absolute right-3 top-1/2 -tranzinc-y-1/2 text-zinc-400 text-sm">%</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">%</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -136,11 +332,20 @@ function AjustesPage() {
                       <input type="number" value={comCredito} onChange={e => setComCredito(e.target.value)}
                         className="border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 w-24 pr-7"
                         step="0.1" />
-                      <span className="absolute right-3 top-1/2 -tranzinc-y-1/2 text-zinc-400 text-sm">%</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">%</span>
                     </div>
                   </div>
                 </div>
                 <p className="text-xs text-zinc-400 mt-2">Estos porcentajes se aplican automáticamente al calcular el neto en ventas y finanzas.</p>
+              </div>
+
+              <div className="pt-5 border-t border-zinc-100 flex items-center gap-3">
+                <button onClick={guardar}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-[#1A1D27]">
+                  <Save className="w-4 h-4" />
+                  {saved ? '¡Guardado!' : 'Guardar cambios'}
+                </button>
+                {saved && <span className="text-sm text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Cambios guardados</span>}
               </div>
             </div>
           )}
@@ -168,7 +373,7 @@ function AjustesPage() {
                         <option>MXN — Peso Mexicano</option>
                         <option>USD — Dólar Americano</option>
                       </select>
-                      <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                     </div>
                   </div>
                 </div>
@@ -192,6 +397,14 @@ function AjustesPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+              <div className="pt-5 border-t border-zinc-100 flex items-center gap-3">
+                <button onClick={guardar}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-[#1A1D27]">
+                  <Save className="w-4 h-4" />
+                  {saved ? '¡Guardado!' : 'Guardar cambios'}
+                </button>
+                {saved && <span className="text-sm text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Cambios guardados</span>}
               </div>
             </div>
           )}
@@ -218,16 +431,6 @@ function AjustesPage() {
               ))}
             </div>
           )}
-
-          {/* Botón guardar */}
-          <div className="mt-6 pt-5 border-t border-zinc-100 flex items-center gap-3">
-            <button onClick={guardar}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-[#1A1D27]">
-              <Save className="w-4 h-4" />
-              {saved ? '¡Guardado!' : 'Guardar cambios'}
-            </button>
-            {saved && <span className="text-sm text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Cambios guardados</span>}
-          </div>
         </div>
       </div>
     </div>

@@ -154,14 +154,19 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 // ─────────────────────────────────────────────
 // Página principal
 // ─────────────────────────────────────────────
+function hoyMes(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
 function ReportesPage() {
   const [periodo,     setPeriodo]     = useState<Periodo>('hoy')
   const [desde,       setDesde]       = useState('')
   const [hasta,       setHasta]       = useState('')
   const [sucursal,    setSucursal]    = useState('Todas')
-  const [metaMensual, setMetaMensual] = useState(150000)
+  const [metaMensual, setMetaMensual] = useState(0)
   const [editMeta,    setEditMeta]    = useState(false)
-  const [metaInput,   setMetaInput]   = useState('150000')
+  const [metaInput,   setMetaInput]   = useState('0')
   const [rolUsuario,  setRolUsuario]  = useState('administrador')
 
   // Data
@@ -181,6 +186,34 @@ function ReportesPage() {
       }
     } catch {}
   }, [])
+
+  // ── Fetch meta from DB ───────────────────────
+  useEffect(() => {
+    const fetchMeta = async () => {
+      const mes = hoyMes()
+      const sb = createClient()
+      if (sucursal === 'Todas') {
+        const { data } = await sb.from('metas').select('meta').eq('mes', mes)
+        const total = (data || []).reduce((s: number, r: { meta: number }) => s + Number(r.meta), 0)
+        setMetaMensual(total)
+        setMetaInput(String(total))
+      } else {
+        const { data } = await sb.from('metas').select('meta')
+          .eq('sucursal', sucursal).eq('mes', mes).maybeSingle()
+        const val = data ? Number(data.meta) : 0
+        setMetaMensual(val)
+        setMetaInput(String(val))
+      }
+    }
+    fetchMeta()
+  }, [sucursal])
+
+  const guardarMetaDB = useCallback(async (valor: number) => {
+    if (sucursal === 'Todas') return
+    const mes = hoyMes()
+    const sb = createClient()
+    await sb.from('metas').upsert({ sucursal, mes, meta: valor }, { onConflict: 'sucursal,mes' })
+  }, [sucursal])
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -329,16 +362,28 @@ function ReportesPage() {
                 type="number"
                 value={metaInput}
                 onChange={e => setMetaInput(e.target.value)}
-                onBlur={() => { setMetaMensual(Number(metaInput) || 150000); setEditMeta(false) }}
-                onKeyDown={e => { if (e.key === 'Enter') { setMetaMensual(Number(metaInput) || 150000); setEditMeta(false) } }}
+                onBlur={() => {
+                  const v = Number(metaInput) || 0
+                  setMetaMensual(v); setEditMeta(false); guardarMetaDB(v)
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const v = Number(metaInput) || 0
+                    setMetaMensual(v); setEditMeta(false); guardarMetaDB(v)
+                  }
+                }}
                 autoFocus
                 className="w-24 bg-transparent text-amber-700 font-bold focus:outline-none border-b border-amber-400"
               />
             ) : (
               <button onClick={() => { setMetaInput(String(metaMensual)); setEditMeta(true) }}
-                className="text-amber-700 font-bold hover:underline">
-                {$$(metaMensual)}
+                className={`text-amber-700 font-bold ${sucursal !== 'Todas' ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
+                title={sucursal === 'Todas' ? 'Suma de metas por sucursal' : 'Clic para editar'}>
+                {metaMensual > 0 ? $$(metaMensual) : '—'}
               </button>
+            )}
+            {sucursal === 'Todas' && metaMensual > 0 && (
+              <span className="text-amber-500 text-[10px]">(suma)</span>
             )}
           </div>
 
