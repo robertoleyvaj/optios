@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import RequireRol from '@/components/RequireRol'
-import { BarChart3, TrendingUp, ShoppingBag, Package } from 'lucide-react'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell,
-} from 'recharts'
+  TrendingUp, ShoppingBag, Package, Target,
+  BarChart3, Beaker, CheckCircle2, AlertTriangle,
+} from 'lucide-react'
 
 // ─────────────────────────────────────────────
 // Tipos
@@ -17,6 +16,7 @@ type Periodo = 'hoy' | 'semana' | 'mes' | 'trimestre' | 'anio' | 'personalizado'
 type Venta = {
   id: string
   total: number
+  anticipo: number
   saldo: number
   sucursal: string
   metodo_pago: string
@@ -30,6 +30,8 @@ type VentaItem = {
   cantidad: number
   subtotal: number
 }
+
+type OrdenLab = { estado: string }
 
 // ─────────────────────────────────────────────
 // Constantes
@@ -45,46 +47,56 @@ const PERIODOS: { key: Periodo; label: string }[] = [
 
 const SUCURSALES = ['Todas', 'Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
-const METODOS: Record<string, string> = {
-  efectivo:      'Efectivo',
-  debito:        'Débito',
-  credito:       'Crédito',
-  transferencia: 'Transferencia',
-  deposito:      'Depósito',
-}
-
-const COLORES_SUCURSAL: Record<string, string> = {
+const COLOR_SUC: Record<string, string> = {
   'Baja Visión':    '#0D9488',
   '5 de Mayo':      '#0B0E14',
   'Plaza Laureles': '#6366F1',
 }
 
-const COLORES_PIE = ['#0D9488', '#0B0E14', '#6366F1', '#F97316', '#10B981', '#F59E0B']
-
 // ─────────────────────────────────────────────
 // Utilidades
 // ─────────────────────────────────────────────
 function getDateRange(periodo: Periodo, desde = '', hasta = '') {
-  const hoy = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const fmt = (d: Date)   => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
-  // Usar hora Tijuana para la fecha de hoy
-  const fin = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+  const hoy  = new Date()
+  const pad  = (n: number) => String(n).padStart(2, '0')
+  const fin  = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+  const fmt  = (d: Date)   => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
 
   if (periodo === 'hoy')           return { inicio: fin, fin }
   if (periodo === 'personalizado') return { inicio: desde || fin, fin: hasta || fin }
   if (periodo === 'semana') {
-    const d = new Date(hoy)
-    const dia = hoy.getDay() || 7
+    const d = new Date(hoy); const dia = hoy.getDay() || 7
     d.setDate(hoy.getDate() - dia + 1)
     return { inicio: fmt(d), fin }
   }
-  if (periodo === 'mes')       return { inicio: `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-01`, fin }
+  if (periodo === 'mes') return { inicio: `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-01`, fin }
   if (periodo === 'trimestre') {
     const q = Math.floor(hoy.getMonth() / 3)
     return { inicio: `${hoy.getFullYear()}-${pad(q*3+1)}-01`, fin }
   }
   return { inicio: `${hoy.getFullYear()}-01-01`, fin }
+}
+
+function metaPeriodo(periodo: Periodo, mensual: number): number {
+  if (periodo === 'hoy')       return Math.round(mensual / 30)
+  if (periodo === 'semana')    return Math.round(mensual / 4)
+  if (periodo === 'mes')       return mensual
+  if (periodo === 'trimestre') return mensual * 3
+  if (periodo === 'anio')      return mensual * 12
+  return mensual
+}
+
+function categorizarProducto(nombre: string): string {
+  const n = nombre.toLowerCase()
+  if (n.includes('progresiv'))                                                          return 'Progresivos'
+  if (n.includes('bifocal'))                                                            return 'Bifocales'
+  if (n.includes('monofocal'))                                                          return 'Monofocales'
+  if (n.includes('contacto') || /\blc\b/.test(n) ||
+      ['biofinity','air optix','acuvue','oasys','clariti','dailies'].some(k=>n.includes(k))) return 'Lentes de contacto'
+  if (n.includes('filtro')||n.includes('antirreflejo')||n.includes('blue')||
+      n.includes('fotocrom')||n.includes('transitions')||n.includes('tinte'))          return 'Filtros'
+  if (n.includes('armazon')||n.includes('marco'))                                      return 'Armazones'
+  return 'Otros'
 }
 
 const $$ = (n: number) =>
@@ -93,33 +105,44 @@ const $$ = (n: number) =>
 // ─────────────────────────────────────────────
 // Sub-componentes
 // ─────────────────────────────────────────────
-function KPICard({ label, value, sub, icon: Icon, color }: {
+function KPI({ label, value, sub, icon: Icon, color, children }: {
   label: string; value: string; sub: string
   icon: React.ElementType
-  color: 'teal' | 'green' | 'amber' | 'blue'
+  color: string   // Tailwind text color class
+  children?: React.ReactNode
 }) {
-  const map = {
-    teal:  { card: 'text-teal-600',  bg: 'bg-teal-50'  },
-    green: { card: 'text-green-600', bg: 'bg-green-50' },
-    amber: { card: 'text-amber-600', bg: 'bg-amber-50' },
-    blue:  { card: 'text-blue-600',  bg: 'bg-blue-50'  },
-  }
-  const c = map[color]
   return (
-    <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80 flex flex-col">
+      <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-medium text-zinc-400">{label}</p>
-        <div className={`w-8 h-8 rounded ${c.bg} flex items-center justify-center`}>
-          <Icon className={`w-4 h-4 ${c.card}`} />
-        </div>
+        <Icon className={`w-4 h-4 ${color} opacity-60`} />
       </div>
-      <p className={`text-2xl font-bold mt-2 ${c.card}`}>{value}</p>
-      <p className="text-xs text-zinc-400 mt-0.5">{sub}</p>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+      <p className="text-xs text-zinc-400 mt-0.5 flex-1">{sub}</p>
+      {children}
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function BarRow({ label, value, max, right, color }: {
+  label: string; value: number; max: number; right: string; color: string
+}) {
+  const pct = max > 0 ? Math.max(Math.round((value / max) * 100), 2) : 2
+  return (
+    <div>
+      <div className="flex justify-between items-baseline mb-1">
+        <span className="text-xs text-zinc-700 truncate max-w-[60%]">{label}</span>
+        <span className="text-xs text-zinc-500 font-medium shrink-0">{right}</span>
+      </div>
+      <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  )
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-white border border-zinc-200/80 rounded-lg p-5">
       <h3 className="text-sm font-bold text-zinc-700 mb-4">{title}</h3>
@@ -128,38 +151,26 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function BarRow({ label, value, max, sub, color }: {
-  label: string; value: number; max: number; sub: string; color: string
-}) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0
-  return (
-    <div>
-      <div className="flex justify-between items-baseline mb-1">
-        <span className="text-xs text-zinc-700 truncate max-w-[65%]">{label}</span>
-        <span className="text-xs text-zinc-400 ml-2 shrink-0">{sub}</span>
-      </div>
-      <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500`}
-          style={{ width: `${Math.max(pct, 2)}%`, background: color }}
-        />
-      </div>
-    </div>
-  )
-}
-
 // ─────────────────────────────────────────────
-// Página
+// Página principal
 // ─────────────────────────────────────────────
 function ReportesPage() {
-  const [periodo,    setPeriodo]    = useState<Periodo>('hoy')
-  const [desde,      setDesde]      = useState('')
-  const [hasta,      setHasta]      = useState('')
-  const [sucursal,   setSucursal]   = useState('Todas')
+  const [periodo,     setPeriodo]     = useState<Periodo>('hoy')
+  const [desde,       setDesde]       = useState('')
+  const [hasta,       setHasta]       = useState('')
+  const [sucursal,    setSucursal]    = useState('Todas')
+  const [metaMensual, setMetaMensual] = useState(150000)
+  const [editMeta,    setEditMeta]    = useState(false)
+  const [metaInput,   setMetaInput]   = useState('150000')
+  const [rolUsuario,  setRolUsuario]  = useState('administrador')
+
+  // Data
   const [ventas,     setVentas]     = useState<Venta[]>([])
   const [items,      setItems]      = useState<VentaItem[]>([])
+  const [ventasHoy,  setVentasHoy]  = useState<Venta[]>([])
+  const [cotCount,   setCotCount]   = useState(0)
+  const [ordLab,     setOrdLab]     = useState<OrdenLab[]>([])
   const [cargando,   setCargando]   = useState(true)
-  const [rolUsuario, setRolUsuario] = useState('administrador')
 
   useEffect(() => {
     try {
@@ -174,27 +185,52 @@ function ReportesPage() {
   const cargar = useCallback(async () => {
     setCargando(true)
     const { inicio, fin } = getDateRange(periodo, desde, hasta)
-    const supabase = createClient()
+    const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+    const sb = createClient()
 
-    let q = supabase
-      .from('ventas')
-      .select('id, total, saldo, sucursal, metodo_pago, atendido_por, created_at')
+    // Query builder helpers
+    const baseVentas = () => sb.from('ventas')
+      .select('id, total, anticipo, saldo, sucursal, metodo_pago, atendido_por, created_at')
       .eq('es_cotizacion', false)
       .gte('created_at', `${inicio}T00:00:00`)
       .lte('created_at', `${fin}T23:59:59`)
 
-    if (sucursal !== 'Todas') q = q.eq('sucursal', sucursal)
+    let qVentas = baseVentas()
+    let qHoy    = sb.from('ventas')
+      .select('id, total, anticipo, saldo, sucursal, metodo_pago, atendido_por, created_at')
+      .eq('es_cotizacion', false)
+      .gte('created_at', `${hoyStr}T00:00:00`)
+      .lte('created_at', `${hoyStr}T23:59:59`)
+    let qCot    = sb.from('ventas')
+      .select('id', { count: 'exact', head: true })
+      .eq('es_cotizacion', true)
+      .gte('created_at', `${inicio}T00:00:00`)
+      .lte('created_at', `${fin}T23:59:59`)
+    let qLab    = sb.from('ordenes_lab')
+      .select('estado')
+      .neq('estado', 'entregado')
 
-    const { data: ventasData } = await q
-    const vList = ventasData || []
+    if (sucursal !== 'Todas') {
+      qVentas = qVentas.eq('sucursal', sucursal)
+      qHoy    = qHoy.eq('sucursal', sucursal)
+      qCot    = qCot.eq('sucursal', sucursal)
+      qLab    = qLab.eq('sucursal', sucursal)
+    }
+
+    const [rV, rH, rC, rL] = await Promise.all([qVentas, qHoy, qCot, qLab])
+
+    const vList = rV.data || []
     setVentas(vList)
+    setVentasHoy(rH.data || [])
+    setCotCount(rC.count ?? 0)
+    setOrdLab(rL.data || [])
 
     if (vList.length > 0) {
-      const { data: itemsData } = await supabase
+      const { data: iData } = await sb
         .from('ventas_items')
         .select('venta_id, nombre, cantidad, subtotal')
         .in('venta_id', vList.map(v => v.id))
-      setItems(itemsData || [])
+      setItems(iData || [])
     } else {
       setItems([])
     }
@@ -205,71 +241,77 @@ function ReportesPage() {
   useEffect(() => { cargar() }, [cargar])
 
   // ── Cálculos ──────────────────────────────
-  const totalFacturado = ventas.reduce((s, v) => s + v.total, 0)
-  const totalCobrado   = ventas.reduce((s, v) => s + (v.total - v.saldo), 0)
-  const saldoPendiente = ventas.reduce((s, v) => s + v.saldo, 0)
+  const totalFacturado = ventas.reduce((s, v) => s + Number(v.total), 0)
+  const totalCobrado   = ventas.reduce((s, v) => s + (Number(v.total) - Number(v.saldo)), 0)
+  const saldoTotal     = ventas.reduce((s, v) => s + Number(v.saldo), 0)
   const ticketPromedio = ventas.length ? totalFacturado / ventas.length : 0
 
-  // Por sucursal (para barras)
+  const metaP   = metaPeriodo(periodo, metaMensual)
+  const metaPct = metaP > 0 ? Math.min(Math.round((totalFacturado / metaP) * 100), 100) : 0
+  const metaFaltante = Math.max(0, metaP - totalFacturado)
+  const metaColor = metaPct >= 100 ? '#10B981' : metaPct >= 75 ? '#F59E0B' : '#EF4444'
+
+  const totalHoy = ventasHoy.reduce((s, v) => s + Number(v.total), 0)
+
+  const totalAtendidos = ventas.length + cotCount
+  const convPct = totalAtendidos > 0 ? Math.round((ventas.length / totalAtendidos) * 100) : 0
+
+  const ventasCredito = ventas.filter(v => Number(v.anticipo) > 0 && Number(v.saldo) > 0)
+  const anticPromedio = ventasCredito.length > 0
+    ? Math.round(ventasCredito.reduce((s, v) => s + (Number(v.anticipo) / Number(v.total)), 0) / ventasCredito.length * 100)
+    : 0
+
+  const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30)
+  const carteraVencida = ventas.filter(v => Number(v.saldo) > 0 && new Date(v.created_at) < hace30)
+    .reduce((s, v) => s + Number(v.saldo), 0)
+  const carteraAlCorriente = saldoTotal - carteraVencida
+
+  // Por sucursal — siempre muestra las 3
   const porSucursal = ['Baja Visión', '5 de Mayo', 'Plaza Laureles'].map(s => ({
     nombre: s,
-    total:  ventas.filter(v => v.sucursal === s).reduce((sum, v) => sum + v.total, 0),
+    total:  ventas.filter(v => v.sucursal === s).reduce((sum, v) => sum + Number(v.total), 0),
     count:  ventas.filter(v => v.sucursal === s).length,
-  })).filter(s => s.total > 0)
-  const maxSucursal = Math.max(...porSucursal.map(s => s.total), 1)
-
-  // Por método de pago (para pie)
-  const porMetodoPie = Object.entries(
-    ventas.reduce((acc, v) => {
-      const m = v.metodo_pago || 'efectivo'
-      acc[m] = (acc[m] || 0) + v.total
-      return acc
-    }, {} as Record<string, number>)
-  )
-    .map(([key, value]) => ({ name: METODOS[key] || key, value: Math.round(value) }))
-    .sort((a, b) => b.value - a.value)
-
-  // Top 10 productos
-  const topProductos = Object.entries(
-    items.reduce((acc, i) => {
-      const prev = acc[i.nombre] || { cantidad: 0, total: 0 }
-      acc[i.nombre] = { cantidad: prev.cantidad + i.cantidad, total: prev.total + i.subtotal }
-      return acc
-    }, {} as Record<string, { cantidad: number; total: number }>)
-  )
-    .map(([nombre, { cantidad, total }]) => ({ nombre, cantidad, total }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 10)
-  const maxProducto = Math.max(...topProductos.map(p => p.total), 1)
+  }))
+  const maxSuc = Math.max(...porSucursal.map(s => s.total), 1)
 
   // Por vendedor
   const porVendedor = Object.entries(
     ventas.reduce((acc, v) => {
       const n = v.atendido_por || 'Sin asignar'
-      const prev = acc[n] || { total: 0, count: 0 }
-      acc[n] = { total: prev.total + v.total, count: prev.count + 1 }
+      const p = acc[n] || { total: 0, count: 0 }
+      acc[n] = { total: p.total + Number(v.total), count: p.count + 1 }
       return acc
     }, {} as Record<string, { total: number; count: number }>)
-  )
-    .map(([nombre, { total, count }]) => ({ nombre, total, count }))
-    .sort((a, b) => b.total - a.total)
-  const maxVendedor = Math.max(...porVendedor.map(v => v.total), 1)
+  ).map(([nombre, d]) => ({ nombre, ...d })).sort((a, b) => b.total - a.total)
+  const maxVend = Math.max(...porVendedor.map(v => v.total), 1)
 
-  // Datos para la gráfica de barras por sucursal
-  const dataSucursalChart = porSucursal.map(s => ({
-    name: s.nombre.replace('Plaza Laureles', 'Laureles'),
-    total: s.total,
-    fill: COLORES_SUCURSAL[s.nombre] || '#94A3B8',
-  }))
+  // Categorías
+  const porCat = Object.entries(
+    items.reduce((acc, i) => {
+      const c = categorizarProducto(i.nombre)
+      acc[c] = (acc[c] || 0) + Number(i.subtotal)
+      return acc
+    }, {} as Record<string, number>)
+  ).map(([cat, total]) => ({ cat, total })).sort((a, b) => b.total - a.total)
+  const totalCat = porCat.reduce((s, c) => s + c.total, 0)
 
-  const { inicio, fin } = getDateRange(periodo, desde, hasta)
+  // Lab
+  const LAB_ESTADOS = [
+    { key: 'recibido',       label: 'Recibidos',   color: 'text-zinc-500',  dot: '#94A3B8' },
+    { key: 'en_laboratorio', label: 'En proceso',  color: 'text-amber-600', dot: '#F59E0B' },
+    { key: 'listo',          label: 'Listos',       color: 'text-green-600', dot: '#10B981' },
+  ]
+  const labCounts = LAB_ESTADOS.map(e => ({ ...e, count: ordLab.filter(o => o.estado === e.key).length }))
+
   const esAdmin = rolUsuario === 'administrador' || rolUsuario === 'gerente'
+  const { inicio, fin } = getDateRange(periodo, desde, hasta)
+  const periodoLabel = { hoy: 'diaria', semana: 'semanal', mes: 'mensual', trimestre: 'trimestral', anio: 'anual', personalizado: 'del período' }[periodo]
 
   return (
     <div className="space-y-5">
 
-      {/* Header */}
-      <div className="flex items-start justify-between">
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Reportes</h1>
           <p className="text-sm text-zinc-400 mt-0.5">
@@ -277,30 +319,42 @@ function ReportesPage() {
           </p>
         </div>
 
-        {/* Filtros */}
         <div className="flex flex-wrap gap-2 items-center">
+          {/* Meta mensual editable */}
+          <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full">
+            <Target className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+            <span className="text-amber-700 font-medium">Meta mensual:</span>
+            {editMeta ? (
+              <input
+                type="number"
+                value={metaInput}
+                onChange={e => setMetaInput(e.target.value)}
+                onBlur={() => { setMetaMensual(Number(metaInput) || 150000); setEditMeta(false) }}
+                onKeyDown={e => { if (e.key === 'Enter') { setMetaMensual(Number(metaInput) || 150000); setEditMeta(false) } }}
+                autoFocus
+                className="w-24 bg-transparent text-amber-700 font-bold focus:outline-none border-b border-amber-400"
+              />
+            ) : (
+              <button onClick={() => { setMetaInput(String(metaMensual)); setEditMeta(true) }}
+                className="text-amber-700 font-bold hover:underline">
+                {$$(metaMensual)}
+              </button>
+            )}
+          </div>
+
+          {/* Período */}
           <div className="flex bg-zinc-100 rounded-lg p-1 gap-0.5">
             {PERIODOS.map(p => (
-              <button
-                key={p.key}
-                onClick={() => setPeriodo(p.key)}
+              <button key={p.key} onClick={() => setPeriodo(p.key)}
                 className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  periodo === p.key
-                    ? 'bg-white text-zinc-900 shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-700'
-                }`}
-              >
-                {p.label}
-              </button>
+                  periodo === p.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                }`}>{p.label}</button>
             ))}
           </div>
 
           {esAdmin && (
-            <select
-              value={sucursal}
-              onChange={e => setSucursal(e.target.value)}
-              className="border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white text-zinc-700 focus:outline-none"
-            >
+            <select value={sucursal} onChange={e => setSucursal(e.target.value)}
+              className="border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white text-zinc-700 focus:outline-none">
               {SUCURSALES.map(s => <option key={s}>{s}</option>)}
             </select>
           )}
@@ -317,155 +371,204 @@ function ReportesPage() {
         </div>
       </div>
 
-      {/* Loading */}
       {cargando ? (
-        <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">
-          Cargando datos…
-        </div>
+        <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">Cargando datos…</div>
       ) : (
         <>
-          {ventas.length === 0 && (
-            <div className="flex items-center gap-3 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-lg">
-              <BarChart3 className="w-4 h-4 text-zinc-300" />
-              <p className="text-sm text-zinc-400">Sin ventas en este período — mostrando en cero</p>
-            </div>
-          )}
 
-          {/* KPIs */}
+          {/* ── FILA 1: KPIs principales ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <KPICard
-              label="Total facturado"
-              value={$$(totalFacturado)}
+            <KPI label="Ventas del período" value={$$(totalFacturado)}
               sub={`${ventas.length} ${ventas.length === 1 ? 'venta' : 'ventas'}`}
-              icon={TrendingUp}
-              color="teal"
-            />
-            <KPICard
-              label="Total cobrado"
-              value={$$(totalCobrado)}
+              icon={TrendingUp} color="text-teal-600" />
+            <KPI label="Cobrado" value={$$(totalCobrado)}
               sub="efectivamente recibido"
-              icon={ShoppingBag}
-              color="green"
-            />
-            <KPICard
-              label="Por cobrar"
-              value={$$(saldoPendiente)}
-              sub="saldo pendiente"
-              icon={Package}
-              color={saldoPendiente > 0 ? 'amber' : 'blue'}
-            />
-            <KPICard
-              label="Ticket promedio"
-              value={$$(ticketPromedio)}
-              sub="por venta"
-              icon={BarChart3}
-              color="blue"
-            />
-          </div>
+              icon={ShoppingBag} color="text-green-600" />
+            <KPI label="Por cobrar" value={$$(saldoTotal)}
+              sub={carteraVencida > 0 ? `Vencido: ${$$(carteraVencida)}` : 'Sin cartera vencida'}
+              icon={Package} color={saldoTotal > 0 ? 'text-amber-600' : 'text-green-600'} />
 
-          {/* Gráficas */}
-          <div className="grid grid-cols-3 gap-5">
-            {/* Ventas por sucursal — gráfica de barras */}
-            {dataSucursalChart.length > 1 ? (
-              <div className="col-span-2 bg-white rounded-lg border border-zinc-200/80 p-5">
-                <h3 className="text-sm font-bold text-zinc-700 mb-4">Ventas por sucursal</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={dataSucursalChart} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false}
-                      tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                    <Tooltip
-                      formatter={(v: unknown) => [$$(Number(v)), 'Total']}
-                      contentStyle={{ border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 12 }}
-                    />
-                    <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                      {dataSucursalChart.map((d, i) => (
-                        <Cell key={i} fill={d.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            {/* Meta con barra */}
+            <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80 flex flex-col">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-zinc-400">Meta {periodoLabel}</p>
+                <Target className="w-4 h-4 text-amber-500 opacity-60" />
               </div>
-            ) : (
-              <div className="col-span-2" />
-            )}
-
-            {/* Método de pago — pie */}
-            <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
-              <h3 className="text-sm font-bold text-zinc-700 mb-4">Método de pago</h3>
-              {porMetodoPie.length > 0 && (
-                <>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <PieChart>
-                      <Pie
-                        data={porMetodoPie}
-                        cx="50%" cy="50%"
-                        innerRadius={45} outerRadius={75}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {porMetodoPie.map((_, i) => (
-                          <Cell key={i} fill={COLORES_PIE[i % COLORES_PIE.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v: unknown) => [$$(Number(v)), '']}
-                        contentStyle={{ borderRadius: 8, fontSize: 12 }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="mt-2 space-y-1.5">
-                    {porMetodoPie.map((d, i) => (
-                      <div key={d.name} className="flex items-center gap-2 text-xs">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ background: COLORES_PIE[i % COLORES_PIE.length] }} />
-                        <span className="text-zinc-600 flex-1">{d.name}</span>
-                        <span className="font-semibold text-zinc-700">{$$(d.value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
+              <p className="text-2xl font-bold text-amber-600">{metaPct}%</p>
+              <div className="mt-2 h-2 bg-zinc-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${metaPct}%`, background: metaColor }} />
+              </div>
+              <p className="text-xs text-zinc-400 mt-1.5">
+                {metaPct >= 100 ? '¡Meta cumplida! 🎉' : `Faltan ${$$(metaFaltante)}`}
+              </p>
             </div>
           </div>
 
-          {/* Top productos + Vendedores */}
-          <div className="grid grid-cols-2 gap-5">
-            {topProductos.length > 0 && (
-              <Section title="Top productos">
-                <div className="space-y-3">
-                  {topProductos.map((p, i) => (
-                    <BarRow
-                      key={p.nombre}
-                      label={`${i + 1}. ${p.nombre}`}
-                      value={p.total}
-                      max={maxProducto}
-                      sub={`${p.cantidad} uds · ${$$(p.total)}`}
-                      color="#0D9488"
-                    />
-                  ))}
-                </div>
-              </Section>
-            )}
+          {/* ── FILA 2: KPIs operativos ── */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Ventas hoy */}
+            <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
+              <p className="text-xs font-medium text-zinc-400">Ventas de hoy</p>
+              <p className="text-2xl font-bold mt-2 text-zinc-800">{$$(totalHoy)}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {ventasHoy.length} venta{ventasHoy.length !== 1 ? 's' : ''} registradas
+              </p>
+            </div>
 
-            {porVendedor.length > 0 && (
-              <Section title="Ventas por vendedor">
+            <KPI label="Ticket promedio" value={$$(ticketPromedio)}
+              sub={`${ventas.length} ventas en el período`}
+              icon={BarChart3} color="text-blue-600" />
+
+            {/* Conversión */}
+            <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
+              <p className="text-xs font-medium text-zinc-400">Conversión</p>
+              <p className={`text-2xl font-bold mt-2 ${
+                convPct >= 60 ? 'text-green-600' : convPct >= 40 ? 'text-amber-600' : 'text-rose-600'
+              }`}>{convPct}%</p>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {ventas.length} ventas · {cotCount} cotizaciones
+              </p>
+            </div>
+
+            {/* Anticipo promedio */}
+            <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
+              <p className="text-xs font-medium text-zinc-400">Anticipo promedio</p>
+              <p className={`text-2xl font-bold mt-2 ${
+                anticPromedio >= 50 ? 'text-green-600' : anticPromedio >= 30 ? 'text-amber-600' : 'text-zinc-600'
+              }`}>{anticPromedio}%</p>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {ventasCredito.length} ventas a crédito
+              </p>
+            </div>
+          </div>
+
+          {/* ── FILA 3: Vendedores + Sucursales ── */}
+          <div className="grid grid-cols-2 gap-5">
+            <Card title="Ventas por vendedor">
+              {porVendedor.length === 0 ? (
+                <p className="text-sm text-zinc-400">Sin datos en este período</p>
+              ) : (
                 <div className="space-y-3">
                   {porVendedor.map(v => (
-                    <BarRow
-                      key={v.nombre}
+                    <BarRow key={v.nombre}
                       label={v.nombre}
                       value={v.total}
-                      max={maxVendedor}
-                      sub={`${v.count} ventas · ${$$(v.total)}`}
+                      max={maxVend}
+                      right={`${$$(v.total)} · ${totalFacturado > 0 ? Math.round((v.total / totalFacturado) * 100) : 0}%`}
                       color="#6366F1"
                     />
                   ))}
                 </div>
-              </Section>
-            )}
+              )}
+            </Card>
+
+            <Card title="Comparativo por sucursal">
+              <div className="space-y-3">
+                {porSucursal.map(s => (
+                  <BarRow key={s.nombre}
+                    label={s.nombre}
+                    value={s.total}
+                    max={maxSuc}
+                    right={s.count > 0 ? `${$$(s.total)} · ${s.count} vtas` : '—'}
+                    color={COLOR_SUC[s.nombre] || '#94A3B8'}
+                  />
+                ))}
+              </div>
+            </Card>
           </div>
+
+          {/* ── FILA 4: Lab + Categorías + Cartera ── */}
+          <div className="grid grid-cols-3 gap-5">
+
+            {/* Laboratorio */}
+            <Card title="Laboratorio">
+              <div className="space-y-3">
+                {labCounts.map(l => (
+                  <div key={l.key} className="flex items-center justify-between py-0.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: l.dot }} />
+                      <span className="text-sm text-zinc-600">{l.label}</span>
+                    </div>
+                    <span className={`text-base font-bold ${l.color}`}>{l.count}</span>
+                  </div>
+                ))}
+                <div className="border-t border-zinc-100 pt-3 flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">Total activos</span>
+                  <span className="text-sm font-bold text-zinc-700">{ordLab.length}</span>
+                </div>
+                {labCounts.find(l => l.key === 'listo' && l.count > 0) && (
+                  <div className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 px-3 py-2 rounded">
+                    <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                    {labCounts.find(l => l.key === 'listo')?.count} lentes esperando al paciente
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Categorías */}
+            <Card title="Categorías vendidas">
+              {porCat.length === 0 ? (
+                <p className="text-sm text-zinc-400">Sin datos</p>
+              ) : (
+                <div className="space-y-3">
+                  {porCat.map(c => (
+                    <BarRow key={c.cat}
+                      label={c.cat}
+                      value={c.total}
+                      max={totalCat}
+                      right={`${totalCat > 0 ? Math.round((c.total / totalCat) * 100) : 0}%`}
+                      color="#0D9488"
+                    />
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Cartera */}
+            <Card title="Cartera por cobrar">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-zinc-600">Al corriente</p>
+                    <p className="text-xs text-zinc-400">menos de 30 días</p>
+                  </div>
+                  <p className="text-sm font-bold text-amber-600">{$$(carteraAlCorriente)}</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-zinc-600">Vencida</p>
+                    <p className="text-xs text-zinc-400">más de 30 días</p>
+                  </div>
+                  <p className={`text-sm font-bold ${carteraVencida > 0 ? 'text-rose-600' : 'text-zinc-300'}`}>
+                    {$$(carteraVencida)}
+                  </p>
+                </div>
+
+                {saldoTotal > 0 && (
+                  <div className="h-2 bg-zinc-100 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-amber-400 transition-all"
+                      style={{ width: `${Math.round((carteraAlCorriente / saldoTotal) * 100)}%` }} />
+                    <div className="h-full bg-rose-500 transition-all"
+                      style={{ width: `${Math.round((carteraVencida / saldoTotal) * 100)}%` }} />
+                  </div>
+                )}
+
+                <div className="border-t border-zinc-100 pt-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-zinc-500">Total por cobrar</span>
+                  <span className="text-sm font-bold text-zinc-700">{$$(saldoTotal)}</span>
+                </div>
+
+                {carteraVencida > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 px-3 py-2 rounded">
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                    Cobrar urgente: {$$(carteraVencida)}
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+
         </>
       )}
     </div>
