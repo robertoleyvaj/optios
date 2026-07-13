@@ -369,7 +369,7 @@ export default function DashboardPage() {
         <QuickActionCard
           icon={UserPlus} label="Pacientes" sublabel="Expedientes y registros"
           primaryLabel="Nuevo expediente" secondaryLabel="Agendar consulta"
-          onPrimary={() => router.push('/dashboard/expedientes?nuevo=true')}
+          onPrimary={() => router.push('/dashboard/expedientes/nuevo')}
           onSecondary={() => router.push('/dashboard/agenda?nuevo=true')}
         />
         <QuickActionCard

@@ -540,7 +540,6 @@ function VistaRepartidor({ ordenes, onUpdate }: {
     costoLab: string
     metodoPagoLab: 'transferencia' | 'efectivo' | ''
   }>({ costoLab: '', metodoPagoLab: '' })
-
   // Sergio solo ve las órdenes que todavía requieren su acción
   const lista = ordenes
     .filter(o => !['entregado', 'problema', 'en_sucursal', 'listo'].includes(o.estado) && !o.archivado)
@@ -745,12 +744,37 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           )}
 
           <div className="px-4 py-4 space-y-4">
-            <p className="text-xs text-zinc-400">Al recoger, registra lo que cobró el laboratorio:</p>
+            <p className="text-xs text-zinc-400">Registra lo que cobró el laboratorio:</p>
+
+            {/* Monto + botón Pagado en la misma fila */}
             <div>
               <label className="block text-xs font-semibold text-zinc-500 mb-1.5">¿Cuánto cobró el lab?</label>
-              <input type="number" placeholder="$0" value={recogendoDraft.costoLab}
-                onChange={e => setRecogendoDraft(d => ({ ...d, costoLab: e.target.value }))}
-                className="border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] w-40" />
+              <div className="flex gap-2 items-center">
+                <input type="number" placeholder="$0" value={recogendoDraft.costoLab}
+                  onChange={e => setRecogendoDraft(d => ({ ...d, costoLab: e.target.value }))}
+                  className="border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] w-36" />
+                {/* Botón Pagado — guarda sin cambiar estado */}
+                {o.pagadoLab ? (
+                  <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-lg">
+                    <svg viewBox="0 0 10 10" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="1.5,5 4,7.5 8.5,2.5"/></svg>
+                    Pagado
+                  </span>
+                ) : (
+                  <button
+                    disabled={!recogendoDraft.costoLab || !recogendoDraft.metodoPagoLab}
+                    onClick={() => {
+                      onUpdate(o.id, {
+                        costoLab:      Number(recogendoDraft.costoLab),
+                        metodoPagoLab: recogendoDraft.metodoPagoLab,
+                        pagadoLab:     true,
+                        fechaPagoLab:  new Date().toISOString().split('T')[0],
+                      })
+                    }}
+                    className="px-3 py-2 rounded-lg text-xs font-bold border transition-colors bg-emerald-600 text-white disabled:opacity-30 disabled:cursor-not-allowed">
+                    Pagado
+                  </button>
+                )}
+              </div>
             </div>
 
             <div>
@@ -786,11 +810,12 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           onClick={() => {
             onUpdate(o.id, {
               estado: 'en_camino',
-              costoLab: Number(recogendoDraft.costoLab) || 0,
+              costoLab:      Number(recogendoDraft.costoLab) || 0,
               metodoPagoLab: recogendoDraft.metodoPagoLab,
-              pagadoLab: true,
+              pagadoLab:     true,
               fechaRecogidaLab: new Date().toISOString().split('T')[0],
-              fechaPagoLab: new Date().toISOString().split('T')[0],
+              // solo actualiza fecha_pago_lab si no se había pagado antes
+              ...(o.pagadoLab ? {} : { fechaPagoLab: new Date().toISOString().split('T')[0] }),
             })
             setSelectedId(null)
           }}
