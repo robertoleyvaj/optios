@@ -664,7 +664,8 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                     onChange={e => setEgresoMetodoPago(e.target.value)}
                     className="w-full border border-zinc-200 rounded px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                   >
-                    <option value="efectivo">Efectivo</option>
+                    <option value="efectivo">Pesos (MXN)</option>
+                    <option value="efectivo_usd">Dólares (USD)</option>
                   </select>
                 </div>
               </div>
@@ -724,7 +725,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                       <p className="text-sm font-medium text-zinc-700">{g.descripcion || catLabel}</p>
                       <p className="text-xs text-zinc-400">
                         {catLabel}
-                        {g.metodo_pago ? ` · ${g.metodo_pago}` : ''}
+                        {g.metodo_pago === 'efectivo_usd' ? ' · 🇺🇸 USD' : g.metodo_pago === 'efectivo' ? ' · MXN' : ''}
                       </p>
                     </div>
                     <p className="text-sm font-bold text-red-600">{fmt$(Number(g.monto))}</p>
