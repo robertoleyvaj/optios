@@ -727,9 +727,27 @@ export default function NuevaConsultaPage() {
             <Field label="Apellido(s) *" value={pApellido} onChange={setPApellido} />
           </div>
 
-          {/* Fecha, sexo */}
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Fecha de nacimiento" value={pFechaNac} onChange={setPFechaNac} type="date" />
+          {/* Fecha, edad, sexo */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Fecha de nacimiento</label>
+              <input
+                type="date"
+                value={pFechaNac}
+                onChange={e => setPFechaNac(e.target.value)}
+                className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Edad</label>
+              <input
+                type="text"
+                readOnly
+                value={pFechaNac ? `${calcEdad(pFechaNac)} años` : ''}
+                placeholder="—"
+                className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-100 text-zinc-500 cursor-default focus:outline-none"
+              />
+            </div>
             <div>
               <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sexo</label>
               <select value={pSexo} onChange={e => setPSexo(e.target.value)}

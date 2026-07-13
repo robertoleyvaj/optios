@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Glasses, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Glasses, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
@@ -11,7 +11,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [inactivityLogout, setInactivityLogout] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    if (searchParams.get('reason') === 'inactivity') {
+      setInactivityLogout(true)
+    }
+  }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -109,7 +117,14 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Bienvenido</h1>
-          <p className="text-zinc-400 text-sm mt-1 mb-8">Ingresa tus credenciales para continuar</p>
+          <p className="text-zinc-400 text-sm mt-1 mb-6">Ingresa tus credenciales para continuar</p>
+
+          {inactivityLogout && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 text-amber-700 text-sm rounded-lg px-4 py-3 mb-4">
+              <Clock className="w-4 h-4 flex-shrink-0" />
+              <span>Sesión cerrada por inactividad. Ingresa de nuevo.</span>
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
