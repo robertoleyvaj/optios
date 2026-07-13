@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { registrarComisionTerminal } from '@/lib/comisiones'
 import { hoyLocal } from '@/lib/fecha'
 import Link from 'next/link'
 import {
@@ -452,6 +453,14 @@ export default function NuevaVentaPage() {
           tipo:           saldoDB === 0 ? 'liquidacion' : 'anticipo',
           sucursal,
           registrado_por: atendioPor,
+        })
+
+        // ── 4c. Comisión terminal automática ──────────────────────
+        await registrarComisionTerminal({
+          metodoPago,
+          monto:    anticoDB,
+          folio,
+          sucursal,
         })
       }
 

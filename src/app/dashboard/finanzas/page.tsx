@@ -39,15 +39,16 @@ const PERIODOS: { key: Periodo; label: string }[] = [
   { key: 'personalizado', label: 'Personalizado' },
 ]
 
-const CATEGORIAS_GASTO = ['renta', 'nomina', 'bono_diario', 'comisiones', 'servicios', 'compras', 'otros']
+const CATEGORIAS_GASTO = ['renta', 'nomina', 'bono_diario', 'comisiones', 'comision_terminal', 'servicios', 'compras', 'otros']
 const CATEGORIAS_LABEL: Record<string, string> = {
-  renta:       'Renta',
-  nomina:      'Nómina',
-  bono_diario: 'Bono diario',
-  comisiones:  'Comisiones',
-  servicios:   'Servicios',
-  compras:    'Compras',
-  otros:      'Otros',
+  renta:              'Renta',
+  nomina:             'Nómina',
+  bono_diario:        'Bono diario',
+  comisiones:         'Comisiones',
+  comision_terminal:  'Comisión terminal',
+  servicios:          'Servicios',
+  compras:            'Compras',
+  otros:              'Otros',
 }
 
 const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles', 'General']

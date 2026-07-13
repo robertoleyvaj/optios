@@ -79,12 +79,13 @@ const RESUMEN_VACIO: Record<MetodoPago, ResumenMetodo> = {
 }
 
 const CATEGORIAS_EGRESO = [
-  { value: 'bono_diario',  label: 'Bono diario' },
-  { value: 'adelanto',     label: 'Adelanto sueldo' },
-  { value: 'retiro_admin', label: 'Retiro admin' },
-  { value: 'nomina',       label: 'Nómina' },
-  { value: 'compras',      label: 'Compras' },
-  { value: 'otros',        label: 'Otro' },
+  { value: 'bono_diario',        label: 'Bono diario' },
+  { value: 'adelanto',           label: 'Adelanto sueldo' },
+  { value: 'retiro_admin',       label: 'Retiro admin' },
+  { value: 'nomina',             label: 'Nómina' },
+  { value: 'compras',            label: 'Compras' },
+  { value: 'comision_terminal',  label: 'Comisión terminal' },
+  { value: 'otros',              label: 'Otro' },
 ]
 
 const TIPO_LABEL: Record<string, string> = {

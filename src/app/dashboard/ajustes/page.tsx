@@ -217,12 +217,32 @@ function AjustesPage() {
     { id: 3, nombre: 'Plaza Laureles', direccion: 'Plaza Laureles, Playas de Rosarito, B.C.',                                       telefono: '661 104 0431', horario: 'Lun-Dom 10:00–18:00', activa: true },
   ])
 
-  const [comDebito,  setComDebito]  = useState('1.5')
-  const [comCredito, setComCredito] = useState('2.9')
+  const [comDebito,  setComDebito]  = useState('2.99')
+  const [comCredito, setComCredito] = useState('2.99')
   const [metodosActivos, setMetodosActivos] = useState(['Efectivo', 'Tarjeta débito', 'Tarjeta crédito', 'Transferencia'])
   const [saved, setSaved] = useState(false)
 
-  const guardar = () => {
+  // Cargar tasas actuales desde DB al montar
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('configuracion')
+      .select('clave, valor')
+      .in('clave', ['comision_debito', 'comision_credito'])
+      .then(({ data }) => {
+        for (const row of data || []) {
+          if (row.clave === 'comision_debito')  setComDebito(row.valor)
+          if (row.clave === 'comision_credito') setComCredito(row.valor)
+        }
+      })
+  }, [])
+
+  const guardar = async () => {
+    // Guarda tasas de comisión en DB
+    const supabase = createClient()
+    await supabase.from('configuracion').upsert([
+      { clave: 'comision_debito',  valor: comDebito,  descripcion: 'Comisión terminal tarjeta débito (%)'  },
+      { clave: 'comision_credito', valor: comCredito, descripcion: 'Comisión terminal tarjeta crédito (%)' },
+    ], { onConflict: 'clave' })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }

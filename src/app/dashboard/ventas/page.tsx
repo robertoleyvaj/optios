@@ -10,6 +10,7 @@ import {
   ChevronDown, Clock, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
+import { registrarComisionTerminal } from '@/lib/comisiones'
 
 // ─────────────────────────────────────────
 // Tipos
@@ -373,6 +374,14 @@ export default function VentasPage() {
       tipo:          esLiquidacion ? 'liquidacion' : 'abono',
       sucursal:      detalle.sucursal,
       registrado_por: usuarioNombre,
+    })
+
+    // 3. Comisión terminal automática si se cobró con tarjeta
+    await registrarComisionTerminal({
+      metodoPago: abonoMetodo,
+      monto,
+      folio:      detalle.id,
+      sucursal:   detalle.sucursal,
     })
 
     const nuevoPago: Pago = {
