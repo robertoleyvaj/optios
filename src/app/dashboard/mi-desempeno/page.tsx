@@ -174,7 +174,6 @@ export default function MiDesempenoPage() {
   const des = desgloseComision(ventasMes)
 
   const nombreMes = new Date(anio, mes, 1).toLocaleString('es-MX', { month: 'long', year: 'numeric' })
-  const esMesActual = mes === now.getMonth() && anio === now.getFullYear()
 
   const irMesAnterior = () => {
     if (mes === 0) { setMes(11); setAnio(a => a - 1) }
