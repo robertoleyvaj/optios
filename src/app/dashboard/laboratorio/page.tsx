@@ -9,6 +9,7 @@ import {
   ArrowRight, Printer, Link2, User, DollarSign,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
+import { hoyLocal, hoyMasDias } from '@/lib/fecha'
 
 // ─────────────────────────────────────────
 // Tipos
@@ -125,9 +126,7 @@ const TIPOS_MICA = [
 const LABORATORIOS = ['Karen', 'Indigo', 'Tecnolab', 'Richardson', 'Exce Lentes', 'El Nuevo']
 const SUCURSALES   = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
-const dias = (n: number) => {
-  const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]
-}
+const dias = (n: number) => hoyMasDias(n)
 
 const formVacio = (sucursalDefault = 'Baja Visión'): Omit<OrdenLab, 'id' | 'folio'> => ({
   supabaseId: '',
@@ -687,7 +686,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
               laboratorio: llevandoDraft.laboratorio,
               fechaPromesa: llevandoDraft.fechaPromesa,
               notas: llevandoDraft.notas,
-              fechaEnvioLab: new Date().toISOString().split('T')[0],
+              fechaEnvioLab: hoyLocal(),
             })
             setSelectedId(null)
           }}
@@ -706,7 +705,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   // ── Vista "Recoger del lab" — órdenes en_laboratorio ──────
   if (selected && selected.estado === 'en_laboratorio') {
     const o = selected
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = hoyLocal()
     const listaHoy = o.fechaPromesa === hoy
     return (
       <div className="max-w-sm mx-auto space-y-3">
@@ -767,7 +766,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
                         costoLab:      Number(recogendoDraft.costoLab),
                         metodoPagoLab: recogendoDraft.metodoPagoLab,
                         pagadoLab:     true,
-                        fechaPagoLab:  new Date().toISOString().split('T')[0],
+                        fechaPagoLab:  hoyLocal(),
                       })
                     }}
                     className="px-3 py-2 rounded-lg text-xs font-bold border transition-colors bg-emerald-600 text-white disabled:opacity-30 disabled:cursor-not-allowed">
@@ -813,9 +812,9 @@ function VistaRepartidor({ ordenes, onUpdate }: {
               costoLab:      Number(recogendoDraft.costoLab) || 0,
               metodoPagoLab: recogendoDraft.metodoPagoLab,
               pagadoLab:     true,
-              fechaRecogidaLab: new Date().toISOString().split('T')[0],
+              fechaRecogidaLab: hoyLocal(),
               // solo actualiza fecha_pago_lab si no se había pagado antes
-              ...(o.pagadoLab ? {} : { fechaPagoLab: new Date().toISOString().split('T')[0] }),
+              ...(o.pagadoLab ? {} : { fechaPagoLab: hoyLocal() }),
             })
             setSelectedId(null)
           }}
@@ -879,7 +878,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   const porLlevarList = lista.filter(o => o.estado === 'recibido')
   const enLabList     = lista.filter(o => o.estado === 'en_laboratorio')
   const enCaminoList  = lista.filter(o => o.estado === 'en_camino')
-  const hoy           = new Date().toISOString().split('T')[0]
+  const hoy           = hoyLocal()
   const sinPagarCount = lista.filter(o => o.costoLab > 0 && !o.pagadoLab).length
 
   const OrdenRow = ({ o }: { o: OrdenLab }) => {
@@ -1223,7 +1222,7 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNue
 
           {o.estado === 'listo' && (
             <button
-              onClick={() => onUpdate(o.id, { estado: 'entregado', fechaEntrega: new Date().toISOString().split('T')[0] })}
+              onClick={() => onUpdate(o.id, { estado: 'entregado', fechaEntrega: hoyLocal() })}
               className="w-full flex items-center justify-center gap-2 py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-lg hover:bg-zinc-700 transition-colors"
             >
               <CheckCircle2 className="w-3.5 h-3.5" /> Entregado al paciente
@@ -1551,7 +1550,7 @@ export default function LaboratorioPage() {
   }
 
   const cambiarEstado = async (id: number, estado: EstadoOrden, notasExtra?: string) => {
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = hoyLocal()
     const orden = ordenes.find(o => o.id === id)
     const changes: Partial<OrdenLab> = { estado }
     if (estado === 'en_laboratorio' && orden && !orden.fechaEnvioLab)    changes.fechaEnvioLab    = hoy
@@ -1639,7 +1638,7 @@ export default function LaboratorioPage() {
     },
     onProblema: async (original: OrdenLab, motivo: string) => {
             // 1. Marcar original como problema
-            const hoy = new Date().toISOString().split('T')[0]
+            const hoy = hoyLocal()
             setOrdenes(prev => prev.map(o => o.id === original.id
               ? { ...o, estado: 'problema', motivoProblema: motivo }
               : o

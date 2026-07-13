@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { hoyLocal } from '@/lib/fecha'
 import {
   Banknote, CreditCard, Building2, CheckCircle2,
   AlertTriangle, Printer, Clock, Lock, RefreshCw, MapPin,
@@ -104,7 +105,7 @@ export default function CajaPage() {
     if (!sucursal) return
     setCargando(true)
     const sb  = createClient()
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = hoyLocal()
 
     // 1. Ventas del día agrupadas por método de pago
     const { data: ventasData } = await sb
@@ -295,7 +296,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
     setGuardando(true)
     setErrorGuardado('')
     const sb  = createClient()
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = hoyLocal()
 
     const notasConUSD = efectivoUSD.transacciones > 0
       ? `[USD] Sistema: $${esperadoUSD.toFixed(2)} · Contado: $${contadoUSD.toFixed(2)} · Dif: ${diferenciaUSD >= 0 ? '+' : ''}$${diferenciaUSD.toFixed(2)} | ${notas}`

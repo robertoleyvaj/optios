@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { hoyLocal } from '@/lib/fecha'
 import React from 'react'
 import {
   Search, Plus, X, Save, ChevronRight, ChevronLeft,
@@ -336,7 +337,7 @@ function formatEjeValue(val: string): string {
 }
 
 const formVacioReceta = (): Omit<Receta, 'id'> => ({
-  fecha: new Date().toISOString().split('T')[0],
+  fecha: hoyLocal(),
   tipo: 'Lejos',
   od_esfera: '', od_cilindro: '', od_eje: '', od_add: '',
   oi_esfera: '', oi_cilindro: '', oi_eje: '', oi_add: '',

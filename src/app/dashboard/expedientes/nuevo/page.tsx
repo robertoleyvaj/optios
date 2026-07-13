@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { hoyLocal } from '@/lib/fecha'
 import {
   ChevronRight, ChevronLeft, Check, User, ClipboardList,
   Eye, Activity, Stethoscope, Brain, Star, FileText,
@@ -553,7 +554,7 @@ export default function NuevaConsultaPage() {
         await supabase.from('recetas').insert({
           consulta_id: consultaId,
           paciente_id: pId,
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: hoyLocal(),
           od_esfera: rxFinal.od.esfera, od_cilindro: rxFinal.od.cilindro,
           od_eje: rxFinal.od.eje, od_add: rxFinal.od.add,
           oi_esfera: rxFinal.oi.esfera, oi_cilindro: rxFinal.oi.cilindro,
@@ -635,7 +636,7 @@ export default function NuevaConsultaPage() {
       const supabase = createClient()
       const { error } = await supabase.from('recetas').insert({
         paciente_id:   pId,
-        fecha:         new Date().toISOString().split('T')[0],
+        fecha:         hoyLocal(),
         od_esfera:     rxOd.esfera    || null,
         od_cilindro:   rxOd.cilindro  || null,
         od_eje:        rxOd.eje       || null,

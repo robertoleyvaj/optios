@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { formatFecha } from '@/lib/fecha'
 import {
   ChevronLeft, ChevronRight, Plus, X, Save, Clock, Store,
   FileText, ChevronDown, XCircle, Calendar, Search, UserCheck,
@@ -71,7 +72,7 @@ const TIPO_STYLE: Record<string, { bg: string; border: string; text: string }> =
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const fmt = (d: Date) => d.toISOString().split('T')[0]
+const fmt = (d: Date) => formatFecha(d)
 const hoy = new Date()
 
 function getSemana(base: Date) {

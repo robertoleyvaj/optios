@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { hoyLocal } from '@/lib/fecha'
 import { MapPin, CheckCircle2 } from 'lucide-react'
 
 const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
@@ -24,7 +25,7 @@ export default function CheckInModal() {
         setNombre(u.nombre)
         setApodo(u.apodo ?? u.nombre.split(' ')[0])
 
-        const hoy = new Date().toISOString().split('T')[0]
+        const hoy = hoyLocal()
 
         // Primero revisar localStorage — si ya hizo check-in hoy, no mostrar modal
         if (u.checkInDate === hoy && u.sucursal) return
@@ -55,7 +56,7 @@ export default function CheckInModal() {
     setGuardando(true)
     try {
       const sb = createClient()
-      const hoy = new Date().toISOString().split('T')[0]
+      const hoy = hoyLocal()
       await sb.from('check_ins').upsert(
         { usuario_nombre: nombre, sucursal, fecha: hoy },
         { onConflict: 'usuario_nombre,fecha' }
@@ -64,7 +65,7 @@ export default function CheckInModal() {
       const raw = localStorage.getItem('optios_demo_user')
       if (raw) {
         const u = JSON.parse(raw)
-        const hoy = new Date().toISOString().split('T')[0]
+        const hoy = hoyLocal()
         localStorage.setItem('optios_demo_user', JSON.stringify({ ...u, sucursal, checkInDate: hoy }))
       }
       setHecho(true)

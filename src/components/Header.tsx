@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { hoyLocal } from '@/lib/fecha'
 
 type UsuarioLocal = { nombre: string; sucursal: string; rol?: string }
 type Notif = { id: string; tipo: 'cita' | 'lab'; texto: string; sub: string }
@@ -27,7 +28,7 @@ export default function Header() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
   const todayStr = today.charAt(0).toUpperCase() + today.slice(1)
-  const todayISO = new Date().toISOString().split('T')[0]
+  const todayISO = hoyLocal()
 
   // ── User from localStorage ──
   useEffect(() => {

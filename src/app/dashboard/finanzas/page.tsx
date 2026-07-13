@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { hoyLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
 import {
   TrendingUp, TrendingDown, DollarSign, FlaskConical,
@@ -75,7 +76,7 @@ function getDateRange(periodo: Periodo, desde = '', hasta = '') {
 const $$ = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n)
 
-const hoy = () => new Date().toISOString().split('T')[0]
+const hoy = () => hoyLocal()
 
 // ─────────────────────────────────────────────
 // Sub-componentes

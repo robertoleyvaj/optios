@@ -183,7 +183,8 @@ export default function DashboardPage() {
         const now      = new Date()
         const startHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
         const endHoy   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-        const hoyStr   = now.toISOString().split('T')[0]
+        const { hoyLocal: getHoy } = await import('@/lib/fecha')
+        const hoyStr   = getHoy()
 
         const [vSuc, vProp, citas, listos, retrasados, saldos, actVentas] = await Promise.all([
           // Ventas cobradas hoy en la sucursal

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { hoyLocal } from '@/lib/fecha'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -457,7 +458,7 @@ export default function NuevaVentaPage() {
           .order('folio', { ascending: false })
           .limit(1)
         let nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
-        const hoy = new Date().toISOString().split('T')[0]
+        const hoy = hoyLocal()
 
         const fmtOjo = (esf: string, cil: string, eje: string) =>
           [esf, cil, eje ? `${eje}°` : ''].filter(Boolean).join(' / ')
