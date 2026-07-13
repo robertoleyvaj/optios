@@ -601,24 +601,23 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                   )
                 })}
 
-                {/* Efectivo USD */}
-                {efectivoUSD.monto > 0 && (
-                  <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50/50">
-                    <div className="w-7 h-7 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
-                      <Banknote className="w-3.5 h-3.5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-700">Efectivo USD 🇺🇸</p>
-                      <p className="text-xs text-blue-400">
-                        {efectivoUSD.transacciones} tx
-                        {efectivoUSD.tcPromedio > 0 ? ` · TC $${efectivoUSD.tcPromedio.toFixed(2)}` : ''}
-                      </p>
-                    </div>
-                    <p className="text-sm font-bold text-blue-700">
-                      USD ${efectivoUSD.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                {/* Efectivo USD — siempre visible */}
+                <div className="flex items-center gap-3 px-5 py-3.5 bg-blue-50/50">
+                  <div className="w-7 h-7 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <Banknote className="w-3.5 h-3.5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-700">Efectivo USD 🇺🇸</p>
+                    <p className="text-xs text-blue-400">
+                      {efectivoUSD.transacciones === 0
+                        ? 'Sin transacciones'
+                        : `${efectivoUSD.transacciones} tx${efectivoUSD.tcPromedio > 0 ? ` · TC $${efectivoUSD.tcPromedio.toFixed(2)}` : ''}`}
                     </p>
                   </div>
-                )}
+                  <p className={`text-sm font-bold ${efectivoUSD.monto > 0 ? 'text-blue-700' : 'text-zinc-300'}`}>
+                    USD ${efectivoUSD.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
               </div>
 
               {/* Total ingresos */}
@@ -666,7 +665,6 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                     className="w-full border border-zinc-200 rounded px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                   >
                     <option value="efectivo">Efectivo</option>
-                    <option value="transferencia">Transferencia</option>
                   </select>
                 </div>
               </div>
