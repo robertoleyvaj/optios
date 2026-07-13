@@ -6,7 +6,7 @@ import { hoyLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
 import {
   TrendingUp, TrendingDown, DollarSign, FlaskConical,
-  Plus, X, Save, ChevronDown, Trash2,
+  Plus, X, Save, ChevronDown, Trash2, Pencil,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -112,11 +112,25 @@ function FinanzasPage() {
 
   // Modal
   const [modal,       setModal]       = useState(false)
+  const [editandoId,  setEditandoId]  = useState<string | null>(null)
   const [guardando,   setGuardando]   = useState(false)
   const [formGasto,   setFormGasto]   = useState({
     fecha: hoy(), concepto: '', categoria: 'renta',
     monto: '', sucursal: 'General', notas: '',
   })
+
+  const abrirEditar = (g: Gasto) => {
+    setEditandoId(g.id)
+    setFormGasto({
+      fecha:     g.fecha,
+      concepto:  g.concepto,
+      categoria: g.categoria,
+      monto:     String(g.monto),
+      sucursal:  g.sucursal,
+      notas:     g.notas ?? '',
+    })
+    setModal(true)
+  }
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -187,23 +201,32 @@ function FinanzasPage() {
     total: gastos.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0),
   })).filter(c => c.total > 0)
 
-  // ── Guardar gasto ──
+  // ── Guardar / editar gasto ──
   const guardarGasto = async () => {
     if (!formGasto.concepto || !formGasto.monto) return
     setGuardando(true)
     const supabase = createClient()
-    const { data, error } = await supabase.from('gastos').insert({
+    const payload = {
       fecha:     formGasto.fecha,
       concepto:  formGasto.concepto,
       categoria: formGasto.categoria,
       monto:     parseFloat(formGasto.monto),
       sucursal:  formGasto.sucursal,
       notas:     formGasto.notas || null,
-    }).select().single()
+    }
 
-    if (error) { alert('Error: ' + error.message); setGuardando(false); return }
-    setGastos(prev => [data, ...prev])
+    if (editandoId) {
+      const { error } = await supabase.from('gastos').update(payload).eq('id', editandoId)
+      if (error) { alert('Error: ' + error.message); setGuardando(false); return }
+      setGastos(prev => prev.map(g => g.id === editandoId ? { ...g, ...payload } : g))
+    } else {
+      const { data, error } = await supabase.from('gastos').insert(payload).select().single()
+      if (error) { alert('Error: ' + error.message); setGuardando(false); return }
+      setGastos(prev => [data, ...prev])
+    }
+
     setModal(false)
+    setEditandoId(null)
     setFormGasto({ fecha: hoy(), concepto: '', categoria: 'renta', monto: '', sucursal: 'General', notas: '' })
     setGuardando(false)
   }
@@ -397,10 +420,14 @@ function FinanzasPage() {
                       <td className="px-5 py-3 text-xs text-zinc-500">{g.sucursal}</td>
                       <td className="px-5 py-3 text-sm font-semibold text-red-500">−{$$(g.monto)}</td>
                       <td className="px-5 py-3">
-                        <button onClick={() => eliminarGasto(g.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-300 hover:text-red-400">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => abrirEditar(g)} className="text-zinc-300 hover:text-zinc-600">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => eliminarGasto(g.id)} className="text-zinc-300 hover:text-red-400">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -416,8 +443,8 @@ function FinanzasPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
-              <h2 className="text-base font-bold text-zinc-800">Registrar gasto</h2>
-              <button onClick={() => setModal(false)}><X className="w-5 h-5 text-zinc-400" /></button>
+              <h2 className="text-base font-bold text-zinc-800">{editandoId ? 'Editar gasto' : 'Registrar gasto'}</h2>
+              <button onClick={() => { setModal(false); setEditandoId(null) }}><X className="w-5 h-5 text-zinc-400" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
 
@@ -476,7 +503,7 @@ function FinanzasPage() {
               </div>
             </div>
             <div className="px-6 pb-5 flex gap-3">
-              <button onClick={() => setModal(false)}
+              <button onClick={() => { setModal(false); setEditandoId(null) }}
                 className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded-lg text-sm font-semibold hover:bg-zinc-50">
                 Cancelar
               </button>
