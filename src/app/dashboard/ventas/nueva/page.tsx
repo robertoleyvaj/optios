@@ -390,11 +390,41 @@ export default function NuevaVentaPage() {
       const anticoDB   = esUSD ? Math.round((anticoNum / tipoCambio!) * 100) / 100 : anticoNum
       const saldoDB    = esUSD ? Math.round((saldoNum / tipoCambio!) * 100) / 100 : saldoNum
 
-      // ── 2. Insertar venta ───────────────────────────────────
+      // ── 2. Auto-crear paciente si no existe ────────────────
+      // Si el cliente ya viene vinculado desde expedientes, usamos su id.
+      // Si fue captura libre, buscamos o creamos el registro en pacientes.
+      let pacienteId: string | null = cliente?.id || null
+      if (!cotizacion && !pacienteId && clienteNombre.trim()) {
+        const { data: existing } = await supabase
+          .from('pacientes')
+          .select('id')
+          .ilike('nombre', clienteNombre.trim())
+          .ilike('apellido', clienteApellido.trim() || '')
+          .maybeSingle()
+
+        if (existing) {
+          pacienteId = existing.id
+        } else {
+          const { data: nuevo } = await supabase
+            .from('pacientes')
+            .insert({
+              nombre:             clienteNombre.trim(),
+              apellido:           clienteApellido.trim() || null,
+              telefono:           clienteTelefono.trim() || null,
+              sucursal_principal: sucursal,
+            })
+            .select('id')
+            .single()
+          if (nuevo) pacienteId = nuevo.id
+        }
+      }
+
+      // ── 3. Insertar venta ───────────────────────────────────
       const { data: ventaRow, error: errVenta } = await supabase
         .from('ventas')
         .insert({
           folio,
+          paciente_id:       pacienteId,
           paciente_nombre:   `${clienteNombre} ${clienteApellido}`.trim(),
           paciente_telefono: clienteTelefono,
           sucursal,
