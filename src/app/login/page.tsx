@@ -3,14 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Glasses, Eye, EyeOff, AlertCircle } from 'lucide-react'
-
-// Usuarios demo — misma tabla que Sidebar.tsx
-const USUARIOS_DEMO = [
-  { nombre: 'Roberto Leyva Jaramillo',       apodo: 'Roberto', iniciales: 'RL', rol: 'administrador', sucursal: 'Todas',       nombreReceta: 'Dr. Leyva',      user: 'roberto', pass: 'admin123' },
-  { nombre: 'Diany Monserrath Pérez Sánchez', apodo: 'Monse',   iniciales: 'DM', rol: 'gerente',       sucursal: 'Todas',       nombreReceta: 'Monse Pérez',    user: 'monse',   pass: 'gon2025'  },
-  { nombre: 'Ana Karina Govea Delgado',       apodo: 'Karina',  iniciales: 'KG', rol: 'vendedor',      sucursal: 'Baja Visión', nombreReceta: 'Karina Govea',   user: 'karina',  pass: 'gon2025'  },
-  { nombre: 'Sergio Hernández',               apodo: 'Sergio',  iniciales: 'SH', rol: 'repartidor',    sucursal: 'Todas',       nombreReceta: 'Sergio Hernández', user: 'sergio', pass: 'gon2025'  },
-]
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -20,23 +13,42 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    const u = USUARIOS_DEMO.find(
-      d => d.user === username.toLowerCase().trim() && d.pass === password
-    )
+    const { data, error: err } = await createClient()
+      .from('usuarios')
+      .select('id, nombre, apodo, iniciales, rol, sucursal, nombre_receta, activo')
+      .eq('username', username.toLowerCase().trim())
+      .eq('password', password)
+      .single()
 
-    if (!u) {
+    if (err || !data) {
       setError('Usuario o contraseña incorrectos')
       setLoading(false)
       return
     }
 
-    const { user: _, pass: __, ...userData } = u
-    localStorage.setItem('optios_demo_user', JSON.stringify(userData))
+    if (!data.activo) {
+      setError('Tu cuenta está desactivada. Contacta al administrador.')
+      setLoading(false)
+      return
+    }
+
+    // Actualizar último acceso
+    await createClient().from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('id', data.id)
+
+    localStorage.setItem('optios_demo_user', JSON.stringify({
+      id:           data.id,
+      nombre:       data.nombre,
+      apodo:        data.apodo || data.nombre.split(' ')[0],
+      iniciales:    data.iniciales || data.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
+      rol:          data.rol,
+      sucursal:     data.sucursal,
+      nombre_receta: data.nombre_receta,
+    }))
     router.push('/dashboard')
   }
 

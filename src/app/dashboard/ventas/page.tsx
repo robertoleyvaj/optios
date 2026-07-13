@@ -226,12 +226,14 @@ export default function VentasPage() {
   const [abonoMonto, setAbonoMonto]   = useState('')
   const [abonoMetodo, setAbonoMetodo] = useState('efectivo')
   const [usuarioNombre, setUsuarioNombre] = useState('')
+  const [usuarioId, setUsuarioId]         = useState<string | null>(null)
 
   useEffect(() => {
     cargar()
     try {
       const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
       setUsuarioNombre(u.nombre ?? '')
+      setUsuarioId(u.id ?? null)
       // Gerente y vendedor arrancan en su propia sucursal
       if (u.rol !== 'administrador' && u.sucursal && u.sucursal !== 'Todas') {
         setSucursal(u.sucursal)
@@ -374,6 +376,7 @@ export default function VentasPage() {
       tipo:          esLiquidacion ? 'liquidacion' : 'abono',
       sucursal:      detalle.sucursal,
       registrado_por: usuarioNombre,
+      usuario_id:    usuarioId,
     })
 
     // 3. Comisión terminal automática si se cobró con tarjeta

@@ -1,84 +1,134 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import RequireRol from '@/components/RequireRol'
+import { createClient } from '@/lib/supabase/client'
 import {
   Plus, X, Save, Shield, Eye, EyeOff,
-  ChevronDown, CheckCircle2, XCircle, Edit2,
+  ChevronDown, CheckCircle2, XCircle, Edit2, RefreshCw,
 } from 'lucide-react'
 
 type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor'
 
 type Usuario = {
-  id: number
-  nombre: string
+  id: string         // UUID
   username: string
+  nombre: string
+  apodo: string
+  iniciales: string
   rol: Rol
   sucursal: string
+  nombre_receta: string
   activo: boolean
-  ultimoAcceso: string
+  ultimo_acceso: string | null
 }
 
 const ROL_CONFIG: Record<Rol, { label: string; bg: string; text: string; permisos: string[] }> = {
   administrador: {
     label: 'Administrador',
     bg: 'bg-red-50', text: 'text-red-700',
-    permisos: ['Dashboard', 'Ventas', 'Inventario', 'Agenda', 'Expedientes', 'Laboratorio', 'Finanzas (costos visibles)', 'Reportes', 'Usuarios', 'Ajustes'],
+    permisos: ['Dashboard', 'Ventas', 'Inventario', 'Agenda', 'Expedientes', 'Laboratorio', 'Finanzas', 'Reportes', 'Usuarios', 'Ajustes'],
   },
   gerente: {
     label: 'Gerente',
     bg: 'bg-indigo-50', text: 'text-indigo-700',
-    permisos: ['Dashboard', 'Ventas', 'Inventario', 'Agenda', 'Expedientes', 'Laboratorio', 'Finanzas (sin costos de lab)', 'Reportes'],
+    permisos: ['Dashboard', 'Ventas', 'Inventario', 'Agenda', 'Expedientes', 'Laboratorio', 'Reportes'],
   },
   vendedor: {
     label: 'Vendedor',
     bg: 'bg-emerald-50', text: 'text-emerald-700',
-    permisos: ['Dashboard', 'Ventas (nueva venta)', 'Inventario (consulta)', 'Agenda', 'Expedientes', 'Laboratorio (sin costos)'],
+    permisos: ['Dashboard', 'Ventas', 'Agenda', 'Expedientes', 'Laboratorio', 'Caja', 'Mi Desempeño'],
   },
   repartidor: {
     label: 'Repartidor',
     bg: 'bg-orange-50', text: 'text-orange-700',
-    permisos: ['Laboratorio (órdenes listas para entregar)'],
+    permisos: ['Laboratorio (órdenes listas)'],
   },
 }
 
 const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles', 'Todas']
 
-const USUARIOS_MOCK: Usuario[] = [
-  { id: 1, nombre: 'Roberto Leyva',    username: 'roberto',  rol: 'administrador', sucursal: 'Todas',         activo: true,  ultimoAcceso: 'Hoy, 10:42' },
-  { id: 2, nombre: 'Ana Castillo',     username: 'ana',      rol: 'gerente',       sucursal: 'Baja Visión',   activo: true,  ultimoAcceso: 'Hoy, 09:15' },
-  { id: 3, nombre: 'Lupita Mendoza',   username: 'lupita',   rol: 'vendedor',      sucursal: 'Baja Visión',   activo: true,  ultimoAcceso: 'Hoy, 08:55' },
-  { id: 4, nombre: 'Carmen Torres',    username: 'carmen',   rol: 'vendedor',      sucursal: '5 de Mayo',     activo: true,  ultimoAcceso: 'Ayer, 18:30' },
-  { id: 5, nombre: 'Sergio',            username: 'sergio',   rol: 'repartidor',    sucursal: 'Todas',         activo: true,  ultimoAcceso: 'Hoy, 09:30' },
-  { id: 6, nombre: 'Marta Gutiérrez',  username: 'marta',    rol: 'vendedor',      sucursal: 'Plaza Laureles',activo: false, ultimoAcceso: 'Hace 2 semanas' },
-]
-
-const formVacio = (): Omit<Usuario, 'id' | 'ultimoAcceso'> & { password: string } => ({
-  nombre: '', username: '', password: '',
-  rol: 'vendedor', sucursal: 'Baja Visión', activo: true,
+const formVacio = () => ({
+  username: '', password: '', nombre: '', apodo: '', iniciales: '',
+  rol: 'vendedor' as Rol, sucursal: 'Baja Visión', nombre_receta: '', activo: true,
 })
 
 function UsuariosPage() {
-  const [usuarios, setUsuarios] = useState<Usuario[]>(USUARIOS_MOCK)
-  const [modal, setModal] = useState(false)
-  const [editando, setEditando] = useState<Usuario | null>(null)
-  const [form, setForm] = useState(formVacio())
-  const [showPass, setShowPass] = useState(false)
+  const [usuarios, setUsuarios]     = useState<Usuario[]>([])
+  const [cargando, setCargando]     = useState(true)
+  const [modal, setModal]           = useState(false)
+  const [editando, setEditando]     = useState<Usuario | null>(null)
+  const [form, setForm]             = useState(formVacio())
+  const [showPass, setShowPass]     = useState(false)
+  const [guardando, setGuardando]   = useState(false)
+  const [error, setError]           = useState('')
   const [rolDetalle, setRolDetalle] = useState<Rol | null>(null)
 
-  const guardar = () => {
-    if (editando) {
-      setUsuarios(prev => prev.map(u => u.id === editando.id ? { ...u, ...form } : u))
-    } else {
-      setUsuarios(prev => [...prev, { id: Date.now(), ...form, ultimoAcceso: 'Nunca' }])
-    }
-    setModal(false)
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    const { data } = await createClient().from('usuarios').select('*').order('nombre')
+    setUsuarios((data || []) as Usuario[])
+    setCargando(false)
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const abrirNuevo = () => {
+    setEditando(null); setForm(formVacio()); setError(''); setModal(true)
+  }
+  const abrirEditar = (u: Usuario) => {
+    setEditando(u)
+    setForm({ username: u.username, password: '', nombre: u.nombre, apodo: u.apodo || '',
+              iniciales: u.iniciales || '', rol: u.rol, sucursal: u.sucursal,
+              nombre_receta: u.nombre_receta || '', activo: u.activo })
+    setError(''); setModal(true)
   }
 
-  const toggleActivo = (id: number) =>
-    setUsuarios(prev => prev.map(u => u.id === id ? { ...u, activo: !u.activo } : u))
+  const guardar = async () => {
+    if (!form.username.trim() || !form.nombre.trim()) { setError('Username y nombre son requeridos'); return }
+    if (!editando && !form.password) { setError('La contraseña es requerida para nuevos usuarios'); return }
+    setGuardando(true); setError('')
 
-  const f = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
+    const sb = createClient()
+
+    // Generar iniciales automáticas si no se ponen
+    const iniciales = form.iniciales.trim() ||
+      form.nombre.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase()
+
+    const payload: Record<string, unknown> = {
+      username: form.username.trim().toLowerCase(),
+      nombre: form.nombre.trim(),
+      apodo: form.apodo.trim() || form.nombre.trim().split(' ')[0],
+      iniciales,
+      rol: form.rol,
+      sucursal: form.sucursal,
+      nombre_receta: form.nombre_receta.trim(),
+      activo: form.activo,
+    }
+    if (form.password) payload.password = form.password
+
+    let err
+    if (editando) {
+      ;({ error: err } = await sb.from('usuarios').update(payload).eq('id', editando.id))
+    } else {
+      ;({ error: err } = await sb.from('usuarios').insert(payload))
+    }
+
+    if (err) {
+      setError(err.message.includes('unique') ? 'Ese username ya existe' : err.message)
+    } else {
+      setModal(false)
+      cargar()
+    }
+    setGuardando(false)
+  }
+
+  const toggleActivo = async (u: Usuario) => {
+    await createClient().from('usuarios').update({ activo: !u.activo }).eq('id', u.id)
+    cargar()
+  }
+
+  const f = <K extends keyof ReturnType<typeof formVacio>>(k: K, v: ReturnType<typeof formVacio>[K]) =>
     setForm(prev => ({ ...prev, [k]: v }))
 
   return (
@@ -89,13 +139,18 @@ function UsuariosPage() {
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Usuarios</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Gestión de accesos y permisos por rol</p>
         </div>
-        <button onClick={() => { setEditando(null); setForm(formVacio()); setModal(true) }}
-          className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27] transition-all">
-          <Plus className="w-4 h-4" /> Nuevo usuario
-        </button>
+        <div className="flex gap-2">
+          <button onClick={cargar} className="p-2.5 border border-zinc-200 rounded hover:bg-zinc-50 text-zinc-400">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button onClick={abrirNuevo}
+            className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27]">
+            <Plus className="w-4 h-4" /> Nuevo usuario
+          </button>
+        </div>
       </div>
 
-      {/* Roles — referencia de permisos */}
+      {/* Cards de roles */}
       <div className="grid grid-cols-4 gap-4">
         {(Object.entries(ROL_CONFIG) as [Rol, typeof ROL_CONFIG[Rol]][]).map(([rol, cfg]) => (
           <button key={rol} onClick={() => setRolDetalle(rolDetalle === rol ? null : rol)}
@@ -104,7 +159,9 @@ function UsuariosPage() {
               <span className={`text-xs font-bold px-2 py-1 rounded ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
               <Shield className="w-4 h-4 text-zinc-300" />
             </div>
-            <p className="text-xs text-zinc-400 mt-1">{cfg.permisos.length} módulos · {usuarios.filter(u => u.rol === rol).length} usuario{usuarios.filter(u => u.rol === rol).length !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-zinc-400 mt-1">
+              {usuarios.filter(u => u.rol === rol && u.activo).length} activo{usuarios.filter(u => u.rol === rol && u.activo).length !== 1 ? 's' : ''}
+            </p>
             {rolDetalle === rol && (
               <ul className="mt-3 space-y-1 border-t border-zinc-100 pt-3">
                 {cfg.permisos.map(p => (
@@ -118,30 +175,37 @@ function UsuariosPage() {
         ))}
       </div>
 
-      {/* Tabla usuarios */}
+      {/* Tabla */}
       <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
         <div className="px-5 py-4 border-b border-zinc-100">
-          <p className="text-sm font-semibold text-zinc-700">{usuarios.length} usuarios registrados · {usuarios.filter(u => u.activo).length} activos</p>
+          <p className="text-sm font-semibold text-zinc-700">
+            {cargando ? 'Cargando…' : `${usuarios.length} usuarios · ${usuarios.filter(u => u.activo).length} activos`}
+          </p>
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-100">
-              {['Usuario', 'Username', 'Rol', 'Sucursal', 'Último acceso', 'Estado', ''].map(h => (
+              {['Usuario', 'Username', 'Rol', 'Sucursal', 'Estado', ''].map(h => (
                 <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-50">
             {usuarios.map(u => {
-              const cfg = ROL_CONFIG[u.rol]
+              const cfg = ROL_CONFIG[u.rol] || ROL_CONFIG.vendedor
               return (
                 <tr key={u.id} className="hover:bg-zinc-50 transition-colors group">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        {u.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {u.iniciales || u.nombre.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
-                      <span className="font-semibold text-zinc-700">{u.nombre}</span>
+                      <div>
+                        <p className="font-semibold text-zinc-700">{u.nombre}</p>
+                        {u.apodo && u.apodo !== u.nombre.split(' ')[0] && (
+                          <p className="text-xs text-zinc-400">{u.apodo}</p>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="px-5 py-4 font-mono text-xs text-zinc-500">{u.username}</td>
@@ -149,15 +213,14 @@ function UsuariosPage() {
                     <span className={`text-xs font-semibold px-2 py-1 rounded ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
                   </td>
                   <td className="px-5 py-4 text-sm text-zinc-500">{u.sucursal}</td>
-                  <td className="px-5 py-4 text-xs text-zinc-400">{u.ultimoAcceso}</td>
                   <td className="px-5 py-4">
-                    <button onClick={() => toggleActivo(u.id)}
+                    <button onClick={() => toggleActivo(u)}
                       className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded transition-all ${u.activo ? 'bg-emerald-50 text-emerald-600 hover:bg-red-50 hover:text-red-500' : 'bg-red-50 text-red-500 hover:bg-emerald-50 hover:text-emerald-600'}`}>
                       {u.activo ? <><CheckCircle2 className="w-3 h-3" /> Activo</> : <><XCircle className="w-3 h-3" /> Inactivo</>}
                     </button>
                   </td>
                   <td className="px-5 py-4">
-                    <button onClick={() => { setEditando(u); setForm({ nombre: u.nombre, username: u.username, password: '', rol: u.rol, sucursal: u.sucursal, activo: u.activo }); setModal(true) }}
+                    <button onClick={() => abrirEditar(u)}
                       className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-600">
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -172,73 +235,102 @@ function UsuariosPage() {
       {/* Modal */}
       {modal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
               <h2 className="text-base font-bold text-zinc-800">{editando ? 'Editar usuario' : 'Nuevo usuario'}</h2>
               <button onClick={() => setModal(false)}><X className="w-5 h-5 text-zinc-400" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
+
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Nombre completo</label>
                 <input value={form.nombre} onChange={e => f('nombre', e.target.value)}
-                  className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                  placeholder="Ana Karina Govea Delgado" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Apodo / Cómo le dicen</label>
+                  <input value={form.apodo} onChange={e => f('apodo', e.target.value)}
+                    className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                    placeholder="Karina" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Nombre en receta</label>
+                  <input value={form.nombre_receta} onChange={e => f('nombre_receta', e.target.value)}
+                    className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                    placeholder="Karina Govea" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Username</label>
-                  <input value={form.username} onChange={e => f('username', e.target.value)}
-                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 font-mono"
-                    placeholder="ej. lupita" />
+                  <input value={form.username} onChange={e => f('username', e.target.value.toLowerCase().replace(/\s/g, ''))}
+                    className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 font-mono"
+                    placeholder="karina" disabled={!!editando} />
+                  {editando && <p className="text-xs text-zinc-400 mt-1">No se puede cambiar</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">{editando ? 'Nueva contraseña' : 'Contraseña'}</label>
                   <div className="relative">
-                    <input type={showPass ? 'text' : 'password'} value={form.password} onChange={e => f('password', e.target.value)}
-                      className="w-full border border-zinc-200 rounded px-3 pr-9 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                      placeholder={editando ? 'Sin cambios' : '••••••••'} />
-                    <button onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -tranzinc-y-1/2 text-zinc-400">
+                    <input type={showPass ? 'text' : 'password'} value={form.password}
+                      onChange={e => f('password', e.target.value)}
+                      className="w-full border border-zinc-200 rounded-lg px-3 pr-9 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                      placeholder={editando ? 'Dejar vacío = sin cambios' : '••••••••'} />
+                    <button type="button" onClick={() => setShowPass(!showPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
                       {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Rol</label>
                   <div className="relative">
                     <select value={form.rol} onChange={e => f('rol', e.target.value as Rol)}
-                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
+                      className="w-full appearance-none border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {(Object.entries(ROL_CONFIG) as [Rol, typeof ROL_CONFIG[Rol]][]).map(([k, v]) => (
                         <option key={k} value={k}>{v.label}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sucursal</label>
                   <div className="relative">
                     <select value={form.sucursal} onChange={e => f('sucursal', e.target.value)}
-                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
+                      className="w-full appearance-none border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {SUCURSALES.map(s => <option key={s}>{s}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
               </div>
+
               {form.rol && (
                 <div className={`rounded-lg p-3 text-xs space-y-1 ${ROL_CONFIG[form.rol].bg}`}>
-                  <p className={`font-semibold ${ROL_CONFIG[form.rol].text}`}>Permisos del rol {ROL_CONFIG[form.rol].label}:</p>
+                  <p className={`font-semibold ${ROL_CONFIG[form.rol].text}`}>Accesos del rol {ROL_CONFIG[form.rol].label}:</p>
                   <p className="text-zinc-500">{ROL_CONFIG[form.rol].permisos.join(' · ')}</p>
                 </div>
               )}
+
+              {error && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
             </div>
+
             <div className="px-6 pb-5 flex gap-3">
               <button onClick={() => setModal(false)}
-                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">Cancelar</button>
-              <button onClick={guardar} disabled={!form.nombre || !form.username}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40">
-                <Save className="w-4 h-4" /> {editando ? 'Guardar cambios' : 'Crear usuario'}
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded-lg text-sm font-semibold hover:bg-zinc-50">
+                Cancelar
+              </button>
+              <button onClick={guardar} disabled={guardando || !form.nombre || !form.username}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded-lg text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40">
+                <Save className="w-4 h-4" />
+                {guardando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Crear usuario'}
               </button>
             </div>
           </div>

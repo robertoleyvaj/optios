@@ -362,7 +362,12 @@ export default function NuevaVentaPage() {
 
       // Leer usuario actual
       let atendioPor = ''
-      try { atendioPor = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')?.nombre || '' } catch {}
+      let usuarioId: string | null = null
+      try {
+        const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
+        atendioPor = u?.nombre || ''
+        usuarioId  = u?.id || null
+      } catch {}
 
       // ── 1. Obtener folio siguiente ──────────────────────────
       const prefijo = cotizacion ? 'COT' : 'V'
@@ -402,6 +407,7 @@ export default function NuevaVentaPage() {
           es_cotizacion: cotizacion,
           fecha_entrega: fechaEntrega || null,
           atendido_por:  atendioPor,
+          usuario_id:    usuarioId,
           moneda:       esUSD ? 'USD' : 'MXN',
           tipo_cambio:  esUSD ? tipoCambio : null,
         })
@@ -453,6 +459,7 @@ export default function NuevaVentaPage() {
           tipo:           saldoDB === 0 ? 'liquidacion' : 'anticipo',
           sucursal,
           registrado_por: atendioPor,
+          usuario_id:     usuarioId,
         })
 
         // ── 4c. Comisión terminal automática ──────────────────────

@@ -97,6 +97,7 @@ export default function MiDesempenoPage() {
   const [metaMes,    setMetaMes]    = useState(200_000)
   const [nombre,     setNombre]     = useState('')
   const [sucursal,   setSucursal]   = useState('')
+  const [usuarioId,  setUsuarioId]  = useState<string | null>(null)
 
   // Leer usuario del localStorage
   useEffect(() => {
@@ -106,6 +107,7 @@ export default function MiDesempenoPage() {
         const u = JSON.parse(raw)
         setNombre(u.nombre ?? '')
         setSucursal(u.sucursal ?? '')
+        setUsuarioId(u.id ?? null)
       }
     } catch { /* noop */ }
   }, [])
@@ -121,18 +123,17 @@ export default function MiDesempenoPage() {
         const fin    = new Date(anio, mes + 1, 0, 23, 59, 59).toISOString()
         const esMesActualFetch = mes === now.getMonth() && anio === now.getFullYear()
 
+        // Filtrar por usuario_id (preciso) o atendido_por (fallback histórico)
+        const qBase = (start: string, end: string) => {
+          const q = sb.from('ventas').select('total').eq('es_cotizacion', false)
+            .gte('created_at', start).lte('created_at', end)
+          return usuarioId ? q.eq('usuario_id', usuarioId) : q.eq('atendido_por', nombre)
+        }
+
         const [rMes, rHoy] = await Promise.all([
-          sb.from('ventas').select('total')
-            .eq('atendido_por', nombre)
-            .eq('es_cotizacion', false)
-            .gte('created_at', inicio)
-            .lte('created_at', fin),
+          qBase(inicio, fin),
           esMesActualFetch
-            ? sb.from('ventas').select('total')
-                .eq('atendido_por', nombre)
-                .eq('es_cotizacion', false)
-                .gte('created_at', `${hoyStr}T00:00:00`)
-                .lte('created_at', `${hoyStr}T23:59:59`)
+            ? qBase(`${hoyStr}T00:00:00`, `${hoyStr}T23:59:59`)
             : Promise.resolve({ data: [] }),
         ])
 
@@ -152,7 +153,7 @@ export default function MiDesempenoPage() {
     }
     fetchData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nombre, sucursal, mes, anio])
+  }, [nombre, sucursal, mes, anio, usuarioId])
 
   const comision = calcularComision(ventasMes)
   const { actual: bonoActual, siguiente: bonoSiguiente } = calcularBono(ventasMes)
