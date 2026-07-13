@@ -353,8 +353,8 @@ export default function VentasPage() {
     // 2. Registrar pago en pagos_venta
     await supabase.from('pagos_venta').insert({
       venta_id:      detalle.uuid,
-      folio_venta:   detalle.folio,
-      paciente:      detalle.paciente,
+      folio_venta:   detalle.id,
+      paciente:      detalle.cliente,
       monto,
       metodo_pago:   abonoMetodo,
       tipo:          esLiquidacion ? 'liquidacion' : 'abono',
