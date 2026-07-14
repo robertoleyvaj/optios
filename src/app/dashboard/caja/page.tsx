@@ -291,7 +291,7 @@ export default function CajaPage() {
       .order('fecha', { ascending: false })
       .limit(50)
 
-    if (rol !== 'admin') {
+    if (rol !== 'administrador') {
       histQuery = histQuery.eq('sucursal', sucursal)
     }
 

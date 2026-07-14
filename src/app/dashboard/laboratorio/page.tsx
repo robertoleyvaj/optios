@@ -192,7 +192,7 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
   return (
     <div ref={ref} className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
         <input
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true) }}
@@ -1816,7 +1816,7 @@ export default function LaboratorioPage() {
                       className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {SUCURSALES.map(s => <option key={s}>{s}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
               </div>
@@ -1830,7 +1830,7 @@ export default function LaboratorioPage() {
                       className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {TIPOS_MICA.map(t => <option key={t}>{t}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
                 <div>
@@ -1840,7 +1840,7 @@ export default function LaboratorioPage() {
                       className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
                       {LABORATORIOS.map(l => <option key={l}>{l}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                   </div>
                 </div>
               </div>

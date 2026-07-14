@@ -38,6 +38,8 @@ type Venta = {
 // ─────────────────────────────────────────
 const metodoBadge: Record<string, { label: string; icon: React.ElementType; cls: string }> = {
   efectivo:      { label: 'Efectivo',      icon: Banknote,   cls: 'bg-emerald-50 text-emerald-700' },
+  debito:        { label: 'T. Débito',     icon: CreditCard, cls: 'bg-blue-50 text-blue-700' },
+  credito:       { label: 'T. Crédito',   icon: CreditCard, cls: 'bg-purple-50 text-purple-700' },
   tarjeta:       { label: 'Tarjeta',       icon: CreditCard, cls: 'bg-blue-50 text-blue-700' },
   transferencia: { label: 'Transferencia', icon: Building2,  cls: 'bg-violet-50 text-violet-700' },
   deposito:      { label: 'Depósito',      icon: Building2,  cls: 'bg-violet-50 text-violet-700' },

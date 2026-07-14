@@ -362,7 +362,7 @@ function InventarioPage() {
         {/* Filtros */}
         <div className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-zinc-100">
           <div className="relative flex-1 min-w-52">
-            <Search className="absolute left-3 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
               placeholder="Nombre, SKU o marca..."
               className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400" />
@@ -380,7 +380,7 @@ function InventarioPage() {
               className="appearance-none pl-3 pr-8 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded text-zinc-600 focus:outline-none">
               {sucursales.map(s => <option key={s}>{s}</option>)}
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 -tranzinc-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
           </div>
           <button onClick={() => setSoloAlerta(!soloAlerta)}
             className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border rounded transition-colors ${soloAlerta ? 'bg-amber-50 border-amber-300 text-amber-600' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
