@@ -315,13 +315,12 @@ export default function CajaPage() {
     const hoy = hoyLocal()
     const catLabel = CATEGORIAS_EGRESO.find(c => c.value === egresoCategoria)?.label ?? egresoCategoria
     const { error } = await sb.from('gastos').insert({
-      fecha:       hoy,
-      categoria:   egresoCategoria,
-      concepto:    catLabel,
-      notas:       egresoDescripcion || null,
+      fecha:     hoy,
+      categoria: egresoCategoria,
+      concepto:  catLabel,
+      notas:     egresoDescripcion || null,
       monto,
-      metodo_pago: egresoMetodoPago,
-      sucursal:    usuario.sucursal,
+      sucursal:  usuario.sucursal,
     })
     if (error) {
       setErrorGuardado(`Error al guardar egreso: ${error.message}`)
@@ -751,12 +750,17 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                   {guardandoEgreso ? '...' : 'Guardar'}
                 </button>
                 <button
-                  onClick={() => setShowEgresoForm(false)}
+                  onClick={() => { setShowEgresoForm(false); setErrorGuardado('') }}
                   className="px-4 py-2 border border-zinc-200 text-zinc-500 rounded text-sm hover:bg-zinc-50"
                 >
                   Cancelar
                 </button>
               </div>
+              {errorGuardado && errorGuardado.includes('egreso') && (
+                <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-medium">
+                  ⚠️ {errorGuardado}
+                </div>
+              )}
             </div>
           )}
 
