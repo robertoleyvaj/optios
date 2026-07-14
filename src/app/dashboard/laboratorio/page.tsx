@@ -1954,7 +1954,6 @@ export default function LaboratorioPage() {
               anticipo:            original.anticipo,
               notas:               '',
               folio_origen:        original.folio,
-              folio_venta:         original.folioVenta,
               es_garantia:         true,
               motivo_problema:     motivo,
             }).select('id').single()
