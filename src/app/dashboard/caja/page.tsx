@@ -131,6 +131,10 @@ export default function CajaPage() {
   const [egresoMetodoPago, setEgresoMetodoPago] = useState('efectivo')
   const [guardandoEgreso, setGuardandoEgreso] = useState(false)
 
+  // ── Filtros historial ──
+  const [filtroSucursal, setFiltroSucursal] = useState('')
+  const [filtroFecha, setFiltroFecha]       = useState('')
+
   // ── Formulario de corte ──
   const [efectivoContado, setEfectivoContado]       = useState('')
   const [efectivoUSDContado, setEfectivoUSDContado] = useState('')
@@ -166,7 +170,7 @@ export default function CajaPage() {
   }, [])
 
   // ── Cargar datos ──
-  const cargarDatos = useCallback(async (sucursal: string) => {
+  const cargarDatos = useCallback(async (sucursal: string, rol?: string) => {
     if (!sucursal) return
     setCargando(true)
     const sb  = createClient()
@@ -262,22 +266,26 @@ export default function CajaPage() {
       setIsClosed(false)
     }
 
-    // 5. Historial
-    const { data: historialData } = await sb
+    // 5. Historial — admin ve todas las sucursales
+    let histQuery = sb
       .from('cortes_caja')
       .select('*')
-      .eq('sucursal', sucursal)
       .neq('fecha', hoy)
       .order('fecha', { ascending: false })
-      .limit(10)
+      .limit(50)
 
+    if (rol !== 'admin') {
+      histQuery = histQuery.eq('sucursal', sucursal)
+    }
+
+    const { data: historialData } = await histQuery
     setHistorial(historialData ?? [])
     setUltimaActualizacion(new Date())
     setCargando(false)
   }, [])
 
   useEffect(() => {
-    if (usuario.sucursal) cargarDatos(usuario.sucursal)
+    if (usuario.sucursal) cargarDatos(usuario.sucursal, usuario.rol)
   }, [usuario.sucursal, cargarDatos])
 
   // ── Guardar egreso rápido ──
@@ -443,8 +451,8 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
       efectivo_sistema: esperado,
       efectivo_contado: contado,
       diferencia,
-      fondo:            fondoNum,
-      entrega,
+      fondo:            0,
+      entrega:          0,
       notas:            notasConUSD,
       cerrado:          true,
     }
@@ -499,7 +507,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
             </span>
           )}
           <button
-            onClick={() => cargarDatos(usuario.sucursal)}
+            onClick={() => cargarDatos(usuario.sucursal, usuario.rol)}
             disabled={cargando}
             className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 border border-zinc-200 px-3 py-1.5 rounded-full hover:bg-zinc-50 transition-all disabled:opacity-40"
           >
@@ -870,33 +878,6 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
             </div>
           </div>
 
-        {/* Fondo y entrega */}
-        {efectivoContado !== '' && (
-          <div className="mt-5 grid grid-cols-2 gap-4 pt-5 border-t border-zinc-100">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
-                Fondo que se queda en caja
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
-                <input
-                  type="number"
-                  value={fondo}
-                  onChange={e => setFondo(e.target.value)}
-                  disabled={cerrado}
-                  className="w-full border border-zinc-200 rounded pl-7 pr-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 disabled:bg-zinc-50 disabled:text-zinc-400"
-                />
-              </div>
-              <p className="text-xs text-zinc-400 mt-1">Para apertura del siguiente día</p>
-            </div>
-            <div className="bg-[#0B0E14] rounded-lg p-4 flex flex-col justify-center">
-              <p className="text-xs text-white/50 font-semibold">Total a entregar</p>
-              <p className="text-3xl font-bold text-[#0D9488] mt-1">{fmt$(entrega)}</p>
-              <p className="text-xs text-white/40 mt-1">Contado menos fondo</p>
-            </div>
-          </div>
-        )}
-
         {/* Notas */}
         {efectivoContado !== '' && !cerrado && (
           <div className="mt-4">
@@ -950,51 +931,85 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 
       {/* ── Historial de cortes ── */}
       <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-        <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-zinc-700 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-zinc-400" /> Cortes anteriores
-          </h3>
-          <span className="text-xs text-zinc-400">{usuario.sucursal}</span>
+        <div className="px-5 py-4 border-b border-zinc-100">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-zinc-700 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-zinc-400" />
+              {usuario.rol === 'admin' ? 'Historial de cortes — todas las sucursales' : `Cortes anteriores · ${usuario.sucursal}`}
+            </h3>
+          </div>
+          {usuario.rol === 'admin' && (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Filtrar sucursal..."
+                value={filtroSucursal}
+                onChange={e => setFiltroSucursal(e.target.value)}
+                className="flex-1 border border-zinc-200 rounded px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+              />
+              <input
+                type="date"
+                value={filtroFecha}
+                onChange={e => setFiltroFecha(e.target.value)}
+                className="border border-zinc-200 rounded px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+              />
+              {(filtroSucursal || filtroFecha) && (
+                <button
+                  onClick={() => { setFiltroSucursal(''); setFiltroFecha('') }}
+                  className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-600 border border-zinc-200 rounded"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {historial.length === 0 ? (
-          <div className="px-5 py-8 text-center text-sm text-zinc-400">
-            {cargando ? 'Cargando...' : 'Sin cortes anteriores'}
-          </div>
-        ) : (
-          <div className="divide-y divide-zinc-50">
-            {historial.map(c => (
-              <div key={c.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-50 transition-colors">
-                <div className="w-10 h-10 rounded bg-zinc-50 border border-zinc-200 flex items-center justify-center flex-shrink-0">
-                  {c.diferencia === 0
-                    ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    : <AlertTriangle className="w-4 h-4 text-amber-400" />}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-zinc-700">
-                    {new Date(c.fecha + 'T12:00:00').toLocaleDateString('es-MX', {
-                      weekday: 'short', day: '2-digit', month: 'short',
-                    })}
-                  </p>
-                  <p className="text-xs text-zinc-400">
-                    {c.usuario} · Entrega: {fmt$(c.entrega)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  {c.diferencia !== 0 && (
-                    <p className={`text-xs font-bold ${c.diferencia > 0 ? 'text-blue-600' : 'text-red-500'}`}>
-                      {c.diferencia > 0 ? '+' : ''}{fmt$(c.diferencia)}
+        {(() => {
+          const filtrados = historial.filter(c => {
+            if (filtroSucursal && !c.sucursal.toLowerCase().includes(filtroSucursal.toLowerCase())) return false
+            if (filtroFecha && c.fecha !== filtroFecha) return false
+            return true
+          })
+          if (filtrados.length === 0) return (
+            <div className="px-5 py-8 text-center text-sm text-zinc-400">
+              {cargando ? 'Cargando...' : 'Sin cortes anteriores'}
+            </div>
+          )
+          return (
+            <div className="divide-y divide-zinc-50">
+              {filtrados.map(c => (
+                <div key={c.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-50 transition-colors">
+                  <div className="w-10 h-10 rounded bg-zinc-50 border border-zinc-200 flex items-center justify-center flex-shrink-0">
+                    {c.diferencia === 0
+                      ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      : <AlertTriangle className="w-4 h-4 text-amber-400" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-zinc-700">
+                      {new Date(c.fecha + 'T12:00:00').toLocaleDateString('es-MX', {
+                        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
+                      })}
                     </p>
-                  )}
-                  <p className="text-xs text-zinc-400">Total: {fmt$(c.total_ventas)}</p>
+                    <p className="text-xs text-zinc-400">
+                      {usuario.rol === 'admin' && <span className="font-medium text-zinc-500 mr-1">{c.sucursal} ·</span>}
+                      {c.usuario}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    {c.diferencia !== 0 && (
+                      <p className={`text-xs font-bold ${c.diferencia > 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                        {c.diferencia > 0 ? '+' : ''}{fmt$(c.diferencia)}
+                      </p>
+                    )}
+                    <p className="text-xs font-semibold text-zinc-600">Ventas: {fmt$(c.total_ventas)}</p>
+                    <p className="text-xs text-zinc-400">Efectivo: {fmt$(c.efectivo_sistema)}</p>
+                  </div>
                 </div>
-                <button onClick={imprimirCorte} className="text-zinc-300 hover:text-zinc-500">
-                  <Printer className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
     </div>
