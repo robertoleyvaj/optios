@@ -1235,7 +1235,7 @@ function FichaOrdenModal({ orden, onClose }: { orden: OrdenLab; onClose: () => v
   )
 }
 
-function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNuevaOrden }: {
+function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, onNuevaOrden }: {
   ordenes: OrdenLab[]
   sucursal: string
   rol: string
