@@ -181,39 +181,41 @@ export default function CajaPage() {
       .gte('created_at', `${hoy}T00:00:00`)
       .lte('created_at', `${hoy}T23:59:59`)
 
-    if (ventasData) {
+    const ventaIds = (ventasData ?? []).map(v => v.id)
+    const ventaMap = new Map((ventasData ?? []).map(v => [v.id, v]))
+
+    // 2. Pagos del día — filtrar por venta_id (más confiable que filtrar por sucursal en pagos_venta)
+    const { data: pagosData } = await sb
+      .from('pagos_venta')
+      .select('*')
+      .in('venta_id', ventaIds.length > 0 ? ventaIds : ['00000000-0000-0000-0000-000000000000'])
+      .order('created_at', { ascending: true })
+
+    if (pagosData) {
+      // Filtrar solo pagos de hoy (Tijuana) por si acaso hay pagos de días anteriores
+      const pagosHoyList = pagosData.filter(p => {
+        const fecha = new Date(p.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+        return fecha === hoy
+      })
+      setPagosHoy(pagosHoyList)
+
+      // Calcular resumen desde pagos_venta (fuente de verdad para montos recibidos)
       const resumen = JSON.parse(JSON.stringify(RESUMEN_VACIO)) as Record<MetodoPago, ResumenMetodo>
       let usdMonto = 0, usdTx = 0, usdTCSum = 0
-      for (const v of ventasData) {
-        const key = v.metodo_pago as MetodoPago
-        const recibido = Number(v.total) - Number(v.saldo ?? 0)
-        if (key === 'efectivo' && v.moneda === 'USD') {
-          usdMonto += recibido; usdTx++; usdTCSum += Number(v.tipo_cambio ?? 0)
+      for (const p of pagosHoyList) {
+        const key = p.metodo_pago as MetodoPago
+        const ventaOrigen = ventaMap.get(p.venta_id)
+        if (key === 'efectivo' && ventaOrigen?.moneda === 'USD') {
+          usdMonto += Number(p.monto); usdTx++; usdTCSum += Number(ventaOrigen.tipo_cambio ?? 0)
         } else if (resumen[key]) {
           resumen[key] = {
-            monto:         resumen[key].monto + recibido,
+            monto:         resumen[key].monto + Number(p.monto),
             transacciones: resumen[key].transacciones + 1,
           }
         }
       }
       setVentas(resumen)
       setEfectivoUSD({ monto: usdMonto, transacciones: usdTx, tcPromedio: usdTx > 0 ? usdTCSum / usdTx : 0 })
-    }
-
-    // 2. Pagos individuales (para drill-down)
-    const { data: pagosData } = await sb
-      .from('pagos_venta')
-      .select('*')
-      .eq('sucursal', sucursal)
-      .gte('created_at', `${hoy}T00:00:00.000Z`)
-      .order('created_at', { ascending: true })
-
-    if (pagosData) {
-      const hoyStr = hoyLocal()
-      setPagosHoy(pagosData.filter(p => {
-        const fecha = new Date(p.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
-        return fecha === hoyStr
-      }))
     }
 
     // 3. Gastos del día
