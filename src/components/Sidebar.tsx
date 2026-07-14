@@ -29,8 +29,10 @@ const CORE = ['dashboard','ventas','agenda','expedientes','laboratorio','caja','
 const GESTION_GERENTE = ['inventario','reportes']
 const GESTION_ADMIN   = [...GESTION_GERENTE, 'analitica','finanzas','usuarios','ajustes']
 
+const CORE_ADMIN = CORE.filter(k => k !== 'mi-desempeno')
+
 const PERMISOS: Record<Rol, string[]> = {
-  administrador: [...CORE, ...GESTION_ADMIN],
+  administrador: [...CORE_ADMIN, ...GESTION_ADMIN],
   gerente:       [...CORE, ...GESTION_GERENTE],
   vendedor:      [...CORE],
   repartidor:    ['laboratorio','inbox'],
