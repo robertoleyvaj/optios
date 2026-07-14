@@ -34,7 +34,6 @@ type GastoHoy = {
   concepto: string
   notas: string
   monto: number
-  metodo_pago: string
 }
 
 type ResumenMetodo = { monto: number; transacciones: number }
@@ -238,7 +237,7 @@ export default function CajaPage() {
     // 3. Gastos del día
     const { data: gastosData } = await sb
       .from('gastos')
-      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
+      .select('id, fecha, categoria, concepto, notas, monto')
       .eq('sucursal', sucursal)
       .eq('fecha', hoy)
       .order('created_at', { ascending: true })
@@ -306,7 +305,7 @@ export default function CajaPage() {
     }
     const { data } = await sb
       .from('gastos')
-      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
+      .select('id, fecha, categoria, concepto, notas, monto')
       .eq('sucursal', usuario.sucursal)
       .eq('fecha', hoy)
       .order('created_at', { ascending: true })
