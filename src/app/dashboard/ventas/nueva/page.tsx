@@ -126,6 +126,7 @@ export default function NuevaVentaPage() {
   const [metodoPago, setMetodoPago] = useState('efectivo')
   const [anticipo, setAnticipo] = useState<number | ''>('')
   const [guardando, setGuardando] = useState(false)
+  const [confirmarSinAnticipo, setConfirmarSinAnticipo] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [esCotizacion, setEsCotizacion] = useState(false)
   const [folioGuardado, setFolioGuardado] = useState('')
@@ -1619,7 +1620,7 @@ ${entregaHtml}
                           min={0}
                           max={total}
                           value={anticipo}
-                          onChange={e => setAnticipo(e.target.value === '' ? '' : Math.min(total, Math.max(0, parseFloat(e.target.value) || 0)))}
+                          onChange={e => { const v = parseFloat(e.target.value.replace(/,/g, '')) || 0; setAnticipo(e.target.value === '' ? '' : Math.min(total, Math.max(0, v))) }}
                           className="w-full border-2 border-[#0D9488] rounded-md pl-8 pr-4 py-3 text-lg font-bold text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                           placeholder="0"
                           autoFocus
@@ -1628,6 +1629,11 @@ ${entregaHtml}
                       {anticipo !== '' && anticipo > 0 && (
                         <p className="text-xs text-zinc-500 mt-1.5">
                           Saldo pendiente: <span className="font-bold text-zinc-700">${(total - Number(anticipo)).toLocaleString('es-MX')}</span>
+                        </p>
+                      )}
+                      {(!anticipo || Number(anticipo) <= 0) && (
+                        <p className="text-xs text-amber-600 mt-1.5 font-medium">
+                          ⚠️ Captura el monto recibido ahora — sin anticipo no se puede guardar en modo Diferir
                         </p>
                       )}
                     </div>
@@ -1692,13 +1698,40 @@ ${entregaHtml}
               >
                 Volver
               </button>
-              <button
-                onClick={() => handleFinalizar(esCotizacion)}
-                disabled={guardando}
-                className="flex-1 py-3 bg-[#0D9488] text-white rounded-md text-sm font-bold hover:bg-teal-500 active:scale-[0.99] transition-all disabled:opacity-50"
-              >
-                {guardando ? 'Guardando...' : esCotizacion ? 'Generar cotización' : 'Finalizar venta'}
-              </button>
+              {confirmarSinAnticipo ? (
+                <div className="flex-1 bg-amber-50 border border-amber-300 rounded-md px-4 py-3 space-y-2">
+                  <p className="text-xs font-bold text-amber-800">⚠️ ¿Confirmar sin anticipo?</p>
+                  <p className="text-xs text-amber-700">La venta quedará con saldo pendiente de <span className="font-bold">${total.toLocaleString('es-MX')}</span>. ¿El cliente no dejó ningún pago hoy?</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setConfirmarSinAnticipo(false); handleFinalizar(esCotizacion) }}
+                      className="flex-1 py-2 bg-amber-600 text-white rounded text-xs font-bold hover:bg-amber-700"
+                    >
+                      Sí, sin anticipo
+                    </button>
+                    <button
+                      onClick={() => setConfirmarSinAnticipo(false)}
+                      className="flex-1 py-2 border border-amber-300 text-amber-700 rounded text-xs font-bold hover:bg-amber-100"
+                    >
+                      Capturar anticipo
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (!esCotizacion && modoPago === 'diferir' && (!anticipo || Number(anticipo) <= 0)) {
+                      setConfirmarSinAnticipo(true)
+                    } else {
+                      handleFinalizar(esCotizacion)
+                    }
+                  }}
+                  disabled={guardando}
+                  className="flex-1 py-3 bg-[#0D9488] text-white rounded-md text-sm font-bold hover:bg-teal-500 active:scale-[0.99] transition-all disabled:opacity-50"
+                >
+                  {guardando ? 'Guardando...' : esCotizacion ? 'Generar cotización' : 'Finalizar venta'}
+                </button>
+              )}
             </div>
           </div>
         </div>
