@@ -175,7 +175,7 @@ export default function CajaPage() {
     // 1. Ventas del día (para cálculo del corte)
     const { data: ventasData } = await sb
       .from('ventas')
-      .select('metodo_pago, total, saldo, moneda, tipo_cambio')
+      .select('id, metodo_pago, total, saldo, moneda, tipo_cambio')
       .eq('sucursal', sucursal)
       .in('estado', ['activa', 'liquidada'])
       .gte('created_at', `${hoy}T00:00:00`)
