@@ -33,24 +33,6 @@ type VentaItem = {
 
 type OrdenLab = { estado: string }
 
-type VentaSaldo = {
-  id: string
-  folio: string
-  paciente_nombre: string
-  total: number
-  saldo: number
-  sucursal: string
-  created_at: string
-}
-
-type OrdenListo = {
-  id: string
-  folio: string
-  paciente: string
-  sucursal: string
-  fecha_ingreso: string
-}
-
 // ─────────────────────────────────────────────
 // Constantes
 // ─────────────────────────────────────────────
@@ -193,8 +175,6 @@ function ReportesPage() {
   const [ventasHoy,  setVentasHoy]  = useState<Venta[]>([])
   const [cotCount,   setCotCount]   = useState(0)
   const [ordLab,     setOrdLab]     = useState<OrdenLab[]>([])
-  const [carteraDetalle, setCarteraDetalle] = useState<VentaSaldo[]>([])
-  const [listosLab,      setListosLab]      = useState<OrdenListo[]>([])
   const [cargando,   setCargando]   = useState(true)
 
   useEffect(() => {
@@ -288,26 +268,6 @@ function ReportesPage() {
       setItems([])
     }
 
-    // Cartera detallada — independiente del período
-    let qCartera = sb.from('ventas')
-      .select('id, folio, paciente_nombre, total, saldo, sucursal, created_at')
-      .eq('es_cotizacion', false)
-      .gt('saldo', 0)
-      .order('created_at', { ascending: true })
-    if (sucursal !== 'Todas') qCartera = qCartera.eq('sucursal', sucursal)
-    const { data: carteraData } = await qCartera
-    setCarteraDetalle(carteraData ?? [])
-
-    // Lentes listos sin recoger
-    let qListos = sb.from('ordenes_lab')
-      .select('id, folio, paciente, sucursal, fecha_ingreso')
-      .eq('estado', 'listo')
-      .eq('archivado', false)
-      .order('fecha_ingreso', { ascending: true })
-    if (sucursal !== 'Todas') qListos = qListos.eq('sucursal', sucursal)
-    const { data: listosData } = await qListos
-    setListosLab(listosData ?? [])
-
     setCargando(false)
   }, [periodo, desde, hasta, sucursal])
 
@@ -339,24 +299,6 @@ function ReportesPage() {
     .reduce((s, v) => s + Number(v.saldo), 0)
   const carteraAlCorriente = saldoTotal - carteraVencida
 
-  const diasDesde = (dateStr: string) => {
-    const hoy = new Date()
-    const d = new Date(dateStr)
-    return Math.floor((hoy.getTime() - d.getTime()) / (1000 * 60 * 60 * 24))
-  }
-  const aging = (dias: number) =>
-    dias <= 14
-      ? { color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', label: 'Al corriente' }
-      : dias <= 30
-      ? { color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200',   label: 'Por vencer'  }
-      : { color: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200',     label: 'Vencido'     }
-
-  const carteraConDias = carteraDetalle.map(v => ({ ...v, dias: diasDesde(v.created_at) }))
-  const listosConDias  = listosLab.map(o => ({ ...o, dias: diasDesde(o.fecha_ingreso) }))
-
-  const totalCarteraVerde    = carteraConDias.filter(v => v.dias <= 14).reduce((s, v) => s + Number(v.saldo), 0)
-  const totalCarteraAmarillo = carteraConDias.filter(v => v.dias > 14 && v.dias <= 30).reduce((s, v) => s + Number(v.saldo), 0)
-  const totalCarteraRojo     = carteraConDias.filter(v => v.dias > 30).reduce((s, v) => s + Number(v.saldo), 0)
 
   // Por sucursal — siempre muestra las 3
   const porSucursal = ['Baja Visión', '5 de Mayo', 'Plaza Laureles'].map(s => ({
@@ -629,74 +571,49 @@ function ReportesPage() {
               )}
             </Card>
 
-          </div>
+            {/* Cartera */}
+            <Card title="Cartera por cobrar">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-zinc-600">Al corriente</p>
+                    <p className="text-xs text-zinc-400">menos de 30 días</p>
+                  </div>
+                  <p className="text-sm font-bold text-amber-600">{$$(carteraAlCorriente)}</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-zinc-600">Vencida</p>
+                    <p className="text-xs text-zinc-400">más de 30 días</p>
+                  </div>
+                  <p className={`text-sm font-bold ${carteraVencida > 0 ? 'text-rose-600' : 'text-zinc-300'}`}>
+                    {$$(carteraVencida)}
+                  </p>
+                </div>
 
-          {/* ── CARTERA DETALLADA ── */}
-          <div className="bg-white rounded-xl border border-zinc-200/80 overflow-hidden">
-            <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-zinc-800">Cartera por cobrar</h3>
-                <p className="text-xs text-zinc-400 mt-0.5">Saldos pendientes + lentes sin recoger</p>
-              </div>
-              <div className="flex gap-4 text-xs">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"/>Al corriente {$$(totalCarteraVerde)}</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/>Por vencer {$$(totalCarteraAmarillo)}</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>Vencido {$$(totalCarteraRojo)}</span>
-                <span className="font-bold text-zinc-700">Total {$$((carteraDetalle.reduce((s,v)=>s+Number(v.saldo),0)))}</span>
-              </div>
-            </div>
+                {saldoTotal > 0 && (
+                  <div className="h-2 bg-zinc-100 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-amber-400 transition-all"
+                      style={{ width: `${Math.round((carteraAlCorriente / saldoTotal) * 100)}%` }} />
+                    <div className="h-full bg-rose-500 transition-all"
+                      style={{ width: `${Math.round((carteraVencida / saldoTotal) * 100)}%` }} />
+                  </div>
+                )}
 
-            {/* Saldos pendientes */}
-            {carteraConDias.length === 0 && listosConDias.length === 0 ? (
-              <div className="px-5 py-8 text-center text-sm text-zinc-400 flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Sin cartera pendiente
-              </div>
-            ) : (
-              <div className="divide-y divide-zinc-50">
-                {carteraConDias.map(v => {
-                  const a = aging(v.dias)
-                  return (
-                    <div key={v.id} className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50">
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${v.dias <= 14 ? 'bg-emerald-400' : v.dias <= 30 ? 'bg-amber-400' : 'bg-red-500'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-zinc-800 truncate">{v.paciente_nombre || '—'}</p>
-                        <p className="text-xs text-zinc-400">{v.folio} · {v.sucursal} · {v.dias} días</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className={`text-sm font-bold ${a.color}`}>{$$(Number(v.saldo))}</p>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${a.bg} ${a.color} font-medium`}>{a.label}</span>
-                      </div>
-                    </div>
-                  )
-                })}
+                <div className="border-t border-zinc-100 pt-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-zinc-500">Total por cobrar</span>
+                  <span className="text-sm font-bold text-zinc-700">{$$(saldoTotal)}</span>
+                </div>
 
-                {/* Lentes listos sin recoger */}
-                {listosConDias.length > 0 && (
-                  <>
-                    <div className="px-5 py-2 bg-zinc-50">
-                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
-                        Lentes listos — esperando al paciente ({listosConDias.length})
-                      </p>
-                    </div>
-                    {listosConDias.map(o => {
-                      const a = aging(o.dias)
-                      return (
-                        <div key={o.id} className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50">
-                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${o.dias <= 14 ? 'bg-emerald-400' : o.dias <= 30 ? 'bg-amber-400' : 'bg-red-500'}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-zinc-800 truncate">{o.paciente || '—'}</p>
-                            <p className="text-xs text-zinc-400">{o.folio} · {o.sucursal} · {o.dias} días esperando</p>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${a.bg} ${a.color} font-medium`}>{a.label}</span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </>
+                {carteraVencida > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 px-3 py-2 rounded">
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                    Cobrar urgente: {$$(carteraVencida)}
+                  </div>
                 )}
               </div>
-            )}
+            </Card>
+
           </div>
 
         </>
