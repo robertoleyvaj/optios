@@ -8,10 +8,6 @@ import {
   TrendingUp, TrendingDown, DollarSign, FlaskConical,
   Plus, X, Save, ChevronDown, Trash2, Pencil,
 } from 'lucide-react'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
-} from 'recharts'
 
 // ─────────────────────────────────────────────
 // Tipos
@@ -111,6 +107,11 @@ function FinanzasPage() {
   const [porLab,     setPorLab]     = useState<{ nombre: string; total: number; count: number }[]>([])
   const [cargando,   setCargando]   = useState(true)
 
+  // Detalle por card
+  const [cardActiva, setCardActiva] = useState<'cobrado' | 'costo_lab' | 'gastos' | 'utilidad' | null>(null)
+  const [ventasDetalle, setVentasDetalle] = useState<{ folio: string; fecha: string; atendidoPor: string; total: number; saldo: number }[]>([])
+  const [labDetalle,    setLabDetalle]    = useState<{ folio: string; laboratorio: string; costoLab: number; fechaPago: string; paciente: string }[]>([])
+
   // Modal
   const [modal,       setModal]       = useState(false)
   const [editandoId,  setEditandoId]  = useState<string | null>(null)
@@ -141,33 +142,52 @@ function FinanzasPage() {
     // Cobrado: lo que efectivamente entró de ventas del período (total - saldo)
     let qVentas = supabase
       .from('ventas')
-      .select('total, saldo')
+      .select('folio, total, saldo, created_at, atendido_por')
       .eq('es_cotizacion', false)
       .gte('created_at', `${inicio}T00:00:00`)
       .lte('created_at', `${fin}T23:59:59`)
+      .order('created_at', { ascending: false })
     if (sucursal !== 'Todas') qVentas = qVentas.eq('sucursal', sucursal)
     const { data: ventasData } = await qVentas
-    setIngresos((ventasData || []).reduce((s, v) => s + (v.total - v.saldo), 0))
+    const ventasRows = ventasData || []
+    setIngresos(ventasRows.reduce((s, v) => s + (v.total - v.saldo), 0))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setVentasDetalle(ventasRows.map((v: any) => ({
+      folio:       v.folio ?? '',
+      fecha:       v.created_at ? (v.created_at as string).split('T')[0] : '',
+      atendidoPor: v.atendido_por ?? '',
+      total:       parseFloat(v.total) || 0,
+      saldo:       parseFloat(v.saldo) || 0,
+    })))
 
     // Costo lab: órdenes pagadas — usa fecha_pago_lab para reflejar cuándo salió el dinero
     let qLab = supabase
       .from('ordenes_lab')
-      .select('costo_lab, laboratorio')
+      .select('folio, costo_lab, laboratorio, fecha_pago_lab, paciente')
       .eq('pagado_lab', true)
       .gt('costo_lab', 0)
       .gte('fecha_pago_lab', inicio)
       .lte('fecha_pago_lab', fin)
+      .order('fecha_pago_lab', { ascending: false })
     if (sucursal !== 'Todas') qLab = qLab.eq('sucursal', sucursal)
     const { data: labData } = await qLab
     const labRows = labData || []
     setCostoLab(labRows.reduce((s, r) => s + (r.costo_lab || 0), 0))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setLabDetalle(labRows.map((r: any) => ({
+      folio:       r.folio ?? '',
+      laboratorio: r.laboratorio || 'Sin especificar',
+      costoLab:    parseFloat(r.costo_lab) || 0,
+      fechaPago:   r.fecha_pago_lab ?? '',
+      paciente:    r.paciente ?? '',
+    })))
 
     // Agrupado por laboratorio
     const byLab: Record<string, { total: number; count: number }> = {}
     labRows.forEach(r => {
-      const lab = r.laboratorio || 'Sin especificar'
+      const lab = (r as { laboratorio?: string }).laboratorio || 'Sin especificar'
       byLab[lab] = byLab[lab] || { total: 0, count: 0 }
-      byLab[lab].total += r.costo_lab || 0
+      byLab[lab].total += (r as { costo_lab?: number }).costo_lab || 0
       byLab[lab].count += 1
     })
     setPorLab(Object.entries(byLab)
@@ -195,12 +215,6 @@ function FinanzasPage() {
   const utilidadBruta  = ingresos - costoLab
   const utilidadNeta   = utilidadBruta - totalGastos
   const margen         = ingresos > 0 ? Math.round((utilidadNeta / ingresos) * 100) : 0
-
-  // Gastos por categoría para gráfica
-  const porCategoria = CATEGORIAS_GASTO.map(cat => ({
-    name: CATEGORIAS_LABEL[cat],
-    total: gastos.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0),
-  })).filter(c => c.total > 0)
 
   // ── Guardar / editar gasto ──
   const guardarGasto = async () => {
@@ -292,17 +306,24 @@ function FinanzasPage() {
         <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">Cargando…</div>
       ) : (
         <>
-          {/* KPIs */}
+          {/* ── 4 KPI Cards clickeables ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Cobrado (ventas)', value: ingresos,      icon: TrendingUp,   color: 'text-teal-600',    bg: 'bg-teal-50'   },
-              { label: 'Costo laboratorio', value: costoLab,    icon: FlaskConical, color: 'text-violet-600',  bg: 'bg-violet-50' },
-              { label: 'Gastos operativos', value: totalGastos, icon: TrendingDown, color: 'text-red-500',     bg: 'bg-red-50'    },
-              { label: 'Utilidad neta',   value: utilidadNeta,  icon: DollarSign,   color: utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600', bg: utilidadNeta >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
-            ].map(k => {
+            {([
+              { key: 'cobrado'   as const, label: 'Cobrado (ventas)',  value: ingresos,     icon: TrendingUp,   color: 'text-teal-600',    bg: 'bg-teal-50',    border: 'border-teal-400'    },
+              { key: 'costo_lab' as const, label: 'Costo laboratorio', value: costoLab,     icon: FlaskConical, color: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-400'  },
+              { key: 'gastos'    as const, label: 'Gastos operativos', value: totalGastos,  icon: TrendingDown, color: 'text-red-500',     bg: 'bg-red-50',     border: 'border-red-400'     },
+              { key: 'utilidad'  as const, label: 'Utilidad neta',     value: utilidadNeta, icon: DollarSign,   color: utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600', bg: utilidadNeta >= 0 ? 'bg-emerald-50' : 'bg-red-50', border: utilidadNeta >= 0 ? 'border-emerald-400' : 'border-red-400' },
+            ]).map(k => {
               const Icon = k.icon
+              const activa = cardActiva === k.key
               return (
-                <div key={k.label} className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
+                <button
+                  key={k.key}
+                  onClick={() => setCardActiva(prev => prev === k.key ? null : k.key)}
+                  className={`bg-white rounded-lg px-5 py-4 border-2 text-left transition-all cursor-pointer w-full ${
+                    activa ? `${k.border} shadow-sm` : 'border-transparent outline outline-1 outline-zinc-200/80 hover:outline-zinc-300'
+                  }`}
+                >
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-zinc-400">{k.label}</p>
                     <div className={`w-8 h-8 rounded ${k.bg} flex items-center justify-center`}>
@@ -310,131 +331,213 @@ function FinanzasPage() {
                     </div>
                   </div>
                   <p className={`text-2xl font-bold mt-2 ${k.color}`}>{$$(k.value)}</p>
-                  {k.label === 'Utilidad neta' && (
+                  {k.key === 'utilidad' && (
                     <p className="text-xs text-zinc-400 mt-0.5">Margen {margen}%</p>
                   )}
-                </div>
+                  {activa && (
+                    <p className="text-[10px] text-zinc-400 mt-1">▲ Ver detalle</p>
+                  )}
+                </button>
               )
             })}
           </div>
 
-          {/* Estado de resultados + Por laboratorio */}
-          <div className="grid md:grid-cols-2 gap-5">
+          {/* ── Panel de desglose (aparece al picar una card) ── */}
+          {cardActiva && (
+            <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
 
-            {/* Estado de resultados */}
-            <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
-              <h3 className="text-sm font-bold text-zinc-700 mb-3">Estado de resultados</h3>
-              <div className="divide-y divide-zinc-100">
-                <ResumenRow label="Cobrado en ventas del período" value={ingresos} />
-                <ResumenRow label="− Costo de laboratorio"   value={-costoLab} indent color="text-violet-600" />
-                <ResumenRow label="Utilidad bruta"            value={utilidadBruta} bold color={utilidadBruta >= 0 ? 'text-zinc-900' : 'text-red-600'} />
-                {CATEGORIAS_GASTO.map(cat => {
-                  const total = gastos.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0)
-                  if (total === 0) return null
-                  return <ResumenRow key={cat} label={`− ${CATEGORIAS_LABEL[cat]}`} value={-total} indent color="text-red-500" />
-                })}
-                <ResumenRow label="Utilidad neta" value={utilidadNeta} bold color={utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600'} />
-              </div>
-            </div>
-
-            {/* Por laboratorio */}
-            <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
-              <h3 className="text-sm font-bold text-zinc-700 mb-3">Gasto por laboratorio</h3>
-              {porLab.length === 0 ? (
-                <p className="text-sm text-zinc-400 text-center py-8">Sin órdenes pagadas en este período</p>
-              ) : (
+              {/* Cobrado → tabla de ventas */}
+              {cardActiva === 'cobrado' && (
                 <>
-                  <div className="space-y-3 mb-4">
-                    {porLab.map(lab => {
-                      const pct = costoLab > 0 ? Math.round((lab.total / costoLab) * 100) : 0
-                      return (
-                        <div key={lab.nombre}>
-                          <div className="flex justify-between items-baseline mb-1">
-                            <span className="text-sm text-zinc-700 truncate max-w-[60%]">{lab.nombre}</span>
-                            <span className="text-xs text-zinc-400">{lab.count} órdenes · {$$(lab.total)}</span>
-                          </div>
-                          <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.max(pct, 2)}%` }} />
-                          </div>
-                        </div>
-                      )
-                    })}
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+                    <h3 className="text-sm font-bold text-zinc-700">
+                      Ventas del período
+                      <span className="ml-2 text-xs font-normal text-zinc-400">{ventasDetalle.length} registros</span>
+                    </h3>
+                    <span className="text-sm font-bold text-teal-600">{$$(ingresos)}</span>
                   </div>
-                  {porLab.length > 1 && (
-                    <ResponsiveContainer width="100%" height={120}>
-                      <BarChart data={porLab.map(l => ({ name: l.nombre.split(' ')[0], total: l.total }))}
-                        margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                        <Tooltip formatter={(v: unknown) => [$$(Number(v)), 'Costo']}
-                          contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-                        <Bar dataKey="total" fill="#7C3AED" radius={[3, 3, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  {ventasDetalle.length === 0 ? (
+                    <p className="text-sm text-zinc-400 text-center py-10">Sin ventas en este período</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-zinc-100">
+                        {['Folio', 'Fecha', 'Atendió', 'Total', 'Saldo', 'Cobrado'].map(h => (
+                          <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody className="divide-y divide-zinc-50">
+                        {ventasDetalle.map((v, i) => (
+                          <tr key={i} className="hover:bg-zinc-50 transition-colors">
+                            <td className="px-5 py-3 text-xs font-mono text-zinc-500">{v.folio}</td>
+                            <td className="px-5 py-3 text-xs text-zinc-400">{v.fecha}</td>
+                            <td className="px-5 py-3 text-xs text-zinc-500">{v.atendidoPor || '—'}</td>
+                            <td className="px-5 py-3 text-sm font-semibold text-zinc-700">{$$(v.total)}</td>
+                            <td className="px-5 py-3 text-xs text-amber-600">{v.saldo > 0 ? $$(v.saldo) : '—'}</td>
+                            <td className="px-5 py-3 text-sm font-bold text-teal-600">{$$(v.total - v.saldo)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
                 </>
               )}
-            </div>
-          </div>
 
-          {/* Gastos manuales */}
-          <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
-              <h3 className="text-sm font-bold text-zinc-700">
-                Gastos registrados
-                <span className="ml-2 text-xs font-normal text-zinc-400">{gastos.length} registros</span>
-              </h3>
-              {gastos.length > 0 && (
-                <span className="text-sm font-semibold text-red-500">{$$(totalGastos)}</span>
+              {/* Costo lab → por lab + tabla de órdenes */}
+              {cardActiva === 'costo_lab' && (
+                <>
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+                    <h3 className="text-sm font-bold text-zinc-700">
+                      Órdenes de laboratorio pagadas
+                      <span className="ml-2 text-xs font-normal text-zinc-400">{labDetalle.length} registros</span>
+                    </h3>
+                    <span className="text-sm font-bold text-violet-600">{$$(costoLab)}</span>
+                  </div>
+                  {porLab.length > 0 && (
+                    <div className="px-5 py-4 border-b border-zinc-100 space-y-2.5">
+                      {porLab.map(lab => {
+                        const pct = costoLab > 0 ? Math.round((lab.total / costoLab) * 100) : 0
+                        return (
+                          <div key={lab.nombre}>
+                            <div className="flex justify-between items-baseline mb-1">
+                              <span className="text-sm text-zinc-700 font-medium">{lab.nombre}</span>
+                              <span className="text-xs text-zinc-400">{lab.count} órdenes · {$$(lab.total)}</span>
+                            </div>
+                            <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${Math.max(pct, 2)}%` }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {labDetalle.length === 0 ? (
+                    <p className="text-sm text-zinc-400 text-center py-10">Sin órdenes pagadas en este período</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-zinc-100">
+                        {['Folio', 'Paciente', 'Laboratorio', 'Fecha pago', 'Costo'].map(h => (
+                          <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody className="divide-y divide-zinc-50">
+                        {labDetalle.map((r, i) => (
+                          <tr key={i} className="hover:bg-zinc-50 transition-colors">
+                            <td className="px-5 py-3 text-xs font-mono text-zinc-500">{r.folio}</td>
+                            <td className="px-5 py-3 text-sm text-zinc-700">{r.paciente || '—'}</td>
+                            <td className="px-5 py-3 text-xs text-zinc-500">{r.laboratorio}</td>
+                            <td className="px-5 py-3 text-xs text-zinc-400">{r.fechaPago}</td>
+                            <td className="px-5 py-3 text-sm font-bold text-violet-600">{$$(r.costoLab)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </>
+              )}
+
+              {/* Gastos → tabla de gastos con edit/delete */}
+              {cardActiva === 'gastos' && (
+                <>
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+                    <h3 className="text-sm font-bold text-zinc-700">
+                      Gastos operativos
+                      <span className="ml-2 text-xs font-normal text-zinc-400">{gastos.length} registros</span>
+                    </h3>
+                    {gastos.length > 0 && <span className="text-sm font-bold text-red-500">{$$(totalGastos)}</span>}
+                  </div>
+                  {gastos.length === 0 ? (
+                    <div className="text-center py-12 text-zinc-400">
+                      <p className="text-sm">Sin gastos registrados en este período</p>
+                      <button onClick={() => setModal(true)} className="mt-3 text-xs text-teal-600 hover:underline font-medium">
+                        + Registrar primer gasto
+                      </button>
+                    </div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-zinc-100">
+                        {['Fecha', 'Concepto', 'Categoría', 'Sucursal', 'Monto', ''].map(h => (
+                          <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody className="divide-y divide-zinc-50">
+                        {gastos.map(g => (
+                          <tr key={g.id} className="hover:bg-zinc-50 transition-colors group">
+                            <td className="px-5 py-3 text-xs text-zinc-400 whitespace-nowrap">{g.fecha}</td>
+                            <td className="px-5 py-3">
+                              <p className="text-sm text-zinc-700 font-medium">{g.concepto}</p>
+                              {g.notas && <p className="text-xs text-zinc-400 mt-0.5">{g.notas}</p>}
+                            </td>
+                            <td className="px-5 py-3">
+                              <span className="text-xs bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full">
+                                {CATEGORIAS_LABEL[g.categoria] || g.categoria}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-xs text-zinc-500">{g.sucursal}</td>
+                            <td className="px-5 py-3 text-sm font-semibold text-red-500">−{$$(g.monto)}</td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => abrirEditar(g)} className="text-zinc-300 hover:text-zinc-600">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => eliminarGasto(g.id)} className="text-zinc-300 hover:text-red-400">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </>
+              )}
+
+              {/* Utilidad → estado de resultados completo */}
+              {cardActiva === 'utilidad' && (
+                <div className="px-5 py-5">
+                  <h3 className="text-sm font-bold text-zinc-700 mb-4">Estado de resultados</h3>
+                  <div className="divide-y divide-zinc-100">
+                    <ResumenRow label="Cobrado en ventas del período" value={ingresos} />
+                    <ResumenRow label="− Costo de laboratorio"   value={-costoLab}     indent color="text-violet-600" />
+                    <ResumenRow label="Utilidad bruta"            value={utilidadBruta} bold color={utilidadBruta >= 0 ? 'text-zinc-900' : 'text-red-600'} />
+                    {CATEGORIAS_GASTO.map(cat => {
+                      const total = gastos.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0)
+                      if (total === 0) return null
+                      return <ResumenRow key={cat} label={`− ${CATEGORIAS_LABEL[cat]}`} value={-total} indent color="text-red-500" />
+                    })}
+                    <ResumenRow label="Utilidad neta" value={utilidadNeta} bold color={utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600'} />
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-zinc-100">
+                    <div className="flex items-center justify-between text-xs text-zinc-400">
+                      <span>Margen sobre ventas</span>
+                      <span className={`font-bold text-sm ${margen >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{margen}%</span>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
+          )}
 
-            {gastos.length === 0 ? (
-              <div className="text-center py-12 text-zinc-400">
-                <p className="text-sm">Sin gastos registrados en este período</p>
-                <button onClick={() => setModal(true)}
-                  className="mt-3 text-xs text-teal-600 hover:underline font-medium">
-                  + Registrar primer gasto
-                </button>
+          {/* ── Tira resumen compacta siempre visible ── */}
+          <div className="bg-white rounded-lg border border-zinc-200/80 px-5 py-3">
+            <div className="flex items-center gap-0 divide-x divide-zinc-100 text-center overflow-x-auto">
+              {[
+                { label: 'Cobrado',        value: ingresos,      color: 'text-teal-600'    },
+                { label: '− Costo lab',    value: -costoLab,     color: 'text-violet-600'  },
+                { label: 'Util. bruta',    value: utilidadBruta, color: utilidadBruta  >= 0 ? 'text-zinc-800' : 'text-red-600' },
+                { label: '− Gastos',       value: -totalGastos,  color: 'text-red-500'     },
+                { label: 'Util. neta',     value: utilidadNeta,  color: utilidadNeta   >= 0 ? 'text-emerald-600' : 'text-red-600' },
+              ].map((item, i) => (
+                <div key={i} className="flex-1 min-w-[100px] px-4 py-1">
+                  <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wide">{item.label}</p>
+                  <p className={`text-sm font-bold mt-0.5 ${item.color}`}>{$$(item.value)}</p>
+                </div>
+              ))}
+              <div className="flex-1 min-w-[80px] px-4 py-1">
+                <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wide">Margen</p>
+                <p className={`text-sm font-bold mt-0.5 ${margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{margen}%</p>
               </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-100">
-                    {['Fecha', 'Concepto', 'Categoría', 'Sucursal', 'Monto', ''].map(h => (
-                      <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-50">
-                  {gastos.map(g => (
-                    <tr key={g.id} className="hover:bg-zinc-50 transition-colors group">
-                      <td className="px-5 py-3 text-xs text-zinc-400 whitespace-nowrap">{g.fecha}</td>
-                      <td className="px-5 py-3">
-                        <p className="text-sm text-zinc-700 font-medium">{g.concepto}</p>
-                        {g.notas && <p className="text-xs text-zinc-400 mt-0.5">{g.notas}</p>}
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className="text-xs bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full">
-                          {CATEGORIAS_LABEL[g.categoria] || g.categoria}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-xs text-zinc-500">{g.sucursal}</td>
-                      <td className="px-5 py-3 text-sm font-semibold text-red-500">−{$$(g.monto)}</td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => abrirEditar(g)} className="text-zinc-300 hover:text-zinc-600">
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => eliminarGasto(g.id)} className="text-zinc-300 hover:text-red-400">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            </div>
           </div>
         </>
       )}
