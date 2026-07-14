@@ -31,7 +31,8 @@ type GastoHoy = {
   id: string
   fecha: string
   categoria: string
-  descripcion: string
+  concepto: string
+  notas: string
   monto: number
   metodo_pago: string
 }
@@ -237,7 +238,7 @@ export default function CajaPage() {
     // 3. Gastos del día
     const { data: gastosData } = await sb
       .from('gastos')
-      .select('id, fecha, categoria, descripcion, monto, metodo_pago')
+      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
       .eq('sucursal', sucursal)
       .eq('fecha', hoy)
       .order('created_at', { ascending: true })
@@ -290,13 +291,13 @@ export default function CajaPage() {
     const hoy = hoyLocal()
     const catLabel = CATEGORIAS_EGRESO.find(c => c.value === egresoCategoria)?.label ?? egresoCategoria
     const { error } = await sb.from('gastos').insert({
-      fecha:          hoy,
-      categoria:      egresoCategoria,
-      descripcion:    egresoDescripcion || catLabel,
+      fecha:       hoy,
+      categoria:   egresoCategoria,
+      concepto:    catLabel,
+      notas:       egresoDescripcion || null,
       monto,
-      metodo_pago:    egresoMetodoPago,
-      sucursal:       usuario.sucursal,
-      registrado_por: usuario.nombre,
+      metodo_pago: egresoMetodoPago,
+      sucursal:    usuario.sucursal,
     })
     if (error) {
       setErrorGuardado(`Error al guardar egreso: ${error.message}`)
@@ -305,7 +306,7 @@ export default function CajaPage() {
     }
     const { data } = await sb
       .from('gastos')
-      .select('id, fecha, categoria, descripcion, monto, metodo_pago')
+      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
       .eq('sucursal', usuario.sucursal)
       .eq('fecha', hoy)
       .order('created_at', { ascending: true })
@@ -331,7 +332,7 @@ export default function CajaPage() {
     ].join('')
 
     const egresosRows = gastosHoy.length > 0
-      ? gastosHoy.map(g => `<tr><td>${g.descripcion}</td><td class="r">${fmt$(Number(g.monto))}</td></tr>`).join('')
+      ? gastosHoy.map(g => `<tr><td>${g.notas || g.concepto}</td><td class="r">${fmt$(Number(g.monto))}</td></tr>`).join('')
       : '<tr><td colspan="2">Sin egresos</td></tr>'
 
     const difClass = diferencia === 0 ? 'ok' : diferencia > 0 ? 'over' : 'short'
@@ -747,7 +748,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                 return (
                   <div key={g.id} className="flex items-center gap-3 px-5 py-3">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-zinc-700">{g.descripcion || catLabel}</p>
+                      <p className="text-sm font-medium text-zinc-700">{g.notas || g.concepto}</p>
                       <p className="text-xs text-zinc-400">
                         {catLabel}
                         {g.metodo_pago === 'efectivo_usd' ? ' · 🇺🇸 USD' : g.metodo_pago === 'efectivo' ? ' · MXN' : ''}
