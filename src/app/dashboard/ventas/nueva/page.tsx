@@ -327,6 +327,10 @@ export default function NuevaVentaPage() {
     setFolioLabGuardado([])
     setNotaImpresa(false)
     setOrdenLabImpresa(false)
+    setModoPago('liquidar')
+    setAnticipo('')
+    setMetodoPago('efectivo')
+    setConfirmarSinAnticipo(false)
   }
 
   const subtotal = carrito.reduce((s, i) => {
