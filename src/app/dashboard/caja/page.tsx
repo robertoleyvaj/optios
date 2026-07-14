@@ -750,7 +750,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                       <p className="text-sm font-medium text-zinc-700">{g.notas || g.concepto}</p>
                       <p className="text-xs text-zinc-400">
                         {catLabel}
-                        {g.metodo_pago === 'efectivo_usd' ? ' · 🇺🇸 USD' : g.metodo_pago === 'efectivo' ? ' · MXN' : ''}
+                        {' · MXN'}
                       </p>
                     </div>
                     <p className="text-sm font-bold text-red-600">{fmt$(Number(g.monto))}</p>
