@@ -1034,207 +1034,6 @@ function VistaRepartidor({ ordenes, onUpdate }: {
 // ─────────────────────────────────────────
 // Modal: Ficha completa de ciclo de vida
 // ─────────────────────────────────────────
-function FichaOrdenModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }) {
-  const [historial, setHistorial] = useState<HistorialItem[]>([])
-  const [ventaInfo, setVentaInfo] = useState<{ atendidoPor: string; total: number; metodoPago: string } | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const load = async () => {
-      const sb = createClient()
-      const [hRes, vRes] = await Promise.all([
-        sb.from('ordenes_lab_historial').select('*').eq('orden_id', orden.supabaseId).order('created_at', { ascending: true }),
-        orden.folioVenta
-          ? sb.from('ventas').select('atendido_por, total, metodo_pago').eq('folio', orden.folioVenta).maybeSingle()
-          : Promise.resolve({ data: null }),
-      ])
-      if (hRes.data) setHistorial(hRes.data as HistorialItem[])
-      if (vRes.data) setVentaInfo({
-        atendidoPor: (vRes.data as { atendido_por: string }).atendido_por ?? '',
-        total: Number((vRes.data as { total: number }).total),
-        metodoPago: (vRes.data as { metodo_pago: string }).metodo_pago ?? '',
-      })
-      setLoading(false)
-    }
-    if (orden.supabaseId) load(); else setLoading(false)
-  }, [orden.supabaseId, orden.folioVenta])
-
-  const diasEntre = (desde: string, hasta: string): number | null => {
-    if (!desde || !hasta) return null
-    const d = Math.round((new Date(hasta).getTime() - new Date(desde).getTime()) / 86400000)
-    return d >= 0 ? d : null
-  }
-  const fmt = (d: string) => d ? new Date(d + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '—'
-
-  const diasEspera = diasEntre(orden.fechaIngreso, orden.fechaEnvioLab)
-  const diasLab    = diasEntre(orden.fechaEnvioLab, orden.fechaRecogidaLab)
-  const diasSuc    = diasEntre(orden.fechaRecogidaLab, orden.fechaEntrega)
-  const diasTotal  = diasEntre(orden.fechaIngreso, orden.fechaEntrega)
-
-  const steps = [
-    {
-      done: !!orden.fechaIngreso, label: 'Ingreso a óptica', date: fmt(orden.fechaIngreso),
-      detail: [orden.creadoPor || ventaInfo?.atendidoPor ? `Registró: ${orden.creadoPor || ventaInfo?.atendidoPor}` : null].filter(Boolean).join(' · '),
-      dias: diasEspera,
-    },
-    {
-      done: !!orden.fechaEnvioLab, label: 'Enviado al laboratorio', date: fmt(orden.fechaEnvioLab),
-      detail: orden.laboratorio || '',
-      dias: diasLab,
-    },
-    {
-      done: !!orden.fechaRecogidaLab, label: 'Recogido del laboratorio', date: fmt(orden.fechaRecogidaLab),
-      detail: orden.costoLab > 0
-        ? `$${orden.costoLab.toLocaleString('es-MX')} · ${orden.metodoPagoLab || '—'}${orden.pagadoLab ? ' ✓' : ' (sin pagar)'}`
-        : 'Sin costo registrado',
-      dias: diasSuc,
-    },
-    {
-      done: !!orden.fechaEntrega, label: 'Entregado al paciente', date: fmt(orden.fechaEntrega),
-      detail: ventaInfo?.metodoPago ? `Pago cliente: ${ventaInfo.metodoPago}` : '',
-      dias: null,
-    },
-  ]
-
-  return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl border border-zinc-100 w-full max-w-md max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between px-5 py-4 border-b border-zinc-100">
-          <div>
-            <p className="text-sm font-bold text-zinc-900">{orden.paciente}</p>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              {orden.folio}{orden.folioVenta ? ` · ${orden.folioVenta}` : ''} · {orden.sucursal}
-            </p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {orden.tipoMica}{orden.tratamiento !== 'ninguno' ? ` + ${orden.tratamiento}` : ''}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="py-12 text-center text-sm text-zinc-400">Cargando...</div>
-        ) : (
-          <div className="px-5 py-4 space-y-5">
-
-            {/* Timeline */}
-            <div>
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Ciclo de vida</p>
-              {steps.map((step, i) => (
-                <div key={i}>
-                  <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${step.done ? 'bg-emerald-500' : 'bg-zinc-200'}`}>
-                      {step.done && <svg viewBox="0 0 10 10" className="w-3 h-3" fill="none" stroke="white" strokeWidth="2"><polyline points="1.5,5 4,7.5 8.5,2.5"/></svg>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className={`text-sm font-medium ${step.done ? 'text-zinc-800' : 'text-zinc-400'}`}>{step.label}</p>
-                        <p className={`text-xs flex-shrink-0 ${step.done ? 'text-zinc-500' : 'text-zinc-300'}`}>{step.done ? step.date : '—'}</p>
-                      </div>
-                      {step.detail && <p className="text-xs text-zinc-400 mt-0.5">{step.detail}</p>}
-                    </div>
-                  </div>
-                  {i < steps.length - 1 && (
-                    <div className="flex items-center gap-3 my-1">
-                      <div className="w-5 flex justify-center">
-                        <div className={`w-0.5 h-4 ${step.done && steps[i + 1].done ? 'bg-emerald-300' : 'bg-zinc-200'}`} />
-                      </div>
-                      {step.dias !== null && (
-                        <p className="text-[11px] text-zinc-400 italic">
-                          {step.dias === 0 ? 'Mismo día' : `${step.dias} día${step.dias !== 1 ? 's' : ''}`}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {diasTotal !== null && (
-                <div className="mt-3 bg-zinc-50 rounded-lg px-3 py-2 flex items-center justify-between">
-                  <p className="text-xs text-zinc-500">Ciclo total (ingreso → entrega)</p>
-                  <p className="text-xs font-bold text-zinc-700">{diasTotal} día{diasTotal !== 1 ? 's' : ''}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Económico */}
-            {(ventaInfo || orden.costoLab > 0) && (
-              <div>
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Económico</p>
-                <div className="bg-zinc-50 rounded-xl px-4 py-3 space-y-2 text-sm">
-                  {ventaInfo && (
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Total venta</span>
-                      <span className="font-semibold text-zinc-800">${ventaInfo.total.toLocaleString('es-MX')}</span>
-                    </div>
-                  )}
-                  {orden.costoLab > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Costo laboratorio</span>
-                      <span className="font-semibold text-zinc-800">${orden.costoLab.toLocaleString('es-MX')}</span>
-                    </div>
-                  )}
-                  {ventaInfo && orden.costoLab > 0 && (
-                    <div className="flex justify-between border-t border-zinc-200 pt-2">
-                      <span className="text-zinc-500">Margen bruto</span>
-                      <span className={`font-bold ${ventaInfo.total - orden.costoLab >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        ${(ventaInfo.total - orden.costoLab).toLocaleString('es-MX')}
-                      </span>
-                    </div>
-                  )}
-                  <div className="border-t border-zinc-200 pt-2 space-y-1">
-                    {ventaInfo?.metodoPago && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-zinc-400">Pago cliente</span>
-                        <span className="text-zinc-600 capitalize">{ventaInfo.metodoPago}</span>
-                      </div>
-                    )}
-                    {orden.metodoPagoLab && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-zinc-400">Pago al laboratorio</span>
-                        <span className="text-zinc-600 capitalize">{orden.metodoPagoLab}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Historial */}
-            {historial.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Historial de cambios</p>
-                <div className="space-y-2.5">
-                  {historial.map((h, i) => (
-                    <div key={i} className="flex items-start gap-2.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-zinc-300 mt-1.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-medium text-zinc-700 truncate">
-                            {h.estado_despues
-                              ? `→ ${h.estado_despues.replace(/_/g, ' ')}`
-                              : h.evento}
-                          </p>
-                          <p className="text-[10px] text-zinc-400 flex-shrink-0">
-                            {new Date(h.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                        {h.registrado_por && <p className="text-[10px] text-zinc-400">{h.registrado_por}</p>}
-                        {h.notas && h.notas !== 'Orden creada' && <p className="text-xs text-zinc-500 mt-0.5">{h.notas}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, onNuevaOrden }: {
   ordenes: OrdenLab[]
   sucursal: string
@@ -1244,9 +1043,7 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
   onProblema: (original: OrdenLab, motivo: string) => void
   onNuevaOrden: () => void
 }) {
-  const puedeVerFicha = rol === 'administrador'
   const [busquedaLocal, setBusquedaLocal] = useState('')
-  const [fichaOrden, setFichaOrden] = useState<OrdenLab | null>(null)
 
   const pendientes = ordenes
     .filter(o => {
@@ -1455,16 +1252,8 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
             </div>
           )}
 
-          {/* Imprimir + Ver ficha */}
-          <div className="flex items-center justify-between border-t border-zinc-100 pt-2">
-            {puedeVerFicha ? (
-              <button
-                onClick={() => setFichaOrden(o)}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors"
-              >
-                <Eye className="w-3.5 h-3.5" /> Ver ficha
-              </button>
-            ) : <div />}
+          {/* Imprimir */}
+          <div className="flex items-center justify-end border-t border-zinc-100 pt-2">
             <button
               onClick={() => onPrint(o)}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors"
@@ -1581,7 +1370,6 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
         </div>
       )}
 
-      {fichaOrden && <FichaOrdenModal orden={fichaOrden} onClose={() => setFichaOrden(null)} />}
     </div>
   )
 }

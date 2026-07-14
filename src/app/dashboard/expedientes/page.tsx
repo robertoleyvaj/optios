@@ -86,101 +86,6 @@ type Paciente = {
   _ultimaRecetaFecha?: string | null
 }
 
-// ─────────────────────────────────────────
-// Datos mock
-// ─────────────────────────────────────────
-const PACIENTES_MOCK: Paciente[] = [
-  {
-    id: 1, nombre: 'María', apellido: 'González', telefono: '686 123 4567',
-    email: 'maria.gonzalez@gmail.com', fechaNacimiento: '1985-03-12',
-    sucursalPrincipal: 'Baja Visión', notas: 'Diabética. Sensible a reflejos.',
-    recetas: [
-      { id: 1, fecha: '2026-04-10', tipo: 'Progresivo', od_esfera: '-2.50', od_cilindro: '-0.75', od_eje: '170', od_add: '+2.00', oi_esfera: '-2.25', oi_cilindro: '-0.50', oi_eje: '005', oi_add: '+2.00', dp: '62', optometrista: 'Dr. Leyva', observaciones: 'Antirreflejante recomendado' },
-      { id: 2, fecha: '2025-02-18', tipo: 'Progresivo', od_esfera: '-2.25', od_cilindro: '-0.75', od_eje: '168', od_add: '+1.75', oi_esfera: '-2.00', oi_cilindro: '-0.50', oi_eje: '003', oi_add: '+1.75', dp: '62', optometrista: 'Dr. Leyva', observaciones: '' },
-    ],
-    citas: [
-      { fecha: '2026-04-10', tipo: 'Examen visual', sucursal: 'Baja Visión', estado: 'Atendida' },
-      { fecha: '2026-06-25', tipo: 'Revisión · Seguimiento 1', sucursal: 'Baja Visión', estado: 'Confirmada' },
-    ],
-    ventas: [
-      { id: 'mock-1', fecha: '2026-04-10', folio: 'V-0028', total: 5200, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [{ id: 'i1', nombre: 'Armazón Ray-Ban', sku: '', precio_unitario: 2200, cantidad: 1, descuento: 0, subtotal: 2200 }, { id: 'i2', nombre: 'Micas progresivas', sku: '', precio_unitario: 3000, cantidad: 1, descuento: 0, subtotal: 3000 }] },
-      { id: 'mock-2', fecha: '2025-02-18', folio: 'V-0011', total: 4800, notas: '', estado: 'activa', metodo_pago: 'tarjeta', atendido_por: '', items: [] },
-    ],
-  },
-  {
-    id: 2, nombre: 'Carlos', apellido: 'Ruiz', telefono: '686 234 5678',
-    email: '', fechaNacimiento: '1992-07-30',
-    sucursalPrincipal: '5 de Mayo', notas: '',
-    recetas: [
-      { id: 3, fecha: '2026-03-05', tipo: 'Lejos', od_esfera: '+1.00', od_cilindro: '0.00', od_eje: '000', od_add: '', oi_esfera: '+1.25', oi_cilindro: '-0.25', oi_eje: '090', oi_add: '', dp: '64', optometrista: 'Dr. Leyva', observaciones: '' },
-    ],
-    citas: [
-      { fecha: '2026-03-05', tipo: 'Examen visual', sucursal: '5 de Mayo', estado: 'Atendida' },
-      { fecha: '2026-06-25', tipo: 'Cita web', sucursal: '5 de Mayo', estado: 'Confirmada' },
-    ],
-    ventas: [
-      { id: 'mock-3', fecha: '2026-03-05', folio: 'V-0019', total: 1200, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [] },
-    ],
-  },
-  {
-    id: 3, nombre: 'Ana', apellido: 'López', telefono: '686 345 6789',
-    email: 'ana.lopez@outlook.com', fechaNacimiento: '1978-11-22',
-    sucursalPrincipal: 'Plaza Laureles', notas: 'Trae receta de oftalmólogo externo.',
-    recetas: [
-      { id: 4, fecha: '2026-05-20', tipo: 'Bifocal', od_esfera: '-3.00', od_cilindro: '-1.25', od_eje: '082', od_add: '+2.50', oi_esfera: '-3.25', oi_cilindro: '-1.00', oi_eje: '095', oi_add: '+2.50', dp: '60', optometrista: 'Dr. Leyva', observaciones: 'Receta externa' },
-    ],
-    citas: [
-      { fecha: '2026-05-20', tipo: 'Consulta', sucursal: 'Plaza Laureles', estado: 'Atendida' },
-      { fecha: '2026-06-25', tipo: 'Consulta', sucursal: 'Baja Visión', estado: 'Confirmada' },
-    ],
-    ventas: [
-      { id: 'mock-4', fecha: '2026-05-20', folio: 'V-0033', total: 6200, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [] },
-    ],
-  },
-  {
-    id: 4, nombre: 'Pedro', apellido: 'Sánchez', telefono: '686 456 7890',
-    email: '', fechaNacimiento: '2001-05-14',
-    sucursalPrincipal: 'Baja Visión', notas: '',
-    recetas: [
-      { id: 5, fecha: '2026-06-25', tipo: 'Lejos', od_esfera: '-1.00', od_cilindro: '0.00', od_eje: '000', od_add: '', oi_esfera: '-0.75', oi_cilindro: '0.00', oi_eje: '000', oi_add: '', dp: '65', optometrista: 'Dr. Leyva', observaciones: '' },
-    ],
-    citas: [
-      { fecha: '2026-06-25', tipo: 'Examen visual', sucursal: 'Plaza Laureles', estado: 'Atendida' },
-    ],
-    ventas: [],
-  },
-  {
-    id: 5, nombre: 'Laura', apellido: 'Martínez', telefono: '686 567 8901',
-    email: 'lauramtz@gmail.com', fechaNacimiento: '1995-09-08',
-    sucursalPrincipal: 'Baja Visión', notas: 'Usa lentes de contacto blandos.',
-    recetas: [
-      { id: 6, fecha: '2025-11-15', tipo: 'Lejos', od_esfera: '-4.50', od_cilindro: '0.00', od_eje: '000', od_add: '', oi_esfera: '-4.25', oi_cilindro: '-0.25', oi_eje: '180', oi_add: '', dp: '61', optometrista: 'Dr. Leyva', observaciones: 'LC blandas mensuales' },
-    ],
-    citas: [
-      { fecha: '2025-11-15', tipo: 'Lentes de contacto', sucursal: 'Baja Visión', estado: 'Atendida' },
-      { fecha: '2026-06-25', tipo: 'Lentes de contacto', sucursal: 'Baja Visión', estado: 'Confirmada' },
-    ],
-    ventas: [
-      { id: 'mock-5', fecha: '2025-11-15', folio: 'V-0004', total: 2800, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [] },
-    ],
-  },
-  {
-    id: 6, nombre: 'Jorge', apellido: 'Herrera', telefono: '686 678 9012',
-    email: '', fechaNacimiento: '1968-01-25',
-    sucursalPrincipal: '5 de Mayo', notas: 'Hipertenso. Revisión cada 6 meses.',
-    recetas: [
-      { id: 7, fecha: '2026-01-10', tipo: 'Progresivo', od_esfera: '+2.00', od_cilindro: '-0.50', od_eje: '100', od_add: '+2.25', oi_esfera: '+2.25', oi_cilindro: '-0.75', oi_eje: '085', oi_add: '+2.25', dp: '63', optometrista: 'Dr. Leyva', observaciones: '' },
-    ],
-    citas: [
-      { fecha: '2026-01-10', tipo: 'Examen visual', sucursal: '5 de Mayo', estado: 'Atendida' },
-      { fecha: '2026-06-25', tipo: 'Revisión · Seguimiento 2', sucursal: '5 de Mayo', estado: 'Agendada' },
-    ],
-    ventas: [
-      { id: 'mock-6', fecha: '2026-01-10', folio: 'V-0009', total: 7400, notas: '', estado: 'activa', metodo_pago: 'efectivo', atendido_por: '', items: [] },
-    ],
-  },
-]
-
 const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
 // ─────────────────────────────────────────
@@ -193,6 +98,7 @@ type HistorialEvento = {
   subtitulo?: string
   tags?: string[]
   monto?: number
+  folio?: string
 }
 
 function primeraFechaRef(p: Paciente): string {
@@ -230,6 +136,7 @@ function getHistorialMezclado(p: Paciente): HistorialEvento[] {
   }))
   p.ventas.forEach(v => eventos.push({
     fecha: v.fecha, tipo: 'venta', titulo: 'Compra',
+    folio: v.folio,
     tags: v.items.length > 0 ? v.items.slice(0, 2).map(i => i.nombre) : undefined,
     monto: v.total,
     subtitulo: v.items.length === 0 ? 'Sin desglose de productos' : undefined,
@@ -371,18 +278,286 @@ const PAISES_LADA = [
 ]
 
 // ─────────────────────────────────────────
+// FichaVentaModal — solo admin
+// ─────────────────────────────────────────
+type OrdenLabFicha = {
+  id: string
+  folio: string
+  tipo_mica: string
+  tratamiento: string
+  laboratorio: string
+  estado: string
+  costo_lab: number
+  metodo_pago_lab: string
+  pagado_lab: boolean
+  fecha_ingreso: string
+  fecha_envio_lab: string
+  fecha_recogida_lab: string
+  fecha_entrega: string
+  creado_por: string
+  verificado_por: string
+  fecha_verificacion: string
+  es_garantia: boolean
+}
+
+type HistorialLabItem = {
+  id: string
+  created_at: string
+  evento: string
+  estado_antes?: string
+  estado_despues?: string
+  notas?: string
+  registrado_por?: string
+}
+
+function FichaVentaModal({ venta, onClose }: { venta: HistorialVenta; onClose: () => void }) {
+  const [ordenes, setOrdenes] = useState<OrdenLabFicha[]>([])
+  const [historialMap, setHistorialMap] = useState<Record<string, HistorialLabItem[]>>({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!venta.folio) { setLoading(false); return }
+    const load = async () => {
+      const sb = createClient()
+      const { data: ords } = await sb
+        .from('ordenes_lab')
+        .select('id, folio, tipo_mica, tratamiento, laboratorio, estado, costo_lab, metodo_pago_lab, pagado_lab, fecha_ingreso, fecha_envio_lab, fecha_recogida_lab, fecha_entrega, creado_por, verificado_por, fecha_verificacion, es_garantia')
+        .eq('folio_venta', venta.folio)
+        .order('fecha_ingreso', { ascending: true })
+
+      const listaOrdenes: OrdenLabFicha[] = (ords ?? []) as OrdenLabFicha[]
+      setOrdenes(listaOrdenes)
+
+      if (listaOrdenes.length > 0) {
+        const ids = listaOrdenes.map(o => o.id)
+        const { data: hist } = await sb
+          .from('ordenes_lab_historial')
+          .select('*')
+          .in('orden_id', ids)
+          .order('created_at', { ascending: true })
+
+        const mapa: Record<string, HistorialLabItem[]> = {}
+        for (const h of (hist ?? []) as (HistorialLabItem & { orden_id: string })[]) {
+          if (!mapa[h.orden_id]) mapa[h.orden_id] = []
+          mapa[h.orden_id].push(h)
+        }
+        setHistorialMap(mapa)
+      }
+      setLoading(false)
+    }
+    load()
+  }, [venta.folio])
+
+  const fmt = (d: string) => d ? new Date(d + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+  const diasEntre = (a: string, b: string) => {
+    if (!a || !b) return null
+    const d = Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000)
+    return d >= 0 ? d : null
+  }
+
+  const totalCostosLab = ordenes.reduce((s, o) => s + (o.costo_lab || 0), 0)
+  const margen = venta.total - totalCostosLab
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl border border-zinc-100 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 py-4 border-b border-zinc-100">
+          <div>
+            <p className="text-sm font-bold text-zinc-900">{venta.folio}</p>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              {fmt(venta.fecha)}
+              {venta.atendido_por ? ` · ${venta.atendido_por}` : ''}
+              {venta.metodo_pago ? ` · ${venta.metodo_pago}` : ''}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center text-sm text-zinc-400">Cargando...</div>
+        ) : (
+          <div className="px-5 py-4 space-y-5">
+
+            {/* Productos de la venta */}
+            {venta.items.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Productos</p>
+                <div className="space-y-1.5">
+                  {venta.items.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="text-zinc-600 truncate flex-1">{item.nombre}</span>
+                      <span className="text-zinc-700 font-semibold ml-3 flex-shrink-0">${item.subtotal.toLocaleString('es-MX')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Resumen económico */}
+            <div className="bg-zinc-50 rounded-xl px-4 py-3 space-y-2 text-sm">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Económico</p>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Total venta</span>
+                <span className="font-semibold text-zinc-800">${venta.total.toLocaleString('es-MX')}</span>
+              </div>
+              {totalCostosLab > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Costo laboratorio</span>
+                  <span className="font-semibold text-zinc-800">−${totalCostosLab.toLocaleString('es-MX')}</span>
+                </div>
+              )}
+              {totalCostosLab > 0 && (
+                <div className="flex justify-between border-t border-zinc-200 pt-2">
+                  <span className="text-zinc-500 font-medium">Margen bruto</span>
+                  <span className={`font-bold ${margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    ${margen.toLocaleString('es-MX')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Órdenes de laboratorio */}
+            {ordenes.length > 0 && (
+              <div className="space-y-4">
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Órdenes de laboratorio</p>
+                {ordenes.map(o => {
+                  const diasEspera = diasEntre(o.fecha_ingreso, o.fecha_envio_lab)
+                  const diasLab    = diasEntre(o.fecha_envio_lab, o.fecha_recogida_lab)
+                  const diasSuc    = diasEntre(o.fecha_recogida_lab, o.fecha_entrega)
+                  const diasTotal  = diasEntre(o.fecha_ingreso, o.fecha_entrega)
+                  const steps = [
+                    { done: !!o.fecha_ingreso,       label: 'Ingreso a óptica',         date: fmt(o.fecha_ingreso),       detail: o.creado_por ? `Registró: ${o.creado_por}` : '', dias: diasEspera },
+                    { done: !!o.fecha_envio_lab,     label: 'Enviado al laboratorio',   date: fmt(o.fecha_envio_lab),     detail: o.laboratorio || '', dias: diasLab },
+                    { done: !!o.fecha_recogida_lab,  label: 'Recogido del laboratorio', date: fmt(o.fecha_recogida_lab),  detail: o.costo_lab > 0 ? `$${o.costo_lab.toLocaleString('es-MX')} · ${o.metodo_pago_lab || '—'}${o.pagado_lab ? ' ✓' : ''}` : 'Sin costo', dias: diasSuc },
+                    { done: !!o.fecha_entrega,       label: 'Entregado al paciente',    date: fmt(o.fecha_entrega),       detail: o.verificado_por ? `Verificó: ${o.verificado_por}` : '', dias: null },
+                  ]
+                  const histOrden = historialMap[o.id] ?? []
+
+                  return (
+                    <div key={o.id} className="border border-zinc-100 rounded-xl p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-bold text-zinc-700">{o.folio}{o.es_garantia ? ' · Garantía' : ''}</p>
+                          <p className="text-xs text-zinc-500 mt-0.5">
+                            {o.tipo_mica}{o.tratamiento && o.tratamiento !== 'ninguno' ? ` + ${o.tratamiento}` : ''}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${
+                          o.estado === 'entregado' ? 'bg-zinc-100 text-zinc-500' :
+                          o.estado === 'listo'     ? 'bg-emerald-100 text-emerald-700' :
+                          o.estado === 'en_camino' ? 'bg-blue-100 text-blue-700' :
+                          'bg-zinc-100 text-zinc-500'
+                        }`}>{o.estado.replace(/_/g, ' ')}</span>
+                      </div>
+
+                      {/* Timeline */}
+                      <div className="space-y-0">
+                        {steps.map((step, i) => (
+                          <div key={i}>
+                            <div className="flex items-start gap-2.5">
+                              <div className={`mt-0.5 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${step.done ? 'bg-emerald-500' : 'bg-zinc-200'}`}>
+                                {step.done && <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" fill="none" stroke="white" strokeWidth="2.5"><polyline points="1.5,5 4,7.5 8.5,2.5"/></svg>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-baseline justify-between gap-2">
+                                  <p className={`text-xs font-medium ${step.done ? 'text-zinc-700' : 'text-zinc-400'}`}>{step.label}</p>
+                                  <p className={`text-[10px] flex-shrink-0 ${step.done ? 'text-zinc-400' : 'text-zinc-300'}`}>{step.done ? step.date : '—'}</p>
+                                </div>
+                                {step.detail && <p className="text-[10px] text-zinc-400 mt-0.5">{step.detail}</p>}
+                              </div>
+                            </div>
+                            {i < steps.length - 1 && (
+                              <div className="flex items-center gap-2.5 my-0.5">
+                                <div className="w-4 flex justify-center">
+                                  <div className={`w-0.5 h-3 ${step.done && steps[i+1].done ? 'bg-emerald-200' : 'bg-zinc-100'}`} />
+                                </div>
+                                {step.dias !== null && (
+                                  <p className="text-[10px] text-zinc-300 italic">
+                                    {step.dias === 0 ? 'mismo día' : `${step.dias}d`}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {diasTotal !== null && (
+                        <div className="bg-zinc-50 rounded px-3 py-1.5 flex items-center justify-between text-xs">
+                          <span className="text-zinc-400">Ciclo total</span>
+                          <span className="font-bold text-zinc-600">{diasTotal}d</span>
+                        </div>
+                      )}
+
+                      {/* Historial de la orden */}
+                      {histOrden.length > 0 && (
+                        <div className="border-t border-zinc-100 pt-3 space-y-2">
+                          <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Historial</p>
+                          {histOrden.map((h, hi) => (
+                            <div key={hi} className="flex items-start gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-zinc-200 mt-1.5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <p className="text-[10px] font-medium text-zinc-600 truncate">
+                                    {h.estado_despues ? `→ ${h.estado_despues.replace(/_/g, ' ')}` : h.evento}
+                                  </p>
+                                  <p className="text-[10px] text-zinc-300 flex-shrink-0">
+                                    {new Date(h.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                                {h.registrado_por && <p className="text-[10px] text-zinc-400">{h.registrado_por}</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {ordenes.length === 0 && (
+              <div className="text-center py-6 text-xs text-zinc-400">
+                Sin órdenes de laboratorio ligadas a esta venta
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────
 function ExpedientesContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [pacientes, setPacientes] = useState<Paciente[]>(PACIENTES_MOCK)
+  const [pacientes, setPacientes] = useState<Paciente[]>([])
   const [busqueda, setBusqueda] = useState('')
-  const [seleccionado, setSeleccionado] = useState<Paciente | null>(PACIENTES_MOCK[0])
+  const [seleccionado, setSeleccionado] = useState<Paciente | null>(null)
   // tabActiva removido (vista sin tabs)
+
+  // Usuario actual (para saber si es admin)
+  const [rolActual, setRolActual] = useState('')
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
+      setRolActual(u.rol ?? '')
+    } catch { /* noop */ }
+  }, [])
+  const esAdmin = rolActual === 'administrador'
 
   // Modal detalle compra
   const [ventaAbierta, setVentaAbierta] = useState<HistorialVenta | null>(null)
+
+  // Modal ficha completa de venta (admin only)
+  const [fichaVenta, setFichaVenta] = useState<HistorialVenta | null>(null)
 
   // Modal nueva receta
   const [modalReceta, setModalReceta] = useState(false)
@@ -557,6 +732,7 @@ function ExpedientesContent() {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (menuAbierto) { setMenuAbierto(false); return }
+      if (fichaVenta) { setFichaVenta(null); return }
       if (ventaAbierta) { setVentaAbierta(null); return }
       if (modalReceta) { setModalReceta(false); setErroresReceta({}); return }
       if (modalEditar) { setModalEditar(false); return }
@@ -1040,11 +1216,25 @@ function ExpedientesContent() {
                           {i < arr.length - 1 && <div className="w-px flex-1 bg-zinc-100 min-h-6 mt-1" />}
                         </div>
                         <div className="flex-1 pb-3">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <p className="text-xs font-semibold text-zinc-700">{ev.titulo}</p>
-                            {ev.monto !== undefined && (
-                              <span className="text-xs font-semibold text-zinc-500">${ev.monto.toLocaleString('es-MX')}</span>
-                            )}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {ev.monto !== undefined && (
+                                <span className="text-xs font-semibold text-zinc-500">${ev.monto.toLocaleString('es-MX')}</span>
+                              )}
+                              {ev.tipo === 'venta' && esAdmin && ev.folio && (() => {
+                                const v = seleccionado?.ventas.find(x => x.folio === ev.folio)
+                                return v ? (
+                                  <button
+                                    onClick={() => setFichaVenta(v)}
+                                    title="Ver ficha completa"
+                                    className="p-1 rounded text-zinc-300 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                  </button>
+                                ) : null
+                              })()}
+                            </div>
                           </div>
                           {ev.tags && ev.tags.length > 0 && (
                             <div className="flex gap-1 mt-1 flex-wrap">
@@ -1143,18 +1333,29 @@ function ExpedientesContent() {
                   </div>
                   <div className="space-y-1.5">
                     {[...seleccionado.ventas].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 3).map((v, i) => (
-                      <button key={i} onClick={() => setVentaAbierta(v)}
-                        className="w-full flex items-center justify-between text-left hover:bg-zinc-50 rounded px-1 py-1 transition-colors">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-medium text-zinc-500">{v.fecha}</p>
-                          <p className="text-[10px] text-zinc-400 truncate">
-                            {v.items.length > 0 ? v.items.slice(0, 2).map(it => it.nombre).join(' + ') : 'Sin desglose'}
-                          </p>
-                        </div>
-                        <span className="text-xs font-bold text-zinc-700 ml-2 flex-shrink-0">
-                          ${v.total.toLocaleString('es-MX')}
-                        </span>
-                      </button>
+                      <div key={i} className="flex items-center gap-1">
+                        <button onClick={() => setVentaAbierta(v)}
+                          className="flex-1 flex items-center justify-between text-left hover:bg-zinc-50 rounded px-1 py-1 transition-colors min-w-0">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-medium text-zinc-500">{v.fecha}</p>
+                            <p className="text-[10px] text-zinc-400 truncate">
+                              {v.items.length > 0 ? v.items.slice(0, 2).map(it => it.nombre).join(' + ') : 'Sin desglose'}
+                            </p>
+                          </div>
+                          <span className="text-xs font-bold text-zinc-700 ml-2 flex-shrink-0">
+                            ${v.total.toLocaleString('es-MX')}
+                          </span>
+                        </button>
+                        {esAdmin && (
+                          <button
+                            onClick={() => setFichaVenta(v)}
+                            title="Ver ficha"
+                            className="p-1 rounded text-zinc-300 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors flex-shrink-0"
+                          >
+                            <Eye className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -1166,6 +1367,11 @@ function ExpedientesContent() {
         <div className="flex-1 flex items-center justify-center text-zinc-400 text-sm">
           Selecciona un paciente para ver su expediente
         </div>
+      )}
+
+      {/* ── MODAL FICHA COMPLETA DE VENTA (admin) ── */}
+      {fichaVenta && (
+        <FichaVentaModal venta={fichaVenta} onClose={() => setFichaVenta(null)} />
       )}
 
       {/* ── MODAL DETALLE COMPRA ── */}
