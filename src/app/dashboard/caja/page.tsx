@@ -139,7 +139,8 @@ export default function CajaPage() {
   const [guardando, setGuardando] = useState(false)
 
   // ── Cálculos ──
-  const esperado      = ventas.efectivo.monto
+  const totalEgresos  = gastosHoy.reduce((s, g) => s + Number(g.monto), 0)
+  const esperado      = ventas.efectivo.monto - totalEgresos
   const esperadoUSD   = efectivoUSD.monto
   const contado       = parseFloat(efectivoContado) || 0
   const contadoUSD    = parseFloat(efectivoUSDContado) || 0
@@ -150,7 +151,6 @@ export default function CajaPage() {
   const totalMXN      = Object.values(ventas).reduce((s, v) => s + v.monto, 0)
   const total         = totalMXN + (efectivoUSD.tcPromedio > 0 ? efectivoUSD.monto * efectivoUSD.tcPromedio : 0)
   const cerrado       = isClosed || corteHoy?.cerrado === true
-  const totalEgresos  = gastosHoy.reduce((s, g) => s + Number(g.monto), 0)
 
   const pagosPorMetodo = (m: MetodoPago) => pagosHoy.filter(p => p.metodo_pago === m)
 
