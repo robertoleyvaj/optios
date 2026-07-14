@@ -117,6 +117,8 @@ export default function CajaPage() {
   const [gastosHoy, setGastosHoy] = useState<GastoHoy[]>([])
   const [historial, setHistorial] = useState<CorteGuardado[]>([])
   const [corteHoy, setCorteHoy]   = useState<CorteGuardado | null>(null)
+  const [saldoAnterior, setSaldoAnterior] = useState<number | null>(null)
+  const [fechaCorteAnterior, setFechaCorteAnterior] = useState<string | null>(null)
   const [cargando, setCargando]   = useState(true)
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null)
   const [isClosed, setIsClosed]   = useState(false)
@@ -144,7 +146,8 @@ export default function CajaPage() {
 
   // ── Cálculos ──
   const totalEgresos  = gastosHoy.reduce((s, g) => s + Number(g.monto), 0)
-  const esperado      = ventas.efectivo.monto - totalEgresos
+  const saldoInicialNum = saldoAnterior ?? 0
+  const esperado      = saldoInicialNum + ventas.efectivo.monto - totalEgresos
   const esperadoUSD   = efectivoUSD.monto
   const contado       = parseFloat(efectivoContado) || 0
   const contadoUSD    = parseFloat(efectivoUSDContado) || 0
@@ -266,7 +269,21 @@ export default function CajaPage() {
       setIsClosed(false)
     }
 
-    // 5. Historial — admin ve todas las sucursales
+    // 5. Saldo anterior (último corte cerrado antes de hoy)
+    const { data: corteAnteriorData } = await sb
+      .from('cortes_caja')
+      .select('efectivo_contado, fecha')
+      .eq('sucursal', sucursal)
+      .eq('cerrado', true)
+      .lt('fecha', hoy)
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    setSaldoAnterior(corteAnteriorData?.efectivo_contado ?? 0)
+    setFechaCorteAnterior(corteAnteriorData?.fecha ?? null)
+
+    // 6. Historial — admin ve todas las sucursales
     let histQuery = sb
       .from('cortes_caja')
       .select('*')
@@ -783,11 +800,21 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
         {/* Pesos MXN */}
         <div className="grid grid-cols-2 gap-5 mb-5">
           <div className="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
-            <p className="text-xs font-semibold text-zinc-400 mb-1">Esperado en pesos (sistema)</p>
+            <p className="text-xs font-semibold text-zinc-400 mb-1">Esperado en caja (sistema)</p>
             <p className="text-3xl font-bold text-zinc-700">{fmt$(esperado)}</p>
-            <p className="text-xs text-zinc-400 mt-1">
-              {ventas.efectivo.transacciones} cobro{ventas.efectivo.transacciones !== 1 ? 's' : ''} en MXN
-            </p>
+            <div className="mt-2 space-y-0.5 text-xs text-zinc-400">
+              {saldoInicialNum > 0 && (
+                <p>
+                  Saldo {fechaCorteAnterior
+                    ? new Date(fechaCorteAnterior + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+                    : 'anterior'}: {fmt$(saldoInicialNum)}
+                </p>
+              )}
+              {saldoAnterior === null && <p className="text-amber-500">Sin corte previo registrado</p>}
+              {saldoAnterior === 0 && saldoInicialNum === 0 && <p>Sin saldo de ayer</p>}
+              <p>+ Ventas efectivo: {fmt$(ventas.efectivo.monto)}</p>
+              {totalEgresos > 0 && <p>− Egresos: {fmt$(totalEgresos)}</p>}
+            </div>
           </div>
           <div>
             <p className="text-xs font-semibold text-zinc-500 mb-1.5">Pesos contados físicamente *</p>
@@ -1002,8 +1029,8 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                         {c.diferencia > 0 ? '+' : ''}{fmt$(c.diferencia)}
                       </p>
                     )}
-                    <p className="text-xs font-semibold text-zinc-600">Ventas: {fmt$(c.total_ventas)}</p>
-                    <p className="text-xs text-zinc-400">Efectivo: {fmt$(c.efectivo_sistema)}</p>
+                    <p className="text-xs font-semibold text-zinc-600">Cierre: {fmt$(c.efectivo_contado)}</p>
+                    <p className="text-xs text-zinc-400">Ventas: {fmt$(c.total_ventas)}</p>
                   </div>
                 </div>
               ))}
