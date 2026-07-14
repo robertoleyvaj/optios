@@ -300,10 +300,11 @@ export default function VentasPage() {
         const pagos: Pago[] = []
         if (anticipo > 0) {
           pagos.push({ fecha, monto: anticipo, metodo: v.metodo_pago ?? 'otros' })
-        } else {
-          // Liquidada de contado: el pago fue el total completo
+        } else if (saldo === 0) {
+          // Liquidada de contado sin anticipo separado: el total fue pagado en el momento
           pagos.push({ fecha, monto: v.total ?? 0, metodo: v.metodo_pago ?? 'otros' })
         }
+        // Si anticipo=0 y saldo>0: diferida sin pago — pagos queda vacío, saldoPendiente = total
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const items: ItemVenta[] = (v.ventas_items ?? []).map((i: any) => ({

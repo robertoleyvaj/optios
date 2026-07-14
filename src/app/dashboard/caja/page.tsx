@@ -192,28 +192,44 @@ export default function CajaPage() {
       .order('created_at', { ascending: true })
 
     if (pagosData) {
-      // Filtrar solo pagos de hoy (Tijuana) por si acaso hay pagos de días anteriores
+      // Filtrar solo pagos de hoy (Tijuana)
       const pagosHoyList = pagosData.filter(p => {
         const fecha = new Date(p.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
         return fecha === hoy
       })
       setPagosHoy(pagosHoyList)
 
-      // Calcular resumen desde pagos_venta (fuente de verdad para montos recibidos)
+      // Ventas que ya tienen al menos un pago en pagos_venta
+      const ventasConPagos = new Set(pagosHoyList.map(p => p.venta_id))
+
       const resumen = JSON.parse(JSON.stringify(RESUMEN_VACIO)) as Record<MetodoPago, ResumenMetodo>
       let usdMonto = 0, usdTx = 0, usdTCSum = 0
+
+      // 1. Sumar pagos registrados en pagos_venta
       for (const p of pagosHoyList) {
         const key = p.metodo_pago as MetodoPago
-        const ventaOrigen = ventaMap.get(p.venta_id)
-        if (key === 'efectivo' && ventaOrigen?.moneda === 'USD') {
-          usdMonto += Number(p.monto); usdTx++; usdTCSum += Number(ventaOrigen.tipo_cambio ?? 0)
+        const vo = ventaMap.get(p.venta_id)
+        if (key === 'efectivo' && vo?.moneda === 'USD') {
+          usdMonto += Number(p.monto); usdTx++; usdTCSum += Number(vo.tipo_cambio ?? 0)
         } else if (resumen[key]) {
-          resumen[key] = {
-            monto:         resumen[key].monto + Number(p.monto),
-            transacciones: resumen[key].transacciones + 1,
-          }
+          resumen[key] = { monto: resumen[key].monto + Number(p.monto), transacciones: resumen[key].transacciones + 1 }
         }
       }
+
+      // 2. Fallback: ventas SIN registro en pagos_venta cuyo saldo ya es 0
+      //    (ventas de contado creadas antes de que existiera pagos_venta, o con anticipo=0)
+      for (const v of (ventasData ?? [])) {
+        if (ventasConPagos.has(v.id)) continue  // ya contado arriba
+        const recibido = Math.max(0, Number(v.total) - Number(v.saldo ?? 0))
+        if (recibido <= 0) continue
+        const key = v.metodo_pago as MetodoPago
+        if (key === 'efectivo' && v.moneda === 'USD') {
+          usdMonto += recibido; usdTx++; usdTCSum += Number(v.tipo_cambio ?? 0)
+        } else if (resumen[key]) {
+          resumen[key] = { monto: resumen[key].monto + recibido, transacciones: resumen[key].transacciones + 1 }
+        }
+      }
+
       setVentas(resumen)
       setEfectivoUSD({ monto: usdMonto, transacciones: usdTx, tcPromedio: usdTx > 0 ? usdTCSum / usdTx : 0 })
     }
