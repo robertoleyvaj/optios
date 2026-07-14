@@ -177,7 +177,7 @@ export default function CajaPage() {
       .from('ventas')
       .select('metodo_pago, total, saldo, moneda, tipo_cambio')
       .eq('sucursal', sucursal)
-      .eq('estado', 'activa')
+      .in('estado', ['activa', 'liquidada'])
       .gte('created_at', `${hoy}T00:00:00`)
       .lte('created_at', `${hoy}T23:59:59`)
 
