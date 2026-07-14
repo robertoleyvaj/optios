@@ -443,9 +443,7 @@ export default function VentasPage() {
             <div>
               <p className="text-sm text-zinc-500 font-medium">Promedio por venta</p>
               <p className="text-2xl font-bold text-zinc-800 mt-1">
-                {ventas.length > 0
-                  ? `$${Math.round(ventas.reduce((s,v) => s+v.total,0) / ventas.length).toLocaleString('es-MX')}`
-                  : '$0'}
+                {(() => { const real = ventas.filter(v => !v.id.startsWith('COT-')); return real.length > 0 ? `$${Math.round(real.reduce((s,v) => s+v.total,0) / real.length).toLocaleString('es-MX')}` : '$0' })()}
               </p>
             </div>
             <div className="w-11 h-11 rounded-md bg-indigo-50 flex items-center justify-center">
@@ -453,7 +451,7 @@ export default function VentasPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-xs text-zinc-400">Últimas {ventas.length} ventas registradas</span>
+            <span className="text-xs text-zinc-400">Últimas {ventas.filter(v => !v.id.startsWith('COT-')).length} ventas registradas</span>
           </div>
         </div>
         <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
