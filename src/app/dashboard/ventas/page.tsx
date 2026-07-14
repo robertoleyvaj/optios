@@ -352,8 +352,8 @@ export default function VentasPage() {
   })
 
   const hoy = fechaHoy()
-  const totalHoy = ventas.filter(v => v.fecha === hoy && !v.folio.startsWith('COT-')).reduce((s, v) => s + v.total, 0)
-  const transHoy = ventas.filter(v => v.fecha === hoy && !v.folio.startsWith('COT-')).length
+  const totalHoy = ventas.filter(v => v.fecha === hoy && !v.id.startsWith('COT-')).reduce((s, v) => s + v.total, 0)
+  const transHoy = ventas.filter(v => v.fecha === hoy && !v.id.startsWith('COT-')).length
 
   const registrarAbono = async () => {
     const monto = parseFloat(abonoMonto)
