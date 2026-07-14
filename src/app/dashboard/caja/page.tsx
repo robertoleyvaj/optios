@@ -285,10 +285,11 @@ export default function CajaPage() {
     const monto = parseFloat(egresoMonto)
     if (!monto || monto <= 0) return
     setGuardandoEgreso(true)
+    setErrorGuardado('')
     const sb  = createClient()
     const hoy = hoyLocal()
     const catLabel = CATEGORIAS_EGRESO.find(c => c.value === egresoCategoria)?.label ?? egresoCategoria
-    await sb.from('gastos').insert({
+    const { error } = await sb.from('gastos').insert({
       fecha:          hoy,
       categoria:      egresoCategoria,
       descripcion:    egresoDescripcion || catLabel,
@@ -297,6 +298,11 @@ export default function CajaPage() {
       sucursal:       usuario.sucursal,
       registrado_por: usuario.nombre,
     })
+    if (error) {
+      setErrorGuardado(`Error al guardar egreso: ${error.message}`)
+      setGuardandoEgreso(false)
+      return
+    }
     const { data } = await sb
       .from('gastos')
       .select('id, fecha, categoria, descripcion, monto, metodo_pago')
