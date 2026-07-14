@@ -380,7 +380,8 @@ export default function NuevaVentaPage() {
       const nV = ultimoV?.[0]?.folio ? parseInt(ultimoV[0].folio.replace(/\D/g, '')) + 1 : 1
       const folio: string = `${prefijo}-${String(nV).padStart(4, '0')}`
 
-      const anticoNum = Number(anticipo || 0)
+      // Si es pago inmediato (liquidar), el anticipo ES el total completo
+      const anticoNum = modoPago === 'liquidar' ? total : Number(anticipo || 0)
       const saldoNum  = total - anticoNum
 
       // Si la venta es en USD, guardamos el monto en dólares
