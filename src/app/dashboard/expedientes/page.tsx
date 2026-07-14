@@ -487,7 +487,7 @@ function ExpedientesContent() {
         const supabase = createClient()
         const [recRes, venRes, consRes] = await Promise.all([
           supabase.from('recetas').select('*').eq('paciente_id', id).order('fecha', { ascending: false }),
-          supabase.from('ventas').select('id, folio, total, created_at, notas, estado, metodo_pago, atendido_por, ventas_items(id, nombre, sku, precio_unitario, cantidad, descuento, subtotal)').eq('paciente_id', id).order('created_at', { ascending: false }),
+          supabase.from('ventas').select('id, folio, total, created_at, notas, estado, metodo_pago, atendido_por, ventas_items(id, nombre, sku, precio_unitario, cantidad, descuento, subtotal)').eq('paciente_id', id).eq('es_cotizacion', false).order('created_at', { ascending: false }),
           supabase.from('consultas').select('id', { count: 'exact', head: true }).eq('paciente_id', id),
         ])
         setConsultasCount(consRes.count ?? 0)

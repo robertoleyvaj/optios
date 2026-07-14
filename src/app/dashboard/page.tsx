@@ -190,11 +190,13 @@ export default function DashboardPage() {
           // Ventas cobradas hoy en la sucursal
           sb.from('ventas').select('total,saldo')
             .eq('sucursal', sucursalEfectiva)
+            .eq('es_cotizacion', false)
             .gte('created_at', startHoy.toISOString())
             .lte('created_at', endHoy.toISOString()),
           // Ventas cobradas hoy del usuario
           sb.from('ventas').select('total,saldo')
             .eq('atendido_por', usuario.nombre)
+            .eq('es_cotizacion', false)
             .gte('created_at', startHoy.toISOString())
             .lte('created_at', endHoy.toISOString()),
           // Citas de hoy

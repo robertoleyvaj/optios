@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useSession } from '@/hooks/useSession'
 import {
   Plus, Search, X, Save, ChevronDown, ChevronLeft, Filter,
   Clock, CheckCircle2, AlertTriangle, Truck,
@@ -30,6 +31,7 @@ type OrdenLab = {
   supabaseId: string   // UUID real en Supabase ('' en mock)
   folio: string
   folioVenta: string   // vínculo con venta
+  pacienteId: string   // vínculo directo con expediente
   paciente: string
   telefono: string
   sucursal: string
@@ -58,8 +60,11 @@ type OrdenLab = {
   precioCliente: number
   anticipo: number
   notas: string
+  creadoPor: string            // quién registró la orden
   // Rastreo extendido
   verificado: boolean         // lente revisado al llegar a la óptica
+  verificadoPor: string       // quién lo revisó
+  fechaVerificacion: string   // cuándo se revisó
   notasVerificacion: string   // qué se revisó / problema encontrado
   motivoRetraso: string       // por qué se retrasó (si aplica)
   // Garantía
@@ -86,6 +91,7 @@ type HistorialItem = {
 // ─────────────────────────────────────────
 type VentaRef = {
   folio: string
+  pacienteId: string
   paciente: string
   telefono: string
   sucursal: string
@@ -130,15 +136,15 @@ const dias = (n: number) => hoyMasDias(n)
 
 const formVacio = (sucursalDefault = 'Baja Visión'): Omit<OrdenLab, 'id' | 'folio'> => ({
   supabaseId: '',
-  folioVenta: '', paciente: '', telefono: '', sucursal: sucursalDefault,
+  folioVenta: '', pacienteId: '', paciente: '', telefono: '', sucursal: sucursalDefault,
   laboratorio: 'Laboratorio Visión', tipoMica: 'Monofocal antirreflejante',
   armazon: 'comprado', descripcionArmazon: '',
   od: '', oi: '', add: '', dp: '', altura: '', tratamiento: 'ninguno', colorTratamiento: '', urgente: false,
   fechaIngreso: dias(0), fechaPromesa: dias(7), fechaEntrega: '',
   fechaEnvioLab: '', fechaRecogidaLab: '',
   pagadoLab: false, fechaPagoLab: '', metodoPagoLab: '' as const,
-  estado: 'recibido', costoLab: 0, precioCliente: 0, anticipo: 0, notas: '',
-  verificado: false, notasVerificacion: '', motivoRetraso: '',
+  estado: 'recibido', costoLab: 0, precioCliente: 0, anticipo: 0, notas: '', creadoPor: '',
+  verificado: false, verificadoPor: '', fechaVerificacion: '', notasVerificacion: '', motivoRetraso: '',
   folioOrigen: '', esGarantia: false, motivoProblema: '', archivado: false,
 })
 
@@ -163,7 +169,7 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
     timer.current = setTimeout(async () => {
       const { data } = await createClient()
         .from('ventas')
-        .select('folio, sucursal, pacientes(nombre, apellido, telefono)')
+        .select('folio, sucursal, paciente_id, pacientes(nombre, apellido, telefono)')
         .ilike('folio', `%${query}%`)
         .eq('estado', 'activa')
         .limit(5)
@@ -171,10 +177,11 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
         setResultados(data.map((v: Record<string, unknown>) => {
           const p = v.pacientes as { nombre?: string; apellido?: string; telefono?: string } | null
           return {
-            folio: v.folio as string,
-            sucursal: v.sucursal as string,
-            paciente: p ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim() : '',
-            telefono: p?.telefono ?? '',
+            folio:      v.folio as string,
+            sucursal:   v.sucursal as string,
+            pacienteId: (v.paciente_id as string) ?? '',
+            paciente:   p ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim() : '',
+            telefono:   p?.telefono ?? '',
             od: '', oi: '', add: '', dp: '', armazon: '',
           }
         }))
@@ -1024,15 +1031,222 @@ function VistaRepartidor({ ordenes, onUpdate }: {
 // ─────────────────────────────────────────
 // Vista simplificada para vendedor
 // ─────────────────────────────────────────
+// ─────────────────────────────────────────
+// Modal: Ficha completa de ciclo de vida
+// ─────────────────────────────────────────
+function FichaOrdenModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }) {
+  const [historial, setHistorial] = useState<HistorialItem[]>([])
+  const [ventaInfo, setVentaInfo] = useState<{ atendidoPor: string; total: number; metodoPago: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const load = async () => {
+      const sb = createClient()
+      const [hRes, vRes] = await Promise.all([
+        sb.from('ordenes_lab_historial').select('*').eq('orden_id', orden.supabaseId).order('created_at', { ascending: true }),
+        orden.folioVenta
+          ? sb.from('ventas').select('atendido_por, total, metodo_pago').eq('folio', orden.folioVenta).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
+      if (hRes.data) setHistorial(hRes.data as HistorialItem[])
+      if (vRes.data) setVentaInfo({
+        atendidoPor: (vRes.data as { atendido_por: string }).atendido_por ?? '',
+        total: Number((vRes.data as { total: number }).total),
+        metodoPago: (vRes.data as { metodo_pago: string }).metodo_pago ?? '',
+      })
+      setLoading(false)
+    }
+    if (orden.supabaseId) load(); else setLoading(false)
+  }, [orden.supabaseId, orden.folioVenta])
+
+  const diasEntre = (desde: string, hasta: string): number | null => {
+    if (!desde || !hasta) return null
+    const d = Math.round((new Date(hasta).getTime() - new Date(desde).getTime()) / 86400000)
+    return d >= 0 ? d : null
+  }
+  const fmt = (d: string) => d ? new Date(d + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '—'
+
+  const diasEspera = diasEntre(orden.fechaIngreso, orden.fechaEnvioLab)
+  const diasLab    = diasEntre(orden.fechaEnvioLab, orden.fechaRecogidaLab)
+  const diasSuc    = diasEntre(orden.fechaRecogidaLab, orden.fechaEntrega)
+  const diasTotal  = diasEntre(orden.fechaIngreso, orden.fechaEntrega)
+
+  const steps = [
+    {
+      done: !!orden.fechaIngreso, label: 'Ingreso a óptica', date: fmt(orden.fechaIngreso),
+      detail: [orden.creadoPor || ventaInfo?.atendidoPor ? `Registró: ${orden.creadoPor || ventaInfo?.atendidoPor}` : null].filter(Boolean).join(' · '),
+      dias: diasEspera,
+    },
+    {
+      done: !!orden.fechaEnvioLab, label: 'Enviado al laboratorio', date: fmt(orden.fechaEnvioLab),
+      detail: orden.laboratorio || '',
+      dias: diasLab,
+    },
+    {
+      done: !!orden.fechaRecogidaLab, label: 'Recogido del laboratorio', date: fmt(orden.fechaRecogidaLab),
+      detail: orden.costoLab > 0
+        ? `$${orden.costoLab.toLocaleString('es-MX')} · ${orden.metodoPagoLab || '—'}${orden.pagadoLab ? ' ✓' : ' (sin pagar)'}`
+        : 'Sin costo registrado',
+      dias: diasSuc,
+    },
+    {
+      done: !!orden.fechaEntrega, label: 'Entregado al paciente', date: fmt(orden.fechaEntrega),
+      detail: ventaInfo?.metodoPago ? `Pago cliente: ${ventaInfo.metodoPago}` : '',
+      dias: null,
+    },
+  ]
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl border border-zinc-100 w-full max-w-md max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between px-5 py-4 border-b border-zinc-100">
+          <div>
+            <p className="text-sm font-bold text-zinc-900">{orden.paciente}</p>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              {orden.folio}{orden.folioVenta ? ` · ${orden.folioVenta}` : ''} · {orden.sucursal}
+            </p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {orden.tipoMica}{orden.tratamiento !== 'ninguno' ? ` + ${orden.tratamiento}` : ''}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center text-sm text-zinc-400">Cargando...</div>
+        ) : (
+          <div className="px-5 py-4 space-y-5">
+
+            {/* Timeline */}
+            <div>
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Ciclo de vida</p>
+              {steps.map((step, i) => (
+                <div key={i}>
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${step.done ? 'bg-emerald-500' : 'bg-zinc-200'}`}>
+                      {step.done && <svg viewBox="0 0 10 10" className="w-3 h-3" fill="none" stroke="white" strokeWidth="2"><polyline points="1.5,5 4,7.5 8.5,2.5"/></svg>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className={`text-sm font-medium ${step.done ? 'text-zinc-800' : 'text-zinc-400'}`}>{step.label}</p>
+                        <p className={`text-xs flex-shrink-0 ${step.done ? 'text-zinc-500' : 'text-zinc-300'}`}>{step.done ? step.date : '—'}</p>
+                      </div>
+                      {step.detail && <p className="text-xs text-zinc-400 mt-0.5">{step.detail}</p>}
+                    </div>
+                  </div>
+                  {i < steps.length - 1 && (
+                    <div className="flex items-center gap-3 my-1">
+                      <div className="w-5 flex justify-center">
+                        <div className={`w-0.5 h-4 ${step.done && steps[i + 1].done ? 'bg-emerald-300' : 'bg-zinc-200'}`} />
+                      </div>
+                      {step.dias !== null && (
+                        <p className="text-[11px] text-zinc-400 italic">
+                          {step.dias === 0 ? 'Mismo día' : `${step.dias} día${step.dias !== 1 ? 's' : ''}`}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {diasTotal !== null && (
+                <div className="mt-3 bg-zinc-50 rounded-lg px-3 py-2 flex items-center justify-between">
+                  <p className="text-xs text-zinc-500">Ciclo total (ingreso → entrega)</p>
+                  <p className="text-xs font-bold text-zinc-700">{diasTotal} día{diasTotal !== 1 ? 's' : ''}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Económico */}
+            {(ventaInfo || orden.costoLab > 0) && (
+              <div>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Económico</p>
+                <div className="bg-zinc-50 rounded-xl px-4 py-3 space-y-2 text-sm">
+                  {ventaInfo && (
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Total venta</span>
+                      <span className="font-semibold text-zinc-800">${ventaInfo.total.toLocaleString('es-MX')}</span>
+                    </div>
+                  )}
+                  {orden.costoLab > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Costo laboratorio</span>
+                      <span className="font-semibold text-zinc-800">${orden.costoLab.toLocaleString('es-MX')}</span>
+                    </div>
+                  )}
+                  {ventaInfo && orden.costoLab > 0 && (
+                    <div className="flex justify-between border-t border-zinc-200 pt-2">
+                      <span className="text-zinc-500">Margen bruto</span>
+                      <span className={`font-bold ${ventaInfo.total - orden.costoLab >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        ${(ventaInfo.total - orden.costoLab).toLocaleString('es-MX')}
+                      </span>
+                    </div>
+                  )}
+                  <div className="border-t border-zinc-200 pt-2 space-y-1">
+                    {ventaInfo?.metodoPago && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-zinc-400">Pago cliente</span>
+                        <span className="text-zinc-600 capitalize">{ventaInfo.metodoPago}</span>
+                      </div>
+                    )}
+                    {orden.metodoPagoLab && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-zinc-400">Pago al laboratorio</span>
+                        <span className="text-zinc-600 capitalize">{orden.metodoPagoLab}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Historial */}
+            {historial.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Historial de cambios</p>
+                <div className="space-y-2.5">
+                  {historial.map((h, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-zinc-300 mt-1.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium text-zinc-700 truncate">
+                            {h.estado_despues
+                              ? `→ ${h.estado_despues.replace(/_/g, ' ')}`
+                              : h.evento}
+                          </p>
+                          <p className="text-[10px] text-zinc-400 flex-shrink-0">
+                            {new Date(h.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        {h.registrado_por && <p className="text-[10px] text-zinc-400">{h.registrado_por}</p>}
+                        {h.notas && h.notas !== 'Orden creada' && <p className="text-xs text-zinc-500 mt-0.5">{h.notas}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNuevaOrden }: {
   ordenes: OrdenLab[]
   sucursal: string
+  rol: string
   onPrint: (o: OrdenLab) => void
   onUpdate: (id: number, changes: Partial<OrdenLab>) => void
   onProblema: (original: OrdenLab, motivo: string) => void
   onNuevaOrden: () => void
 }) {
+  const puedeVerFicha = rol === 'administrador'
   const [busquedaLocal, setBusquedaLocal] = useState('')
+  const [fichaOrden, setFichaOrden] = useState<OrdenLab | null>(null)
 
   const pendientes = ordenes
     .filter(o => {
@@ -1221,21 +1435,41 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNue
           )}
 
           {o.estado === 'listo' && (
-            <button
-              onClick={() => onUpdate(o.id, { estado: 'entregado', fechaEntrega: hoyLocal() })}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-lg hover:bg-zinc-700 transition-colors"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" /> Entregado al paciente
-            </button>
+            <div className="flex flex-col gap-1.5">
+              {o.costoLab === 0 && !o.esGarantia && (
+                <p className="text-xs text-center text-amber-600 bg-amber-50 border border-amber-200 rounded-lg py-2 px-3 font-medium">
+                  ⚠️ Falta registrar el costo del laboratorio antes de entregar
+                </p>
+              )}
+              <button
+                disabled={o.costoLab === 0 && !o.esGarantia}
+                onClick={() => onUpdate(o.id, { estado: 'entregado', fechaEntrega: hoyLocal() })}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-lg transition-colors ${
+                  o.costoLab > 0 || o.esGarantia
+                    ? 'bg-zinc-900 text-white hover:bg-zinc-700'
+                    : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" /> Entregado al paciente
+              </button>
+            </div>
           )}
 
-          {/* Imprimir */}
-          <div className="flex items-center justify-end border-t border-zinc-100 pt-2">
+          {/* Imprimir + Ver ficha */}
+          <div className="flex items-center justify-between border-t border-zinc-100 pt-2">
+            {puedeVerFicha ? (
+              <button
+                onClick={() => setFichaOrden(o)}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors"
+              >
+                <Eye className="w-3.5 h-3.5" /> Ver ficha
+              </button>
+            ) : <div />}
             <button
               onClick={() => onPrint(o)}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors"
             >
-              <Printer className="w-3.5 h-3.5" /> {o.esGarantia ? 'Imprimir etiqueta garantía' : 'Imprimir orden'}
+              <Printer className="w-3.5 h-3.5" /> {o.esGarantia ? 'Etiqueta garantía' : 'Imprimir orden'}
             </button>
           </div>
         </div>
@@ -1346,6 +1580,8 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNue
 
         </div>
       )}
+
+      {fichaOrden && <FichaOrdenModal orden={fichaOrden} onClose={() => setFichaOrden(null)} />}
     </div>
   )
 }
@@ -1360,6 +1596,7 @@ function rowToOrden(r: Record<string, unknown>, idx: number): OrdenLab {
     supabaseId: r.id as string,
     folio: r.folio as string,
     folioVenta: (r.folio_venta as string) ?? '',
+    pacienteId: (r.paciente_id as string) ?? '',
     paciente: r.paciente as string,
     telefono: (r.telefono as string) ?? '',
     sucursal: r.sucursal as string,
@@ -1388,7 +1625,10 @@ function rowToOrden(r: Record<string, unknown>, idx: number): OrdenLab {
     precioCliente: Number(r.precio_cliente) ?? 0,
     anticipo: Number(r.anticipo) ?? 0,
     notas: (r.notas as string) ?? '',
+    creadoPor: (r.creado_por as string) ?? '',
     verificado: (r.verificado as boolean) ?? false,
+    verificadoPor: (r.verificado_por as string) ?? '',
+    fechaVerificacion: (r.fecha_verificacion as string) ?? '',
     notasVerificacion: (r.notas_verificacion as string) ?? '',
     motivoRetraso: (r.motivo_retraso as string) ?? '',
     folioOrigen:    (r.folio_origen as string) ?? '',
@@ -1416,7 +1656,8 @@ export default function LaboratorioPage() {
     notas: string
   } | null>(null)
 
-  // Usuario activo — leído en useEffect para evitar hidratación SSR/cliente
+  // Usuario activo
+  const { usuario: sessionUser } = useSession()
   const [demoUser, setDemoUser] = useState<{ rol: string; sucursal: string; nombre: string } | null>(null)
 
   // ── Cargar órdenes desde Supabase ──────────────────────────
@@ -1424,9 +1665,11 @@ export default function LaboratorioPage() {
     const fetchOrdenes = async () => {
       setCargando(true)
       try {
-        // Leer usuario del localStorage (dentro del useEffect para evitar SSR mismatch)
-        let user: { rol?: string; sucursal?: string; nombre?: string } = {}
-        try { user = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
+        // Leer usuario (Supabase Auth o legacy localStorage)
+        let user: { rol?: string; sucursal?: string; nombre?: string } = sessionUser ?? {}
+        if (!user.rol) {
+          try { user = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
+        }
         setDemoUser(user as { rol: string; sucursal: string; nombre: string })
 
         const supabase = createClient()
@@ -1465,6 +1708,8 @@ export default function LaboratorioPage() {
     if (changes.fechaRecogidaLab   !== undefined) dbChanges.fecha_recogida_lab   = changes.fechaRecogidaLab
     if (changes.fechaEntrega       !== undefined) dbChanges.fecha_entrega        = changes.fechaEntrega
     if (changes.verificado         !== undefined) dbChanges.verificado           = changes.verificado
+    if (changes.verificadoPor      !== undefined) dbChanges.verificado_por       = changes.verificadoPor
+    if (changes.fechaVerificacion  !== undefined) dbChanges.fecha_verificacion   = changes.fechaVerificacion
     if (changes.notasVerificacion  !== undefined) dbChanges.notas_verificacion   = changes.notasVerificacion
     if (changes.motivoRetraso      !== undefined) dbChanges.motivo_retraso       = changes.motivoRetraso
     if (changes.archivado          !== undefined) dbChanges.archivado            = changes.archivado
@@ -1538,6 +1783,7 @@ export default function LaboratorioPage() {
     setForm(prev => ({
       ...prev,
       folioVenta: v.folio,
+      pacienteId: v.pacienteId,
       paciente: v.paciente,
       telefono: v.telefono,
       sucursal: v.sucursal,
@@ -1553,9 +1799,14 @@ export default function LaboratorioPage() {
     const hoy = hoyLocal()
     const orden = ordenes.find(o => o.id === id)
     const changes: Partial<OrdenLab> = { estado }
-    if (estado === 'en_laboratorio' && orden && !orden.fechaEnvioLab)    changes.fechaEnvioLab    = hoy
-    if (estado === 'en_sucursal'    && orden && !orden.fechaRecogidaLab)  changes.fechaRecogidaLab = hoy
-    if (estado === 'entregado'      && orden && !orden.fechaEntrega)      changes.fechaEntrega     = hoy
+    if (estado === 'en_laboratorio' && orden && !orden.fechaEnvioLab)       changes.fechaEnvioLab      = hoy
+    if (estado === 'en_sucursal'    && orden && !orden.fechaRecogidaLab)   changes.fechaRecogidaLab   = hoy
+    if (estado === 'entregado'      && orden && !orden.fechaEntrega)       changes.fechaEntrega       = hoy
+    if (estado === 'listo'          && orden && !orden.fechaVerificacion) {
+      changes.fechaVerificacion = hoy
+      changes.verificadoPor     = demoUser?.nombre ?? ''
+      changes.verificado        = true
+    }
     setOrdenes(prev => prev.map(o => o.id === id ? { ...o, ...changes } : o))
     if (detalle?.id === id) setDetalle(prev => prev ? { ...prev, ...changes } : null)
     if (orden?.supabaseId) {
@@ -1587,6 +1838,7 @@ export default function LaboratorioPage() {
     const { data: inserted } = await supabase.from('ordenes_lab').insert({
       folio,
       folio_venta:         form.folioVenta,
+      paciente_id:         form.pacienteId || null,
       paciente:            form.paciente,
       telefono:            form.telefono,
       sucursal:            form.sucursal,
@@ -1605,7 +1857,20 @@ export default function LaboratorioPage() {
       precio_cliente:      form.precioCliente,
       anticipo:            form.anticipo,
       notas:               form.notas,
+      creado_por:          demoUser?.nombre ?? '',
     }).select('id').single()
+
+    // Registrar evento de creación en el historial
+    if (inserted?.id) {
+      await supabase.from('ordenes_lab_historial').insert({
+        orden_id:       inserted.id,
+        evento:         'estado',
+        estado_antes:   null,
+        estado_despues: 'recibido',
+        registrado_por: demoUser?.nombre ?? '',
+        notas:          'Orden creada',
+      })
+    }
 
     const nueva: OrdenLab = {
       id: Date.now(),
@@ -1626,6 +1891,7 @@ export default function LaboratorioPage() {
   const vistaTiendaProps = {
     ordenes,
     sucursal: demoUser?.sucursal ?? 'Todas',
+    rol: demoUser?.rol ?? '',
     onPrint: (o: OrdenLab) => setPrintModal(o),
     onNuevaOrden: () => { setForm(formVacio(demoUser?.sucursal)); setVentaVinculada(null); setModal(true) },
     onUpdate: (id: number, changes: Partial<OrdenLab>) => {
@@ -1668,6 +1934,7 @@ export default function LaboratorioPage() {
               paciente:            original.paciente,
               telefono:            original.telefono,
               sucursal:            original.sucursal,
+              paciente_id:         original.pacienteId || null,
               tipo_mica:           original.tipoMica,
               armazon:             original.armazon,
               descripcion_armazon: original.descripcionArmazon,
@@ -1687,6 +1954,7 @@ export default function LaboratorioPage() {
               anticipo:            original.anticipo,
               notas:               '',
               folio_origen:        original.folio,
+              folio_venta:         original.folioVenta,
               es_garantia:         true,
               motivo_problema:     motivo,
             }).select('id').single()
