@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   DollarSign, BarChart3, CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Microscope, Star,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Microscope, Star, X,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -82,7 +82,13 @@ const MENU_REPARTIDOR: MenuItem[] = [
 
 const USUARIO_DEFAULT = { nombre: 'Usuario', apodo: 'Usuario', iniciales: 'U', rol: 'vendedor' as Rol, sucursal: '' }
 
-export default function Sidebar() {
+export default function Sidebar({
+  isOpen = false,
+  onClose,
+}: {
+  isOpen?: boolean
+  onClose?: () => void
+}) {
   const pathname = usePathname()
   const router   = useRouter()
   const [usuario, setUsuario] = useState(USUARIO_DEFAULT)
@@ -118,10 +124,15 @@ export default function Sidebar() {
   )
 
   return (
-    <aside className="w-64 bg-[#0B0E14] flex flex-col h-screen flex-shrink-0">
+    <aside className={`
+      w-64 bg-[#0B0E14] flex flex-col h-screen
+      fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out
+      lg:relative lg:flex-shrink-0 lg:translate-x-0
+      ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+    `}>
 
       {/* Logo */}
-      <div className="px-5 py-5">
+      <div className="px-5 py-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[#0D9488] flex items-center justify-center flex-shrink-0">
             <Glasses className="w-4 h-4 text-white" />
@@ -131,6 +142,13 @@ export default function Sidebar() {
             <p className="text-white/35 text-[11px] mt-1">Sistema de Gestión</p>
           </div>
         </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={onClose}
+          className="lg:hidden w-7 h-7 flex items-center justify-center rounded-md text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Nav */}
@@ -155,7 +173,7 @@ export default function Sidebar() {
             <div key={item.href}>
               <Link
                 href={pronto ? '#' : item.href}
-                onClick={pronto ? (e) => e.preventDefault() : undefined}
+                onClick={pronto ? (e) => e.preventDefault() : onClose}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100 ${
                   pronto
                     ? 'text-white/20 cursor-default'

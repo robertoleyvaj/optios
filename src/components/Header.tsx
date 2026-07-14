@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown } from 'lucide-react'
+import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown, Menu } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
@@ -10,7 +10,7 @@ type UsuarioLocal = { nombre: string; sucursal: string; rol?: string }
 type Notif = { id: string; tipo: 'cita' | 'lab'; texto: string; sub: string }
 type PacienteResult = { id: string; nombre: string; apellido: string; telefono: string }
 
-export default function Header() {
+export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter()
   const [usuario, setUsuario] = useState<UsuarioLocal>({ nombre: '', sucursal: '' })
   const [search, setSearch] = useState('')
@@ -115,10 +115,19 @@ export default function Header() {
   }
 
   return (
-    <header className="h-14 bg-white border-b border-zinc-200 flex items-center justify-between px-6 flex-shrink-0 relative z-30">
+    <header className="h-14 bg-white border-b border-zinc-200 flex items-center justify-between px-3 md:px-6 flex-shrink-0 relative z-30 gap-2">
+
+      {/* ── Hamburger (mobile only) ── */}
+      <button
+        onClick={onMenuClick}
+        className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-zinc-100 transition-colors flex-shrink-0"
+        aria-label="Abrir menú"
+      >
+        <Menu className="w-5 h-5 text-zinc-600" />
+      </button>
 
       {/* ── Search ── */}
-      <div ref={searchRef} className="relative w-80">
+      <div ref={searchRef} className="relative flex-1 lg:flex-none lg:w-80">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
         <input
           type="text"
@@ -168,8 +177,8 @@ export default function Header() {
       {/* ── Right ── */}
       <div className="flex items-center gap-2">
 
-        {/* Date + Sucursal */}
-        <div className="text-right mr-2">
+        {/* Date + Sucursal — hidden on mobile */}
+        <div className="text-right mr-2 hidden md:block">
           <p className="text-[11px] text-zinc-400">{todayStr}</p>
           <div className="flex items-center justify-end gap-1 mt-0.5">
             <Store className="w-3 h-3 text-teal-500" />

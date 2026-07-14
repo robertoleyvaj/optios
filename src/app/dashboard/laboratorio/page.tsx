@@ -1246,15 +1246,15 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNue
   return (
     <div className="space-y-5">
       {/* Header + stats */}
-      <div className="flex items-start justify-between gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-zinc-800">Laboratorio</h1>
           <p className="text-sm text-zinc-400 mt-0.5">{sucursal} · {pendientes.length} pendiente{pendientes.length !== 1 ? 's' : ''}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={onNuevaOrden}
-            className="flex items-center gap-2 text-sm font-semibold text-white bg-zinc-900 px-4 py-2.5 rounded-lg hover:bg-zinc-800 transition-colors flex-shrink-0"
+            className="flex items-center gap-2 text-sm font-semibold text-white bg-zinc-900 px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors flex-shrink-0"
           >
             <Plus className="w-4 h-4" /> Nueva orden
           </button>
@@ -1263,8 +1263,8 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNue
             { label: 'En camino', n: enCamino.length, color: 'text-blue-600',    bg: 'bg-blue-50' },
             { label: 'Problema',  n: problemas.length,color: 'text-red-600',     bg: 'bg-red-50' },
           ].map(s => (
-            <div key={s.label} className={`${s.bg} rounded-lg px-5 py-2.5 text-center min-w-[72px]`}>
-              <p className={`text-2xl font-bold ${s.color}`}>{s.n}</p>
+            <div key={s.label} className={`${s.bg} rounded-lg px-3 py-2 text-center min-w-[60px]`}>
+              <p className={`text-xl font-bold ${s.color}`}>{s.n}</p>
               <p className="text-xs text-zinc-500 mt-0.5">{s.label}</p>
             </div>
           ))}
@@ -1293,7 +1293,7 @@ function VistaVendedor({ ordenes, sucursal, onPrint, onUpdate, onProblema, onNue
           {busquedaLocal ? `Sin resultados para "${busquedaLocal}"` : 'Sin órdenes pendientes'}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-5 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
 
           {/* Columna izquierda: En proceso */}
           <div className="space-y-3">
@@ -1794,7 +1794,7 @@ export default function LaboratorioPage() {
               </div>
 
               {/* Paciente — si no hay venta vinculada */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
                     <User className="inline w-3 h-3 mr-1 -mt-0.5" /> Paciente *
@@ -1822,7 +1822,7 @@ export default function LaboratorioPage() {
               </div>
 
               {/* Tipo + laboratorio */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo de mica *</label>
                   <div className="relative">
@@ -1924,7 +1924,7 @@ export default function LaboratorioPage() {
               </div>
 
               {/* Fechas */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Fecha de ingreso</label>
                   <input type="date" value={form.fechaIngreso} onChange={e => f('fechaIngreso', e.target.value)}
@@ -1938,7 +1938,7 @@ export default function LaboratorioPage() {
               </div>
 
               {/* Financiero */}
-              <div className={`grid gap-4 ${esVendedor ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              <div className={`grid gap-4 grid-cols-1 ${esVendedor ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
                 {[
                   ...(!esVendedor ? [{ l: 'Costo laboratorio', f: 'costoLab' as const }] : []),
                   { l: 'Precio al cliente',  f: 'precioCliente' as const },
