@@ -51,8 +51,8 @@ const catalogo = [
   { id: 13, nombre: 'Mica Progresivo Ultra Slim 1.67',    categoria: 'Micas', precio: 5096, sku: 'PRO-USL',  stock: 999 },
   { id: 14, nombre: 'Mica Progresivo Ultra Slim Pro 1.74',categoria: 'Micas', precio: 6596, sku: 'PRO-USP',  stock: 999 },
   // ── Filtros ──────────────────────────────────────────────────
-  { id: 20, nombre: 'Filtro Antirreflejo',                categoria: 'Filtros', precio:  279, sku: 'FIL-AR',  stock: 999 },
-  { id: 21, nombre: 'Filtro Blue Light',                  categoria: 'Filtros', precio:  549, sku: 'FIL-BL',  stock: 999 },
+  { id: 20, nombre: 'Antirreflejante',                     categoria: 'Filtros', precio:  279, sku: 'FIL-AR',  stock: 999 },
+  { id: 21, nombre: 'Bluelight',                          categoria: 'Filtros', precio:  549, sku: 'FIL-BL',  stock: 999 },
   { id: 22, nombre: 'Filtro Fotocromático',               categoria: 'Filtros', precio:  949, sku: 'FIL-FC',  stock: 999 },
   { id: 23, nombre: 'Filtro Polarizado',                  categoria: 'Filtros', precio: 1699, sku: 'FIL-POL', stock: 999 },
   { id: 24, nombre: 'Filtro Tinte',                       categoria: 'Filtros', precio:  549, sku: 'FIL-TIN', stock: 999 },
@@ -87,11 +87,35 @@ const metodosPago = [
 type Item = { uid: string; id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number; par: number }
 type Cliente = { id: string; nombre: string; apellido: string; telefono: string }
 
-// Colores disponibles por filtro (Fotocromático, Polarizado y Tinte piden color)
+// Colores disponibles por filtro — Polarizado y Tinte siguen igual
 const COLORES_FILTRO: Record<string, string[]> = {
-  'FIL-FC':  ['Gris', 'Café', 'Verde'],                                            // Fotocromático
-  'FIL-POL': ['Gris', 'Café', 'Verde', 'Azul'],                                    // Polarizado
-  'FIL-TIN': ['Gris', 'Café', 'Verde', 'Azul', 'Rosado', 'Morado', 'Amarillo'],   // Tinte
+  'FIL-POL': ['Gris', 'Café', 'Verde', 'Azul'],
+  'FIL-TIN': ['Gris', 'Café', 'Verde', 'Azul', 'Rosado', 'Morado', 'Amarillo'],
+}
+
+// Colores fotocromático según la mica en el carrito (SKU de mica → colores)
+const COLORES_FC_POR_MICA: Record<string, string[]> = {
+  'MON-ESS': ['Gris', 'Café', 'Rosa', 'Morado', 'G-15', 'Azul'],
+  'MON-SHD': ['Gris', 'Café', 'Rosa', 'Morado', 'G-15', 'Azul'],
+  'MON-PPL': ['Gris', 'Café', 'Rosa', 'Morado', 'Naranja', 'Azul'],
+  'MON-USL': ['Gris'],
+  'MON-USP': ['Gris'],
+  'BIF-ESS': ['Gris'],
+  'BIF-SHD': ['Gris'],
+  'BIF-PPL': ['Gris'],
+  'BIF-USL': ['Gris'],
+  'PRO-ESS': ['Gris', 'Café', 'Rosa', 'Morado', 'G-15', 'Azul'],
+  'PRO-SHD': ['Gris', 'Café', 'Rosa', 'Morado', 'G-15', 'Azul'],
+  'PRO-PPL': ['Gris'],
+  'PRO-USL': ['Gris'],
+  'PRO-USP': ['Gris'],
+}
+
+// Precio del fotocromático según color + SKU de mica
+const precioFC = (color: string, micaSku: string): number => {
+  if (color === 'Gris') return 949
+  if (micaSku === 'MON-PPL') return 949 + 900  // $1,849
+  return 949 + 400                              // $1,349
 }
 
 // Comisión es interna (para finanzas), no se traslada al cliente
@@ -147,6 +171,12 @@ export default function NuevaVentaPage() {
   const [productoLibre, setProductoLibre] = useState({ descripcion: '', precio: '', cantidad: '1' })
   // Modal de selección de color para filtros (Fotocromático, Polarizado, Tinte)
   const [pendingFiltro, setPendingFiltro] = useState<typeof catalogo[0] | null>(null)
+  // Segundo paso: elegir tratamiento (Antirreflejante o Bluelight) cuando FC no es Gris
+  const [pendingTratamiento, setPendingTratamiento] = useState<{ color: string; micaSku: string; precio: number } | null>(null)
+  // Aviso cuando intentan agregar FC sin mica
+  const [avisoSinMica, setAvisoSinMica] = useState(false)
+  // Flujo multi-paso para tinte
+  const [pendingTinte, setPendingTinte] = useState<{ step: 'color' | 'tipo' | 'tono'; color: string; tipo: string } | null>(null)
 
   // Catálogo dinámico de lentes de contacto (desde Supabase productos_catalogo)
   const [catalogoLC, setCatalogoLC] = useState<typeof catalogo>([])
@@ -292,22 +322,43 @@ export default function NuevaVentaPage() {
     if (c.id) cargarRecetaPaciente(c.id)
   }
 
-  const agregarDirecto = (p: typeof catalogo[0], colorSufijo?: string) => {
+  const agregarDirecto = (p: typeof catalogo[0], colorSufijo?: string, precioOverride?: number) => {
     const nombre = colorSufijo ? `${p.nombre} — ${colorSufijo}` : p.nombre
     const idVirtual = colorSufijo ? p.id * 1000 + p.nombre.length + colorSufijo.charCodeAt(0) : p.id
+    const precio = precioOverride ?? p.precio
     setCarrito(prev => {
-      // Deduplicar solo dentro del mismo par
       const ex = prev.find(i => i.id === idVirtual && i.par === parActivo)
       if (ex) return prev.map(i => i.uid === ex.uid ? { ...i, cantidad: i.cantidad + 1 } : i)
       const uid = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-      return [...prev, { ...p, id: idVirtual, nombre, cantidad: 1, descuento: 0, par: parActivo, uid }]
+      return [...prev, { ...p, id: idVirtual, nombre, precio, cantidad: 1, descuento: 0, par: parActivo, uid }]
     })
     setBusquedaProducto('')
     setShowBuscadorProducto(false)
   }
 
   const agregar = (p: typeof catalogo[0]) => {
-    // Si el filtro requiere selección de color, abrimos el selector
+    // Fotocromático: flujo especial con validación de mica
+    if (p.sku === 'FIL-FC') {
+      const micaEnPar = carrito.find(i => i.par === parActivo && COLORES_FC_POR_MICA[i.sku])
+      if (!micaEnPar) {
+        setAvisoSinMica(true)
+        setBusquedaProducto('')
+        setShowBuscadorProducto(false)
+        return
+      }
+      setPendingFiltro({ ...p, sku: p.sku + '|' + micaEnPar.sku }) // guardamos mica SKU en el sku temporalmente
+      setBusquedaProducto('')
+      setShowBuscadorProducto(false)
+      return
+    }
+    // Tinte: flujo multi-paso
+    if (p.sku === 'FIL-TIN') {
+      setPendingTinte({ step: 'color', color: '', tipo: '' })
+      setBusquedaProducto('')
+      setShowBuscadorProducto(false)
+      return
+    }
+    // Polarizado: selector de color estático
     if (COLORES_FILTRO[p.sku]) {
       setPendingFiltro(p)
       setBusquedaProducto('')
@@ -1756,32 +1807,234 @@ ${entregaHtml}
         </div>
       )}
 
-      {/* Color picker modal for filtros */}
-      {pendingFiltro && (
+      {/* Aviso: fotocromático sin mica */}
+      {avisoSinMica && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="text-sm font-bold text-zinc-800 mb-1">{pendingFiltro.nombre}</h3>
-            <p className="text-xs text-zinc-400 mb-4">Selecciona el color</p>
-            <div className="flex flex-wrap gap-2">
-              {COLORES_FILTRO[pendingFiltro.sku].map(color => (
-                <button
-                  key={color}
-                  onClick={() => { agregarDirecto(pendingFiltro, color); setPendingFiltro(null) }}
-                  className="px-4 py-2 border border-zinc-200 rounded-lg text-sm font-semibold text-zinc-700 hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all"
-                >
-                  {color}
-                </button>
-              ))}
-            </div>
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl text-center">
+            <p className="text-2xl mb-3">🔍</p>
+            <h3 className="text-sm font-bold text-zinc-800 mb-2">Primero elige la mica</h3>
+            <p className="text-xs text-zinc-400 mb-5">Para agregar el fotocromático necesitas tener una mica en el carrito (Monofocal, Bifocal o Progresivo).</p>
             <button
-              onClick={() => setPendingFiltro(null)}
-              className="mt-4 w-full text-xs text-zinc-400 hover:text-zinc-600 py-1 transition-colors"
+              onClick={() => setAvisoSinMica(false)}
+              className="w-full bg-[#0B0E14] text-white rounded-lg py-2.5 text-sm font-semibold"
             >
-              Cancelar
+              Entendido
             </button>
           </div>
         </div>
       )}
+
+      {/* Color picker modal para fotocromático y otros filtros */}
+      {pendingFiltro && (() => {
+        const esFc = pendingFiltro.sku.startsWith('FIL-FC|')
+        const micaSku = esFc ? pendingFiltro.sku.split('|')[1] : ''
+        const colores = esFc
+          ? (COLORES_FC_POR_MICA[micaSku] ?? ['Gris'])
+          : (COLORES_FILTRO[pendingFiltro.sku] ?? [])
+        const productoBase = esFc ? { ...pendingFiltro, sku: 'FIL-FC' } : pendingFiltro
+
+        return (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+              <h3 className="text-sm font-bold text-zinc-800 mb-1">{productoBase.nombre}</h3>
+              <p className="text-xs text-zinc-400 mb-4">Selecciona el color</p>
+              <div className="flex flex-wrap gap-2">
+                {colores.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => {
+                      if (esFc) {
+                        const precio = precioFC(color, micaSku)
+                        if (color === 'Gris') {
+                          agregarDirecto(productoBase, color, precio)
+                          setPendingFiltro(null)
+                        } else {
+                          setPendingTratamiento({ color, micaSku, precio })
+                          setPendingFiltro(null)
+                        }
+                      } else {
+                        agregarDirecto(productoBase, color)
+                        setPendingFiltro(null)
+                      }
+                    }}
+                    className="px-4 py-2 border border-zinc-200 rounded-lg text-sm font-semibold text-zinc-700 hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all"
+                  >
+                    {color}
+                    {esFc && color !== 'Gris' && (
+                      <span className="ml-1.5 text-xs text-zinc-400">
+                        +${micaSku === 'MON-PPL' ? '900' : '400'}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setPendingFiltro(null)}
+                className="mt-4 w-full text-xs text-zinc-400 hover:text-zinc-600 py-1 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Segundo paso: elegir tratamiento (Antirreflejante o Bluelight) */}
+      {pendingTratamiento && (() => {
+        const fcBase = catalogo.find(p => p.sku === 'FIL-FC')!
+        const ar     = catalogo.find(p => p.sku === 'FIL-AR')!
+        const bl     = catalogo.find(p => p.sku === 'FIL-BL')!
+
+        const confirmar = (tratamiento: typeof ar) => {
+          // Agregar fotocromático con precio correcto
+          agregarDirecto({ ...fcBase, precio: pendingTratamiento.precio }, pendingTratamiento.color, pendingTratamiento.precio)
+          // Agregar tratamiento
+          agregarDirecto(tratamiento)
+          setPendingTratamiento(null)
+        }
+
+        return (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+              <h3 className="text-sm font-bold text-zinc-800 mb-1">Fotocromático — {pendingTratamiento.color}</h3>
+              <p className="text-xs text-zinc-400 mb-4">Los lentes de color requieren tratamiento. ¿Cuál lleva?</p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => confirmar(ar)}
+                  className="flex items-center justify-between px-4 py-3 border border-zinc-200 rounded-xl hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all text-left"
+                >
+                  <div>
+                    <p className="text-sm font-bold text-zinc-800">Antirreflejante</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">Coating verde</p>
+                  </div>
+                  <span className="text-sm font-semibold text-zinc-600">${ar.precio}</span>
+                </button>
+                <button
+                  onClick={() => confirmar(bl)}
+                  className="flex items-center justify-between px-4 py-3 border border-zinc-200 rounded-xl hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all text-left"
+                >
+                  <div>
+                    <p className="text-sm font-bold text-zinc-800">Bluelight</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">Coating azul</p>
+                  </div>
+                  <span className="text-sm font-semibold text-zinc-600">${bl.precio}</span>
+                </button>
+              </div>
+              <button
+                onClick={() => setPendingTratamiento(null)}
+                className="mt-4 w-full text-xs text-zinc-400 hover:text-zinc-600 py-1 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Flujo multi-paso: Tinte */}
+      {pendingTinte && (() => {
+        const COLORES_TINTE = ['Gris', 'Café', 'Verde', 'Azul', 'Rosado', 'Morado', 'Amarillo']
+        const tinteProd = catalogo.find(p => p.sku === 'FIL-TIN')!
+
+        const confirmarTinte = (tono: string) => {
+          const sufijo = `${pendingTinte.color} ${pendingTinte.tipo} ${tono}`
+          agregarDirecto(tinteProd, sufijo)
+          setPendingTinte(null)
+        }
+
+        return (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+
+              {/* Indicador de pasos */}
+              <div className="flex items-center gap-1 mb-5">
+                {['Color', 'Tipo', 'Tono'].map((s, i) => {
+                  const stepIdx = pendingTinte.step === 'color' ? 0 : pendingTinte.step === 'tipo' ? 1 : 2
+                  return (
+                    <React.Fragment key={s}>
+                      {i > 0 && <div className={`flex-1 h-0.5 ${i <= stepIdx ? 'bg-[#0D9488]' : 'bg-zinc-200'}`} />}
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i <= stepIdx ? 'bg-[#0D9488] text-white' : 'bg-zinc-100 text-zinc-400'}`}>
+                        {i + 1}
+                      </div>
+                    </React.Fragment>
+                  )
+                })}
+              </div>
+
+              {/* Paso 1: Color */}
+              {pendingTinte.step === 'color' && (
+                <>
+                  <h3 className="text-sm font-bold text-zinc-800 mb-1">Tinte — Color</h3>
+                  <p className="text-xs text-zinc-400 mb-4">¿Qué color lleva el tinte?</p>
+                  <div className="flex flex-wrap gap-2">
+                    {COLORES_TINTE.map(color => (
+                      <button key={color}
+                        onClick={() => setPendingTinte({ step: 'tipo', color, tipo: '' })}
+                        className="px-4 py-2 border border-zinc-200 rounded-lg text-sm font-semibold text-zinc-700 hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all"
+                      >
+                        {color}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Paso 2: Tipo */}
+              {pendingTinte.step === 'tipo' && (
+                <>
+                  <h3 className="text-sm font-bold text-zinc-800 mb-1">Tinte {pendingTinte.color} — Tipo</h3>
+                  <p className="text-xs text-zinc-400 mb-4">¿Cómo va el tinte?</p>
+                  <div className="flex flex-col gap-3">
+                    {['Completo', 'Desvanecido'].map(tipo => (
+                      <button key={tipo}
+                        onClick={() => setPendingTinte(prev => ({ ...prev!, step: 'tono', tipo }))}
+                        className="px-4 py-3 border border-zinc-200 rounded-xl text-sm font-semibold text-zinc-700 hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all text-left"
+                      >
+                        {tipo}
+                        <p className="text-xs text-zinc-400 font-normal mt-0.5">
+                          {tipo === 'Completo' ? 'Color uniforme en toda la mica' : 'Degradado de oscuro a transparente'}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Paso 3: Tono */}
+              {pendingTinte.step === 'tono' && (
+                <>
+                  <h3 className="text-sm font-bold text-zinc-800 mb-1">Tinte {pendingTinte.color} {pendingTinte.tipo} — Tono</h3>
+                  <p className="text-xs text-zinc-400 mb-4">¿Qué intensidad lleva?</p>
+                  <div className="flex flex-col gap-3">
+                    {['Tono 1', 'Tono 2', 'Tono 3'].map(tono => (
+                      <button key={tono}
+                        onClick={() => confirmarTinte(tono)}
+                        className="px-4 py-3 border border-zinc-200 rounded-xl text-sm font-semibold text-zinc-700 hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all text-left"
+                      >
+                        {tono}
+                        <p className="text-xs text-zinc-400 font-normal mt-0.5">
+                          {tono === 'Tono 1' ? 'Ligero — ~25% de opacidad' : tono === 'Tono 2' ? 'Medio — ~50% de opacidad' : 'Oscuro — ~75% de opacidad'}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <button
+                onClick={() => {
+                  if (pendingTinte.step === 'color') setPendingTinte(null)
+                  else if (pendingTinte.step === 'tipo') setPendingTinte(prev => ({ ...prev!, step: 'color', color: '' }))
+                  else setPendingTinte(prev => ({ ...prev!, step: 'tipo', tipo: '' }))
+                }}
+                className="mt-5 w-full text-xs text-zinc-400 hover:text-zinc-600 py-1 transition-colors"
+              >
+                {pendingTinte.step === 'color' ? 'Cancelar' : '← Regresar'}
+              </button>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
