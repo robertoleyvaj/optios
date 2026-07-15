@@ -1140,7 +1140,7 @@ function ExpedientesContent() {
                           <th className="text-center py-1 font-medium px-3">Esfera</th>
                           <th className="text-center py-1 font-medium px-3">Cilindro</th>
                           <th className="text-center py-1 font-medium px-3">Eje</th>
-                          {(rv.od_add || rv.oi_add) && <th className="text-center py-1 font-medium px-3">Adición</th>}
+                          {(rv.od_add && parseFloat(rv.od_add) !== 0) || (rv.oi_add && parseFloat(rv.oi_add) !== 0) ? <th className="text-center py-1 font-medium px-3">Adición</th> : null}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-100">
@@ -1149,14 +1149,14 @@ function ExpedientesContent() {
                           <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.od_esfera || '—'}</td>
                           <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.od_cilindro || '—'}</td>
                           <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.od_eje || '—'}°</td>
-                          {(rv.od_add || rv.oi_add) && <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.od_add || '—'}</td>}
+                          {((rv.od_add && parseFloat(rv.od_add) !== 0) || (rv.oi_add && parseFloat(rv.oi_add) !== 0)) && <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.od_add || '—'}</td>}
                         </tr>
                         <tr>
                           <td className="py-2.5"><span className="text-xs font-bold bg-zinc-100 px-2 py-0.5 rounded text-zinc-500">OI</span></td>
                           <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.oi_esfera || '—'}</td>
                           <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.oi_cilindro || '—'}</td>
                           <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.oi_eje || '—'}°</td>
-                          {(rv.od_add || rv.oi_add) && <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.oi_add || '—'}</td>}
+                          {((rv.od_add && parseFloat(rv.od_add) !== 0) || (rv.oi_add && parseFloat(rv.oi_add) !== 0)) && <td className="text-center px-3 font-mono font-semibold text-zinc-800">{rv.oi_add || '—'}</td>}
                         </tr>
                       </tbody>
                     </table>
@@ -1264,7 +1264,7 @@ function ExpedientesContent() {
                     { label: 'Nueva venta',    Icon: ShoppingBag, color: 'bg-[#0D9488]/10 text-[#0D9488]', action: () => router.push(`/dashboard/ventas/nueva?pacienteId=${seleccionado.id}`) },
                     { label: 'Agendar cita',   Icon: Calendar,    color: 'bg-blue-50 text-blue-600',        action: () => router.push('/dashboard/agenda') },
                     { label: 'Enviar mensaje', Icon: MessageCircle,color:'bg-emerald-50 text-emerald-600',  action: () => window.open(`https://wa.me/52${seleccionado.telefono.replace(/\D/g,'')}`, '_blank') },
-                    { label: 'Imprimir hoja del paciente', Icon: Printer, color: 'bg-zinc-100 text-zinc-500', action: () => router.push(`/dashboard/expedientes/${seleccionado.id}/hoja`) },
+                    { label: 'Nueva receta', Icon: FileText, color: 'bg-zinc-100 text-zinc-500', action: () => { setFormReceta(formVacioReceta()); setErroresReceta({}); setModalReceta(true) } },
                   ].map(({ label, Icon, color, action }) => (
                     <button key={label} onClick={action}
                       className="flex flex-col items-center gap-2 p-3 border border-zinc-100 rounded-lg hover:bg-zinc-50 transition-colors text-center">
@@ -1324,7 +1324,6 @@ function ExpedientesContent() {
                 <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Últimas compras</h3>
-                    <span className="text-[10px] text-zinc-400">Ver todas</span>
                   </div>
                   <div className="space-y-1.5">
                     {[...seleccionado.ventas].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 3).map((v, i) => (
