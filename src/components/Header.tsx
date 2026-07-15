@@ -21,7 +21,11 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       if (raw) setLegacyUser(JSON.parse(raw))
     } catch { /* noop */ }
   }, [])
-  const usuario = sessionUser ?? legacyUser ?? { nombre: '', sucursal: '', rol: '' }
+  const usuario = {
+    nombre:   sessionUser?.nombre   || legacyUser?.nombre   || '',
+    sucursal: sessionUser?.sucursal || legacyUser?.sucursal || '',
+    rol:      sessionUser?.rol      || legacyUser?.rol      || 'vendedor',
+  }
   const [search, setSearch] = useState('')
   const [searchRes, setSearchRes] = useState<PacienteResult[]>([])
   const [searchOpen, setSearchOpen] = useState(false)

@@ -1452,9 +1452,12 @@ export default function LaboratorioPage() {
       setCargando(true)
       try {
         // Leer usuario (Supabase Auth o legacy localStorage)
-        let user: { rol?: string; sucursal?: string; nombre?: string } = sessionUser ?? {}
-        if (!user.rol) {
-          try { user = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
+        let legacyU: { rol?: string; sucursal?: string; nombre?: string } = {}
+        try { legacyU = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
+        const user = {
+          rol:      sessionUser?.rol      || legacyU.rol      || 'vendedor',
+          sucursal: sessionUser?.sucursal || legacyU.sucursal || '',
+          nombre:   sessionUser?.nombre   || legacyU.nombre   || '',
         }
         setDemoUser(user as { rol: string; sucursal: string; nombre: string })
 

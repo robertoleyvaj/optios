@@ -174,7 +174,11 @@ export default function CajaPage() {
       }
     } catch { /* noop */ }
   }, [])
-  const usuario = sessionUser ?? legacyUser ?? { nombre: '', sucursal: '', rol: '' }
+  const usuario = {
+    nombre:   sessionUser?.nombre   || legacyUser?.nombre   || '',
+    sucursal: sessionUser?.sucursal || legacyUser?.sucursal || '',
+    rol:      sessionUser?.rol      || legacyUser?.rol      || 'vendedor',
+  }
 
   // ── Cargar datos ──
   const cargarDatos = useCallback(async (sucursal: string, rol?: string) => {
