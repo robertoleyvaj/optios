@@ -806,13 +806,13 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           </div>
         </div>
 
-        {(!recogendoDraft.costoLab || !recogendoDraft.metodoPagoLab) && (
+        {!o.pagadoLab && (
           <p className="text-xs text-center text-red-500 font-medium -mb-1">
-            {!recogendoDraft.costoLab ? 'Ingresa cuánto cobró el lab' : 'Selecciona cómo pagaste'}
+            Primero marca como Pagado antes de continuar
           </p>
         )}
         <button
-          disabled={!recogendoDraft.costoLab || !recogendoDraft.metodoPagoLab}
+          disabled={!o.pagadoLab}
           onClick={() => {
             onUpdate(o.id, {
               estado: 'en_camino',
@@ -820,13 +820,11 @@ function VistaRepartidor({ ordenes, onUpdate }: {
               metodoPagoLab: recogendoDraft.metodoPagoLab,
               pagadoLab:     true,
               fechaRecogidaLab: hoyLocal(),
-              // solo actualiza fecha_pago_lab si no se había pagado antes
-              ...(o.pagadoLab ? {} : { fechaPagoLab: hoyLocal() }),
             })
             setSelectedId(null)
           }}
           className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold rounded-xl transition-colors ${
-            recogendoDraft.costoLab && recogendoDraft.metodoPagoLab
+            o.pagadoLab
               ? 'bg-teal-600 text-white hover:bg-teal-700'
               : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
           }`}
