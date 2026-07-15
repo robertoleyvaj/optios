@@ -26,37 +26,53 @@ function LoginForm() {
     setLoading(true)
     setError('')
 
-    const { data, error: err } = await createClient()
-      .from('usuarios')
-      .select('id, nombre, apodo, iniciales, rol, sucursal, nombre_receta, activo')
-      .eq('username', username.toLowerCase().trim())
-      .eq('password', password)
-      .single()
+    const sb = createClient()
+    const usernameLower = username.toLowerCase().trim()
+    const email = `${usernameLower}@gon.optios`
 
-    if (err || !data) {
+    // 1. Autenticar con Supabase Auth
+    const { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password })
+
+    if (authErr || !authData.user) {
       setError('Usuario o contraseña incorrectos')
       setLoading(false)
       return
     }
 
-    if (!data.activo) {
+    // 2. Obtener perfil (ya autenticado, puede leer su propio row)
+    const { data: usuarioData, error: errUsuario } = await sb
+      .from('usuarios')
+      .select('id, nombre, apodo, iniciales, rol, sucursal, nombre_receta, activo')
+      .eq('auth_user_id', authData.user.id)
+      .single()
+
+    if (errUsuario || !usuarioData) {
+      await sb.auth.signOut()
+      setError('Error al cargar perfil. Contacta al administrador.')
+      setLoading(false)
+      return
+    }
+
+    if (!usuarioData.activo) {
+      await sb.auth.signOut()
       setError('Tu cuenta está desactivada. Contacta al administrador.')
       setLoading(false)
       return
     }
 
-    // Actualizar último acceso
-    await createClient().from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('id', data.id)
-
+    // 3. Guardar en localStorage para que el dashboard sepa quién es
     localStorage.setItem('optios_demo_user', JSON.stringify({
-      id:           data.id,
-      nombre:       data.nombre,
-      apodo:        data.apodo || data.nombre.split(' ')[0],
-      iniciales:    data.iniciales || data.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
-      rol:          data.rol,
-      sucursal:     data.sucursal,
-      nombre_receta: data.nombre_receta,
+      id:            usuarioData.id,
+      nombre:        usuarioData.nombre,
+      apodo:         usuarioData.apodo || usuarioData.nombre.split(' ')[0],
+      iniciales:     usuarioData.iniciales || usuarioData.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
+      rol:           usuarioData.rol,
+      sucursal:      usuarioData.sucursal,
+      nombre_receta: usuarioData.nombre_receta,
     }))
+
+    // 4. Actualizar último acceso y redirigir
+    await sb.from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('id', usuarioData.id)
     router.push('/dashboard')
   }
 
