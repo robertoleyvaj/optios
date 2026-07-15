@@ -577,6 +577,7 @@ function ExpedientesContent() {
   const [modalEditar, setModalEditar] = useState(false)
   const [formEditar, setFormEditar] = useState<Omit<Paciente, 'id' | 'recetas' | 'citas' | 'ventas'>>(formVacioPaciente())
   const [ladaEditar, setLadaEditar] = useState('+52')
+  const [camposDesbloqueados, setCamposDesbloqueados] = useState(false)
 
   // Panel izquierdo colapsable
   const [panelAbierto, setPanelAbierto] = useState(true)
@@ -854,15 +855,23 @@ function ExpedientesContent() {
 
   const abrirEditar = () => {
     if (!seleccionado) return
+    // Detectar lada: ordenar por longitud descendente para evitar falsos positivos
+    const telefono = seleccionado.telefono || ''
+    const ladasSorted = [...PAISES_LADA].sort((a, b) => b.code.length - a.code.length)
+    const match = ladasSorted.find(p => telefono.startsWith(p.code))
+    const ladaDetectada = match?.code ?? '+52'
+    const sinLada = telefono.slice(ladaDetectada.length)
+    setLadaEditar(ladaDetectada)
     setFormEditar({
       nombre:             seleccionado.nombre,
       apellido:           seleccionado.apellido,
-      telefono:           seleccionado.telefono,
+      telefono:           sinLada,
       email:              seleccionado.email,
       fechaNacimiento:    seleccionado.fechaNacimiento,
       sucursalPrincipal:  seleccionado.sucursalPrincipal,
       notas:              seleccionado.notas,
     })
+    setCamposDesbloqueados(false)
     setModalEditar(true)
   }
 
@@ -1283,9 +1292,6 @@ function ExpedientesContent() {
               <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Información clínica</h3>
-                  <button onClick={abrirEditar} className="text-xs text-zinc-400 hover:text-zinc-600 flex items-center gap-0.5 transition-colors">
-                    <Edit2 className="w-3 h-3" /> Editar
-                  </button>
                 </div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide mb-1.5">Diagnóstico</p>
                 <div className="flex flex-wrap gap-1.5 mb-3">
@@ -1592,16 +1598,24 @@ function ExpedientesContent() {
               <button onClick={() => setModalEditar(false)}><X className="w-5 h-5 text-zinc-400" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Nombre *</label>
-                  <input value={formEditar.nombre} onChange={e => setFormEditar(p => ({ ...p, nombre: e.target.value }))}
-                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+              {/* Nombre + Apellido — bloqueados por defecto */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-zinc-500">Nombre y apellido</label>
+                  <button type="button" onClick={() => setCamposDesbloqueados(v => !v)}
+                    className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded transition-colors ${camposDesbloqueados ? 'bg-amber-100 text-amber-700' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}>
+                    {camposDesbloqueados ? '🔒 Bloquear' : '🔓 Modificar'}
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Apellido *</label>
-                  <input value={formEditar.apellido} onChange={e => setFormEditar(p => ({ ...p, apellido: e.target.value }))}
-                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                <div className="grid grid-cols-2 gap-3">
+                  <input value={formEditar.nombre} disabled={!camposDesbloqueados}
+                    onChange={e => setFormEditar(p => ({ ...p, nombre: e.target.value }))}
+                    className={`w-full border rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 ${camposDesbloqueados ? 'border-amber-300 bg-amber-50' : 'border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed'}`}
+                    placeholder="Nombre" />
+                  <input value={formEditar.apellido} disabled={!camposDesbloqueados}
+                    onChange={e => setFormEditar(p => ({ ...p, apellido: e.target.value }))}
+                    className={`w-full border rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 ${camposDesbloqueados ? 'border-amber-300 bg-amber-50' : 'border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed'}`}
+                    placeholder="Apellido" />
                 </div>
               </div>
               <div>
@@ -1624,11 +1638,12 @@ function ExpedientesContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Fecha de nacimiento</label>
-                  <input type="date" value={formEditar.fechaNacimiento} onChange={e => setFormEditar(p => ({ ...p, fechaNacimiento: e.target.value }))}
-                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                  <input type="date" value={formEditar.fechaNacimiento} disabled={!camposDesbloqueados}
+                    onChange={e => setFormEditar(p => ({ ...p, fechaNacimiento: e.target.value }))}
+                    className={`w-full border rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 ${camposDesbloqueados ? 'border-amber-300 bg-amber-50' : 'border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed'}`} />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sucursal</label>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sucursal de preferencia</label>
                   <div className="relative">
                     <select value={formEditar.sucursalPrincipal} onChange={e => setFormEditar(p => ({ ...p, sucursalPrincipal: e.target.value }))}
                       className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
