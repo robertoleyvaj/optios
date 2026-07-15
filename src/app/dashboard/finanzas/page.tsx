@@ -108,7 +108,8 @@ function FinanzasPage() {
   const [cargando,   setCargando]   = useState(true)
 
   // Detalle por card
-  const [cardActiva, setCardActiva] = useState<'cobrado' | 'costo_lab' | 'gastos' | 'utilidad' | null>(null)
+  const [cardActiva, setCardActiva] = useState<'facturado' | 'cobrado' | 'costo_lab' | 'gastos' | 'utilidad' | null>(null)
+  const [totalVentas,   setTotalVentas]   = useState(0)
   const [ventasDetalle, setVentasDetalle] = useState<{ folio: string; fecha: string; atendidoPor: string; total: number; saldo: number }[]>([])
   const [labDetalle,    setLabDetalle]    = useState<{ folio: string; laboratorio: string; costoLab: number; fechaPago: string; paciente: string }[]>([])
 
@@ -150,6 +151,8 @@ function FinanzasPage() {
     if (sucursal !== 'Todas') qVentas = qVentas.eq('sucursal', sucursal)
     const { data: ventasData } = await qVentas
     const ventasRows = ventasData || []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setTotalVentas(ventasRows.reduce((s: number, v: any) => s + (parseFloat(v.total) || 0), 0))
     setIngresos(ventasRows.reduce((s, v) => s + (v.total - v.saldo), 0))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setVentasDetalle(ventasRows.map((v: any) => ({
@@ -306,10 +309,11 @@ function FinanzasPage() {
         <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">Cargando…</div>
       ) : (
         <>
-          {/* ── 4 KPI Cards clickeables ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* ── 5 KPI Cards clickeables ── */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {([
-              { key: 'cobrado'   as const, label: 'Cobrado (ventas)',  value: ingresos,     icon: TrendingUp,   color: 'text-teal-600',    bg: 'bg-teal-50',    border: 'border-teal-400'    },
+              { key: 'facturado' as const, label: 'Total facturado',   value: totalVentas,  icon: TrendingUp,   color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-400'    },
+              { key: 'cobrado'   as const, label: 'Ingresó (cobrado)', value: ingresos,     icon: TrendingUp,   color: 'text-teal-600',    bg: 'bg-teal-50',    border: 'border-teal-400'    },
               { key: 'costo_lab' as const, label: 'Costo laboratorio', value: costoLab,     icon: FlaskConical, color: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-400'  },
               { key: 'gastos'    as const, label: 'Gastos operativos', value: totalGastos,  icon: TrendingDown, color: 'text-red-500',     bg: 'bg-red-50',     border: 'border-red-400'     },
               { key: 'utilidad'  as const, label: 'Utilidad neta',     value: utilidadNeta, icon: DollarSign,   color: utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600', bg: utilidadNeta >= 0 ? 'bg-emerald-50' : 'bg-red-50', border: utilidadNeta >= 0 ? 'border-emerald-400' : 'border-red-400' },
@@ -346,15 +350,18 @@ function FinanzasPage() {
           {cardActiva && (
             <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
 
-              {/* Cobrado → tabla de ventas */}
-              {cardActiva === 'cobrado' && (
+              {/* Facturado / Cobrado → tabla de ventas */}
+              {(cardActiva === 'facturado' || cardActiva === 'cobrado') && (
                 <>
                   <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
                     <h3 className="text-sm font-bold text-zinc-700">
                       Ventas del período
                       <span className="ml-2 text-xs font-normal text-zinc-400">{ventasDetalle.length} registros</span>
                     </h3>
-                    <span className="text-sm font-bold text-teal-600">{$$(ingresos)}</span>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="text-zinc-400 text-xs">Facturado: <span className="font-bold text-blue-600">{$$(totalVentas)}</span></span>
+                      <span className="text-zinc-400 text-xs">Cobrado: <span className="font-bold text-teal-600">{$$(ingresos)}</span></span>
+                    </div>
                   </div>
                   {ventasDetalle.length === 0 ? (
                     <p className="text-sm text-zinc-400 text-center py-10">Sin ventas en este período</p>
@@ -522,6 +529,7 @@ function FinanzasPage() {
           <div className="bg-white rounded-lg border border-zinc-200/80 px-5 py-3">
             <div className="flex items-center gap-0 divide-x divide-zinc-100 text-center overflow-x-auto">
               {[
+                { label: 'Facturado',      value: totalVentas,   color: 'text-blue-600'    },
                 { label: 'Cobrado',        value: ingresos,      color: 'text-teal-600'    },
                 { label: '− Costo lab',    value: -costoLab,     color: 'text-violet-600'  },
                 { label: 'Util. bruta',    value: utilidadBruta, color: utilidadBruta  >= 0 ? 'text-zinc-800' : 'text-red-600' },
