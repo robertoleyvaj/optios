@@ -1137,42 +1137,34 @@ export default function NuevaConsultaPage() {
 
       // ── PASO 5: Consulta optométrica ───────────
       case 5: return (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <SectionTitle>Consulta optométrica</SectionTitle>
 
-          {/* Agudeza visual */}
-          <div className="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-3">Agudeza visual</p>
-            <div className="grid grid-cols-3 gap-3">
-              <div />
-              <div className="text-center text-xs font-semibold text-zinc-500">OD</div>
-              <div className="text-center text-xs font-semibold text-zinc-500">OI</div>
-
-              <div className="text-xs font-semibold text-zinc-500 flex items-center">V. Lejos</div>
-              <input value={avVlOd} onChange={e => setAvVlOd(e.target.value)} placeholder="20/20"
-                className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
-              <input value={avVlOi} onChange={e => setAvVlOi(e.target.value)} placeholder="20/20"
-                className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
-
-              <div className="text-xs font-semibold text-zinc-500 flex items-center">V. Cerca</div>
-              <input value={avVcOd} onChange={e => setAvVcOd(e.target.value)} placeholder="20/20"
-                className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
-              <input value={avVcOi} onChange={e => setAvVcOi(e.target.value)} placeholder="20/20"
-                className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
-
-              <div className="text-xs font-semibold text-zinc-500 flex items-center">S/C</div>
-              <input value={avScOd} onChange={e => setAvScOd(e.target.value)} placeholder="20/—"
-                className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
-              <input value={avScOi} onChange={e => setAvScOi(e.target.value)} placeholder="20/—"
-                className="border border-zinc-200 rounded px-2 py-1.5 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-white" />
+          {/* ① Agudeza visual SIN corrección */}
+          <div className="border border-zinc-200 rounded-xl overflow-hidden">
+            <div className="bg-zinc-50 px-4 py-2.5 border-b border-zinc-200 flex items-center justify-between">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">① Agudeza visual sin corrección (S/C)</p>
+              <span className="text-[10px] text-zinc-400">Cómo llega el paciente</span>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-3 gap-3 items-center">
+                <div />
+                <div className="text-center text-xs font-semibold text-zinc-400">OD</div>
+                <div className="text-center text-xs font-semibold text-zinc-400">OI</div>
+                <div className="text-xs font-semibold text-zinc-500">Lejos</div>
+                <input value={avScOd} onChange={e => setAvScOd(e.target.value)} placeholder="20/—"
+                  className="border border-zinc-200 rounded-lg px-2 py-2 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-zinc-50" />
+                <input value={avScOi} onChange={e => setAvScOi(e.target.value)} placeholder="20/—"
+                  className="border border-zinc-200 rounded-lg px-2 py-2 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-zinc-50" />
+              </div>
             </div>
           </div>
 
-          {/* Lensómetro — solo si se realizó */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Lensómetro</p>
-              <div className="flex items-center gap-0.5 bg-zinc-100 p-0.5 rounded-lg">
+          {/* ② Lensómetro */}
+          <div className="border border-zinc-200 rounded-xl overflow-hidden">
+            <div className="bg-zinc-50 px-4 py-2.5 border-b border-zinc-200 flex items-center justify-between">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">② Lensómetro</p>
+              <div className="flex items-center gap-0.5 bg-zinc-200/60 p-0.5 rounded-lg">
                 <button onClick={() => setHizoLens(true)}
                   className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${hizoLens === true ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}>
                   Sí
@@ -1183,16 +1175,18 @@ export default function NuevaConsultaPage() {
                 </button>
               </div>
             </div>
-            {hizoLens === true  && <RxSection label="Lensómetro" od={lensOd} oi={lensOi} setOd={setLensOd} setOi={setLensOi} showAdd />}
-            {hizoLens === false && <div className="text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-zinc-200 px-4 py-3">No realizado</div>}
-            {hizoLens === null  && <div className="text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-dashed border-zinc-200 px-4 py-3 text-center">Selecciona si se realizó el lensómetro</div>}
+            <div className="p-4">
+              {hizoLens === true  && <RxSection label="Graduación actual del paciente" od={lensOd} oi={lensOi} setOd={setLensOd} setOi={setLensOi} showAdd />}
+              {hizoLens === false && <p className="text-xs text-zinc-400 text-center py-1">No realizado / paciente sin lentes</p>}
+              {hizoLens === null  && <p className="text-xs text-zinc-400 text-center py-1">Selecciona si se realizó</p>}
+            </div>
           </div>
 
-          {/* Autorrefracción — solo si se realizó */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Autorrefracción</p>
-              <div className="flex items-center gap-0.5 bg-zinc-100 p-0.5 rounded-lg">
+          {/* ③ Autorrefracción */}
+          <div className="border border-zinc-200 rounded-xl overflow-hidden">
+            <div className="bg-zinc-50 px-4 py-2.5 border-b border-zinc-200 flex items-center justify-between">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">③ Autorrefracción</p>
+              <div className="flex items-center gap-0.5 bg-zinc-200/60 p-0.5 rounded-lg">
                 <button onClick={() => setHizoAuto(true)}
                   className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${hizoAuto === true ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}>
                   Sí
@@ -1203,17 +1197,55 @@ export default function NuevaConsultaPage() {
                 </button>
               </div>
             </div>
-            {hizoAuto === true  && <RxSection label="Autorrefracción" od={autoOd} oi={autoOi} setOd={setAutoOd} setOi={setAutoOi} />}
-            {hizoAuto === false && <div className="text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-zinc-200 px-4 py-3">No realizada</div>}
-            {hizoAuto === null  && <div className="text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-dashed border-zinc-200 px-4 py-3 text-center">Selecciona si se realizó la autorrefracción</div>}
+            <div className="p-4">
+              {hizoAuto === true  && <RxSection label="Resultado autorrefractómetro" od={autoOd} oi={autoOi} setOd={setAutoOd} setOi={setAutoOi} />}
+              {hizoAuto === false && <p className="text-xs text-zinc-400 text-center py-1">No realizada</p>}
+              {hizoAuto === null  && <p className="text-xs text-zinc-400 text-center py-1">Selecciona si se realizó</p>}
+            </div>
           </div>
-          {/* Refracción subjetiva */}
-          <RxSection label="Refracción subjetiva ★" od={rxOd} oi={rxOi} setOd={setRxOd} setOi={setRxOi} showAdd showDp dpOd={rxDpOd} dpOi={rxDpOi} setDpOd={setRxDpOd} setDpOi={setRxDpOi} highlight />
 
+          {/* ④ Refracción subjetiva — protagonista */}
+          <div className="border-2 border-[#0D9488]/30 rounded-xl overflow-hidden">
+            <div className="bg-[#0D9488]/5 px-4 py-2.5 border-b border-[#0D9488]/20 flex items-center justify-between">
+              <p className="text-xs font-bold text-[#0D9488] uppercase tracking-wider">④ Refracción subjetiva</p>
+              <span className="text-[10px] text-[#0D9488]/60">Graduación final del optometrista</span>
+            </div>
+            <div className="p-4">
+              <RxSection label="" od={rxOd} oi={rxOi} setOd={setRxOd} setOi={setRxOi} showAdd showDp dpOd={rxDpOd} dpOi={rxDpOi} setDpOd={setRxDpOd} setDpOi={setRxDpOi} highlight />
+            </div>
+          </div>
+
+          {/* ⑤ Agudeza visual CON corrección */}
+          <div className="border border-zinc-200 rounded-xl overflow-hidden">
+            <div className="bg-zinc-50 px-4 py-2.5 border-b border-zinc-200 flex items-center justify-between">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">⑤ Agudeza visual con corrección (C/C)</p>
+              <span className="text-[10px] text-zinc-400">Cómo queda con la nueva Rx</span>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-3 gap-3 items-center">
+                <div />
+                <div className="text-center text-xs font-semibold text-zinc-400">OD</div>
+                <div className="text-center text-xs font-semibold text-zinc-400">OI</div>
+                <div className="text-xs font-semibold text-zinc-500">Lejos</div>
+                <input value={avVlOd} onChange={e => setAvVlOd(e.target.value)} placeholder="20/20"
+                  className="border border-zinc-200 rounded-lg px-2 py-2 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-zinc-50" />
+                <input value={avVlOi} onChange={e => setAvVlOi(e.target.value)} placeholder="20/20"
+                  className="border border-zinc-200 rounded-lg px-2 py-2 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-zinc-50" />
+                <div className="text-xs font-semibold text-zinc-500">Cerca</div>
+                <input value={avVcOd} onChange={e => setAvVcOd(e.target.value)} placeholder="20/20"
+                  className="border border-zinc-200 rounded-lg px-2 py-2 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-zinc-50" />
+                <input value={avVcOi} onChange={e => setAvVcOi(e.target.value)} placeholder="20/20"
+                  className="border border-zinc-200 rounded-lg px-2 py-2 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 bg-zinc-50" />
+              </div>
+            </div>
+          </div>
+
+          {/* Observaciones */}
           <div>
             <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Observaciones clínicas</label>
             <textarea value={obsClinicas} onChange={e => setObsClinicas(e.target.value)} rows={2}
-              className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none" />
+              className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none placeholder:text-zinc-300"
+              placeholder="Notas adicionales de la consulta..." />
           </div>
         </div>
       )
