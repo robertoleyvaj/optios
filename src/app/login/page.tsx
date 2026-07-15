@@ -61,15 +61,20 @@ function LoginForm() {
     }
 
     // 3. Guardar en localStorage para que el dashboard sepa quién es
-    localStorage.setItem('optios_demo_user', JSON.stringify({
+    const perfil = {
       id:            usuarioData.id,
       nombre:        usuarioData.nombre,
       apodo:         usuarioData.apodo || usuarioData.nombre.split(' ')[0],
       iniciales:     usuarioData.iniciales || usuarioData.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
       rol:           usuarioData.rol,
-      sucursal:      usuarioData.sucursal,
-      nombre_receta: usuarioData.nombre_receta,
-    }))
+      sucursal:      usuarioData.sucursal ?? '',
+      nombre_receta: usuarioData.nombre_receta ?? '',
+    }
+    localStorage.setItem('optios_demo_user', JSON.stringify(perfil))
+
+    // 3b. Sincronizar user_metadata en Supabase Auth (permite que useSession lea sucursal/rol
+    //     del JWT sin depender de localStorage — útil si el usuario abre otra pestaña o dispositivo)
+    sb.auth.updateUser({ data: perfil }).catch(() => { /* best-effort */ })
 
     // 4. Actualizar último acceso y redirigir
     await sb.from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('id', usuarioData.id)
