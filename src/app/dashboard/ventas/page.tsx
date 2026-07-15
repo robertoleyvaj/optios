@@ -15,7 +15,7 @@ import { registrarComisionTerminal } from '@/lib/comisiones'
 // ─────────────────────────────────────────
 // Tipos
 // ─────────────────────────────────────────
-type Pago = { fecha: string; monto: number; metodo: string }
+type Pago = { fecha: string; monto: number; metodo: string; pagos_venta_id?: string }
 type ItemVenta = { nombre: string; cantidad: number; precio: number; descuento: number }
 type Venta = {
   id: string            // folio (V-0001)
@@ -282,7 +282,7 @@ export default function VentasPage() {
           atendido_por,
           created_at,
           ventas_items(nombre, cantidad, precio_unitario, descuento),
-          pagos_venta(monto, metodo_pago, created_at, tipo)
+          pagos_venta(id, monto, metodo_pago, created_at, tipo)
         `)
         .order('created_at', { ascending: false })
 
@@ -304,9 +304,10 @@ export default function VentasPage() {
         // Abonos registrados en pagos_venta (posteriores al anticipo)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pagosVenta: Pago[] = (v.pagos_venta ?? []).map((p: any) => ({
-          fecha:  fmtFecha(p.created_at),
-          monto:  parseFloat(p.monto) || 0,
-          metodo: p.metodo_pago ?? 'otros',
+          fecha:           fmtFecha(p.created_at),
+          monto:           parseFloat(p.monto) || 0,
+          metodo:          p.metodo_pago ?? 'otros',
+          pagos_venta_id:  p.id,
         })).sort((a: Pago, b: Pago) => a.fecha.localeCompare(b.fecha))
 
         // Siempre mostrar anticipo inicial + abonos posteriores
@@ -429,6 +430,53 @@ export default function VentasPage() {
     setDetalle(ventaActualizada)
     setAbonoMonto('')
     setShowAbono(false)
+  }
+
+  const eliminarPago = async (pago: Pago) => {
+    if (!detalle || !pago.pagos_venta_id) return
+    if (!confirm(`¿Eliminar este pago de $${pago.monto.toLocaleString('es-MX')}? El saldo de la venta se restaurará.`)) return
+
+    const supabase = createClient()
+    const nuevoSaldo = detalle.saldo_db + pago.monto
+
+    const { error: errDel } = await supabase
+      .from('pagos_venta')
+      .delete()
+      .eq('id', pago.pagos_venta_id)
+
+    if (errDel) { alert(`Error: ${errDel.message}`); return }
+
+    const { error: errUpd } = await supabase
+      .from('ventas')
+      .update({ saldo: nuevoSaldo })
+      .eq('id', detalle.uuid)
+
+    if (errUpd) { alert(`Error restaurando saldo: ${errUpd.message}`); return }
+
+    const ventaActualizada: Venta = {
+      ...detalle,
+      pagos:    detalle.pagos.filter(p => p.pagos_venta_id !== pago.pagos_venta_id),
+      saldo_db: nuevoSaldo,
+      modoPago: nuevoSaldo > 0 ? 'diferida' : 'liquidada',
+    }
+    setVentas(prev => prev.map(v => v.id === detalle.id ? ventaActualizada : v))
+    setDetalle(ventaActualizada)
+  }
+
+  const cancelarVenta = async () => {
+    if (!detalle) return
+    if (!confirm(`¿Cancelar la venta ${detalle.id} de ${detalle.cliente}? Esta acción no se puede deshacer.`)) return
+
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('ventas')
+      .update({ estado: 'cancelada' })
+      .eq('id', detalle.uuid)
+
+    if (error) { alert(`Error: ${error.message}`); return }
+
+    setVentas(prev => prev.filter(v => v.id !== detalle.id))
+    setDetalle(null)
   }
 
   return (
@@ -664,7 +712,18 @@ export default function VentasPage() {
                             <Icon className="w-3 h-3" />{b.label}
                           </span>
                         </div>
-                        <span className="text-sm font-bold text-emerald-700">+${p.monto.toLocaleString('es-MX')}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-emerald-700">+${p.monto.toLocaleString('es-MX')}</span>
+                          {esAdmin && p.pagos_venta_id && (
+                            <button
+                              onClick={() => eliminarPago(p)}
+                              title="Eliminar este pago"
+                              className="w-5 h-5 flex items-center justify-center rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
@@ -758,6 +817,12 @@ export default function VentasPage() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50 transition-colors">
                 <Printer className="w-4 h-4" /> Reimprimir ticket
               </button>
+              {esAdmin && (
+                <button onClick={cancelarVenta}
+                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-400 hover:text-red-600 transition-colors">
+                  Cancelar venta
+                </button>
+              )}
             </div>
           </div>
         </div>
