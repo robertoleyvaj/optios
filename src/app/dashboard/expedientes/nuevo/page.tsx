@@ -1010,53 +1010,72 @@ export default function NuevaConsultaPage() {
 
       // ── PASO 3: Hábitos ────────────────────────
       case 3: return (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <SectionTitle>Hábitos visuales</SectionTitle>
-            <span className="text-xs text-zinc-400 bg-zinc-100 px-2 py-1 rounded">Todos los campos son opcionales</span>
+            <span className="text-xs text-zinc-400">Todo opcional</span>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            {([
-              ['horas_computadora', 'Horas frente a computadora'],
-              ['horas_celular',     'Horas usando celular'],
-              ['horas_lectura',     'Horas leyendo'],
-              ['horas_videojuegos', 'Horas de videojuegos'],
-            ] as [keyof Habitos, string][]).map(([key, label]) => (
-              <div key={key}>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">{label}</label>
-                <div className="flex items-center gap-3">
-                  <input type="range" min={0} max={16} step={0.5} value={habitos[key] as number}
-                    onChange={e => setHabitos(h => ({ ...h, [key]: parseFloat(e.target.value) }))}
-                    className="flex-1 accent-[#0D9488]" />
-                  <span className="text-sm font-bold text-zinc-700 w-10 text-right">{habitos[key]}h</span>
+
+          {/* ── Tarjeta 1: Pantallas ── */}
+          <div className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Horas al día en pantallas</p>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ['horas_computadora', '💻 Computadora'],
+                ['horas_celular',     '📱 Celular'],
+                ['horas_lectura',     '📖 Lectura'],
+                ['horas_videojuegos', '🎮 Videojuegos'],
+              ] as [keyof Habitos, string][]).map(([key, label]) => (
+                <div key={key} className="bg-white border border-zinc-200 rounded-lg p-3 flex items-center justify-between gap-2">
+                  <span className="text-xs text-zinc-600">{label}</span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => setHabitos(h => ({ ...h, [key]: Math.max(0, (h[key] as number) - 1) }))}
+                      className="w-6 h-6 rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 text-xs font-bold hover:bg-zinc-100 flex items-center justify-center leading-none">
+                      −
+                    </button>
+                    <span className="text-sm font-bold text-zinc-800 w-8 text-center tabular-nums">{habitos[key]}h</span>
+                    <button
+                      onClick={() => setHabitos(h => ({ ...h, [key]: Math.min(16, (h[key] as number) + 1) }))}
+                      className="w-6 h-6 rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 text-xs font-bold hover:bg-zinc-100 flex items-center justify-center leading-none">
+                      +
+                    </button>
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Tarjeta 2: Estilo de vida ── */}
+          <div className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50 space-y-3">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Estilo de vida</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                ['maneja_noche',     '🌙 Maneja de noche'],
+                ['lentes_sol',       '🕶️ Lentes de sol'],
+                ['lentes_seguridad', '🦺 Lentes de seguridad'],
+              ] as [keyof Habitos, string][]).map(([key, label]) => (
+                <button key={key} onClick={() => setHabitos(h => ({ ...h, [key]: !h[key] }))}
+                  className={`px-3 py-2 rounded-full text-xs font-medium border transition-all ${habitos[key] ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-600 bg-white hover:border-zinc-300'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-zinc-100">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Ocupación</label>
+                <input value={habitos.actividad_laboral} onChange={e => setHabitos(h => ({ ...h, actividad_laboral: e.target.value }))}
+                  placeholder="Ej: contador, maestro..."
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
               </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            {([
-              ['maneja_noche',      'Maneja de noche'],
-              ['lentes_sol',        'Usa lentes de sol'],
-              ['lentes_seguridad',  'Lentes de seguridad'],
-            ] as [keyof Habitos, string][]).map(([key, label]) => (
-              <button key={key} onClick={() => setHabitos(h => ({ ...h, [key]: !h[key] }))}
-                className={`flex items-center gap-2 px-4 py-3 rounded border text-sm font-medium transition-all ${habitos[key] ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${habitos[key] ? 'border-[#0D9488] bg-[#0D9488]' : 'border-zinc-300'}`}>
-                  {habitos[key] && <Check className="w-2.5 h-2.5 text-white" />}
-                </div>
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Actividad laboral" value={habitos.actividad_laboral} onChange={v => setHabitos(h => ({ ...h, actividad_laboral: v }))} />
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Distancia habitual de trabajo</label>
-              <select value={habitos.distancia_trabajo} onChange={e => setHabitos(h => ({ ...h, distancia_trabajo: e.target.value }))}
-                className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30">
-                <option value="">—</option>
-                {DISTANCIAS.map(d => <option key={d}>{d}</option>)}
-              </select>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Distancia de trabajo</label>
+                <select value={habitos.distancia_trabajo} onChange={e => setHabitos(h => ({ ...h, distancia_trabajo: e.target.value }))}
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30">
+                  <option value="">—</option>
+                  {DISTANCIAS.map(d => <option key={d}>{d}</option>)}
+                </select>
+              </div>
             </div>
           </div>
         </div>
