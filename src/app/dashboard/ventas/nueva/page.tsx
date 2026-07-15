@@ -59,6 +59,11 @@ const catalogo = [
   // ── Servicios ─────────────────────────────────────────────────
   { id: 40, nombre: 'Examen de la vista',                 categoria: 'Servicios', precio:  200, sku: 'SRV-EXA', stock: 999 },
   { id: 41, nombre: 'Ajuste de armazón',                  categoria: 'Servicios', precio:   80, sku: 'SRV-AJU', stock: 999 },
+  { id: 42, nombre: 'Rebisel',                            categoria: 'Servicios', precio:  200, sku: 'SRV-REB', stock: 999 },
+  { id: 43, nombre: 'Ajuste de tornillo',                 categoria: 'Servicios', precio:  100, sku: 'SRV-TOR', stock: 999 },
+  { id: 44, nombre: 'Cambio de plaquetas',                categoria: 'Servicios', precio:  100, sku: 'SRV-PLA', stock: 999 },
+  { id: 45, nombre: 'Limpieza de armazón',                categoria: 'Servicios', precio:  100, sku: 'SRV-LIM', stock: 999 },
+  { id: 46, nombre: 'Cambio de tornillo',                 categoria: 'Servicios', precio:  100, sku: 'SRV-TCR', stock: 999 },
 ]
 
 const clientesMock = [
@@ -519,7 +524,7 @@ export default function NuevaVentaPage() {
 
       // ── 5. Crear órdenes de laboratorio por par ─────────────
       const isMica = (nombre: string) =>
-        ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
+        ['mica','monofocal','progres','bifocal','transitions','rebisel'].some(k => nombre.toLowerCase().includes(k))
       const isFiltro = (nombre: string) =>
         ['filtro','antirreflejo','blue light','fotocrom','polariz','tinte'].some(k => nombre.toLowerCase().includes(k))
       const isLC = (sku: string) => sku === 'LC'
