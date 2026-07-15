@@ -28,6 +28,7 @@ type Venta = {
   metodo: string
   modoPago: 'liquidada' | 'diferida'
   pagos: Pago[]
+  saldo_db: number      // saldo real de la DB (fuente de verdad)
   fecha: string
   hora: string
   vendedor: string
@@ -53,8 +54,8 @@ const SUCURSALES = ['Todas', 'Baja Visión', '5 de Mayo', 'Plaza Laureles']
 // Helpers
 // ─────────────────────────────────────────
 function saldoPendiente(v: Venta) {
-  const pagado = v.pagos.reduce((s, p) => s + p.monto, 0)
-  return Math.max(0, v.total - pagado)
+  // Usar saldo_db como fuente de verdad (refleja todos los abonos en DB)
+  return v.saldo_db
 }
 
 function fmtFecha(iso: string) {
@@ -280,7 +281,8 @@ export default function VentasPage() {
           metodo_pago,
           atendido_por,
           created_at,
-          ventas_items(nombre, cantidad, precio_unitario, descuento)
+          ventas_items(nombre, cantidad, precio_unitario, descuento),
+          pagos_venta(monto, metodo_pago, created_at, tipo)
         `)
         .order('created_at', { ascending: false })
 
@@ -299,14 +301,20 @@ export default function VentasPage() {
         const anticipo = v.anticipo ?? 0
         const saldo    = v.saldo    ?? 0
 
-        const pagos: Pago[] = []
-        if (anticipo > 0) {
-          pagos.push({ fecha, monto: anticipo, metodo: v.metodo_pago ?? 'otros' })
-        } else if (saldo === 0) {
-          // Liquidada de contado sin anticipo separado: el total fue pagado en el momento
-          pagos.push({ fecha, monto: v.total ?? 0, metodo: v.metodo_pago ?? 'otros' })
-        }
-        // Si anticipo=0 y saldo>0: diferida sin pago — pagos queda vacío, saldoPendiente = total
+        // Construir pagos desde pagos_venta reales (fuente de verdad)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pagosVenta: Pago[] = (v.pagos_venta ?? []).map((p: any) => ({
+          fecha:  fmtFecha(p.created_at),
+          monto:  parseFloat(p.monto) || 0,
+          metodo: p.metodo_pago ?? 'otros',
+        })).sort((a: Pago, b: Pago) => a.fecha.localeCompare(b.fecha))
+
+        // Fallback: si no hay pagos_venta registrados, usar anticipo/total
+        const pagos: Pago[] = pagosVenta.length > 0 ? pagosVenta : (() => {
+          if (anticipo > 0) return [{ fecha, monto: anticipo, metodo: v.metodo_pago ?? 'otros' }]
+          if (saldo === 0)  return [{ fecha, monto: v.total ?? 0, metodo: v.metodo_pago ?? 'otros' }]
+          return []
+        })()
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const items: ItemVenta[] = (v.ventas_items ?? []).map((i: any) => ({
@@ -327,6 +335,7 @@ export default function VentasPage() {
           metodo:   v.metodo_pago ?? 'otros',
           modoPago: saldo > 0 ? 'diferida' : 'liquidada',
           pagos,
+          saldo_db: saldo,
           fecha,
           hora,
           vendedor: v.atendido_por ?? '',
@@ -363,24 +372,39 @@ export default function VentasPage() {
     const esLiquidacion = nuevoSaldo === 0
     const supabase = createClient()
 
-    // 1. Actualizar saldo en ventas
-    await supabase
+    // 1. Actualizar saldo (y estado si queda liquidada)
+    const updateVenta: Record<string, unknown> = { saldo: nuevoSaldo }
+    if (esLiquidacion) updateVenta.estado = 'liquidada'
+
+    const { error: errVenta } = await supabase
       .from('ventas')
-      .update({ saldo: nuevoSaldo })
+      .update(updateVenta)
       .eq('id', detalle.uuid)
 
+    if (errVenta) {
+      console.error('Error actualizando venta:', errVenta)
+      alert(`Error al actualizar la venta: ${errVenta.message}`)
+      return
+    }
+
     // 2. Registrar pago en pagos_venta
-    await supabase.from('pagos_venta').insert({
-      venta_id:      detalle.uuid,
-      folio_venta:   detalle.id,
-      paciente:      detalle.cliente,
+    const { error: errPago } = await supabase.from('pagos_venta').insert({
+      venta_id:       detalle.uuid,
+      folio_venta:    detalle.id,
+      paciente:       detalle.cliente,
       monto,
-      metodo_pago:   abonoMetodo,
-      tipo:          esLiquidacion ? 'liquidacion' : 'abono',
-      sucursal:      detalle.sucursal,
+      metodo_pago:    abonoMetodo,
+      tipo:           esLiquidacion ? 'liquidacion' : 'abono',
+      sucursal:       detalle.sucursal,
       registrado_por: usuarioNombre,
-      usuario_id:    usuarioId,
+      usuario_id:     usuarioId,
     })
+
+    if (errPago) {
+      console.error('Error registrando pago:', errPago)
+      alert(`Error al registrar el pago: ${errPago.message}`)
+      return
+    }
 
     // 3. Comisión terminal automática si se cobró con tarjeta
     await registrarComisionTerminal({
@@ -390,15 +414,14 @@ export default function VentasPage() {
       sucursal:   detalle.sucursal,
     })
 
-    const nuevoPago: Pago = {
-      fecha: new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-      monto,
-      metodo: abonoMetodo,
-    }
+    // 4. Actualizar estado local con saldo_db correcto
+    const fechaPago = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const nuevoPago: Pago = { fecha: fechaPago, monto, metodo: abonoMetodo }
     const ventaActualizada: Venta = {
       ...detalle,
       pagos:    [...detalle.pagos, nuevoPago],
-      modoPago: nuevoSaldo === 0 ? 'liquidada' : 'diferida',
+      saldo_db: nuevoSaldo,
+      modoPago: esLiquidacion ? 'liquidada' : 'diferida',
     }
     setVentas(prev => prev.map(v => v.id === detalle.id ? ventaActualizada : v))
     setDetalle(ventaActualizada)

@@ -54,7 +54,7 @@ export async function registrarComisionTerminal({
   await supabase.from('gastos').insert({
     fecha,
     categoria:      'comision_terminal',
-    descripcion:    `Comisión ${metodoPago === 'debito' ? 'débito' : 'crédito'} · ${folio}`,
+    concepto:       `Comisión ${metodoPago === 'debito' ? 'débito' : 'crédito'} · ${folio}`,
     monto:          comision,
     metodo_pago:    'efectivo',
     sucursal,
