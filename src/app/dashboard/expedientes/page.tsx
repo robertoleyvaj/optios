@@ -99,6 +99,7 @@ type HistorialEvento = {
   tags?: string[]
   monto?: number
   folio?: string
+  id?: string | number
 }
 
 function primeraFechaRef(p: Paciente): string {
@@ -133,6 +134,7 @@ function getHistorialMezclado(p: Paciente): HistorialEvento[] {
     fecha: r.fecha, tipo: 'consulta', titulo: 'Consulta visual',
     tags: r.tipo && r.tipo !== 'Lejos' ? [r.tipo] : [],
     subtitulo: r.optometrista ? `Nueva receta · ${r.optometrista}` : 'Nueva receta',
+    id: r.id,
   }))
   p.ventas.forEach(v => eventos.push({
     fecha: v.fecha, tipo: 'venta', titulo: 'Compra',
@@ -1219,6 +1221,15 @@ function ExpedientesContent() {
                             <div className="flex items-center gap-1.5 flex-shrink-0">
                               {ev.monto !== undefined && (
                                 <span className="text-xs font-semibold text-zinc-500">${ev.monto.toLocaleString('es-MX')}</span>
+                              )}
+                              {ev.tipo === 'consulta' && (
+                                <button
+                                  onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/resumen`)}
+                                  title="Ver consulta completa"
+                                  className="p-1 rounded text-zinc-300 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                </button>
                               )}
                               {ev.tipo === 'venta' && esAdmin && ev.folio && (() => {
                                 const v = seleccionado?.ventas.find(x => x.folio === ev.folio)
