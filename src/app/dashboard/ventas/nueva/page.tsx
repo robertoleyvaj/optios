@@ -1948,15 +1948,15 @@ ${entregaHtml}
 
               {/* Indicador de pasos */}
               <div className="flex items-center gap-1 mb-5">
-                {['Color', 'Tipo', 'Tono'].map((s, i) => {
+                {(['Color', 'Tipo', 'Tono'] as const).map((s, i) => {
                   const stepIdx = pendingTinte.step === 'color' ? 0 : pendingTinte.step === 'tipo' ? 1 : 2
                   return (
-                    <React.Fragment key={s}>
+                    <div key={s} className="contents">
                       {i > 0 && <div className={`flex-1 h-0.5 ${i <= stepIdx ? 'bg-[#0D9488]' : 'bg-zinc-200'}`} />}
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i <= stepIdx ? 'bg-[#0D9488] text-white' : 'bg-zinc-100 text-zinc-400'}`}>
                         {i + 1}
                       </div>
-                    </React.Fragment>
+                    </div>
                   )
                 })}
               </div>
