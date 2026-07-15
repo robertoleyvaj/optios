@@ -372,13 +372,10 @@ export default function VentasPage() {
     const esLiquidacion = nuevoSaldo === 0
     const supabase = createClient()
 
-    // 1. Actualizar saldo (y estado si queda liquidada)
-    const updateVenta: Record<string, unknown> = { saldo: nuevoSaldo }
-    if (esLiquidacion) updateVenta.estado = 'liquidada'
-
+    // 1. Actualizar saldo en ventas (el estado lo determina el saldo, no un campo separado)
     const { error: errVenta } = await supabase
       .from('ventas')
-      .update(updateVenta)
+      .update({ saldo: nuevoSaldo })
       .eq('id', detalle.uuid)
 
     if (errVenta) {
