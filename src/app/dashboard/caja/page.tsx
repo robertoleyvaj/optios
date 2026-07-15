@@ -212,7 +212,8 @@ export default function CajaPage() {
         .from('ventas')
         .select('id, moneda, tipo_cambio')
         .in('id', ventaIdsAbonos)
-      for (const v of (ventasAbonosData ?? [])) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const v of (ventasAbonosData ?? []) as any[]) {
         if (!ventaMap.has(v.id)) ventaMap.set(v.id, v)
       }
     }
