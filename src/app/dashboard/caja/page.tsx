@@ -182,40 +182,49 @@ export default function CajaPage() {
     const sb  = createClient()
     const hoy = hoyLocal()
 
-    // 1. Ventas del día (para cálculo del corte)
+    // 1. Pagos registrados HOY (por fecha de pago, no de venta)
+    //    Incluye anticipos de ventas nuevas Y abonos/liquidaciones de ventas anteriores
+    const { data: pagosData } = await sb
+      .from('pagos_venta')
+      .select('*')
+      .eq('sucursal', sucursal)
+      .gte('created_at', `${hoy}T00:00:00`)
+      .lte('created_at', `${hoy}T23:59:59`)
+      .order('created_at', { ascending: true })
+
+    // 2. Ventas creadas hoy (para fallback: ventas sin registro en pagos_venta)
     const { data: ventasData } = await sb
       .from('ventas')
       .select('id, metodo_pago, total, saldo, moneda, tipo_cambio')
       .eq('sucursal', sucursal)
-      .in('estado', ['activa', 'liquidada'])
+      .in('estado', ['activa'])
       .gte('created_at', `${hoy}T00:00:00`)
       .lte('created_at', `${hoy}T23:59:59`)
 
-    const ventaIds = (ventasData ?? []).map(v => v.id)
-    const ventaMap = new Map((ventasData ?? []).map(v => [v.id, v]))
+    // 3. Para abonos a ventas anteriores, traer info de moneda/tipo_cambio de esas ventas
+    const pagosHoyList = pagosData ?? []
+    setPagosHoy(pagosHoyList)
 
-    // 2. Pagos del día — filtrar por venta_id (más confiable que filtrar por sucursal en pagos_venta)
-    const { data: pagosData } = await sb
-      .from('pagos_venta')
-      .select('*')
-      .in('venta_id', ventaIds.length > 0 ? ventaIds : ['00000000-0000-0000-0000-000000000000'])
-      .order('created_at', { ascending: true })
+    const ventaIdsAbonos = [...new Set(pagosHoyList.map(p => p.venta_id))]
+    let ventaMap = new Map((ventasData ?? []).map(v => [v.id, v]))
+    if (ventaIdsAbonos.length > 0) {
+      const { data: ventasAbonosData } = await sb
+        .from('ventas')
+        .select('id, moneda, tipo_cambio')
+        .in('id', ventaIdsAbonos)
+      for (const v of (ventasAbonosData ?? [])) {
+        if (!ventaMap.has(v.id)) ventaMap.set(v.id, v)
+      }
+    }
 
-    if (pagosData) {
-      // Filtrar solo pagos de hoy (Tijuana)
-      const pagosHoyList = pagosData.filter(p => {
-        const fecha = new Date(p.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
-        return fecha === hoy
-      })
-      setPagosHoy(pagosHoyList)
-
-      // Ventas que ya tienen al menos un pago en pagos_venta
+    {
+      // Ventas con al menos un pago en pagos_venta hoy
       const ventasConPagos = new Set(pagosHoyList.map(p => p.venta_id))
 
       const resumen = JSON.parse(JSON.stringify(RESUMEN_VACIO)) as Record<MetodoPago, ResumenMetodo>
       let usdMonto = 0, usdTx = 0, usdTCSum = 0
 
-      // 1. Sumar pagos registrados en pagos_venta
+      // Sumar todos los pagos registrados hoy (anticipos + abonos + liquidaciones)
       for (const p of pagosHoyList) {
         const key = p.metodo_pago as MetodoPago
         const vo = ventaMap.get(p.venta_id)
@@ -226,10 +235,10 @@ export default function CajaPage() {
         }
       }
 
-      // 2. Fallback: ventas SIN registro en pagos_venta cuyo saldo ya es 0
-      //    (ventas de contado creadas antes de que existiera pagos_venta, o con anticipo=0)
+      // Fallback: ventas de contado creadas hoy sin registro en pagos_venta
+      //    (ventas anteriores a que existiera pagos_venta)
       for (const v of (ventasData ?? [])) {
-        if (ventasConPagos.has(v.id)) continue  // ya contado arriba
+        if (ventasConPagos.has(v.id)) continue
         const recibido = Math.max(0, Number(v.total) - Number(v.saldo ?? 0))
         if (recibido <= 0) continue
         const key = v.metodo_pago as MetodoPago

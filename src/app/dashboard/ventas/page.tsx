@@ -301,7 +301,7 @@ export default function VentasPage() {
         const anticipo = v.anticipo ?? 0
         const saldo    = v.saldo    ?? 0
 
-        // Construir pagos desde pagos_venta reales (fuente de verdad)
+        // Abonos registrados en pagos_venta (posteriores al anticipo)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pagosVenta: Pago[] = (v.pagos_venta ?? []).map((p: any) => ({
           fecha:  fmtFecha(p.created_at),
@@ -309,12 +309,17 @@ export default function VentasPage() {
           metodo: p.metodo_pago ?? 'otros',
         })).sort((a: Pago, b: Pago) => a.fecha.localeCompare(b.fecha))
 
-        // Fallback: si no hay pagos_venta registrados, usar anticipo/total
-        const pagos: Pago[] = pagosVenta.length > 0 ? pagosVenta : (() => {
-          if (anticipo > 0) return [{ fecha, monto: anticipo, metodo: v.metodo_pago ?? 'otros' }]
-          if (saldo === 0)  return [{ fecha, monto: v.total ?? 0, metodo: v.metodo_pago ?? 'otros' }]
-          return []
-        })()
+        // Siempre mostrar anticipo inicial + abonos posteriores
+        const pagos: Pago[] = []
+        if (anticipo > 0) {
+          // Anticipo pagado al momento de crear la venta
+          pagos.push({ fecha, monto: anticipo, metodo: v.metodo_pago ?? 'otros' })
+        } else if (pagosVenta.length === 0 && saldo === 0) {
+          // Liquidada de contado sin anticipo separado
+          pagos.push({ fecha, monto: v.total ?? 0, metodo: v.metodo_pago ?? 'otros' })
+        }
+        // Agregar abonos posteriores (de pagos_venta)
+        pagos.push(...pagosVenta)
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const items: ItemVenta[] = (v.ventas_items ?? []).map((i: any) => ({
