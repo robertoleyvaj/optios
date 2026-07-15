@@ -1173,13 +1173,6 @@ function ExpedientesContent() {
                       </div>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 mt-3">
-                    <button
-                      onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/hoja`)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0D9488] text-white rounded text-xs font-medium hover:bg-teal-500 transition-colors ml-auto">
-                      <Printer className="w-3 h-3" /> Imprimir receta
-                    </button>
-                  </div>
                 </div>
               ) : (
                 <div className="bg-white rounded-lg border border-zinc-200/80 p-6 text-center">
