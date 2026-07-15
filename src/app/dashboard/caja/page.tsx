@@ -85,7 +85,6 @@ const CATEGORIAS_EGRESO = [
   { value: 'retiro_admin',       label: 'Retiro admin' },
   { value: 'nomina',             label: 'Nómina' },
   { value: 'compras',            label: 'Compras' },
-  { value: 'comision_terminal',  label: 'Comisión terminal' },
   { value: 'otros',              label: 'Otro' },
 ]
 

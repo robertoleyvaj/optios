@@ -35,11 +35,16 @@ const PERIODOS: { key: Periodo; label: string }[] = [
   { key: 'personalizado', label: 'Personalizado' },
 ]
 
-const CATEGORIAS_GASTO = ['renta', 'nomina', 'bono_diario', 'comisiones', 'comision_terminal', 'servicios', 'compras', 'otros']
+// Gastos que sí son costos operativos del negocio (restan utilidad)
+const CATEGORIAS_GASTO = ['renta', 'nomina', 'bono_diario', 'adelanto', 'comisiones', 'comision_terminal', 'servicios', 'compras', 'otros']
+// Movimientos del dueño (no son costos del negocio, se muestran aparte)
+const CATEGORIAS_RETIRO = ['retiro_admin']
 const CATEGORIAS_LABEL: Record<string, string> = {
   renta:              'Renta',
   nomina:             'Nómina',
   bono_diario:        'Bono diario',
+  adelanto:           'Adelanto sueldo',
+  retiro_admin:       'Retiro admin',
   comisiones:         'Comisiones',
   comision_terminal:  'Comisión terminal',
   servicios:          'Servicios',
@@ -214,10 +219,14 @@ function FinanzasPage() {
   useEffect(() => { cargar() }, [cargar])
 
   // ── Cálculos ──────────────────────────────
-  const totalGastos    = gastos.reduce((s, g) => s + g.monto, 0)
-  const utilidadBruta  = ingresos - costoLab
-  const utilidadNeta   = utilidadBruta - totalGastos
-  const margen         = ingresos > 0 ? Math.round((utilidadNeta / ingresos) * 100) : 0
+  const gastosOperativos = gastos.filter(g => !CATEGORIAS_RETIRO.includes(g.categoria))
+  const retirosAdmin     = gastos.filter(g => CATEGORIAS_RETIRO.includes(g.categoria))
+  const totalGastos      = gastosOperativos.reduce((s, g) => s + g.monto, 0)
+  const totalRetiros     = retirosAdmin.reduce((s, g) => s + g.monto, 0)
+  const utilidadBruta    = ingresos - costoLab
+  const utilidadNeta     = utilidadBruta - totalGastos
+  const flujoNeto        = utilidadNeta - totalRetiros
+  const margen           = ingresos > 0 ? Math.round((utilidadNeta / ingresos) * 100) : 0
 
   // ── Guardar / editar gasto ──
   const guardarGasto = async () => {
@@ -505,18 +514,34 @@ function FinanzasPage() {
                   <h3 className="text-sm font-bold text-zinc-700 mb-4">Estado de resultados</h3>
                   <div className="divide-y divide-zinc-100">
                     <ResumenRow label="Cobrado en ventas del período" value={ingresos} />
-                    <ResumenRow label="− Costo de laboratorio"   value={-costoLab}     indent color="text-violet-600" />
-                    <ResumenRow label="Utilidad bruta"            value={utilidadBruta} bold color={utilidadBruta >= 0 ? 'text-zinc-900' : 'text-red-600'} />
+                    <ResumenRow label="− Costo de laboratorio" value={-costoLab} indent color="text-violet-600" />
+                    <ResumenRow label="Utilidad bruta" value={utilidadBruta} bold color={utilidadBruta >= 0 ? 'text-zinc-900' : 'text-red-600'} />
                     {CATEGORIAS_GASTO.map(cat => {
-                      const total = gastos.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0)
+                      const total = gastosOperativos.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0)
                       if (total === 0) return null
                       return <ResumenRow key={cat} label={`− ${CATEGORIAS_LABEL[cat]}`} value={-total} indent color="text-red-500" />
                     })}
                     <ResumenRow label="Utilidad neta" value={utilidadNeta} bold color={utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600'} />
                   </div>
+
+                  {/* Movimientos del dueño — no afectan utilidad */}
+                  {totalRetiros > 0 && (
+                    <div className="mt-4 pt-4 border-t border-zinc-200">
+                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Movimientos del dueño</p>
+                      <div className="divide-y divide-zinc-100">
+                        {CATEGORIAS_RETIRO.map(cat => {
+                          const total = retirosAdmin.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0)
+                          if (total === 0) return null
+                          return <ResumenRow key={cat} label={`− ${CATEGORIAS_LABEL[cat]}`} value={-total} indent color="text-orange-500" />
+                        })}
+                        <ResumenRow label="Flujo neto del período" value={flujoNeto} bold color={flujoNeto >= 0 ? 'text-teal-600' : 'text-red-600'} />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mt-4 pt-4 border-t border-zinc-100">
                     <div className="flex items-center justify-between text-xs text-zinc-400">
-                      <span>Margen sobre ventas</span>
+                      <span>Margen operativo sobre ventas</span>
                       <span className={`font-bold text-sm ${margen >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{margen}%</span>
                     </div>
                   </div>
