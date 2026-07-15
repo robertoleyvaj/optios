@@ -36,7 +36,7 @@ const STEPS = [
   { id: 1, label: 'Paciente',    icon: User },
   { id: 2, label: 'Historia',    icon: ClipboardList },
   { id: 3, label: 'Hábitos',     icon: Activity },
-  { id: 4, label: 'Síntomas',    icon: AlertCircle },
+  // paso 4 (Síntomas) se fusionó en Historia — se salta automáticamente
   { id: 5, label: 'Consulta',    icon: Eye },
   { id: 6, label: 'Diagnóstico', icon: Brain },
   { id: 7, label: 'Rec. Clínica',icon: Stethoscope },
@@ -437,6 +437,15 @@ export default function NuevaConsultaPage() {
     }
   }, [paso])
 
+  // Auto-saltar paso 4 (síntomas fusionados en Historia)
+  useEffect(() => {
+    if (paso === 4) {
+      const siguiente = 5
+      setPaso(siguiente)
+      setPasoMaximo(p => Math.max(p, siguiente))
+    }
+  }, [paso])
+
   // Generar rec clínicas al llegar al paso 7
   useEffect(() => {
     if (paso === 7 && recClinicas.length === 0) {
@@ -519,6 +528,8 @@ export default function NuevaConsultaPage() {
           ),
           medicamentos: tieneMedicamentos === false ? 'Ninguno' : medicamentos,
           alergias: tieneAlergias === false ? 'Ninguna' : alergias,
+          sintomas_lista: sintomasSeleccionados,
+          sintomas_obs: sintomasObs,
           paso_actual: 3,
         }).select('id').single()
         if (error || !data) { alert('Error al guardar consulta: ' + error?.message); return }
@@ -1005,6 +1016,23 @@ export default function NuevaConsultaPage() {
               )}
             </div>
           </div>
+          {/* ── Tarjeta 4: Síntomas ── */}
+          <div className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50 space-y-3">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Síntomas</p>
+            <div className="flex flex-wrap gap-1.5">
+              {SINTOMAS_LISTA.map(s => (
+                <button key={s} onClick={() => toggleCheck(sintomasSeleccionados, setSintomasSeleccionados, s)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${sintomasSeleccionados.includes(s) ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-600 bg-white hover:border-zinc-300'}`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+            {sintomasSeleccionados.length > 0 && (
+              <textarea value={sintomasObs} onChange={e => setSintomasObs(e.target.value)} rows={2}
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none placeholder:text-zinc-300"
+                placeholder="Observaciones adicionales sobre los síntomas..." />
+            )}
+          </div>
         </div>
       )
 
@@ -1021,10 +1049,10 @@ export default function NuevaConsultaPage() {
             <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Horas al día en pantallas</p>
             <div className="grid grid-cols-2 gap-3">
               {([
-                ['horas_computadora', '💻 Computadora'],
-                ['horas_celular',     '📱 Celular'],
-                ['horas_lectura',     '📖 Lectura'],
-                ['horas_videojuegos', '🎮 Videojuegos'],
+                ['horas_computadora', 'Computadora'],
+                ['horas_celular',     'Celular'],
+                ['horas_lectura',     'Lectura'],
+                ['horas_videojuegos', 'Videojuegos'],
               ] as [keyof Habitos, string][]).map(([key, label]) => (
                 <div key={key} className="bg-white border border-zinc-200 rounded-lg p-3 flex items-center justify-between gap-2">
                   <span className="text-xs text-zinc-600">{label}</span>
@@ -1051,9 +1079,9 @@ export default function NuevaConsultaPage() {
             <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Estilo de vida</p>
             <div className="flex flex-wrap gap-2">
               {([
-                ['maneja_noche',     '🌙 Maneja de noche'],
-                ['lentes_sol',       '🕶️ Lentes de sol'],
-                ['lentes_seguridad', '🦺 Lentes de seguridad'],
+                ['maneja_noche',     'Maneja de noche'],
+                ['lentes_sol',       'Lentes de sol'],
+                ['lentes_seguridad', 'Lentes de seguridad'],
               ] as [keyof Habitos, string][]).map(([key, label]) => (
                 <button key={key} onClick={() => setHabitos(h => ({ ...h, [key]: !h[key] }))}
                   className={`px-3 py-2 rounded-full text-xs font-medium border transition-all ${habitos[key] ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-600 bg-white hover:border-zinc-300'}`}>
