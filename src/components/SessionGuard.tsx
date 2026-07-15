@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 const INACTIVITY_MS  = 4 * 60 * 60 * 1000  // 4 horas
 const WARNING_BEFORE = 5 * 60 * 1000        // aviso 5 min antes
@@ -29,7 +30,9 @@ export default function SessionGuard() {
       if (idle >= INACTIVITY_MS) {
         // Expirado — cerrar sesión
         localStorage.removeItem('optios_demo_user')
-        router.push('/login?reason=inactivity')
+        createClient().auth.signOut().then(() => {
+          router.push('/login?reason=inactivity')
+        })
         return
       }
 
@@ -64,8 +67,9 @@ export default function SessionGuard() {
     setShowWarning(false)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem('optios_demo_user')
+    await createClient().auth.signOut()
     router.push('/login')
   }
 

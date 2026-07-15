@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import RequireRol from '@/components/RequireRol'
+import { useSession } from '@/hooks/useSession'
+import { createClient } from '@/lib/supabase/client'
 import {
   Search, Plus, AlertTriangle, Filter, ChevronDown,
   X, Save, Edit2, Layers, Tag, Store, Globe, CheckSquare, RefreshCw,
@@ -138,10 +140,60 @@ function CanalBadges({ canales }: { canales: string[] }) {
 }
 
 // ─────────────────────────────────────────
+// Mappers Supabase ↔ TypeScript
+// ─────────────────────────────────────────
+type SupabaseRow = Record<string, unknown>
+
+const rowToProducto = (r: SupabaseRow): Producto => ({
+  id:          r.id as number,
+  sku:         r.sku as string,
+  nombre:      r.nombre as string,
+  tipo:        r.tipo as TipoProducto,
+  categoria:   r.categoria as string,
+  marca:       r.marca as string,
+  precio:      Number(r.precio),
+  costo:       Number(r.costo),
+  ubicacion:   r.ubicacion as string,
+  canales:     (r.canales as string[]) ?? [],
+  estado:      (r.estado as EstadoArmazon) ?? 'disponible',
+  stock:       (r.stock as number) ?? 0,
+  stockBaja:   (r.stock_baja as number) ?? 0,
+  stockMayo:   (r.stock_mayo as number) ?? 0,
+  stockPlaza:  (r.stock_plaza as number) ?? 0,
+  stockMin:    (r.stock_min as number) ?? 0,
+  descripcion: (r.descripcion as string) ?? '',
+  color:       (r.color as string) ?? '',
+  medidas:     (r.medidas as Producto['medidas']) ?? {},
+})
+
+const productoToRow = (p: Omit<Producto, 'id'>) => ({
+  sku:         p.sku,
+  nombre:      p.nombre,
+  tipo:        p.tipo,
+  categoria:   p.categoria,
+  marca:       p.marca,
+  precio:      p.precio,
+  costo:       p.costo,
+  ubicacion:   p.ubicacion,
+  canales:     p.canales ?? [],
+  estado:      p.estado ?? 'disponible',
+  stock:       p.stock ?? 0,
+  stock_baja:  p.stockBaja ?? 0,
+  stock_mayo:  p.stockMayo ?? 0,
+  stock_plaza: p.stockPlaza ?? 0,
+  stock_min:   p.stockMin ?? 0,
+  descripcion: p.descripcion ?? '',
+  color:       p.color ?? '',
+  medidas:     p.medidas ?? {},
+  updated_at:  new Date().toISOString(),
+})
+
+// ─────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────
 function InventarioPage() {
-  const [productos, setProductos] = useState<Producto[]>(inicial)
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | TipoProducto>('todos')
   const [ubicFiltro, setUbicFiltro] = useState('Todas')
@@ -151,6 +203,7 @@ function InventarioPage() {
   const [form, setForm] = useState<Omit<Producto, 'id'>>(formVacio())
   const [esAdmin, setEsAdmin] = useState(false)
   const [sucursalActual, setSucursalActual] = useState('Baja Visión')
+  const { usuario: sessionUser } = useSession()
 
   // Wizard de verificación
   const [wizardAbierto, setWizardAbierto]         = useState(false)
@@ -160,11 +213,39 @@ function InventarioPage() {
   const [spotCheck, setSpotCheck]                 = useState<Producto[]>([])
   const [spotResultados, setSpotResultados]       = useState<Record<number, boolean | null>>({})
 
+  // ── Usuario ──
   useEffect(() => {
+    if (sessionUser) {
+      setEsAdmin(sessionUser.rol === 'administrador' || sessionUser.rol === 'gerente')
+      if (sessionUser.sucursal) setSucursalActual(sessionUser.sucursal)
+      return
+    }
+    // Fallback legacy
     const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
     setEsAdmin(u.rol === 'administrador' || u.rol === 'gerente')
     if (u.sucursal) setSucursalActual(u.sucursal)
+  }, [sessionUser])
+
+  // ── Cargar productos desde Supabase ──
+  const cargarProductos = useCallback(async () => {
+    setCargando(true)
+    const { data, error } = await createClient()
+      .from('productos')
+      .select('*')
+      .eq('activo', true)
+      .order('tipo')
+      .order('categoria')
+      .order('nombre')
+    if (data && !error) {
+      setProductos(data.map(r => rowToProducto(r as SupabaseRow)))
+    } else {
+      // Fallback al catálogo hardcodeado si la tabla no existe aún
+      setProductos(inicial)
+    }
+    setCargando(false)
   }, [])
+
+  useEffect(() => { cargarProductos() }, [cargarProductos])
 
   const iniciarVerificacion = () => {
     const consumibles = productos.filter(p => p.tipo === 'consumible')
@@ -215,15 +296,28 @@ function InventarioPage() {
     setModal(true)
   }
 
-  const guardar = () => {
-    // Si se marca vendido, limpiar canales automáticamente
+  const [guardando, setGuardando] = useState(false)
+
+  const guardar = async () => {
+    setGuardando(true)
     const canalesFinal = form.estado === 'vendido' ? [] : form.canales
-    const data = { ...form, canales: canalesFinal }
+    const row = productoToRow({ ...form, canales: canalesFinal })
+    const sb = createClient()
+
     if (editando) {
-      setProductos(prev => prev.map(p => p.id === editando.id ? { ...p, ...data } : p))
+      const { error } = await sb.from('productos').update(row).eq('id', editando.id)
+      if (!error) {
+        setProductos(prev => prev.map(p =>
+          p.id === editando.id ? { ...p, ...form, canales: canalesFinal } : p
+        ))
+      }
     } else {
-      setProductos(prev => [...prev, { id: Date.now(), ...data }])
+      const { data, error } = await sb.from('productos').insert(row).select().single()
+      if (!error && data) {
+        setProductos(prev => [...prev, rowToProducto(data as SupabaseRow)])
+      }
     }
+    setGuardando(false)
     setModal(false)
   }
 
@@ -244,12 +338,22 @@ function InventarioPage() {
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Inventario</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Estado de exhibición y stock por sucursal</p>
         </div>
-        <button
-          onClick={() => { setVerifSucursal(sucursalActual); iniciarVerificacion() }}
-          className="flex items-center gap-2 bg-[#0D9488] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-teal-600 active:scale-[0.98] transition-all"
-        >
-          <ClipboardCheck className="w-4 h-4" /> Verificar inventario
-        </button>
+        <div className="flex items-center gap-2">
+          {esAdmin && (
+            <button
+              onClick={abrirNuevo}
+              className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-zinc-800 active:scale-[0.98] transition-all"
+            >
+              <Plus className="w-4 h-4" /> Nuevo producto
+            </button>
+          )}
+          <button
+            onClick={() => { setVerifSucursal(sucursalActual); iniciarVerificacion() }}
+            className="flex items-center gap-2 bg-[#0D9488] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-teal-600 active:scale-[0.98] transition-all"
+          >
+            <ClipboardCheck className="w-4 h-4" /> Verificar inventario
+          </button>
+        </div>
       </div>
 
       {/* Tableros por sucursal */}
@@ -456,12 +560,23 @@ function InventarioPage() {
                       )}
                       {p.tipo === 'servicio' && <span className="text-xs text-zinc-400">a pedido</span>}
                     </td>
+                    {esAdmin && (
+                      <td className="px-4 py-3.5 text-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => abrirEditar(p)}
+                          className="p-1.5 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition-colors">
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 )
               })}
             </tbody>
           </table>
-          {filtrados.length === 0 && (
+          {cargando && (
+            <div className="text-center py-16 text-zinc-400 text-sm">Cargando inventario...</div>
+          )}
+          {!cargando && filtrados.length === 0 && (
             <div className="text-center py-16 text-zinc-400 text-sm">No se encontraron productos.</div>
           )}
         </div>
@@ -664,8 +779,8 @@ function InventarioPage() {
         </div>
       )}
 
-      {/* Modal — deshabilitado hasta panel admin dedicado */}
-      {false && modal && (
+      {/* Modal agregar / editar producto */}
+      {modal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
@@ -857,10 +972,10 @@ function InventarioPage() {
                 className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
                 Cancelar
               </button>
-              <button onClick={guardar} disabled={!form.nombre || !form.sku}
+              <button onClick={guardar} disabled={!form.nombre || !form.sku || guardando}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40">
                 <Save className="w-4 h-4" />
-                {editando ? 'Guardar cambios' : 'Agregar'}
+                {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Agregar'}
               </button>
             </div>
           </div>

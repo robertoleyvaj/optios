@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
+import { useSession } from '@/hooks/useSession'
 import {
   Banknote, CreditCard, Building2, CheckCircle2,
   AlertTriangle, Printer, Clock, Lock, RefreshCw, MapPin,
@@ -108,7 +109,8 @@ const fmtHora = (iso: string) =>
 export default function CajaPage() {
 
   // ── Estado usuario / sucursal ──
-  const [usuario, setUsuario] = useState({ nombre: '', sucursal: '', rol: '' })
+  const { usuario: sessionUser } = useSession()
+  const [legacyUser, setLegacyUser] = useState<{ nombre: string; sucursal: string; rol: string } | null>(null)
 
   // ── Datos del día ──
   const [ventas, setVentas]       = useState<Record<MetodoPago, ResumenMetodo>>(RESUMEN_VACIO)
@@ -161,16 +163,17 @@ export default function CajaPage() {
 
   const pagosPorMetodo = (m: MetodoPago) => pagosHoy.filter(p => p.metodo_pago === m)
 
-  // ── Leer usuario del localStorage ──
+  // ── Leer usuario (legacy localStorage para usuarios sin migrar) ──
   useEffect(() => {
     try {
       const raw = localStorage.getItem('optios_demo_user')
       if (raw) {
         const u = JSON.parse(raw)
-        setUsuario({ nombre: u.nombre ?? '', sucursal: u.sucursal ?? '', rol: u.rol ?? '' })
+        setLegacyUser({ nombre: u.nombre ?? '', sucursal: u.sucursal ?? '', rol: u.rol ?? '' })
       }
     } catch { /* noop */ }
   }, [])
+  const usuario = sessionUser ?? legacyUser ?? { nombre: '', sucursal: '', rol: '' }
 
   // ── Cargar datos ──
   const cargarDatos = useCallback(async (sucursal: string, rol?: string) => {

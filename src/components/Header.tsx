@@ -5,14 +5,23 @@ import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown,
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
+import { useSession } from '@/hooks/useSession'
 
-type UsuarioLocal = { nombre: string; sucursal: string; rol?: string }
 type Notif = { id: string; tipo: 'cita' | 'lab'; texto: string; sub: string }
 type PacienteResult = { id: string; nombre: string; apellido: string; telefono: string }
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter()
-  const [usuario, setUsuario] = useState<UsuarioLocal>({ nombre: '', sucursal: '' })
+  const { usuario: sessionUser, signOut } = useSession()
+  // Compatibilidad con localStorage legacy (usuarios aún no migrados a Supabase Auth)
+  const [legacyUser, setLegacyUser] = useState<{ nombre: string; sucursal: string; rol?: string } | null>(null)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('optios_demo_user')
+      if (raw) setLegacyUser(JSON.parse(raw))
+    } catch { /* noop */ }
+  }, [])
+  const usuario = sessionUser ?? legacyUser ?? { nombre: '', sucursal: '', rol: '' }
   const [search, setSearch] = useState('')
   const [searchRes, setSearchRes] = useState<PacienteResult[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
@@ -29,14 +38,6 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   })
   const todayStr = today.charAt(0).toUpperCase() + today.slice(1)
   const todayISO = hoyLocal()
-
-  // ── User from localStorage ──
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('optios_demo_user')
-      if (raw) setUsuario(JSON.parse(raw))
-    } catch { /* noop */ }
-  }, [])
 
   // ── Load notifications ──
   const cargarNotifs = useCallback(async () => {
@@ -104,8 +105,9 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     ? usuario.nombre.split(' ').map(p => p[0]).slice(0,2).join('').toUpperCase()
     : 'RL'
 
-  const cerrarSesion = () => {
+  const cerrarSesion = async () => {
     localStorage.removeItem('optios_demo_user')
+    await signOut()
     router.push('/login')
   }
 

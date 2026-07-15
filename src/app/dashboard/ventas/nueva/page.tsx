@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useSession } from '@/hooks/useSession'
 import { registrarComisionTerminal } from '@/lib/comisiones'
 import { hoyLocal } from '@/lib/fecha'
 import Link from 'next/link'
@@ -103,6 +104,7 @@ const REC_A_CATALOGO: Record<string, number[]> = {
 
 export default function NuevaVentaPage() {
   const searchParams = useSearchParams()
+  const { usuario: sessionUser } = useSession()
   const [sucursal, setSucursal] = useState('Baja Visión')
   const [rolUsuario, setRolUsuario] = useState('')
   const [busquedaCliente, setBusquedaCliente] = useState('')
@@ -169,14 +171,20 @@ export default function NuevaVentaPage() {
   const [loadingTC, setLoadingTC] = useState(false)
   const [tcError, setTcError] = useState(false)
 
-  // Leer sucursal y rol del usuario logueado
+  // Leer sucursal y rol del usuario logueado (Supabase Auth o legacy localStorage)
   useEffect(() => {
+    if (sessionUser) {
+      if (sessionUser.sucursal) setSucursal(sessionUser.sucursal)
+      if (sessionUser.rol) setRolUsuario(sessionUser.rol)
+      return
+    }
+    // Fallback legacy para usuarios sin migrar
     try {
       const user = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
       if (user?.sucursal) setSucursal(user.sucursal)
       if (user?.rol) setRolUsuario(user.rol)
     } catch {}
-  }, [])
+  }, [sessionUser])
 
   // Auto-populate desde URL params (pacienteId desde expedientes, desde_consulta desde wizard)
   useEffect(() => {
@@ -365,14 +373,16 @@ export default function NuevaVentaPage() {
     try {
       const supabase = createClient()
 
-      // Leer usuario actual
-      let atendioPor = ''
-      let usuarioId: string | null = null
-      try {
-        const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
-        atendioPor = u?.nombre || ''
-        usuarioId  = u?.id || null
-      } catch {}
+      // Leer usuario actual (Supabase Auth o legacy localStorage)
+      let atendioPor = sessionUser?.nombre || ''
+      let usuarioId: string | null = sessionUser?.id || null
+      if (!atendioPor) {
+        try {
+          const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
+          atendioPor = u?.nombre || ''
+          usuarioId  = u?.id || null
+        } catch {}
+      }
 
       // ── 1. Obtener folio siguiente ──────────────────────────
       const prefijo = cotizacion ? 'COT' : 'V'
