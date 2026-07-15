@@ -230,6 +230,7 @@ export default function VentasPage() {
   const [abonoMetodo, setAbonoMetodo] = useState('efectivo')
   const [usuarioNombre, setUsuarioNombre] = useState('')
   const [usuarioId, setUsuarioId]         = useState<string | null>(null)
+  const [esAdmin, setEsAdmin]             = useState(false)
 
   useEffect(() => {
     cargar()
@@ -237,6 +238,7 @@ export default function VentasPage() {
       const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
       setUsuarioNombre(u.nombre ?? '')
       setUsuarioId(u.id ?? null)
+      setEsAdmin(u.rol === 'administrador')
       // Gerente y vendedor arrancan en su propia sucursal
       if (u.rol !== 'administrador' && u.sucursal && u.sucursal !== 'Todas') {
         setSucursal(u.sucursal)
