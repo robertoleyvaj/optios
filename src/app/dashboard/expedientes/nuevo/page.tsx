@@ -838,193 +838,155 @@ export default function NuevaConsultaPage() {
 
       // ── PASO 2: Historia clínica ───────────────
       case 2: return (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <SectionTitle>Historia clínica</SectionTitle>
-            <span className="text-xs text-zinc-400 bg-zinc-100 px-2 py-1 rounded">Todos los campos son opcionales</span>
+            <span className="text-xs text-zinc-400">Todo opcional</span>
           </div>
 
-          {/* Motivo */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-500 mb-2">¿Cuál es el motivo de tu visita hoy?</label>
-            <div className="flex flex-wrap gap-2">
+          {/* ── Tarjeta 1: Visita ── */}
+          <div className="border border-zinc-200 rounded-xl p-4 space-y-3 bg-zinc-50/50">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Visita de hoy</p>
+
+            {/* Motivo */}
+            <div className="flex flex-wrap gap-1.5">
               {MOTIVOS.map(m => (
                 <button key={m} onClick={() => setMotivo(motivo === m ? '' : m)}
-                  className={`px-3 py-2 rounded border text-sm transition-all ${motivo === m ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${motivo === m ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-600 bg-white hover:border-zinc-300'}`}>
                   {m}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Síntoma principal */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
-              ¿Cuál es tu molestia principal? <span className="font-normal text-zinc-400">(con tus palabras)</span>
-            </label>
+            {/* Molestia principal */}
             <textarea value={sintomaPrincipal} onChange={e => setSintomaPrincipal(e.target.value)} rows={2}
-              className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none"
-              placeholder="Ej: veo borroso de lejos, me duele la cabeza al leer..." />
+              className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none placeholder:text-zinc-300"
+              placeholder="Molestia principal con sus propias palabras..." />
           </div>
 
-          {/* Enfermedades */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-500 mb-2">¿Tienes alguna enfermedad diagnosticada?</label>
-            <div className="flex flex-wrap gap-2">
-              {['Diabetes', 'Hipertensión', 'Enf. tiroideas', 'Migraña', 'Enf. autoinmunes'].map(e => (
-                <button key={e} onClick={() => {
-                  const sin = antecMedicos.filter(x => x !== 'Ninguna')
-                  sin.includes(e) ? setAntecMedicos(sin.filter(x => x !== e)) : setAntecMedicos([...sin, e])
-                }}
-                  className={`px-3 py-2 rounded border text-sm transition-all ${antecMedicos.includes(e) ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
-                  {e}
-                </button>
-              ))}
-              <button onClick={() => {
-                const tieneOtra = antecMedicos.includes('_otra')
-                if (tieneOtra) { setAntecMedicos(antecMedicos.filter(x => x !== '_otra')); setAntecMedOtra('') }
-                else setAntecMedicos([...antecMedicos.filter(x => x !== 'Ninguna'), '_otra'])
-              }}
-                className={`px-3 py-2 rounded border text-sm transition-all ${antecMedicos.includes('_otra') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
-                Otra
-              </button>
-              <button onClick={() => { setAntecMedicos(['Ninguna']); setAntecMedOtra('') }}
-                className={`px-3 py-2 rounded border text-sm transition-all ${antecMedicos.includes('Ninguna') ? 'border-zinc-500 bg-zinc-100 text-zinc-700 font-semibold' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                Ninguna
-              </button>
-            </div>
-            {antecMedicos.includes('_otra') && (
-              <input className="mt-2 w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                placeholder="¿Cuál enfermedad?" value={antecMedOtra} onChange={e => setAntecMedOtra(e.target.value)} />
-            )}
-          </div>
+          {/* ── Tarjeta 2: Salud general ── */}
+          <div className="border border-zinc-200 rounded-xl p-4 space-y-3 bg-zinc-50/50">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Salud general</p>
 
-          {/* Medicamentos */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-500 mb-2">¿Tomas algún medicamento actualmente?</label>
-            <div className="flex gap-2">
-              <button onClick={() => setTieneMedicamentos(true)}
-                className={`px-4 py-2 rounded border text-sm font-medium transition-all ${tieneMedicamentos === true ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                Sí
-              </button>
-              <button onClick={() => { setTieneMedicamentos(false); setMedicamentos('') }}
-                className={`px-4 py-2 rounded border text-sm font-medium transition-all ${tieneMedicamentos === false ? 'border-zinc-500 bg-zinc-100 text-zinc-700' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                No
-              </button>
-            </div>
-            {tieneMedicamentos === true && (
-              <input className="mt-2 w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                placeholder="¿Cuáles? Ej: metformina, losartán, omeprazol..." value={medicamentos} onChange={e => setMedicamentos(e.target.value)} />
-            )}
-          </div>
-
-          {/* Alergias */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-500 mb-2">¿Tienes alergia a algún medicamento?</label>
-            <div className="flex gap-2">
-              <button onClick={() => setTieneAlergias(true)}
-                className={`px-4 py-2 rounded border text-sm font-medium transition-all ${tieneAlergias === true ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                Sí
-              </button>
-              <button onClick={() => { setTieneAlergias(false); setAlergias('') }}
-                className={`px-4 py-2 rounded border text-sm font-medium transition-all ${tieneAlergias === false ? 'border-zinc-500 bg-zinc-100 text-zinc-700' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                No
-              </button>
-            </div>
-            {tieneAlergias === true && (
-              <input className="mt-2 w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                placeholder="¿A cuál? Ej: penicilina, aspirina..." value={alergias} onChange={e => setAlergias(e.target.value)} />
-            )}
-          </div>
-
-          {/* Antecedentes oculares */}
-          <div className="space-y-4">
-            <label className="block text-xs font-semibold text-zinc-500">Antecedentes oculares</label>
-
-            {/* ¿Usas lentes? */}
+            {/* Enfermedades */}
             <div>
-              <p className="text-sm text-zinc-700 mb-2">¿Usas lentes actualmente?</p>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => toggleCheck(antecOculares, setAntecOculares, 'Usa lentes')}
-                  className={`px-3 py-2 rounded border text-sm transition-all ${antecOculares.includes('Usa lentes') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
-                  Sí, de medida
+              <p className="text-xs text-zinc-500 mb-2">Enfermedades diagnosticadas</p>
+              <div className="flex flex-wrap gap-1.5">
+                {['Diabetes', 'Hipertensión', 'Tiroides', 'Colesterol', 'Migraña'].map(e => (
+                  <button key={e} onClick={() => {
+                    const sin = antecMedicos.filter(x => x !== 'Ninguna')
+                    sin.includes(e) ? setAntecMedicos(sin.filter(x => x !== e)) : setAntecMedicos([...sin, e])
+                  }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${antecMedicos.includes(e) ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-600 bg-white hover:border-zinc-300'}`}>
+                    {e}
+                  </button>
+                ))}
+                <button onClick={() => {
+                  const tieneOtra = antecMedicos.includes('_otra')
+                  if (tieneOtra) { setAntecMedicos(antecMedicos.filter(x => x !== '_otra')); setAntecMedOtra('') }
+                  else setAntecMedicos([...antecMedicos.filter(x => x !== 'Ninguna'), '_otra'])
+                }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${antecMedicos.includes('_otra') ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-600 bg-white hover:border-zinc-300'}`}>
+                  Otra
                 </button>
-                <button onClick={() => toggleCheck(antecOculares, setAntecOculares, 'Usa lentes de contacto')}
-                  className={`px-3 py-2 rounded border text-sm transition-all ${antecOculares.includes('Usa lentes de contacto') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
-                  Sí, de contacto
+                <button onClick={() => { setAntecMedicos(['Ninguna']); setAntecMedOtra('') }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${antecMedicos.includes('Ninguna') ? 'border-zinc-400 bg-zinc-200 text-zinc-700' : 'border-zinc-200 text-zinc-500 bg-white hover:border-zinc-300'}`}>
+                  Ninguna
                 </button>
-                <button onClick={() => setAntecOculares(antecOculares.filter(x => x !== 'Usa lentes' && x !== 'Usa lentes de contacto'))}
-                  className="px-3 py-2 rounded border border-zinc-200 text-sm text-zinc-500 hover:border-zinc-300">
-                  No uso lentes
+              </div>
+              {antecMedicos.includes('_otra') && (
+                <input className="mt-2 w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                  placeholder="¿Cuál?" value={antecMedOtra} onChange={e => setAntecMedOtra(e.target.value)} />
+              )}
+            </div>
+
+            {/* Medicamentos — inline */}
+            <div className="flex items-center gap-3 pt-1 border-t border-zinc-100">
+              <p className="text-xs text-zinc-500 flex-1">¿Toma medicamentos?</p>
+              <div className="flex gap-1.5">
+                <button onClick={() => setTieneMedicamentos(true)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${tieneMedicamentos === true ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-500 bg-white hover:border-zinc-300'}`}>
+                  Sí
+                </button>
+                <button onClick={() => { setTieneMedicamentos(false); setMedicamentos('') }}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${tieneMedicamentos === false ? 'border-zinc-400 bg-zinc-200 text-zinc-700' : 'border-zinc-200 text-zinc-500 bg-white hover:border-zinc-300'}`}>
+                  No
                 </button>
               </div>
             </div>
+            {tieneMedicamentos === true && (
+              <input className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                placeholder="¿Cuáles? Ej: metformina, losartán..." value={medicamentos} onChange={e => setMedicamentos(e.target.value)} />
+            )}
+          </div>
 
-            {/* Cirugías */}
-            <div>
-              <p className="text-sm text-zinc-700 mb-2">¿Has tenido alguna cirugía en los ojos?</p>
-              <div className="flex gap-2">
+          {/* ── Tarjeta 3: Antecedentes oculares ── */}
+          <div className="border border-zinc-200 rounded-xl p-4 space-y-3 bg-zinc-50/50">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Antecedentes oculares</p>
+
+            {/* Lentes */}
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-zinc-500 flex-1">¿Usa lentes actualmente?</p>
+              <div className="flex gap-1.5">
+                {[
+                  { label: 'De medida', val: 'Usa lentes' },
+                  { label: 'De contacto', val: 'Usa lentes de contacto' },
+                  { label: 'No', val: 'no' },
+                ].map(opt => {
+                  const active = opt.val === 'no'
+                    ? !antecOculares.includes('Usa lentes') && !antecOculares.includes('Usa lentes de contacto')
+                    : antecOculares.includes(opt.val)
+                  return (
+                    <button key={opt.val} onClick={() => {
+                      if (opt.val === 'no') {
+                        setAntecOculares(antecOculares.filter(x => x !== 'Usa lentes' && x !== 'Usa lentes de contacto'))
+                      } else {
+                        toggleCheck(antecOculares, setAntecOculares, opt.val)
+                      }
+                    }}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${active ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-500 bg-white hover:border-zinc-300'}`}>
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Cirugías oculares */}
+            <div className="flex items-center gap-3 pt-1 border-t border-zinc-100">
+              <p className="text-xs text-zinc-500 flex-1">¿Cirugías oculares previas?</p>
+              <div className="flex gap-1.5">
                 <button onClick={() => { setAntecOculares([...antecOculares.filter(x => x !== 'Cirugías'), 'Cirugías']); setNoOcular(noOcular.filter(x => x !== 'Cirugías')) }}
-                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${antecOculares.includes('Cirugías') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${antecOculares.includes('Cirugías') ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-500 bg-white hover:border-zinc-300'}`}>
                   Sí
                 </button>
                 <button onClick={() => { setAntecOculares(antecOculares.filter(x => x !== 'Cirugías')); setNoOcular([...noOcular.filter(x => x !== 'Cirugías'), 'Cirugías']) }}
-                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${noOcular.includes('Cirugías') ? 'border-zinc-500 bg-zinc-100 text-zinc-700' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${noOcular.includes('Cirugías') ? 'border-zinc-400 bg-zinc-200 text-zinc-700' : 'border-zinc-200 text-zinc-500 bg-white hover:border-zinc-300'}`}>
                   No
                 </button>
               </div>
             </div>
 
-            {/* Traumatismos */}
-            <div>
-              <p className="text-sm text-zinc-700 mb-2">¿Has tenido algún golpe o traumatismo en los ojos?</p>
-              <div className="flex gap-2">
-                <button onClick={() => { setAntecOculares([...antecOculares.filter(x => x !== 'Traumatismos'), 'Traumatismos']); setNoOcular(noOcular.filter(x => x !== 'Traumatismos')) }}
-                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${antecOculares.includes('Traumatismos') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                  Sí
-                </button>
-                <button onClick={() => { setAntecOculares(antecOculares.filter(x => x !== 'Traumatismos')); setNoOcular([...noOcular.filter(x => x !== 'Traumatismos'), 'Traumatismos']) }}
-                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${noOcular.includes('Traumatismos') ? 'border-zinc-500 bg-zinc-100 text-zinc-700' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                  No
-                </button>
+            {/* Heredo-familiar */}
+            <div className="pt-1 border-t border-zinc-100 space-y-2">
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-zinc-500 flex-1">¿Antecedentes familiares oculares?</p>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setTieneFamiliares(true)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${tieneFamiliares === true ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-500 bg-white hover:border-zinc-300'}`}>
+                    Sí
+                  </button>
+                  <button onClick={() => { setTieneFamiliares(false); setAntecFamiliares([]) }}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${tieneFamiliares === false ? 'border-zinc-400 bg-zinc-200 text-zinc-700' : 'border-zinc-200 text-zinc-500 bg-white hover:border-zinc-300'}`}>
+                    No
+                  </button>
+                </div>
               </div>
-            </div>
-
-            {/* Ojo seco */}
-            <div>
-              <p className="text-sm text-zinc-700 mb-2">¿Te han diagnosticado ojo seco?</p>
-              <div className="flex gap-2">
-                <button onClick={() => { setAntecOculares([...antecOculares.filter(x => x !== 'Ojo seco'), 'Ojo seco']); setNoOcular(noOcular.filter(x => x !== 'Ojo seco')) }}
-                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${antecOculares.includes('Ojo seco') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                  Sí
-                </button>
-                <button onClick={() => { setAntecOculares(antecOculares.filter(x => x !== 'Ojo seco')); setNoOcular([...noOcular.filter(x => x !== 'Ojo seco'), 'Ojo seco']) }}
-                  className={`px-4 py-2 rounded border text-sm font-medium transition-all ${noOcular.includes('Ojo seco') ? 'border-zinc-500 bg-zinc-100 text-zinc-700' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                  No
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Historia heredofamiliar */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-500 mb-2">¿Alguien en tu familia tiene o tuvo antecedentes oculares?</label>
-            <div className="flex gap-2 mb-3">
-              <button onClick={() => setTieneFamiliares(true)}
-                className={`px-4 py-2 rounded border text-sm font-medium transition-all ${tieneFamiliares === true ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                Sí
-              </button>
-              <button onClick={() => { setTieneFamiliares(false); setAntecFamiliares([]) }}
-                className={`px-4 py-2 rounded border text-sm font-medium transition-all ${tieneFamiliares === false ? 'border-zinc-500 bg-zinc-100 text-zinc-700' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}>
-                No
-              </button>
-            </div>
-            {tieneFamiliares === true && (
-              <div>
-                <div className="flex flex-wrap gap-2 mb-2">
+              {tieneFamiliares === true && (
+                <div className="flex flex-wrap gap-1.5 pl-1">
                   {['Glaucoma', 'Diabetes', 'Catarata', 'Miopía alta', 'Estrabismo'].map(f => (
                     <button key={f} onClick={() => toggleCheck(antecFamiliares, setAntecFamiliares, f)}
-                      className={`px-3 py-2 rounded border text-sm transition-all ${antecFamiliares.includes(f) ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${antecFamiliares.includes(f) ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-600 bg-white hover:border-zinc-300'}`}>
                       {f}
                     </button>
                   ))}
@@ -1032,16 +994,16 @@ export default function NuevaConsultaPage() {
                     if (antecFamiliares.includes('_otra_fam')) { setAntecFamiliares(antecFamiliares.filter(x => x !== '_otra_fam')); setAntecFamOtra('') }
                     else setAntecFamiliares([...antecFamiliares, '_otra_fam'])
                   }}
-                    className={`px-3 py-2 rounded border text-sm transition-all ${antecFamiliares.includes('_otra_fam') ? 'border-[#0D9488] bg-[#0D9488]/5 text-[#0D9488] font-semibold' : 'border-zinc-200 text-zinc-600 hover:border-zinc-300'}`}>
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${antecFamiliares.includes('_otra_fam') ? 'border-[#0D9488] bg-[#0D9488] text-white' : 'border-zinc-200 text-zinc-600 bg-white hover:border-zinc-300'}`}>
                     Otra
                   </button>
+                  {antecFamiliares.includes('_otra_fam') && (
+                    <input className="w-full mt-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                      placeholder="¿Cuál?" value={antecFamOtra} onChange={e => setAntecFamOtra(e.target.value)} />
+                  )}
                 </div>
-                {antecFamiliares.includes('_otra_fam') && (
-                  <input className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                    placeholder="¿Cuál?" value={antecFamOtra} onChange={e => setAntecFamOtra(e.target.value)} />
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )
