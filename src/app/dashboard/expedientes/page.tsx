@@ -141,7 +141,7 @@ function getHistorialMezclado(p: Paciente): HistorialEvento[] {
     monto: v.total,
     subtitulo: v.items.length === 0 ? 'Sin desglose de productos' : undefined,
   }))
-  return eventos.filter(e => e.fecha).sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 6)
+  return eventos.filter(e => e.fecha).sort((a, b) => b.fecha.localeCompare(a.fecha))
 }
 
 function formatFechaHistorial(fecha: string): { dia: string; mes: string; año: string } {
@@ -584,6 +584,8 @@ function ExpedientesContent() {
 
   // Menú de acciones del paciente
   const [menuAbierto, setMenuAbierto] = useState(false)
+  // Historial expandido
+  const [verTodoHistorial, setVerTodoHistorial] = useState(false)
 
   // Consultas count del paciente seleccionado
   const [consultasCount, setConsultasCount] = useState(0)
@@ -931,7 +933,7 @@ function ExpedientesContent() {
               {filtrados.map(p => {
                 const esSeleccionado = seleccionado?.id === p.id
                 return (
-                  <button key={p.id} onClick={() => { setSeleccionado(p); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
+                  <button key={p.id} onClick={() => { setSeleccionado(p); setVerTodoHistorial(false); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
                     className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 border-b border-zinc-50 ${esSeleccionado ? 'bg-[#0B0E14]' : 'hover:bg-zinc-50'}`}>
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${esSeleccionado ? 'bg-[#0D9488]/20 text-[#0D9488]' : 'bg-zinc-100 text-zinc-500'}`}>
                       {p.nombre[0]}{p.apellido[0]}
@@ -990,7 +992,7 @@ function ExpedientesContent() {
               {filtrados.map(p => {
                 const esSeleccionado = seleccionado?.id === p.id
                 return (
-                  <button key={p.id} onClick={() => { setSeleccionado(p); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
+                  <button key={p.id} onClick={() => { setSeleccionado(p); setVerTodoHistorial(false); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
                     title={`${p.nombre} ${p.apellido}`}
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${esSeleccionado ? 'bg-[#0D9488] text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}>
                     {p.nombre[0]}{p.apellido[0]}
@@ -1172,23 +1174,10 @@ function ExpedientesContent() {
                     </div>
                   )}
                   <div className="flex items-center gap-2 mt-3">
-                    <button className="flex items-center gap-1 px-2.5 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
-                      <Eye className="w-3 h-3" /> Ver receta
-                    </button>
-                    <button onClick={() => { setFormReceta({
-                      fecha: rv.fecha, tipo: rv.tipo,
-                      od_esfera: rv.od_esfera, od_cilindro: rv.od_cilindro, od_eje: rv.od_eje, od_add: rv.od_add,
-                      oi_esfera: rv.oi_esfera, oi_cilindro: rv.oi_cilindro, oi_eje: rv.oi_eje, oi_add: rv.oi_add,
-                      dp: rv.dp, optometrista: rv.optometrista, observaciones: rv.observaciones,
-                    }); setErroresReceta({}); setModalReceta(true) }}
-                      className="flex items-center gap-1 px-2.5 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
-                      <Edit2 className="w-3 h-3" /> Editar
-                    </button>
-                    <button className="flex items-center gap-1 px-2.5 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
-                      Duplicar
-                    </button>
-                    <button className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0D9488] text-white rounded text-xs font-medium hover:bg-teal-500 transition-colors ml-auto">
-                      <Printer className="w-3 h-3" /> Imprimir
+                    <button
+                      onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/hoja`)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0D9488] text-white rounded text-xs font-medium hover:bg-teal-500 transition-colors ml-auto">
+                      <Printer className="w-3 h-3" /> Imprimir receta
                     </button>
                   </div>
                 </div>
@@ -1206,10 +1195,17 @@ function ExpedientesContent() {
               <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Historial del paciente</h3>
-                  <span className="text-xs text-zinc-400">Ver todo</span>
+                  {getHistorialMezclado(seleccionado).length > 6 && (
+                    <button
+                      onClick={() => setVerTodoHistorial(v => !v)}
+                      className="text-xs text-[#0D9488] hover:underline font-medium"
+                    >
+                      {verTodoHistorial ? 'Ver menos' : `Ver todo (${getHistorialMezclado(seleccionado).length})`}
+                    </button>
+                  )}
                 </div>
                 <div>
-                  {getHistorialMezclado(seleccionado).map((ev, i, arr) => {
+                  {(verTodoHistorial ? getHistorialMezclado(seleccionado) : getHistorialMezclado(seleccionado).slice(0, 6)).map((ev, i, arr) => {
                     const fd = formatFechaHistorial(ev.fecha)
                     return (
                       <div key={i} className="flex gap-3">
