@@ -402,6 +402,7 @@ export default function NuevaConsultaPage() {
 
   // ── Datos paso 9: Rec. comerciales ──
   const [recComerciales, setRecComerciales] = useState<RecComercial[]>([])
+  const [recComercialManual, setRecComercialManual] = useState('')
 
   // Auto-load nombre si paciente existente
   useEffect(() => {
@@ -563,10 +564,8 @@ export default function NuevaConsultaPage() {
           tipo: rxTipo, optometrista: rxOptometrista, observaciones: rxObservaciones,
           diagnostico: diagnosticos.filter(d => d.confirmado).map(d => d.nombre).join(', '),
         })
-        // Guardar rec comerciales en consulta
+        // Solo actualizar paso_actual — rec_comerciales y estado se guardan en finalizar()
         await supabase.from('consultas').update({
-          rec_comerciales: recComerciales,
-          estado: 'completada',
           paso_actual: 9,
         }).eq('id', consultaId)
       }
@@ -1454,19 +1453,53 @@ export default function NuevaConsultaPage() {
                 <div key={prioridad}>
                   <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold mb-2 border ${colorMap[prioridad]}`}>{labelMap[prioridad]}</div>
                   <div className="space-y-2">
-                    {items.map((r, i) => (
-                      <div key={i} className="bg-white border border-zinc-200 rounded-lg p-4 flex items-start gap-3">
-                        <Star className={`w-4 h-4 flex-shrink-0 mt-0.5 ${prioridad === 'alta' ? 'text-red-500' : prioridad === 'media' ? 'text-amber-500' : 'text-zinc-400'}`} />
-                        <div>
-                          <p className="text-sm font-bold text-zinc-800">{r.producto}</p>
-                          <p className="text-xs text-zinc-500 mt-0.5">{r.razon}</p>
+                    {items.map((r) => {
+                      const globalIdx = recComerciales.indexOf(r)
+                      return (
+                        <div key={globalIdx} className="bg-white border border-zinc-200 rounded-lg p-4 flex items-start gap-3">
+                          <Star className={`w-4 h-4 flex-shrink-0 mt-0.5 ${prioridad === 'alta' ? 'text-red-500' : prioridad === 'media' ? 'text-amber-500' : 'text-zinc-400'}`} />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-zinc-800">{r.producto}</p>
+                            <p className="text-xs text-zinc-500 mt-0.5">{r.razon}</p>
+                          </div>
+                          <button
+                            onClick={() => setRecComerciales(prev => prev.filter((_, j) => j !== globalIdx))}
+                            className="text-zinc-300 hover:text-zinc-500 flex-shrink-0 mt-0.5 transition-colors">
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )
             })}
+          </div>
+
+          {/* Agregar recomendación manual */}
+          <div className="flex gap-2">
+            <input
+              value={recComercialManual}
+              onChange={e => setRecComercialManual(e.target.value)}
+              placeholder="Agregar recomendación manual..."
+              className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && recComercialManual.trim()) {
+                  setRecComerciales(prev => [...prev, { producto: recComercialManual.trim(), razon: 'Agregado manualmente', prioridad: 'opcional' }])
+                  setRecComercialManual('')
+                }
+              }}
+            />
+            <button
+              onClick={() => {
+                if (recComercialManual.trim()) {
+                  setRecComerciales(prev => [...prev, { producto: recComercialManual.trim(), razon: 'Agregado manualmente', prioridad: 'opcional' }])
+                  setRecComercialManual('')
+                }
+              }}
+              className="px-4 py-2 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-[#1A1D27]">
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
 
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3">
