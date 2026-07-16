@@ -10,6 +10,7 @@ import {
   ArrowRight, Printer, Link2, User, DollarSign,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
+import { getSucursalActual } from '@/lib/session'
 import { hoyLocal, hoyMasDias } from '@/lib/fecha'
 
 // ─────────────────────────────────────────
@@ -1460,12 +1461,8 @@ export default function LaboratorioPage() {
           sucursal: sessionUser?.sucursal || legacyU.sucursal || '',
           nombre:   sessionUser?.nombre   || legacyU.nombre   || '',
         }
-        // sucursalCheckIn: para crear órdenes, nunca se puede guardar 'Todas'
-        const sucursalParaCrear = (user.sucursal === 'Todas' || !user.sucursal)
-          ? (legacyU.sucursal && legacyU.sucursal !== 'Todas' ? legacyU.sucursal : 'Baja Visión')
-          : user.sucursal
         setDemoUser(user as { rol: string; sucursal: string; nombre: string })
-        setSucursalCrear(sucursalParaCrear)
+        setSucursalCrear(getSucursalActual())
 
         const supabase = createClient()
         let q = supabase.from('ordenes_lab').select('*').order('fecha_ingreso', { ascending: true })
@@ -1892,12 +1889,8 @@ export default function LaboratorioPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sucursal</label>
-                  <div className="relative">
-                    <select value={form.sucursal} onChange={e => f('sucursal', e.target.value)}
-                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
-                      {SUCURSALES.map(s => <option key={s}>{s}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                  <div className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 text-zinc-600">
+                    {form.sucursal}
                   </div>
                 </div>
               </div>

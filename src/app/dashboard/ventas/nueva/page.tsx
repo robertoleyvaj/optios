@@ -1170,22 +1170,9 @@ ${entregaHtml}
           <p className="text-sm text-zinc-400">Completa los datos y genera la venta o cotización</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          {rolUsuario === 'administrador' ? (
-            <div className="relative">
-              <select
-                value={sucursal}
-                onChange={e => setSucursal(e.target.value)}
-                className="appearance-none bg-white border border-zinc-200 rounded-md pl-4 pr-8 py-2.5 text-sm font-medium text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-              >
-                {sucursales.map(s => <option key={s}>{s}</option>)}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-            </div>
-          ) : (
-            <span className="text-sm font-semibold text-zinc-700 px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-md">
-              {sucursal}
-            </span>
-          )}
+          <span className="text-sm font-semibold text-zinc-700 px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-md">
+            {sucursal}
+          </span>
         </div>
       </div>
 

@@ -323,8 +323,8 @@ export default function CajaPage() {
   }, [])
 
   const esMultiSucursal = ['administrador', 'gerente'].includes(usuario.rol)
-  // Sucursal efectiva: si es admin/gerente usan sucursalCaja; si es vendedor usa la suya fija
-  const sucursalEfectiva = esMultiSucursal ? sucursalCaja : usuario.sucursal
+  // Sucursal efectiva: siempre viene del header (getSucursalActual / localStorage)
+  const sucursalEfectiva = usuario.sucursal
 
   useEffect(() => {
     if (sucursalEfectiva) cargarDatos(sucursalEfectiva, usuario.rol)
@@ -541,24 +541,10 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {esMultiSucursal ? (
-            /* Admin/gerente: selector de sucursal activa */
-            <select
-              value={sucursalCaja}
-              onChange={e => setSucursalCaja(e.target.value)}
-              className="flex items-center gap-1.5 text-xs text-zinc-600 bg-zinc-100 border border-zinc-200 px-3 py-1.5 rounded-full font-medium focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-            >
-              <option value="">— Seleccionar sucursal —</option>
-              {['Baja Visión', '5 de Mayo', 'Plaza Laureles'].map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          ) : (
-            <span className="flex items-center gap-1.5 text-xs text-zinc-500 bg-zinc-100 px-3 py-1.5 rounded-full font-medium">
-              <MapPin className="w-3.5 h-3.5" />
-              {usuario.sucursal}
-            </span>
-          )}
+          <span className="flex items-center gap-1.5 text-xs text-zinc-500 bg-zinc-100 px-3 py-1.5 rounded-full font-medium">
+            <MapPin className="w-3.5 h-3.5" />
+            {usuario.sucursal}
+          </span>
           <button
             onClick={() => { if (sucursalEfectiva) cargarDatos(sucursalEfectiva, usuario.rol) }}
             disabled={cargando || !sucursalEfectiva}
