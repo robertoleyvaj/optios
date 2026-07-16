@@ -175,12 +175,12 @@ export default function CajaPage() {
     } catch { /* noop */ }
   }, [])
   // Para admin/gerente con sucursal='Todas', usar la del check-in del día (legacyUser.sucursal)
-  const sucursalEfectiva = (!sessionUser?.sucursal || sessionUser.sucursal === 'Todas')
+  const sucursalCheckIn = (!sessionUser?.sucursal || sessionUser.sucursal === 'Todas')
     ? (legacyUser?.sucursal && legacyUser.sucursal !== 'Todas' ? legacyUser.sucursal : '')
     : sessionUser.sucursal
   const usuario = {
     nombre:   sessionUser?.nombre   || legacyUser?.nombre   || '',
-    sucursal: sucursalEfectiva      || legacyUser?.sucursal || '',
+    sucursal: sucursalCheckIn       || legacyUser?.sucursal || '',
     rol:      sessionUser?.rol      || legacyUser?.rol      || 'vendedor',
   }
 
