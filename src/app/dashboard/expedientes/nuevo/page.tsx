@@ -36,17 +36,16 @@ const STEPS = [
   { id: 1, label: 'Paciente',    icon: User },
   { id: 2, label: 'Historia',    icon: ClipboardList },
   { id: 3, label: 'Hábitos',     icon: Activity },
-  // paso 4 (Síntomas) se fusionó en Historia — se salta automáticamente
+  // paso 4 (Síntomas) fusionado en Historia — se salta
   { id: 5, label: 'Consulta',    icon: Eye },
   { id: 6, label: 'Diagnóstico', icon: Brain },
-  { id: 7, label: 'Rec. Clínica',icon: Stethoscope },
+  // paso 7 (Rec. Clínica) eliminado — se salta
   { id: 8, label: 'Prescripción',icon: FileText },
-  { id: 9, label: 'Comercial',   icon: ShoppingBag },
+  // paso 9 (Comercial) eliminado — se salta
 ]
 
 // Pasos que pueden omitirse sin perder datos críticos
-// NO omitibles: 1 (datos paciente), 5 (graduación/consulta), 8 (prescripción)
-const PASOS_OMITIBLES = new Set([2, 3, 4, 6, 7])
+const PASOS_OMITIBLES = new Set([2, 3, 4, 6])
 
 const MOTIVOS = [
   'Primera consulta', 'Revisión anual', 'Cambio de graduación',
@@ -437,13 +436,11 @@ export default function NuevaConsultaPage() {
     }
   }, [paso])
 
-  // Auto-saltar paso 4 (síntomas fusionados en Historia)
+  // Auto-saltar pasos eliminados del wizard
   useEffect(() => {
-    if (paso === 4) {
-      const siguiente = 5
-      setPaso(siguiente)
-      setPasoMaximo(p => Math.max(p, siguiente))
-    }
+    if (paso === 4) { setPaso(5);  setPasoMaximo(p => Math.max(p, 5))  }
+    if (paso === 7) { setPaso(8);  setPasoMaximo(p => Math.max(p, 8))  }
+    if (paso === 9) { setPaso(10); setPasoMaximo(p => Math.max(p, 10)) }
   }, [paso])
 
   // Generar rec clínicas al llegar al paso 7
@@ -617,23 +614,43 @@ export default function NuevaConsultaPage() {
     setPasoMaximo(p => Math.max(p, siguiente))
   }
 
-  const finalizar = async () => {
+  // Guardar prescripción y mandar directo a ventas con datos del paciente
+  const guardarPrescripcionYFinalizar = async () => {
     setGuardando(true)
-    if (consultaId) {
+    try {
       const supabase = createClient()
-      await supabase.from('consultas').update({
-        rec_comerciales: recComerciales,
-        estado: 'completada',
-      }).eq('id', consultaId)
-    }
-    setGuardando(false)
-    // Ir a nueva venta pre-cargada con las recomendaciones del paciente
-    const pId = pacienteId || pacienteIdParam
-    const nombre = encodeURIComponent(pacienteNombre || `${pNombre} ${pApellido}`)
-    if (consultaId && pId) {
-      router.push(`/dashboard/ventas/nueva?desde_consulta=${consultaId}&paciente_id=${pId}&nombre=${nombre}`)
-    } else {
-      router.push('/dashboard/expedientes')
+      const pId = pacienteId || pacienteIdParam
+
+      // Guardar receta
+      if (pId) {
+        await supabase.from('recetas').insert({
+          consulta_id: consultaId,
+          paciente_id: pId,
+          fecha: hoyLocal(),
+          od_esfera: rxFinal.od.esfera, od_cilindro: rxFinal.od.cilindro,
+          od_eje: rxFinal.od.eje,       od_add: rxFinal.od.add,
+          oi_esfera: rxFinal.oi.esfera, oi_cilindro: rxFinal.oi.cilindro,
+          oi_eje: rxFinal.oi.eje,       oi_add: rxFinal.oi.add,
+          dp_od: rxFinal.dp_od,         dp_oi: rxFinal.dp_oi,
+          tipo: rxTipo, optometrista: rxOptometrista, observaciones: rxObservaciones,
+          diagnostico: diagnosticos.filter(d => d.confirmado).map(d => d.nombre).join(', '),
+        })
+      }
+
+      // Marcar consulta como completada
+      if (consultaId) {
+        await supabase.from('consultas').update({ estado: 'completada', paso_actual: 8 }).eq('id', consultaId)
+      }
+
+      // Ir a ventas con datos del paciente (sin pre-cargar productos)
+      const nombre = encodeURIComponent(pacienteNombre || `${pNombre} ${pApellido}`)
+      if (pId) {
+        router.push(`/dashboard/ventas/nueva?paciente_id=${pId}&nombre=${nombre}`)
+      } else {
+        router.push('/dashboard/expedientes')
+      }
+    } finally {
+      setGuardando(false)
     }
   }
 
@@ -1669,7 +1686,7 @@ export default function NuevaConsultaPage() {
               </button>
             )}
 
-            {paso < 9 ? (
+            {paso < 8 ? (
               <button
                 onClick={avanzar}
                 disabled={!puedeAvanzar() || guardando}
@@ -1679,11 +1696,11 @@ export default function NuevaConsultaPage() {
               </button>
             ) : (
               <button
-                onClick={finalizar}
+                onClick={guardarPrescripcionYFinalizar}
                 disabled={guardando}
                 className="flex items-center gap-2 px-6 py-2.5 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 disabled:opacity-40 transition-all">
                 {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
-                <Check className="w-4 h-4" /> Finalizar e ir a venta
+                <Check className="w-4 h-4" /> Guardar e ir a venta
               </button>
             )}
           </div>

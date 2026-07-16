@@ -1587,6 +1587,20 @@ export default function LaboratorioPage() {
   const cambiarEstado = async (id: number, estado: EstadoOrden, notasExtra?: string) => {
     const hoy = hoyLocal()
     const orden = ordenes.find(o => o.id === id)
+
+    // Bloquear entrega si la venta tiene saldo pendiente
+    if (estado === 'entregado' && orden?.folioVenta) {
+      const { data: ventaDB } = await supabase
+        .from('ventas')
+        .select('saldo')
+        .eq('folio', orden.folioVenta)
+        .single()
+      if (ventaDB && Number(ventaDB.saldo) > 0) {
+        alert(`No se puede marcar como entregado.\nEl cliente tiene un saldo pendiente de $${Number(ventaDB.saldo).toLocaleString('es-MX', { minimumFractionDigits: 2 })}.`)
+        return
+      }
+    }
+
     const changes: Partial<OrdenLab> = { estado }
     if (estado === 'en_laboratorio' && orden && !orden.fechaEnvioLab)       changes.fechaEnvioLab      = hoy
     if (estado === 'en_sucursal'    && orden && !orden.fechaRecogidaLab)   changes.fechaRecogidaLab   = hoy
