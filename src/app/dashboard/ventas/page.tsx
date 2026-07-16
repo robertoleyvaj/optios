@@ -310,17 +310,17 @@ export default function VentasPage() {
           pagos_venta_id:  p.id,
         })).sort((a: Pago, b: Pago) => a.fecha.localeCompare(b.fecha))
 
-        // Siempre mostrar anticipo inicial + abonos posteriores
+        // pagos_venta es la fuente de verdad completa (anticipo + abonos).
+        // Solo se sintetiza desde el campo anticipo/total si NO hay pagos_venta
+        // (ventas viejas antes de que existiera la tabla).
         const pagos: Pago[] = []
-        if (anticipo > 0) {
-          // Anticipo pagado al momento de crear la venta
+        if (pagosVenta.length > 0) {
+          pagos.push(...pagosVenta)
+        } else if (anticipo > 0) {
           pagos.push({ fecha, monto: anticipo, metodo: v.metodo_pago ?? 'otros' })
-        } else if (pagosVenta.length === 0 && saldo === 0) {
-          // Liquidada de contado sin anticipo separado
+        } else if (saldo === 0) {
           pagos.push({ fecha, monto: v.total ?? 0, metodo: v.metodo_pago ?? 'otros' })
         }
-        // Agregar abonos posteriores (de pagos_venta)
-        pagos.push(...pagosVenta)
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const items: ItemVenta[] = (v.ventas_items ?? []).map((i: any) => ({
