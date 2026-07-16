@@ -111,8 +111,6 @@ export default function CajaPage() {
   // ── Estado usuario / sucursal ──
   const { usuario: sessionUser } = useSession()
   const [legacyUser, setLegacyUser] = useState<{ nombre: string; sucursal: string; rol: string } | null>(null)
-  // Admin/gerente pueden seleccionar su sucursal activa en caja
-  const [sucursalCaja, setSucursalCaja] = useState('')
 
   // ── Datos del día ──
   const [ventas, setVentas]       = useState<Record<MetodoPago, ResumenMetodo>>(RESUMEN_VACIO)
@@ -144,7 +142,7 @@ export default function CajaPage() {
   // ── Formulario de corte ──
   const [efectivoContado, setEfectivoContado]       = useState('')
   const [efectivoUSDContado, setEfectivoUSDContado] = useState('')
-  const [fondo, setFondo]     = useState('427')
+  const [retiro, setRetiro]   = useState('')
   const [notas, setNotas]     = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -155,10 +153,10 @@ export default function CajaPage() {
   const esperadoUSD   = efectivoUSD.monto
   const contado       = parseFloat(efectivoContado) || 0
   const contadoUSD    = parseFloat(efectivoUSDContado) || 0
-  const fondoNum      = parseFloat(fondo) || 0
+  const retiroNum     = parseFloat(retiro) || 0
   const diferencia    = contado - esperado
   const diferenciaUSD = contadoUSD - esperadoUSD
-  const entrega       = Math.max(0, contado - fondoNum)
+  const remanente     = Math.max(0, contado - retiroNum)  // lo que queda en caja para mañana
   const totalMXN      = Object.values(ventas).reduce((s, v) => s + v.monto, 0)
   const total         = totalMXN + (efectivoUSD.tcPromedio > 0 ? efectivoUSD.monto * efectivoUSD.tcPromedio : 0)
   const cerrado       = isClosed || corteHoy?.cerrado === true
@@ -283,7 +281,7 @@ export default function CajaPage() {
       setCorteHoy(corteData)
       setIsClosed(!!corteData.cerrado)
       setEfectivoContado(String(corteData.efectivo_contado))
-      setFondo(String(corteData.fondo))
+      setRetiro(corteData.entrega ? String(corteData.entrega) : '')
       setNotas(corteData.notas)
     } else {
       setCorteHoy(null)
@@ -293,7 +291,7 @@ export default function CajaPage() {
     // 5. Saldo anterior (último corte cerrado antes de hoy)
     const { data: corteAnteriorData } = await sb
       .from('cortes_caja')
-      .select('efectivo_contado, fecha')
+      .select('fondo, fecha')
       .eq('sucursal', sucursal)
       .eq('cerrado', true)
       .lt('fecha', hoy)
@@ -301,7 +299,8 @@ export default function CajaPage() {
       .limit(1)
       .maybeSingle()
 
-    setSaldoAnterior(corteAnteriorData?.efectivo_contado ?? 0)
+    // Saldo inicial de hoy = remanente que quedó en caja el último corte (columna fondo)
+    setSaldoAnterior(corteAnteriorData?.fondo ?? 0)
     setFechaCorteAnterior(corteAnteriorData?.fecha ?? null)
 
     // 6. Historial — admin ve todas las sucursales
@@ -322,7 +321,6 @@ export default function CajaPage() {
     setCargando(false)
   }, [])
 
-  const esMultiSucursal = ['administrador', 'gerente'].includes(usuario.rol)
   // Sucursal efectiva: siempre viene del header (getSucursalActual / localStorage)
   const sucursalEfectiva = usuario.sucursal
 
@@ -447,10 +445,10 @@ ${efectivoUSD.transacciones > 0 ? `
 <div class="dif-box">${diferenciaUSD === 0 ? 'Sin diferencia' : diferenciaUSD > 0 ? `Sobrante: +$${diferenciaUSD.toFixed(2)} USD` : `Faltante: -$${Math.abs(diferenciaUSD).toFixed(2)} USD`}</div>
 ` : ''}
 <div class="sep"></div>
-<div class="row"><span>Fondo en caja</span><span>${fmt$(fondoNum)}</span></div>
+<div class="row"><span>Queda en caja (mañana)</span><span>${fmt$(remanente)}</span></div>
 <div class="entrega-box">
-  <div style="font-size:10px;margin-bottom:2px">TOTAL A ENTREGAR</div>
-  <div class="num">${fmt$(entrega)}</div>
+  <div style="font-size:10px;margin-bottom:2px">RETIRO AL SOBRE</div>
+  <div class="num">${fmt$(retiroNum)}</div>
 </div>
 ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 <div class="firma">
@@ -492,8 +490,8 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
       efectivo_sistema: esperado,
       efectivo_contado: contado,
       diferencia,
-      fondo:            0,
-      entrega:          0,
+      fondo:            remanente,   // remanente que queda en caja para mañana
+      entrega:          retiroNum,   // retiro que va al sobre
       notas:            notasConUSD,
       cerrado:          true,
     }
@@ -563,7 +561,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           <div className="flex-1">
             <p className="text-sm font-bold text-emerald-700">Caja cerrada</p>
             <p className="text-xs text-emerald-600">
-              Cerrada por {corteHoy?.usuario} · Entrega: {fmt$(corteHoy?.entrega ?? 0)}
+              Cerrada por {corteHoy?.usuario} · Retiro: {fmt$(corteHoy?.entrega ?? 0)} · Queda: {fmt$(corteHoy?.fondo ?? 0)}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -880,6 +878,34 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
             )}
           </div>
         </div>
+
+        {/* Retiro al sobre */}
+        {efectivoContado !== '' && !cerrado && (
+          <div className="border-t border-zinc-200 pt-5">
+            <p className="text-xs font-bold text-zinc-600 mb-3">💵 Retiro al sobre</p>
+            <div className="grid grid-cols-2 gap-5">
+              <div>
+                <p className="text-xs font-semibold text-zinc-500 mb-1.5">Cantidad a retirar (cerrada)</p>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
+                  <input
+                    type="number"
+                    value={retiro}
+                    onChange={e => setRetiro(e.target.value)}
+                    className="w-full border-2 border-zinc-200 rounded-lg pl-8 pr-4 py-4 text-2xl font-bold text-zinc-800 focus:outline-none focus:border-[#0D9488]"
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-xs text-zinc-400 mt-1.5">Va al sobre con el corte impreso</p>
+              </div>
+              <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200 flex flex-col justify-center">
+                <p className="text-xs font-semibold text-emerald-500 mb-1">Queda en caja para mañana</p>
+                <p className="text-3xl font-bold text-emerald-700">{fmt$(remanente)}</p>
+                <p className="text-xs text-emerald-500 mt-1">Contado {fmt$(contado)} − retiro {fmt$(retiroNum)}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Dólares USD — siempre visible */}
         <div className="border-t border-zinc-200 pt-5">
