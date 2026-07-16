@@ -190,9 +190,29 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           <p className="text-[11px] text-zinc-400">{todayStr}</p>
           <div className="flex items-center justify-end gap-1 mt-0.5">
             <Store className="w-3 h-3 text-teal-500" />
-            <p className="text-[11px] font-medium text-zinc-600">
-              {usuario.sucursal || 'Todas las sucursales'}
-            </p>
+            {(usuario.rol === 'admin' || usuario.rol === 'gerente') ? (
+              <select
+                value={sucursalActual}
+                onChange={e => {
+                  const nueva = e.target.value
+                  setSucursalActual(nueva)
+                  try {
+                    const raw = localStorage.getItem('optios_demo_user')
+                    const u = raw ? JSON.parse(raw) : {}
+                    localStorage.setItem('optios_demo_user', JSON.stringify({ ...u, sucursal: nueva }))
+                  } catch { /* noop */ }
+                }}
+                className="text-[11px] font-medium text-zinc-600 bg-transparent border-none outline-none cursor-pointer hover:text-teal-600 transition-colors"
+              >
+                <option value="Baja Visión">Baja Visión</option>
+                <option value="5 de Mayo">5 de Mayo</option>
+                <option value="Plaza Laureles">Plaza Laureles</option>
+              </select>
+            ) : (
+              <p className="text-[11px] font-medium text-zinc-600">
+                {usuario.sucursal || 'Sin sucursal'}
+              </p>
+            )}
           </div>
         </div>
 
