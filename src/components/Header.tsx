@@ -201,6 +201,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                     const u = raw ? JSON.parse(raw) : {}
                     localStorage.setItem('optios_demo_user', JSON.stringify({ ...u, sucursal: nueva }))
                   } catch { /* noop */ }
+                  window.location.reload()
                 }}
                 className="text-[11px] font-medium text-zinc-600 bg-transparent border-none outline-none cursor-pointer hover:text-teal-600 transition-colors"
               >
