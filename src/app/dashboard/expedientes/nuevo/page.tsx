@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
+import { getSucursalActual } from '@/lib/session'
 import {
   ChevronRight, ChevronLeft, Check, User, ClipboardList,
   Eye, Activity, Stethoscope, Brain, Star, FileText,
@@ -471,10 +472,6 @@ export default function NuevaConsultaPage() {
 
   function toggleCheck(arr: string[], setArr: (a: string[]) => void, val: string) {
     setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val])
-  }
-
-  const getSucursalActual = () => {
-    try { return JSON.parse(localStorage.getItem('optios_demo_user') || '{}')?.sucursal || '' } catch { return '' }
   }
 
   // ── Guardar / avanzar ──

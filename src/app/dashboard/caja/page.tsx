@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
+import { getSucursalActual } from '@/lib/session'
 import { useSession } from '@/hooks/useSession'
 import {
   Banknote, CreditCard, Building2, CheckCircle2,
@@ -165,6 +166,7 @@ export default function CajaPage() {
   const pagosPorMetodo = (m: MetodoPago) => pagosHoy.filter(p => p.metodo_pago === m)
 
   // ── Leer usuario (legacy localStorage para usuarios sin migrar) ──
+  const [sucursalActual, setSucursalActual] = useState('')
   useEffect(() => {
     try {
       const raw = localStorage.getItem('optios_demo_user')
@@ -173,14 +175,11 @@ export default function CajaPage() {
         setLegacyUser({ nombre: u.nombre ?? '', sucursal: u.sucursal ?? '', rol: u.rol ?? '' })
       }
     } catch { /* noop */ }
+    setSucursalActual(getSucursalActual())
   }, [])
-  // Para admin/gerente con sucursal='Todas', usar la del check-in del día (legacyUser.sucursal)
-  const sucursalCheckIn = (!sessionUser?.sucursal || sessionUser.sucursal === 'Todas')
-    ? (legacyUser?.sucursal && legacyUser.sucursal !== 'Todas' ? legacyUser.sucursal : '')
-    : sessionUser.sucursal
   const usuario = {
     nombre:   sessionUser?.nombre   || legacyUser?.nombre   || '',
-    sucursal: sucursalCheckIn       || legacyUser?.sucursal || '',
+    sucursal: sucursalActual,
     rol:      sessionUser?.rol      || legacyUser?.rol      || 'vendedor',
   }
 

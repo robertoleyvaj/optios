@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useSession } from '@/hooks/useSession'
 import { registrarComisionTerminal } from '@/lib/comisiones'
 import { hoyLocal } from '@/lib/fecha'
+import { getSucursalActual, getUsuarioLocal } from '@/lib/session'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -222,31 +223,11 @@ export default function NuevaVentaPage() {
   const [loadingTC, setLoadingTC] = useState(false)
   const [tcError, setTcError] = useState(false)
 
-  // Leer sucursal y rol del usuario logueado (Supabase Auth o legacy localStorage)
-  // IMPORTANTE: cuando el usuario tiene acceso a 'Todas', usar la sucursal del check-in del día
+  // Sucursal y rol: siempre desde getSucursalActual() (check-in del día)
   useEffect(() => {
-    const sucursalCheckIn = (): string => {
-      try {
-        const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
-        if (u?.sucursal && u.sucursal !== 'Todas') return u.sucursal
-      } catch {}
-      return 'Baja Visión'
-    }
-
-    if (sessionUser) {
-      const s = (!sessionUser.sucursal || sessionUser.sucursal === 'Todas')
-        ? sucursalCheckIn()
-        : sessionUser.sucursal
-      setSucursal(s)
-      if (sessionUser.rol) setRolUsuario(sessionUser.rol)
-      return
-    }
-    // Fallback legacy para usuarios sin migrar
-    try {
-      const user = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
-      if (user?.sucursal && user.sucursal !== 'Todas') setSucursal(user.sucursal)
-      if (user?.rol) setRolUsuario(user.rol)
-    } catch {}
+    setSucursal(getSucursalActual())
+    const rol = sessionUser?.rol || getUsuarioLocal().rol || 'vendedor'
+    setRolUsuario(rol)
   }, [sessionUser])
 
   // Auto-populate desde URL params (pacienteId desde expedientes, desde_consulta desde wizard)
@@ -457,24 +438,11 @@ export default function NuevaVentaPage() {
     try {
       const supabase = createClient()
 
-      // Leer usuario actual (Supabase Auth o legacy localStorage)
-      let atendioPor = sessionUser?.nombre || ''
-      // usuario_id debe ser el PK de la tabla `usuarios`, NO el UUID de auth
-      let usuarioId: string | null = null
-      if (sessionUser?.id) {
-        const { data: uRow } = await supabase
-          .from('usuarios')
-          .select('id')
-          .eq('auth_user_id', sessionUser.id)
-          .single()
-        usuarioId = uRow?.id || null
-      }
-      if (!atendioPor) {
-        try {
-          const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
-          atendioPor = u?.nombre || ''
-        } catch {}
-      }
+      // Leer usuario actual
+      const localU = getUsuarioLocal()
+      const atendioPor = sessionUser?.nombre || localU.nombre || ''
+      // usuario_id: auth UUID — se guarda para trazabilidad pero es nullable, nunca bloquea el pago
+      const usuarioId: string | null = sessionUser?.id || null
 
       // ── 1. Obtener folio siguiente ──────────────────────────
       const prefijo = cotizacion ? 'COT' : 'V'
@@ -588,7 +556,7 @@ export default function NuevaVentaPage() {
 
       // ── 4b. Registrar anticipo en pagos_venta ──────────────────
       if (!cotizacion && anticoDB > 0) {
-        await supabase.from('pagos_venta').insert({
+        const { error: errPago } = await supabase.from('pagos_venta').insert({
           venta_id:       ventaId,
           folio_venta:    folio,
           paciente:       `${clienteNombre} ${clienteApellido}`.trim(),
@@ -599,6 +567,11 @@ export default function NuevaVentaPage() {
           registrado_por: atendioPor,
           usuario_id:     usuarioId,
         })
+        if (errPago) {
+          // La venta ya se guardó — avisar pero no bloquear
+          console.error('pagos_venta insert error:', errPago)
+          setErrorGuardado(`⚠️ Venta guardada (${folio}) pero el registro de caja falló: ${errPago.message}. Avisa a Rob.`)
+        }
 
         // ── 4c. Comisión terminal automática ──────────────────────
         await registrarComisionTerminal({

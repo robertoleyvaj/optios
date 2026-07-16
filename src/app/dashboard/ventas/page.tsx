@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { registrarComisionTerminal } from '@/lib/comisiones'
+import { getSucursalActual, getUsuarioLocal } from '@/lib/session'
 
 // ─────────────────────────────────────────
 // Tipos
@@ -47,7 +48,7 @@ const metodoBadge: Record<string, { label: string; icon: React.ElementType; cls:
   otros:         { label: 'Otros',         icon: Clock,      cls: 'bg-zinc-100 text-zinc-600' },
 }
 
-const METODOS_ABONO = ['efectivo', 'tarjeta', 'transferencia', 'deposito']
+const METODOS_ABONO = ['efectivo', 'debito', 'credito', 'transferencia']
 const SUCURSALES = ['Todas', 'Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
 // ─────────────────────────────────────────
@@ -235,16 +236,10 @@ export default function VentasPage() {
 
   useEffect(() => {
     cargar()
-    try {
-      const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
-      setUsuarioNombre(u.nombre ?? '')
-      setUsuarioId(u.id ?? null)
-      setEsAdmin(u.rol === 'administrador')
-      // Gerente y vendedor arrancan en su propia sucursal
-      if (u.rol !== 'administrador' && u.sucursal && u.sucursal !== 'Todas') {
-        setSucursal(u.sucursal)
-      }
-    } catch { /* noop */ }
+    const u = getUsuarioLocal()
+    setUsuarioNombre(u.nombre ?? '')
+    setUsuarioId(u.id ?? null)
+    setEsAdmin(u.rol === 'administrador')
   }, [])
 
   // Cerrar modal con Escape
@@ -405,6 +400,8 @@ export default function VentasPage() {
     }
 
     // 2. Registrar pago en pagos_venta
+    // La sucursal del pago es siempre donde está trabajando hoy el usuario (check-in)
+    const sucursalPago = getSucursalActual()
     const { error: errPago } = await supabase.from('pagos_venta').insert({
       venta_id:       detalle.uuid,
       folio_venta:    detalle.id,
@@ -412,7 +409,7 @@ export default function VentasPage() {
       monto,
       metodo_pago:    abonoMetodo,
       tipo:           esLiquidacion ? 'liquidacion' : 'abono',
-      sucursal:       detalle.sucursal,
+      sucursal:       sucursalPago,
       registrado_por: usuarioNombre,
       usuario_id:     usuarioId,
     })
@@ -560,7 +557,7 @@ export default function VentasPage() {
         </div>
         <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
           <p className="text-sm text-zinc-500 font-medium mb-2">Por método de pago</p>
-          {['efectivo','tarjeta','transferencia'].map(m => {
+          {['efectivo','debito','credito','transferencia'].map(m => {
             const count = ventas.filter(v => v.metodo === m).length
             const b = metodoBadge[m]
             const Icon = b.icon

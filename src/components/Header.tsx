@@ -5,6 +5,7 @@ import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown,
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
+import { getSucursalActual } from '@/lib/session'
 import { useSession } from '@/hooks/useSession'
 
 type Notif = { id: string; tipo: 'cita' | 'lab'; texto: string; sub: string }
@@ -13,17 +14,18 @@ type PacienteResult = { id: string; nombre: string; apellido: string; telefono: 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter()
   const { usuario: sessionUser, signOut } = useSession()
-  // Compatibilidad con localStorage legacy (usuarios aún no migrados a Supabase Auth)
   const [legacyUser, setLegacyUser] = useState<{ nombre: string; sucursal: string; rol?: string } | null>(null)
+  const [sucursalActual, setSucursalActual] = useState('')
   useEffect(() => {
     try {
       const raw = localStorage.getItem('optios_demo_user')
       if (raw) setLegacyUser(JSON.parse(raw))
     } catch { /* noop */ }
+    setSucursalActual(getSucursalActual())
   }, [])
   const usuario = {
     nombre:   sessionUser?.nombre   || legacyUser?.nombre   || '',
-    sucursal: sessionUser?.sucursal || legacyUser?.sucursal || '',
+    sucursal: sucursalActual,
     rol:      sessionUser?.rol      || legacyUser?.rol      || 'vendedor',
   }
   const [search, setSearch] = useState('')
