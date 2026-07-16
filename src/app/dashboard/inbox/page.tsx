@@ -138,8 +138,8 @@ export default function InboxPage() {
     <div className="flex h-full gap-0 -mx-6 -my-5">
 
       {/* ── Lista de mensajes ── */}
-      <div className="w-80 flex-shrink-0 bg-white border-r border-zinc-100 flex flex-col">
-        <div className="px-4 py-4 border-b border-zinc-100 flex items-center justify-between">
+      <div className="w-80 flex-shrink-0 bg-white border-r border-zinc-200 flex flex-col">
+        <div className="px-4 py-4 border-b border-zinc-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Mail className="w-4 h-4 text-zinc-500" />
             <h1 className="font-semibold text-zinc-800">Inbox</h1>
@@ -172,7 +172,7 @@ export default function InboxPage() {
               <button
                 key={m.id}
                 onClick={() => abrirMensaje(m)}
-                className={`w-full text-left px-4 py-3.5 hover:bg-zinc-50 transition-colors ${seleccionado?.id === m.id ? 'bg-zinc-50' : ''}`}
+                className={`w-full text-left px-4 py-3.5 hover:bg-zinc-100 transition-colors ${seleccionado?.id === m.id ? 'bg-zinc-50' : ''}`}
               >
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -195,7 +195,7 @@ export default function InboxPage() {
       <div className="flex-1 flex flex-col bg-[#F8FAFC]">
         {seleccionado ? (
           <>
-            <div className="bg-white border-b border-zinc-100 px-6 py-4">
+            <div className="bg-white border-b border-zinc-200 px-6 py-4">
               <h2 className="text-lg font-semibold text-zinc-900">{seleccionado.asunto}</h2>
               <div className="flex items-center gap-4 mt-1 text-xs text-zinc-400">
                 <span className="flex items-center gap-1">
@@ -215,7 +215,7 @@ export default function InboxPage() {
 
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               {/* Mensaje original */}
-              <div className="bg-white rounded-xl border border-zinc-100 p-5">
+              <div className="bg-white rounded-xl border border-zinc-200 p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-7 h-7 rounded-full bg-[#0B0E14] flex items-center justify-center">
                     <span className="text-white text-xs font-bold">{seleccionado.de[0]}</span>
@@ -227,7 +227,7 @@ export default function InboxPage() {
 
               {/* Respuestas */}
               {seleccionado.respuestas?.map(r => (
-                <div key={r.id} className={`rounded-xl border p-5 ${r.de === usuario.nombre ? 'bg-[#0D9488]/5 border-[#0D9488]/20 ml-6' : 'bg-white border-zinc-100'}`}>
+                <div key={r.id} className={`rounded-xl border p-5 ${r.de === usuario.nombre ? 'bg-[#0D9488]/5 border-[#0D9488]/20 ml-6' : 'bg-white border-zinc-200'}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-zinc-200 flex items-center justify-center">
@@ -243,7 +243,7 @@ export default function InboxPage() {
             </div>
 
             {/* Caja de respuesta */}
-            <div className="bg-white border-t border-zinc-100 px-6 py-4">
+            <div className="bg-white border-t border-zinc-200 px-6 py-4">
               <div className="flex gap-3">
                 <textarea
                   value={respuesta}
@@ -274,7 +274,7 @@ export default function InboxPage() {
       {showCompose && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
               <h3 className="font-semibold text-zinc-800">Nuevo mensaje</h3>
               <button onClick={() => setShowCompose(false)} className="text-zinc-400 hover:text-zinc-600">
                 <X className="w-5 h-5" />
@@ -285,13 +285,13 @@ export default function InboxPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setCompForm(f => ({ ...f, para_tipo: 'sucursal', para_valor: '' }))}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'sucursal' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'sucursal' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
                 >
                   <MapPin className="w-3.5 h-3.5" /> Sucursal
                 </button>
                 <button
                   onClick={() => setCompForm(f => ({ ...f, para_tipo: 'usuario', para_valor: '' }))}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'usuario' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'usuario' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
                 >
                   <User className="w-3.5 h-3.5" /> Persona
                 </button>
@@ -304,7 +304,7 @@ export default function InboxPage() {
                     <button
                       key={s}
                       onClick={() => setCompForm(f => ({ ...f, para_valor: s }))}
-                      className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${compForm.para_valor === s ? 'bg-[#0D9488]/10 border-[#0D9488] text-[#0D9488]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}
+                      className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${compForm.para_valor === s ? 'bg-[#0D9488]/10 border-[#0D9488] text-[#0D9488]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
                     >
                       {s}
                     </button>
@@ -336,7 +336,7 @@ export default function InboxPage() {
               />
             </div>
             <div className="flex gap-3 px-6 pb-5">
-              <button onClick={() => setShowCompose(false)} className="flex-1 border border-zinc-200 text-zinc-600 rounded-xl py-2.5 text-sm hover:bg-zinc-50 transition-colors">
+              <button onClick={() => setShowCompose(false)} className="flex-1 border border-zinc-200 text-zinc-600 rounded-xl py-2.5 text-sm hover:bg-zinc-100 transition-colors">
                 Cancelar
               </button>
               <button

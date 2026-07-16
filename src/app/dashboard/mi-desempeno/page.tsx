@@ -275,7 +275,7 @@ export default function MiDesempenoPage() {
 
       {/* Bono diario */}
       {esMesActual && (
-        <div className={`rounded-2xl p-5 border flex items-center gap-5 ${bonoDiarioOk ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-zinc-100 shadow-sm'}`}>
+        <div className={`rounded-2xl p-5 border flex items-center gap-5 ${bonoDiarioOk ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-zinc-200 shadow-sm'}`}>
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${bonoDiarioOk ? 'bg-emerald-500' : 'bg-zinc-100'}`}>
             <Zap className={`w-6 h-6 ${bonoDiarioOk ? 'text-white' : 'text-zinc-400'}`} />
           </div>
@@ -304,7 +304,7 @@ export default function MiDesempenoPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm text-zinc-500">Comisión</p>
             <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
@@ -314,7 +314,7 @@ export default function MiDesempenoPage() {
           <p className="text-2xl font-bold text-indigo-600">{fmt(comision)}</p>
           <p className="text-xs text-zinc-400 mt-1">Escalonada por ventas</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm text-zinc-500">Bono</p>
             <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
@@ -324,7 +324,7 @@ export default function MiDesempenoPage() {
           <p className="text-2xl font-bold text-emerald-600">{fmt(bonoActual)}</p>
           <p className="text-xs text-zinc-400 mt-1">{esGerente ? 'Bonos acumulados' : 'Metas alcanzadas'}</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm text-zinc-500">Total acumulado</p>
             <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
@@ -334,7 +334,7 @@ export default function MiDesempenoPage() {
           <p className="text-2xl font-bold text-blue-600">{fmt(totalExtra)}</p>
           <p className="text-xs text-zinc-400 mt-1">Comisión + Bono</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-zinc-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-zinc-500 mb-1">Meta {esGerente ? 'global' : 'mensual'}</p>
@@ -350,7 +350,7 @@ export default function MiDesempenoPage() {
       </div>
 
       {/* Progreso */}
-      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-6 space-y-5">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 space-y-5">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-zinc-500" />
           <h2 className="text-sm font-semibold text-zinc-700">
@@ -428,7 +428,7 @@ export default function MiDesempenoPage() {
       </div>
 
       {/* Resumen ventas */}
-      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-6">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6">
         <div className="flex items-center gap-2 mb-5">
           <TrendingUp className="w-4 h-4 text-zinc-500" />
           <h2 className="text-sm font-semibold text-zinc-700">
@@ -461,22 +461,22 @@ export default function MiDesempenoPage() {
       </div>
 
       {/* Desglose comisión */}
-      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-6">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-4 h-4 text-zinc-500" />
           <h2 className="text-sm font-semibold text-zinc-700">Desglose de comisión</h2>
         </div>
         <div className="space-y-0">
           {des.map((t, i) => (
-            <div key={i} className={`flex items-center justify-between py-3 ${i < des.length - 1 ? 'border-b border-zinc-100' : ''}`}>
+            <div key={i} className={`flex items-center justify-between py-3 ${i < des.length - 1 ? 'border-b border-zinc-200' : ''}`}>
               <div className="flex items-center gap-3">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.base > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-zinc-100 text-zinc-400'}`}>{t.tasa}</span>
                 <div>
-                  <p className={`text-sm ${t.base > 0 ? 'text-zinc-700' : 'text-zinc-300'}`}>{t.label}</p>
+                  <p className={`text-sm ${t.base > 0 ? 'text-zinc-700' : 'text-zinc-400'}`}>{t.label}</p>
                   {t.base > 0 && <p className="text-xs text-zinc-400">sobre {fmt(t.base)}</p>}
                 </div>
               </div>
-              <p className={`text-sm font-bold ${t.ganado > 0 ? 'text-indigo-600' : 'text-zinc-300'}`}>{t.ganado > 0 ? fmt(t.ganado) : '—'}</p>
+              <p className={`text-sm font-bold ${t.ganado > 0 ? 'text-indigo-600' : 'text-zinc-400'}`}>{t.ganado > 0 ? fmt(t.ganado) : '—'}</p>
             </div>
           ))}
           <div className="flex items-center justify-between pt-3 border-t border-zinc-200 mt-1">
@@ -487,7 +487,7 @@ export default function MiDesempenoPage() {
       </div>
 
       {/* Escalera de bonos */}
-      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-6">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
           <Award className="w-4 h-4 text-zinc-500" />
           <h2 className="text-sm font-semibold text-zinc-700">Escalera de bonos del mes</h2>
@@ -502,7 +502,7 @@ export default function MiDesempenoPage() {
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl ${
                   alcanzado ? 'bg-emerald-50 border border-emerald-200' :
                   esSiguiente ? 'bg-amber-50 border border-amber-200' :
-                  'bg-zinc-50 border border-zinc-100'}`}>
+                  'bg-zinc-50 border border-zinc-200'}`}>
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
                   alcanzado ? 'bg-emerald-500 text-white' :
                   esSiguiente ? 'bg-amber-400 text-white' :
@@ -519,9 +519,9 @@ export default function MiDesempenoPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Star className={`w-3.5 h-3.5 ${alcanzado ? 'text-emerald-400' : esSiguiente ? 'text-amber-400' : 'text-zinc-300'}`} />
+                  <Star className={`w-3.5 h-3.5 ${alcanzado ? 'text-emerald-400' : esSiguiente ? 'text-amber-400' : 'text-zinc-400'}`} />
                   <div className="text-right">
-                    <p className={`text-sm font-bold ${alcanzado ? 'text-emerald-600' : esSiguiente ? 'text-amber-600' : 'text-zinc-300'}`}>
+                    <p className={`text-sm font-bold ${alcanzado ? 'text-emerald-600' : esSiguiente ? 'text-amber-600' : 'text-zinc-400'}`}>
                       {fmt(bonoMostrar)}
                     </p>
                     {esGerente && <p className="text-xs text-zinc-400">acumulado</p>}

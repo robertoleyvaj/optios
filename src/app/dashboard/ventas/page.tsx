@@ -517,7 +517,7 @@ export default function VentasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Ventas</h1>
-          <p className="text-sm text-zinc-400 mt-0.5">Historial y registro de ventas de todas las sucursales</p>
+          <p className="text-sm text-zinc-500 mt-0.5">Historial y registro de ventas de todas las sucursales</p>
         </div>
         <Link href="/dashboard/ventas/nueva"
           className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27] active:scale-[0.98] transition-all">
@@ -555,7 +555,7 @@ export default function VentasPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-xs text-zinc-400">Últimas {ventas.filter(v => !v.id.startsWith('COT-')).length} ventas registradas</span>
+            <span className="text-xs text-zinc-500">Últimas {ventas.filter(v => !v.id.startsWith('COT-')).length} ventas registradas</span>
           </div>
         </div>
         <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
@@ -577,7 +577,7 @@ export default function VentasPage() {
 
       {/* Tabla */}
       <div className="bg-white rounded-lg border border-zinc-200/80">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-100">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-200">
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
@@ -615,7 +615,7 @@ export default function VentasPage() {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-100">
+                <tr className="border-b border-zinc-200">
                   {['Folio','Cliente','Productos','Sucursal','Método','Total','Fecha'].map(h => (
                     <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
                   ))}
@@ -631,7 +631,7 @@ export default function VentasPage() {
                     : '—'
                   return (
                     <tr key={v.uuid} onClick={() => { setDetalle(v); setShowAbono(false); setAbonoMonto('') }}
-                      className="hover:bg-zinc-50 transition-colors cursor-pointer group">
+                      className="hover:bg-zinc-100 transition-colors cursor-pointer group">
                       <td className="px-5 py-3.5">
                         <span className="text-xs font-mono font-semibold text-zinc-500">{v.id}</span>
                         {saldo > 0 && (
@@ -675,7 +675,7 @@ export default function VentasPage() {
             onClick={e => e.stopPropagation()}>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100 flex-shrink-0">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200 flex-shrink-0">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs font-bold text-zinc-400">{detalle.id}</span>
@@ -749,7 +749,7 @@ export default function VentasPage() {
                             <button
                               onClick={() => eliminarPago(p)}
                               title="Eliminar este pago"
-                              className="w-5 h-5 flex items-center justify-center rounded-full text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                              className="w-5 h-5 flex items-center justify-center rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -818,7 +818,7 @@ export default function VentasPage() {
               )}
 
               {/* Info venta */}
-              <div className="text-xs text-zinc-400 space-y-1 border-t border-zinc-100 pt-3">
+              <div className="text-xs text-zinc-400 space-y-1 border-t border-zinc-200 pt-3">
                 <div className="flex justify-between">
                   <span>Sucursal</span><span className="text-zinc-600">{detalle.sucursal}</span>
                 </div>
@@ -832,7 +832,7 @@ export default function VentasPage() {
             </div>
 
             {/* Acciones fijas */}
-            <div className="px-6 pb-5 pt-3 border-t border-zinc-100 flex-shrink-0 space-y-2">
+            <div className="px-6 pb-5 pt-3 border-t border-zinc-200 flex-shrink-0 space-y-2">
               {saldoPendiente(detalle) > 0 && !showAbono && (
                 <button onClick={() => setShowAbono(true)}
                   className="w-full flex items-center justify-center gap-2 py-3 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 transition-colors">
@@ -845,7 +845,7 @@ export default function VentasPage() {
                 </div>
               )}
               <button onClick={() => imprimirTicket(detalle)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50 transition-colors">
+                className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
                 <Printer className="w-4 h-4" /> Reimprimir ticket
               </button>
               {esAdmin && (

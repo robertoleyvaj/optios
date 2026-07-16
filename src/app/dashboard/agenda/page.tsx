@@ -210,13 +210,13 @@ function BuscadorPaciente({ value, onSelect, onManual }: {
             <>
               {res.map(p => (
                 <button key={p.id} onClick={() => { onSelect(p); setQ(p.nombre); setOpen(false) }}
-                  className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 flex items-center gap-3">
+                  className="w-full text-left px-4 py-2.5 hover:bg-zinc-100 flex items-center gap-3">
                   <div className="w-7 h-7 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">{p.nombre[0]}</div>
                   <div><p className="text-sm font-semibold text-zinc-700">{p.nombre}</p><p className="text-xs text-zinc-400">{p.telefono}</p></div>
                   <UserCheck className="w-3.5 h-3.5 text-teal-500 ml-auto"/>
                 </button>
               ))}
-              <div className="px-4 py-2 border-t border-zinc-100">
+              <div className="px-4 py-2 border-t border-zinc-200">
                 <button onClick={() => { onManual(q); setOpen(false) }} className="text-xs text-zinc-400 hover:text-zinc-600 flex items-center gap-1.5">
                   <User className="w-3 h-3"/> Usar &ldquo;{q}&rdquo; como paciente nuevo
                 </button>
@@ -418,7 +418,7 @@ export default function AgendaPage() {
             <p className="text-xs text-zinc-400">Sin citas hoy</p>
           ) : hoyList.map(c => (
             <button key={c.id} onClick={() => { setFecha(new Date(c.fecha+'T12:00:00')); setVista('dia'); cargarDetalle(c) }}
-              className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-50">
+              className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-100">
               <span className="text-[10px] font-bold text-zinc-400 w-9 flex-shrink-0">{c.hora}</span>
               <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: EC[c.estado].dot }}/>
               <span className="text-xs text-zinc-700 truncate">{c.paciente.split(' ')[0]}</span>
@@ -455,7 +455,7 @@ export default function AgendaPage() {
         {/* Header */}
         <div className="bg-white border-b border-zinc-200 px-5 py-3 flex items-center gap-2.5 flex-shrink-0">
           <button onClick={() => { const d = new Date(fecha); d.setDate(d.getDate()-(vista==='dia'?1:7)); setFecha(d) }}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 hover:bg-zinc-50">
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 hover:bg-zinc-100">
             <ChevronLeft className="w-4 h-4 text-zinc-500"/>
           </button>
           <span className="min-w-[160px] text-center text-sm font-bold text-zinc-800">
@@ -464,11 +464,11 @@ export default function AgendaPage() {
               : `${MESES[semana[0].getMonth()]} ${semana[0].getFullYear()}`}
           </span>
           <button onClick={() => { const d = new Date(fecha); d.setDate(d.getDate()+(vista==='dia'?1:7)); setFecha(d) }}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 hover:bg-zinc-50">
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 hover:bg-zinc-100">
             <ChevronRight className="w-4 h-4 text-zinc-500"/>
           </button>
           <button onClick={() => { setFecha(new Date()); setVista('dia') }}
-            className="px-3 py-1.5 text-xs font-semibold border border-zinc-200 rounded-lg hover:bg-zinc-50 text-zinc-600">Hoy</button>
+            className="px-3 py-1.5 text-xs font-semibold border border-zinc-200 rounded-lg hover:bg-zinc-100 text-zinc-600">Hoy</button>
 
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400"/>
@@ -490,7 +490,7 @@ export default function AgendaPage() {
             <div className="flex border border-zinc-200 rounded-lg overflow-hidden">
               {(['dia','semana'] as const).map((v,i) => (
                 <button key={v} onClick={() => setVista(v)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${vista===v?'bg-[#0B0E14] text-white':'text-zinc-500 hover:bg-zinc-50'}`}>
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${vista===v?'bg-[#0B0E14] text-white':'text-zinc-500 hover:bg-zinc-100'}`}>
                   {['Día','Semana'][i]}
                 </button>
               ))}
@@ -523,7 +523,7 @@ export default function AgendaPage() {
                     <span className="w-14 text-right pr-3 text-[11px] text-zinc-400 font-medium -mt-2 flex-shrink-0">
                       {h.toString().padStart(2,'0')}:00
                     </span>
-                    <div className="flex-1 border-t border-zinc-100"/>
+                    <div className="flex-1 border-t border-zinc-200"/>
                   </div>
                 ))}
                 {/* Half-hour dashes */}
@@ -595,15 +595,15 @@ export default function AgendaPage() {
             {/* ── SEMANA ── */}
             {vista === 'semana' && (
               <div>
-                <div className="grid sticky top-0 bg-white z-10 border-b border-zinc-100" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
-                  <div className="border-r border-zinc-100"/>
+                <div className="grid sticky top-0 bg-white z-10 border-b border-zinc-200" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+                  <div className="border-r border-zinc-200"/>
                   {semana.map((d, i) => {
                     const ds = fmt(d)
                     const esH = ds === fmt(hoy)
                     const n = citasDia(ds).length
                     return (
                       <div key={i} onClick={() => { setFecha(d); setVista('dia') }}
-                        className={`px-2 py-3 border-r last:border-r-0 border-zinc-100 text-center cursor-pointer hover:bg-zinc-50 ${esH ? 'bg-teal-50' : ''}`}>
+                        className={`px-2 py-3 border-r last:border-r-0 border-zinc-200 text-center cursor-pointer hover:bg-zinc-100 ${esH ? 'bg-teal-50' : ''}`}>
                         <p className={`text-[10px] font-semibold ${esH ? 'text-teal-600' : 'text-zinc-400'}`}>{DIAS_LABEL[i]}</p>
                         <p className={`text-base font-bold mt-0.5 ${esH ? 'text-teal-700' : 'text-zinc-700'}`}>{d.getDate()}</p>
                         {n > 0 && <span className="text-[9px] text-zinc-400">{n}</span>}
@@ -612,19 +612,19 @@ export default function AgendaPage() {
                   })}
                 </div>
                 {HORAS.map(h => (
-                  <div key={h} className="grid border-b border-zinc-100" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
-                    <div className="border-r border-zinc-100 text-right pr-2 pt-1">
+                  <div key={h} className="grid border-b border-zinc-200" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+                    <div className="border-r border-zinc-200 text-right pr-2 pt-1">
                       <span className="text-[11px] text-zinc-400">{h.toString().padStart(2,'0')}:00</span>
                     </div>
                     {semana.map((d, di) => {
                       const ds = fmt(d)
                       const cs = citasDia(ds).filter(c => c.hora.startsWith(h.toString().padStart(2,'0')))
                       return (
-                        <div key={di} className="border-r last:border-r-0 border-zinc-100 p-1 min-h-[52px] cursor-pointer hover:bg-zinc-50/50 group"
+                        <div key={di} className="border-r last:border-r-0 border-zinc-200 p-1 min-h-[52px] cursor-pointer hover:bg-zinc-100/50 group"
                           onClick={() => { if (!cs.length) abrirNueva(ds, `${h.toString().padStart(2,'0')}:00`) }}>
                           {!cs.length && (
                             <div className="h-full min-h-[40px] flex items-center justify-center opacity-0 group-hover:opacity-100">
-                              <Plus className="w-3 h-3 text-zinc-300"/>
+                              <Plus className="w-3 h-3 text-zinc-400"/>
                             </div>
                           )}
                           {cs.map(c => {
@@ -649,7 +649,7 @@ export default function AgendaPage() {
         )}
 
         {/* Legend */}
-        <div className="bg-white border-t border-zinc-100 px-5 py-2 flex items-center gap-4 flex-shrink-0 overflow-x-auto">
+        <div className="bg-white border-t border-zinc-200 px-5 py-2 flex items-center gap-4 flex-shrink-0 overflow-x-auto">
           {(Object.entries(EC) as [EstadoCita, typeof EC[EstadoCita]][]).map(([, ec]) => (
             <div key={ec.label} className="flex items-center gap-1.5 flex-shrink-0">
               <span className="w-2 h-2 rounded-full" style={{ background: ec.dot }}/>
@@ -663,7 +663,7 @@ export default function AgendaPage() {
       {citaSel && (
         <aside className="w-[300px] flex-shrink-0 bg-white border-l border-zinc-200 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-zinc-100 flex-shrink-0">
+          <div className="px-5 py-4 border-b border-zinc-200 flex-shrink-0">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-zinc-800 truncate text-sm">{citaSel.paciente}</h3>
@@ -705,7 +705,7 @@ export default function AgendaPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-zinc-100 flex-shrink-0">
+          <div className="flex border-b border-zinc-200 flex-shrink-0">
             {(['detalles','historial','notas'] as const).map(tab => (
               <button key={tab} onClick={() => setDetTab(tab)}
                 className={`flex-1 py-2.5 text-xs font-semibold capitalize transition-colors
@@ -743,13 +743,13 @@ export default function AgendaPage() {
                     </div>
                   )}
                 </div>
-                <div className="pt-2 border-t border-zinc-100">
+                <div className="pt-2 border-t border-zinc-200">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide mb-2">Cambiar estado</p>
                   <div className="grid grid-cols-2 gap-1.5">
                     {(Object.entries(EC) as [EstadoCita, typeof EC[EstadoCita]][]).map(([estado, ec]) => (
                       <button key={estado} onClick={() => cambiarEstado(citaSel.id, estado)}
                         className={`py-1.5 rounded-lg text-[11px] font-semibold border transition-all
-                          ${citaSel.estado===estado ? `${ec.bg} ${ec.text} border-current` : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                          ${citaSel.estado===estado ? `${ec.bg} ${ec.text} border-current` : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
                         {ec.label}
                       </button>
                     ))}
@@ -810,9 +810,9 @@ export default function AgendaPage() {
           </div>
 
           {/* Actions */}
-          <div className="px-5 pb-4 pt-3 border-t border-zinc-100 flex flex-col gap-2 flex-shrink-0">
+          <div className="px-5 pb-4 pt-3 border-t border-zinc-200 flex flex-col gap-2 flex-shrink-0">
             <button onClick={() => abrirEditar(citaSel)}
-              className="flex items-center justify-center gap-2 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-600 font-medium hover:bg-zinc-50">
+              className="flex items-center justify-center gap-2 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-600 font-medium hover:bg-zinc-100">
               <Pencil className="w-3.5 h-3.5"/> Editar cita
             </button>
             {citaSel.estado !== 'cancelada' && (
@@ -829,7 +829,7 @@ export default function AgendaPage() {
       {modal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100 sticky top-0 bg-white z-10">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200 sticky top-0 bg-white z-10">
               <h2 className="text-base font-bold text-zinc-800">{editando ? 'Editar cita' : 'Nueva cita'}</h2>
               <button onClick={() => setModal(false)}><X className="w-5 h-5 text-zinc-400"/></button>
             </div>
@@ -857,7 +857,7 @@ export default function AgendaPage() {
                   {TIPOS_CITA.map(t => (
                     <button key={t} onClick={() => { f('tipo', t); if (t !== 'Revisión') f('seguimiento', null) }}
                       className={`py-2.5 px-3 rounded-lg text-xs font-medium border text-left transition-all
-                        ${form.tipo===t ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                        ${form.tipo===t ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
                       {t}
                     </button>
                   ))}
@@ -869,7 +869,7 @@ export default function AgendaPage() {
                       {[1,2,3,4].map(n => (
                         <button key={n} onClick={() => f('seguimiento', n)}
                           className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all
-                            ${form.seguimiento===n ? 'bg-purple-600 border-purple-600 text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                            ${form.seguimiento===n ? 'bg-purple-600 border-purple-600 text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
                           {n}
                         </button>
                       ))}
@@ -926,7 +926,7 @@ export default function AgendaPage() {
                   {(Object.entries(EC) as [EstadoCita, typeof EC[EstadoCita]][]).map(([estado, ec]) => (
                     <button key={estado} onClick={() => f('estado', estado)}
                       className={`py-1.5 rounded-lg text-[11px] font-semibold border transition-all
-                        ${form.estado===estado ? `${ec.bg} ${ec.text} border-current` : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                        ${form.estado===estado ? `${ec.bg} ${ec.text} border-current` : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
                       {ec.label}
                     </button>
                   ))}
@@ -943,9 +943,9 @@ export default function AgendaPage() {
               </div>
             </div>
 
-            <div className="px-6 pb-5 flex gap-3 sticky bottom-0 bg-white border-t border-zinc-100 pt-4">
+            <div className="px-6 pb-5 flex gap-3 sticky bottom-0 bg-white border-t border-zinc-200 pt-4">
               <button onClick={() => setModal(false)}
-                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded-lg text-sm font-semibold hover:bg-zinc-50">
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded-lg text-sm font-semibold hover:bg-zinc-100">
                 Cancelar
               </button>
               <button onClick={guardar}

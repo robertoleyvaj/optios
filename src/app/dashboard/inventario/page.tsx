@@ -121,7 +121,7 @@ const formVacio = (): Omit<Producto, 'id'> => ({
 // ─────────────────────────────────────────
 function CanalBadges({ canales }: { canales: string[] }) {
   if (!canales || canales.length === 0)
-    return <span className="text-xs text-zinc-300 italic">Sin canales</span>
+    return <span className="text-xs text-zinc-400 italic">Sin canales</span>
   return (
     <div className="flex flex-wrap gap-1">
       {canales.map(k => {
@@ -464,7 +464,7 @@ function InventarioPage() {
       <div className="bg-white rounded-lg border border-zinc-200/80">
 
         {/* Filtros */}
-        <div className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-zinc-100">
+        <div className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-zinc-200">
           <div className="relative flex-1 min-w-52">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
@@ -474,7 +474,7 @@ function InventarioPage() {
           <div className="flex items-center border border-zinc-200 rounded overflow-hidden">
             {(['todos','armazon','servicio','consumible'] as const).map((k,i) => (
               <button key={k} onClick={() => setTipoFiltro(k)}
-                className={`px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap border-r last:border-r-0 border-zinc-200 ${tipoFiltro === k ? 'bg-[#0B0E14] text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>
+                className={`px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap border-r last:border-r-0 border-zinc-200 ${tipoFiltro === k ? 'bg-[#0B0E14] text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}>
                 {['Todos','Armazones','Micas/Servicios','Consumibles'][i]}
               </button>
             ))}
@@ -487,7 +487,7 @@ function InventarioPage() {
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
           </div>
           <button onClick={() => setSoloAlerta(!soloAlerta)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border rounded transition-colors ${soloAlerta ? 'bg-amber-50 border-amber-300 text-amber-600' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border rounded transition-colors ${soloAlerta ? 'bg-amber-50 border-amber-300 text-amber-600' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
             <AlertTriangle className="w-3.5 h-3.5" /> Solo alertas
           </button>
           <span className="text-xs text-zinc-400 ml-auto flex items-center gap-1">
@@ -498,7 +498,7 @@ function InventarioPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-100 bg-zinc-50/50">
+              <tr className="border-b border-zinc-200 bg-zinc-50/50">
                 <th className="text-left text-xs text-zinc-400 font-semibold px-5 py-3 w-28">SKU</th>
                 <th className="text-left text-xs text-zinc-400 font-semibold px-4 py-3">Producto</th>
                 <th className="text-left text-xs text-zinc-400 font-semibold px-4 py-3">Tipo</th>
@@ -517,7 +517,7 @@ function InventarioPage() {
                 const opaco = p.estado === 'vendido'
 
                 return (
-                  <tr key={p.id} className={`hover:bg-zinc-50 transition-colors group ${opaco ? 'opacity-50' : ''}`}>
+                  <tr key={p.id} className={`hover:bg-zinc-100 transition-colors group ${opaco ? 'opacity-50' : ''}`}>
                     <td className="px-5 py-3.5">
                       <span className="text-xs font-mono font-semibold text-zinc-400">{p.sku}</span>
                     </td>
@@ -588,7 +588,7 @@ function InventarioPage() {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
 
             {/* Header wizard */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
               <div>
                 <h2 className="text-base font-bold text-zinc-800">Verificación de inventario</h2>
                 <p className="text-xs text-zinc-400 mt-0.5">
@@ -609,7 +609,7 @@ function InventarioPage() {
                   <p className="text-sm text-zinc-600">¿En qué sucursal estás haciendo el conteo?</p>
                   {SUCURSALES_FISICAS.map(suc => (
                     <button key={suc} onClick={() => setVerifSucursal(suc)}
-                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-lg border text-sm font-semibold transition-all ${verifSucursal === suc ? 'border-[#0D9488] bg-[#0D9488]/5 text-zinc-800' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-lg border text-sm font-semibold transition-all ${verifSucursal === suc ? 'border-[#0D9488] bg-[#0D9488]/5 text-zinc-800' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
                       {suc}
                       {verifSucursal === suc && <Check className="w-4 h-4 text-[#0D9488]" />}
                     </button>
@@ -758,7 +758,7 @@ function InventarioPage() {
             <div className="px-6 pb-5 flex gap-3">
               {wizardPaso > 0 && (
                 <button onClick={() => setWizardPaso(p => p - 1)}
-                  className="px-4 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
+                  className="px-4 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100">
                   Atrás
                 </button>
               )}
@@ -783,7 +783,7 @@ function InventarioPage() {
       {modal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
               <h2 className="text-base font-bold text-zinc-800">{editando ? 'Editar producto' : 'Agregar producto'}</h2>
               <button onClick={() => setModal(false)}><X className="w-5 h-5 text-zinc-400 hover:text-zinc-600" /></button>
             </div>
@@ -796,7 +796,7 @@ function InventarioPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {(['armazon','consumible','servicio'] as TipoProducto[]).map(t => (
                     <button key={t} onClick={() => f('tipo', t)}
-                      className={`py-2.5 rounded text-xs font-semibold border transition-all ${form.tipo === t ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                      className={`py-2.5 rounded text-xs font-semibold border transition-all ${form.tipo === t ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
                       {TIPOS[t].label}
                     </button>
                   ))}
@@ -927,7 +927,7 @@ function InventarioPage() {
                       return (
                         <button key={c.key} type="button"
                           onClick={() => toggleCanal(c.key)}
-                          className={`flex items-center gap-3 px-4 py-2.5 rounded border text-sm transition-all text-left ${activo ? 'border-[#0D9488] bg-[#0D9488]/5 text-zinc-700' : 'border-zinc-200 text-zinc-400 hover:bg-zinc-50'}`}>
+                          className={`flex items-center gap-3 px-4 py-2.5 rounded border text-sm transition-all text-left ${activo ? 'border-[#0D9488] bg-[#0D9488]/5 text-zinc-700' : 'border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}>
                           {esWeb ? <Globe className="w-4 h-4 flex-shrink-0 text-blue-400" /> : <Store className="w-4 h-4 flex-shrink-0 text-zinc-400" />}
                           <span className="flex-1">{c.label}</span>
                           {activo && <CheckSquare className="w-4 h-4 text-[#0D9488]" />}
@@ -969,7 +969,7 @@ function InventarioPage() {
 
             <div className="px-6 pb-5 flex gap-3">
               <button onClick={() => setModal(false)}
-                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100">
                 Cancelar
               </button>
               <button onClick={guardar} disabled={!form.nombre || !form.sku || guardando}

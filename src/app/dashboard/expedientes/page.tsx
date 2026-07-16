@@ -362,9 +362,9 @@ function FichaVentaModal({ venta, onClose }: { venta: HistorialVenta; onClose: (
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl border border-zinc-100 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl border border-zinc-200 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-start justify-between px-5 py-4 border-b border-zinc-100">
+        <div className="flex items-start justify-between px-5 py-4 border-b border-zinc-200">
           <div>
             <p className="text-sm font-bold text-zinc-900">{venta.folio}</p>
             <p className="text-xs text-zinc-400 mt-0.5">
@@ -439,7 +439,7 @@ function FichaVentaModal({ venta, onClose }: { venta: HistorialVenta; onClose: (
                   const histOrden = historialMap[o.id] ?? []
 
                   return (
-                    <div key={o.id} className="border border-zinc-100 rounded-xl p-4 space-y-3">
+                    <div key={o.id} className="border border-zinc-200 rounded-xl p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-xs font-bold text-zinc-700">{o.folio}{o.es_garantia ? ' · Garantía' : ''}</p>
@@ -466,7 +466,7 @@ function FichaVentaModal({ venta, onClose }: { venta: HistorialVenta; onClose: (
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline justify-between gap-2">
                                   <p className={`text-xs font-medium ${step.done ? 'text-zinc-700' : 'text-zinc-400'}`}>{step.label}</p>
-                                  <p className={`text-[10px] flex-shrink-0 ${step.done ? 'text-zinc-400' : 'text-zinc-300'}`}>{step.done ? step.date : '—'}</p>
+                                  <p className={`text-[10px] flex-shrink-0 ${step.done ? 'text-zinc-400' : 'text-zinc-400'}`}>{step.done ? step.date : '—'}</p>
                                 </div>
                                 {step.detail && <p className="text-[10px] text-zinc-400 mt-0.5">{step.detail}</p>}
                               </div>
@@ -477,7 +477,7 @@ function FichaVentaModal({ venta, onClose }: { venta: HistorialVenta; onClose: (
                                   <div className={`w-0.5 h-3 ${step.done && steps[i+1].done ? 'bg-emerald-200' : 'bg-zinc-100'}`} />
                                 </div>
                                 {step.dias !== null && (
-                                  <p className="text-[10px] text-zinc-300 italic">
+                                  <p className="text-[10px] text-zinc-400 italic">
                                     {step.dias === 0 ? 'mismo día' : `${step.dias}d`}
                                   </p>
                                 )}
@@ -496,7 +496,7 @@ function FichaVentaModal({ venta, onClose }: { venta: HistorialVenta; onClose: (
 
                       {/* Historial de la orden */}
                       {histOrden.length > 0 && (
-                        <div className="border-t border-zinc-100 pt-3 space-y-2">
+                        <div className="border-t border-zinc-200 pt-3 space-y-2">
                           <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Historial</p>
                           {histOrden.map((h, hi) => (
                             <div key={hi} className="flex items-start gap-2">
@@ -506,7 +506,7 @@ function FichaVentaModal({ venta, onClose }: { venta: HistorialVenta; onClose: (
                                   <p className="text-[10px] font-medium text-zinc-600 truncate">
                                     {h.estado_despues ? `→ ${h.estado_despues.replace(/_/g, ' ')}` : h.evento}
                                   </p>
-                                  <p className="text-[10px] text-zinc-300 flex-shrink-0">
+                                  <p className="text-[10px] text-zinc-400 flex-shrink-0">
                                     {new Date(h.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                   </p>
                                 </div>
@@ -912,7 +912,7 @@ function ExpedientesContent() {
       <div className={`flex-shrink-0 bg-white rounded-lg border border-zinc-200/80 flex flex-col overflow-hidden transition-all duration-200 ${panelAbierto ? 'w-60' : 'w-12'}`}>
         {panelAbierto ? (
           <>
-            <div className="p-3 border-b border-zinc-100 flex-shrink-0">
+            <div className="p-3 border-b border-zinc-200 flex-shrink-0">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest">Expedientes</span>
                 <div className="flex items-center gap-1.5">
@@ -936,7 +936,7 @@ function ExpedientesContent() {
                 const esSeleccionado = seleccionado?.id === p.id
                 return (
                   <button key={p.id} onClick={() => { setSeleccionado(p); setVerTodoHistorial(false); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
-                    className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 border-b border-zinc-50 ${esSeleccionado ? 'bg-[#0B0E14]' : 'hover:bg-zinc-50'}`}>
+                    className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 border-b border-zinc-100 ${esSeleccionado ? 'bg-[#0B0E14]' : 'hover:bg-zinc-100'}`}>
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${esSeleccionado ? 'bg-[#0D9488]/20 text-[#0D9488]' : 'bg-zinc-100 text-zinc-500'}`}>
                       {p.nombre[0]}{p.apellido[0]}
                     </div>
@@ -961,7 +961,7 @@ function ExpedientesContent() {
                   {buscandoHistorial && <div className="px-3 py-2 text-xs text-zinc-400">Buscando...</div>}
                   {historialResultados.map(h => (
                     <button key={h.id} onClick={() => crearDesdeHistorial(h)}
-                      className="w-full text-left px-3 py-2 hover:bg-amber-50 transition-colors flex items-center gap-2 border-b border-zinc-50">
+                      className="w-full text-left px-3 py-2 hover:bg-amber-50 transition-colors flex items-center gap-2 border-b border-zinc-100">
                       <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
                         {h.nombre[0]}
                       </div>
@@ -976,7 +976,7 @@ function ExpedientesContent() {
               )}
             </div>
 
-            <div className="p-3 border-t border-zinc-100 flex-shrink-0">
+            <div className="p-3 border-t border-zinc-200 flex-shrink-0">
               <button onClick={() => router.push('/dashboard/expedientes/nuevo')}
                 className="w-full flex items-center justify-center gap-1.5 py-2 bg-[#0B0E14] text-white rounded text-xs font-semibold hover:bg-[#1A1D27] transition-colors">
                 <Plus className="w-3.5 h-3.5" /> Nuevo paciente
@@ -1046,12 +1046,12 @@ function ExpedientesContent() {
               {/* Acciones */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button onClick={abrirEditar}
-                  className="flex items-center gap-1 px-2.5 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors">
+                  className="flex items-center gap-1 px-2.5 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-100 transition-colors">
                   <Edit2 className="w-3 h-3" /> Editar
                 </button>
                 <div className="relative">
                   <button onClick={() => setMenuAbierto(o => !o)}
-                    className="w-7 h-7 border border-zinc-200 rounded flex items-center justify-center text-zinc-400 hover:bg-zinc-50 transition-colors">
+                    className="w-7 h-7 border border-zinc-200 rounded flex items-center justify-center text-zinc-400 hover:bg-zinc-100 transition-colors">
                     <MoreHorizontal className="w-3.5 h-3.5" />
                   </button>
                   {menuAbierto && (
@@ -1059,11 +1059,11 @@ function ExpedientesContent() {
                       <div className="fixed inset-0 z-10" onClick={() => setMenuAbierto(false)} />
                       <div className="absolute right-0 top-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg z-20 min-w-48 py-1">
                         <button onClick={() => { router.push(`/dashboard/expedientes/${seleccionado.id}/resumen`); setMenuAbierto(false) }}
-                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 transition-colors">
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-100 transition-colors">
                           <FileText className="w-3.5 h-3.5 text-zinc-400" /> Expediente clínico
                         </button>
                         <button onClick={() => { router.push(`/dashboard/expedientes/${seleccionado.id}/hoja`); setMenuAbierto(false) }}
-                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 transition-colors">
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-100 transition-colors">
                           <Printer className="w-3.5 h-3.5 text-zinc-400" /> Hoja del paciente
                         </button>
                       </div>
@@ -1078,11 +1078,11 @@ function ExpedientesContent() {
             </div>
 
             {/* Stats — 5 columnas */}
-            <div className="grid grid-cols-5 divide-x divide-zinc-100 mt-3 pt-3 border-t border-zinc-100">
+            <div className="grid grid-cols-5 divide-x divide-zinc-100 mt-3 pt-3 border-t border-zinc-200">
               <div className="text-center px-2">
                 <p className="text-base font-bold text-zinc-800">{seleccionado.recetas.length}</p>
                 <p className="text-xs text-zinc-400">Recetas</p>
-                {seleccionado.recetas[0] && <p className="text-[10px] text-zinc-300">Última {seleccionado.recetas[0].fecha.slice(0,7)}</p>}
+                {seleccionado.recetas[0] && <p className="text-[10px] text-zinc-400">Última {seleccionado.recetas[0].fecha.slice(0,7)}</p>}
               </div>
               <div className="text-center px-2">
                 <p className="text-base font-bold text-zinc-800">{consultasCount || seleccionado.recetas.length}</p>
@@ -1091,7 +1091,7 @@ function ExpedientesContent() {
               <div className="text-center px-2">
                 <p className="text-base font-bold text-zinc-800">{seleccionado.ventas.length}</p>
                 <p className="text-xs text-zinc-400">Compras</p>
-                {seleccionado.ventas[0] && <p className="text-[10px] text-zinc-300">Última {seleccionado.ventas[0].fecha.slice(0,7)}</p>}
+                {seleccionado.ventas[0] && <p className="text-[10px] text-zinc-400">Última {seleccionado.ventas[0].fecha.slice(0,7)}</p>}
               </div>
               <div className="text-center px-2">
                 <p className="text-base font-bold text-zinc-800">
@@ -1102,7 +1102,7 @@ function ExpedientesContent() {
               <div className="text-center px-2">
                 <p className="text-base font-bold text-zinc-800">{calcFrecuencia(seleccionado)}</p>
                 <p className="text-xs text-zinc-400">Frecuencia</p>
-                <p className="text-[10px] text-zinc-300">Promedio visitas</p>
+                <p className="text-[10px] text-zinc-400">Promedio visitas</p>
               </div>
             </div>
 
@@ -1163,12 +1163,12 @@ function ExpedientesContent() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-zinc-500 pb-3 border-b border-zinc-100">
+                  <div className="flex items-center gap-4 text-xs text-zinc-500 pb-3 border-b border-zinc-200">
                     <span><span className="font-semibold text-zinc-600">DP:</span> {rv.dp} mm</span>
                     <span><span className="font-semibold text-zinc-600">Tipo:</span> {rv.tipo}</span>
                   </div>
                   {rv.observaciones && (
-                    <div className="grid grid-cols-2 gap-4 pt-3 pb-3 border-b border-zinc-100">
+                    <div className="grid grid-cols-2 gap-4 pt-3 pb-3 border-b border-zinc-200">
                       <div>
                         <p className="text-xs font-semibold text-zinc-500 mb-1">Observaciones</p>
                         <p className="text-xs text-zinc-600">{rv.observaciones}</p>
@@ -1207,7 +1207,7 @@ function ExpedientesContent() {
                         <div className="w-11 text-right flex-shrink-0 pt-0.5">
                           <span className="text-xs font-bold text-[#0D9488] block leading-none">{fd.dia}</span>
                           <span className="text-[10px] text-zinc-400 uppercase block">{fd.mes}</span>
-                          <span className="text-[10px] text-zinc-300 block">{fd.año}</span>
+                          <span className="text-[10px] text-zinc-400 block">{fd.año}</span>
                         </div>
                         <div className="flex flex-col items-center flex-shrink-0">
                           <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
@@ -1226,7 +1226,7 @@ function ExpedientesContent() {
                                 <button
                                   onClick={() => router.push(`/dashboard/expedientes/${seleccionado.id}/resumen`)}
                                   title="Ver consulta completa"
-                                  className="p-1 rounded text-zinc-300 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors"
+                                  className="p-1 rounded text-zinc-400 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors"
                                 >
                                   <Eye className="w-3 h-3" />
                                 </button>
@@ -1237,7 +1237,7 @@ function ExpedientesContent() {
                                   <button
                                     onClick={() => setFichaVenta(v)}
                                     title="Ver ficha completa"
-                                    className="p-1 rounded text-zinc-300 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors"
+                                    className="p-1 rounded text-zinc-400 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors"
                                   >
                                     <Eye className="w-3 h-3" />
                                   </button>
@@ -1278,7 +1278,7 @@ function ExpedientesContent() {
                     { label: 'Nueva receta', Icon: FileText, color: 'bg-zinc-100 text-zinc-500', action: () => { setFormReceta(formVacioReceta()); setErroresReceta({}); setModalReceta(true) } },
                   ].map(({ label, Icon, color, action }) => (
                     <button key={label} onClick={action}
-                      className="flex flex-col items-center gap-2 p-3 border border-zinc-100 rounded-lg hover:bg-zinc-50 transition-colors text-center">
+                      className="flex flex-col items-center gap-2 p-3 border border-zinc-200 rounded-lg hover:bg-zinc-100 transition-colors text-center">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}>
                         <Icon className="w-4 h-4" />
                       </div>
@@ -1340,7 +1340,7 @@ function ExpedientesContent() {
                     {[...seleccionado.ventas].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 3).map((v, i) => (
                       <div key={i} className="flex items-center gap-1">
                         <button onClick={() => setVentaAbierta(v)}
-                          className="flex-1 flex items-center justify-between text-left hover:bg-zinc-50 rounded px-1 py-1 transition-colors min-w-0">
+                          className="flex-1 flex items-center justify-between text-left hover:bg-zinc-100 rounded px-1 py-1 transition-colors min-w-0">
                           <div className="min-w-0 flex-1">
                             <p className="text-[10px] font-medium text-zinc-500">{v.fecha}</p>
                             <p className="text-[10px] text-zinc-400 truncate">
@@ -1355,7 +1355,7 @@ function ExpedientesContent() {
                           <button
                             onClick={() => setFichaVenta(v)}
                             title="Ver ficha"
-                            className="p-1 rounded text-zinc-300 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors flex-shrink-0"
+                            className="p-1 rounded text-zinc-400 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors flex-shrink-0"
                           >
                             <Eye className="w-3 h-3" />
                           </button>
@@ -1384,7 +1384,7 @@ function ExpedientesContent() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
               <div>
                 <h2 className="text-base font-bold text-zinc-800">{ventaAbierta.folio}</h2>
                 <p className="text-xs text-zinc-400 mt-0.5">
@@ -1410,7 +1410,7 @@ function ExpedientesContent() {
                   <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">Productos</p>
                   <div className="space-y-2">
                     {ventaAbierta.items.map((item, idx) => (
-                      <div key={idx} className="flex items-start gap-3 py-2 border-b border-zinc-50 last:border-0">
+                      <div key={idx} className="flex items-start gap-3 py-2 border-b border-zinc-100 last:border-0">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-zinc-700">{item.nombre}</p>
                           {item.sku && <p className="text-xs text-zinc-400">{item.sku}</p>}
@@ -1428,9 +1428,9 @@ function ExpedientesContent() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-zinc-400 text-sm bg-zinc-50 rounded-lg">
-                  <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-zinc-300" />
+                  <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-zinc-400" />
                   Sin desglose de productos disponible
-                  <p className="text-xs mt-1 text-zinc-300">(venta migrada desde el sistema anterior)</p>
+                  <p className="text-xs mt-1 text-zinc-400">(venta migrada desde el sistema anterior)</p>
                 </div>
               )}
 
@@ -1443,7 +1443,7 @@ function ExpedientesContent() {
               )}
 
               {/* Total */}
-              <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
+              <div className="flex items-center justify-between pt-3 border-t border-zinc-200">
                 <span className="text-sm font-semibold text-zinc-500">Total</span>
                 <span className="text-xl font-bold text-zinc-800">${ventaAbierta.total.toLocaleString('es-MX')}</span>
               </div>
@@ -1456,7 +1456,7 @@ function ExpedientesContent() {
       {modalReceta && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
               <div>
                 <h2 className="text-base font-bold text-zinc-800">Nueva receta</h2>
                 <p className="text-xs text-zinc-400 mt-0.5">{seleccionado?.nombre} {seleccionado?.apellido}</p>
@@ -1576,7 +1576,7 @@ function ExpedientesContent() {
             </div>
             <div className="px-6 pb-5 flex gap-3">
               <button onClick={() => { setModalReceta(false); setErroresReceta({}) }}
-                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100">
                 Cancelar
               </button>
               <button onClick={guardarReceta}
@@ -1592,7 +1592,7 @@ function ExpedientesContent() {
       {modalEditar && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
               <h2 className="text-base font-bold text-zinc-800">Editar expediente</h2>
               <button onClick={() => setModalEditar(false)}><X className="w-5 h-5 text-zinc-400" /></button>
             </div>
@@ -1660,7 +1660,7 @@ function ExpedientesContent() {
             </div>
             <div className="px-6 pb-5 flex gap-3">
               <button onClick={() => setModalEditar(false)}
-                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100">
                 Cancelar
               </button>
               <button onClick={guardarEdicion} disabled={!formEditar.nombre || !formEditar.apellido}
@@ -1676,7 +1676,7 @@ function ExpedientesContent() {
       {modalPaciente && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
               <h2 className="text-base font-bold text-zinc-800">Nuevo paciente</h2>
               <button onClick={() => setModalPaciente(false)}><X className="w-5 h-5 text-zinc-400" /></button>
             </div>
@@ -1739,7 +1739,7 @@ function ExpedientesContent() {
             </div>
             <div className="px-6 pb-5 flex gap-3">
               <button onClick={() => setModalPaciente(false)}
-                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-50">
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100">
                 Cancelar
               </button>
               <button onClick={guardarPaciente} disabled={!formPaciente.nombre || !formPaciente.apellido}

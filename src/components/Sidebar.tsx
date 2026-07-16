@@ -125,7 +125,7 @@ export default function Sidebar({
 
   return (
     <aside className={`
-      w-64 bg-[#fafaf9] border-r border-[#ebebea] flex flex-col h-screen
+      w-64 bg-[#fafaf9] border-r border-zinc-200 flex flex-col h-screen
       fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out
       lg:relative lg:flex-shrink-0 lg:translate-x-0
       ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -155,7 +155,7 @@ export default function Sidebar({
           if (item.type === 'sep') {
             return (
               <div key={item.key} className="pt-4 pb-1 px-3">
-                <p className="text-[9px] font-medium text-[#ccc] uppercase tracking-[0.12em]">{item.label}</p>
+                <p className="text-[9px] font-semibold text-zinc-400 uppercase tracking-[0.12em]">{item.label}</p>
               </div>
             )
           }
@@ -173,33 +173,33 @@ export default function Sidebar({
                 onClick={pronto ? (e) => e.preventDefault() : onClose}
                 className={`flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[14px] tracking-[-0.01em] transition-colors duration-100 ${
                   pronto
-                    ? 'text-[#d4d4d2] cursor-default'
+                    ? 'text-zinc-300 cursor-default'
                     : isParentActive
                     ? 'text-[#111] font-semibold'
-                    : 'text-[#b0b0ad] font-light hover:text-[#555] hover:bg-black/[0.03]'
+                    : 'text-zinc-500 font-light hover:text-zinc-800 hover:bg-zinc-100 transition-colors'
                 }`}
               >
-                <Icon className={`w-[16px] h-[16px] flex-shrink-0 ${isParentActive && !pronto ? 'text-[#0D9488]' : 'text-[#d4d4d2]'}`} />
+                <Icon className={`w-[16px] h-[16px] flex-shrink-0 ${isParentActive && !pronto ? 'text-[#0D9488]' : 'text-zinc-400'}`} />
                 <span className="flex-1">{item.label}</span>
                 {pronto && (
-                  <span className="text-[9px] font-medium text-[#ccc] uppercase tracking-wide">Pronto</span>
+                  <span className="text-[9px] font-medium text-zinc-400 uppercase tracking-wide">Pronto</span>
                 )}
                 {hasSubItems && !pronto && (
-                  <ChevronDown className={`w-3 h-3 transition-transform text-[#ccc] ${showSub ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 transition-transform text-zinc-400 ${showSub ? 'rotate-180' : ''}`} />
                 )}
               </Link>
 
               {showSub && item.subItems && (
-                <div className="ml-[18px] mt-0.5 pl-3.5 border-l border-[#ebebea] space-y-0.5">
+                <div className="ml-[18px] mt-0.5 pl-3.5 border-l border-zinc-200 space-y-0.5">
                   {item.subItems.map((sub) => {
                     const SubIcon = sub.icon
                     const isSubActive = pathname === sub.href
                     return (
                       <Link key={sub.href} href={sub.href}
                         className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] tracking-[-0.01em] transition-colors ${
-                          isSubActive ? 'text-[#0D9488] font-medium' : 'text-[#b0b0ad] font-light hover:text-[#555] hover:bg-black/[0.03]'
+                          isSubActive ? 'text-[#0D9488] font-medium' : 'text-zinc-500 font-light hover:text-zinc-800 hover:bg-zinc-100'
                         }`}>
-                        <SubIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isSubActive ? 'text-[#0D9488]' : 'text-[#d4d4d2]'}`} />
+                        <SubIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isSubActive ? 'text-[#0D9488]' : 'text-zinc-400'}`} />
                         {sub.label}
                       </Link>
                     )
@@ -212,20 +212,20 @@ export default function Sidebar({
       </nav>
 
       {/* Usuario activo */}
-      <div className="px-3 py-3 border-t border-[#ebebea]">
+      <div className="px-3 py-3 border-t border-zinc-200">
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg mb-0.5">
           <div className="w-7 h-7 rounded-full bg-[#e8f5f0] flex items-center justify-center flex-shrink-0">
             <span className="text-[#0D9488] text-[10px] font-semibold">{usuario.iniciales}</span>
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[#111] text-[12px] font-medium truncate leading-tight tracking-[-0.01em]">{usuario.nombre}</p>
-            <p className="text-[#b0b0ad] text-[10px] font-light leading-tight mt-0.5">
+            <p className="text-zinc-400 text-[10px] leading-tight mt-0.5">
               {ROL_LABEL[usuario.rol]}{usuario.sucursal && usuario.sucursal !== 'Todas' ? ` · ${usuario.sucursal}` : ''}
             </p>
           </div>
         </div>
         <button onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] font-light text-[#b0b0ad] hover:text-[#555] hover:bg-black/[0.03] transition-colors">
+          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] font-light text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition-colors">
           <LogOut className="w-3.5 h-3.5" />
           <span>Cerrar sesión</span>
         </button>

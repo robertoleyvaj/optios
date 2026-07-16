@@ -213,7 +213,7 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
           {resultados.map(v => (
             <button key={v.folio}
               onClick={() => { onSelect(v); setQuery(''); setOpen(false) }}
-              className="w-full text-left px-4 py-3 hover:bg-zinc-50 transition-colors flex items-center gap-3 border-b border-zinc-50 last:border-0">
+              className="w-full text-left px-4 py-3 hover:bg-zinc-100 transition-colors flex items-center gap-3 border-b border-zinc-50 last:border-0">
               <div className="w-8 h-8 rounded bg-[#0B0E14] flex items-center justify-center flex-shrink-0">
                 <Link2 className="w-3.5 h-3.5 text-[#0D9488]" />
               </div>
@@ -375,7 +375,7 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
       <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
 
         {/* Header fijo */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 flex-shrink-0">
           <div>
             <h3 className="text-sm font-bold text-zinc-700">Vista previa — {orden.folio}</h3>
             <p className="text-xs text-zinc-400 mt-0.5">{orden.paciente} · {orden.sucursal}</p>
@@ -490,7 +490,7 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
               </div>
 
               {/* Fechas */}
-              <div className="border-t border-zinc-100 px-5 py-3 bg-zinc-50 grid grid-cols-2 gap-4 text-xs">
+              <div className="border-t border-zinc-200 px-5 py-3 bg-zinc-50 grid grid-cols-2 gap-4 text-xs">
                 <div>
                   <p className="font-semibold text-zinc-400">Fecha de ingreso</p>
                   <p className="text-zinc-700 mt-0.5">{orden.fechaIngreso}</p>
@@ -502,7 +502,7 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
               </div>
 
               {orden.notas && (
-                <div className="border-t border-zinc-100 px-5 py-3 text-xs text-zinc-600">
+                <div className="border-t border-zinc-200 px-5 py-3 text-xs text-zinc-600">
                   <span className="font-semibold text-zinc-400">Observaciones: </span>{orden.notas}
                 </div>
               )}
@@ -525,7 +525,7 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
 // Componente fuera del árbol para que React no lo desmonte en cada render
 function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-zinc-100 last:border-0">
+    <div className="flex items-start gap-3 py-3 border-b border-zinc-200 last:border-0">
       <span className="text-sm text-zinc-400 w-28 flex-shrink-0 pt-0.5">{label}</span>
       <div className="flex-1">{children}</div>
     </div>
@@ -600,7 +600,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
 
         <div className="bg-white rounded-xl border border-red-200 overflow-hidden">
           <div className="h-1 bg-red-400" />
-          <div className="px-4 pt-4 pb-3 border-b border-zinc-100">
+          <div className="px-4 pt-4 pb-3 border-b border-zinc-200">
             <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
             <p className="text-sm text-zinc-400 mt-0.5">
               {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
@@ -647,7 +647,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
         </div>
 
         <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-          <div className="px-4 pt-4 pb-3 border-b border-zinc-100">
+          <div className="px-4 pt-4 pb-3 border-b border-zinc-200">
             <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
             <p className="text-sm text-zinc-400 mt-0.5">
               {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
@@ -726,7 +726,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
         </div>
 
         <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-          <div className="px-4 pt-4 pb-3 border-b border-zinc-100">
+          <div className="px-4 pt-4 pb-3 border-b border-zinc-200">
             <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
             <p className="text-sm text-zinc-400 mt-0.5">
               {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
@@ -743,7 +743,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           </div>
 
           {o.notas && (
-            <div className="px-4 py-3 border-b border-zinc-100">
+            <div className="px-4 py-3 border-b border-zinc-200">
               <p className="text-xs text-zinc-400 font-semibold mb-1">Observaciones</p>
               <p className="text-sm text-zinc-600">{o.notas}</p>
             </div>
@@ -796,7 +796,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                       recogendoDraft.metodoPagoLab === m.v
                         ? 'bg-[#0B0E14] text-white border-[#0B0E14]'
-                        : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
+                        : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-100'
                     }`}>
                     {m.label}
                   </button>
@@ -850,7 +850,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
         </div>
 
         <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-          <div className="px-4 pt-4 pb-3 border-b border-zinc-100">
+          <div className="px-4 pt-4 pb-3 border-b border-zinc-200">
             <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
             <p className="text-sm text-zinc-400 mt-0.5">
               {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
@@ -896,11 +896,11 @@ function VistaRepartidor({ ordenes, onUpdate }: {
 
     return (
       <button onClick={() => openOrder(o.id)}
-        className="w-full flex items-stretch hover:bg-zinc-50 transition-colors text-left">
+        className="w-full flex items-stretch hover:bg-zinc-100 transition-colors text-left">
         <div className="flex items-center pl-4 pr-3">
           <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT[o.estado]}`} />
         </div>
-        <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-100">
+        <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-200">
           <div className="flex items-center justify-between mb-0.5">
             <span className="text-xs font-bold text-zinc-400">{o.folio}</span>
             <span className="text-xs font-semibold text-zinc-400">
@@ -992,7 +992,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
                 <div className="flex items-center pl-4 pr-3">
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-red-400" />
                 </div>
-                <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-100">
+                <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-200">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="text-xs font-bold text-zinc-400">{o.folio}</span>
                     <span className="text-xs font-semibold text-red-500">Regresar al lab →</span>
@@ -1071,13 +1071,13 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
     const vencida = dr !== null && dr < 0
 
     const borderColor =
-      o.estado === 'listo'    ? 'border-emerald-200' :
-      o.estado === 'problema' ? 'border-red-200' :
-      o.esGarantia            ? 'border-purple-200' :
-      vencida                 ? 'border-amber-200' : 'border-zinc-100'
+      o.estado === 'listo'    ? 'border-emerald-200 hover:border-emerald-300' :
+      o.estado === 'problema' ? 'border-red-200 hover:border-red-300' :
+      o.esGarantia            ? 'border-purple-200 hover:border-purple-300' :
+      vencida                 ? 'border-amber-200 hover:border-amber-300' : 'border-zinc-200 hover:border-zinc-300'
 
     return (
-      <div className={`bg-white rounded-lg border shadow-sm overflow-hidden ${borderColor}`}>
+      <div className={`bg-white rounded-lg border shadow-sm overflow-hidden transition-all hover:shadow-md cursor-pointer ${borderColor}`}>
         {/* Banda de color */}
         {o.estado === 'listo'    && <div className="h-1 bg-emerald-400" />}
         {o.estado === 'problema' && <div className="h-1 bg-red-400" />}
@@ -1141,7 +1141,7 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
 
           {/* Pipeline de estado (no mostrar en problema) */}
           {o.estado !== 'problema' && (
-            <div className="flex items-center gap-0 pt-1 border-t border-zinc-100">
+            <div className="flex items-center gap-0 pt-1 border-t border-zinc-200">
               {[
                 { label: 'Pendiente', done: true },
                 { label: 'En lab',    done: ['en_laboratorio','en_camino','en_sucursal','listo','entregado'].includes(o.estado) },
@@ -1251,10 +1251,10 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
           )}
 
           {/* Imprimir */}
-          <div className="flex items-center justify-end border-t border-zinc-100 pt-2">
+          <div className="flex items-center justify-end border-t border-zinc-200 pt-2">
             <button
               onClick={() => onPrint(o)}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-100 transition-colors"
             >
               <Printer className="w-3.5 h-3.5" /> {o.esGarantia ? 'Etiqueta garantía' : 'Imprimir orden'}
             </button>
@@ -1318,7 +1318,7 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
 
           {/* Columna izquierda: En proceso */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2 pb-1 border-b border-zinc-100">
+            <div className="flex items-center gap-2 pb-1 border-b border-zinc-200">
               <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">
                 En proceso
               </p>
@@ -1346,7 +1346,7 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
             )}
 
             {[...enCamino, ...otros].length === 0 && (
-              <p className="text-xs text-zinc-300 text-center py-8">Sin órdenes en proceso</p>
+              <p className="text-xs text-zinc-400 text-center py-8">Sin órdenes en proceso</p>
             )}
           </div>
 
@@ -1361,7 +1361,7 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
 
             {listos.length > 0
               ? listos.map(o => <EntregaCard key={o.id} o={o} />)
-              : <p className="text-xs text-zinc-300 text-center py-8">Sin lentes listos aún</p>
+              : <p className="text-xs text-zinc-400 text-center py-8">Sin lentes listos aún</p>
             }
           </div>
 
@@ -1831,8 +1831,8 @@ export default function LaboratorioPage() {
       {/* ── MODAL NUEVA ORDEN ── */}
       {modal && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-zinc-100 w-full max-w-xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+          <div className="bg-white rounded-2xl shadow-xl border border-zinc-200 w-full max-w-xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
               <div>
                 <h2 className="text-base font-semibold text-zinc-900">Nueva orden de laboratorio</h2>
                 <p className="text-xs font-mono text-zinc-400 mt-0.5">{nextFolio}</p>
@@ -1926,7 +1926,7 @@ export default function LaboratorioPage() {
                 <div className="flex gap-2 mb-2">
                   {[{ v: 'comprado', l: 'Comprado en tienda' }, { v: 'propio', l: 'Propio del cliente' }].map(opt => (
                     <button key={opt.v} onClick={() => f('armazon', opt.v as 'comprado' | 'propio')}
-                      className={`flex-1 py-2 rounded text-xs font-semibold border transition-all ${form.armazon === opt.v ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                      className={`flex-1 py-2 rounded text-xs font-semibold border transition-all ${form.armazon === opt.v ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
                       {opt.l}
                     </button>
                   ))}
@@ -1970,7 +1970,7 @@ export default function LaboratorioPage() {
                   </div>
 
                   {/* Tratamiento */}
-                  <div className="border-t border-zinc-100 pt-3">
+                  <div className="border-t border-zinc-200 pt-3">
                     <p className="text-xs font-semibold text-zinc-500 mb-2">Tratamiento</p>
                     <div className="grid grid-cols-4 gap-2 mb-2">
                       {([
@@ -1981,7 +1981,7 @@ export default function LaboratorioPage() {
                       ] as { v: Tratamiento; l: string }[]).map(opt => (
                         <button key={opt.v} type="button"
                           onClick={() => { f('tratamiento', opt.v); if (opt.v !== 'tinte' && opt.v !== 'polarizado') f('colorTratamiento', '') }}
-                          className={`py-2 rounded text-xs font-semibold border transition-all ${form.tratamiento === opt.v ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
+                          className={`py-2 rounded text-xs font-semibold border transition-all ${form.tratamiento === opt.v ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
                           {opt.l}
                         </button>
                       ))}
@@ -2050,7 +2050,7 @@ export default function LaboratorioPage() {
 
             <div className="px-6 pb-5 flex gap-3">
               <button onClick={() => setModal(false)}
-                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded-lg text-sm font-medium hover:bg-zinc-50 transition-colors">
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded-lg text-sm font-medium hover:bg-zinc-100 transition-colors">
                 Cancelar
               </button>
               <button onClick={guardar} disabled={!form.paciente}

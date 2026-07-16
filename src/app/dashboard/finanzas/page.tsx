@@ -362,7 +362,7 @@ function FinanzasPage() {
               {/* Facturado / Cobrado → tabla de ventas */}
               {(cardActiva === 'facturado' || cardActiva === 'cobrado') && (
                 <>
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
                     <h3 className="text-sm font-bold text-zinc-700">
                       Ventas del período
                       <span className="ml-2 text-xs font-normal text-zinc-400">{ventasDetalle.length} registros</span>
@@ -376,14 +376,14 @@ function FinanzasPage() {
                     <p className="text-sm text-zinc-400 text-center py-10">Sin ventas en este período</p>
                   ) : (
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b border-zinc-100">
+                      <thead><tr className="border-b border-zinc-200">
                         {['Folio', 'Fecha', 'Atendió', 'Total', 'Saldo', 'Cobrado'].map(h => (
                           <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
                         ))}
                       </tr></thead>
                       <tbody className="divide-y divide-zinc-50">
                         {ventasDetalle.map((v, i) => (
-                          <tr key={i} className="hover:bg-zinc-50 transition-colors">
+                          <tr key={i} className="hover:bg-zinc-100 transition-colors">
                             <td className="px-5 py-3 text-xs font-mono text-zinc-500">{v.folio}</td>
                             <td className="px-5 py-3 text-xs text-zinc-400">{v.fecha}</td>
                             <td className="px-5 py-3 text-xs text-zinc-500">{v.atendidoPor || '—'}</td>
@@ -401,7 +401,7 @@ function FinanzasPage() {
               {/* Costo lab → por lab + tabla de órdenes */}
               {cardActiva === 'costo_lab' && (
                 <>
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
                     <h3 className="text-sm font-bold text-zinc-700">
                       Órdenes de laboratorio pagadas
                       <span className="ml-2 text-xs font-normal text-zinc-400">{labDetalle.length} registros</span>
@@ -409,7 +409,7 @@ function FinanzasPage() {
                     <span className="text-sm font-bold text-violet-600">{$$(costoLab)}</span>
                   </div>
                   {porLab.length > 0 && (
-                    <div className="px-5 py-4 border-b border-zinc-100 space-y-2.5">
+                    <div className="px-5 py-4 border-b border-zinc-200 space-y-2.5">
                       {porLab.map(lab => {
                         const pct = costoLab > 0 ? Math.round((lab.total / costoLab) * 100) : 0
                         return (
@@ -430,14 +430,14 @@ function FinanzasPage() {
                     <p className="text-sm text-zinc-400 text-center py-10">Sin órdenes pagadas en este período</p>
                   ) : (
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b border-zinc-100">
+                      <thead><tr className="border-b border-zinc-200">
                         {['Folio', 'Paciente', 'Laboratorio', 'Fecha pago', 'Costo'].map(h => (
                           <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
                         ))}
                       </tr></thead>
                       <tbody className="divide-y divide-zinc-50">
                         {labDetalle.map((r, i) => (
-                          <tr key={i} className="hover:bg-zinc-50 transition-colors">
+                          <tr key={i} className="hover:bg-zinc-100 transition-colors">
                             <td className="px-5 py-3 text-xs font-mono text-zinc-500">{r.folio}</td>
                             <td className="px-5 py-3 text-sm text-zinc-700">{r.paciente || '—'}</td>
                             <td className="px-5 py-3 text-xs text-zinc-500">{r.laboratorio}</td>
@@ -454,7 +454,7 @@ function FinanzasPage() {
               {/* Gastos → tabla de gastos con edit/delete */}
               {cardActiva === 'gastos' && (
                 <>
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
                     <h3 className="text-sm font-bold text-zinc-700">
                       Gastos operativos
                       <span className="ml-2 text-xs font-normal text-zinc-400">{gastos.length} registros</span>
@@ -470,14 +470,14 @@ function FinanzasPage() {
                     </div>
                   ) : (
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b border-zinc-100">
+                      <thead><tr className="border-b border-zinc-200">
                         {['Fecha', 'Concepto', 'Categoría', 'Sucursal', 'Monto', ''].map(h => (
                           <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
                         ))}
                       </tr></thead>
                       <tbody className="divide-y divide-zinc-50">
                         {gastos.map(g => (
-                          <tr key={g.id} className="hover:bg-zinc-50 transition-colors group">
+                          <tr key={g.id} className="hover:bg-zinc-100 transition-colors group">
                             <td className="px-5 py-3 text-xs text-zinc-400 whitespace-nowrap">{g.fecha}</td>
                             <td className="px-5 py-3">
                               <p className="text-sm text-zinc-700 font-medium">{g.concepto}</p>
@@ -492,10 +492,10 @@ function FinanzasPage() {
                             <td className="px-5 py-3 text-sm font-semibold text-red-500">−{$$(g.monto)}</td>
                             <td className="px-5 py-3">
                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => abrirEditar(g)} className="text-zinc-300 hover:text-zinc-600">
+                                <button onClick={() => abrirEditar(g)} className="text-zinc-400 hover:text-zinc-600">
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
-                                <button onClick={() => eliminarGasto(g.id)} className="text-zinc-300 hover:text-red-400">
+                                <button onClick={() => eliminarGasto(g.id)} className="text-zinc-400 hover:text-red-400">
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
@@ -539,7 +539,7 @@ function FinanzasPage() {
                     </div>
                   )}
 
-                  <div className="mt-4 pt-4 border-t border-zinc-100">
+                  <div className="mt-4 pt-4 border-t border-zinc-200">
                     <div className="flex items-center justify-between text-xs text-zinc-400">
                       <span>Margen operativo sobre ventas</span>
                       <span className={`font-bold text-sm ${margen >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{margen}%</span>
@@ -579,7 +579,7 @@ function FinanzasPage() {
       {modal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
               <h2 className="text-base font-bold text-zinc-800">{editandoId ? 'Editar gasto' : 'Registrar gasto'}</h2>
               <button onClick={() => { setModal(false); setEditandoId(null) }}><X className="w-5 h-5 text-zinc-400" /></button>
             </div>
@@ -641,7 +641,7 @@ function FinanzasPage() {
             </div>
             <div className="px-6 pb-5 flex gap-3">
               <button onClick={() => { setModal(false); setEditandoId(null) }}
-                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded-lg text-sm font-semibold hover:bg-zinc-50">
+                className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded-lg text-sm font-semibold hover:bg-zinc-100">
                 Cancelar
               </button>
               <button onClick={guardarGasto}

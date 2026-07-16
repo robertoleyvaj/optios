@@ -559,7 +559,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           <button
             onClick={() => { if (sucursalEfectiva) cargarDatos(sucursalEfectiva, usuario.rol) }}
             disabled={cargando || !sucursalEfectiva}
-            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 border border-zinc-200 px-3 py-1.5 rounded-full hover:bg-zinc-50 transition-all disabled:opacity-40"
+            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 border border-zinc-200 px-3 py-1.5 rounded-full hover:bg-zinc-100 transition-all disabled:opacity-40"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${cargando ? 'animate-spin' : ''}`} />
             Actualizar
@@ -608,7 +608,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 
         {/* ── INGRESOS ── */}
         <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-zinc-200 flex items-center justify-between">
             <h3 className="text-sm font-bold text-zinc-700">Ingresos del día</h3>
             {ultimaActualizacion && (
               <span className="text-xs text-zinc-400">
@@ -632,7 +632,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                       {/* Fila del método */}
                       <button
                         onClick={() => setExpandedMetodo(open ? null : m.key)}
-                        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-zinc-50 transition-colors text-left"
+                        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-zinc-100 transition-colors text-left"
                       >
                         <div className={`w-7 h-7 rounded ${m.bg} flex items-center justify-center flex-shrink-0`}>
                           <Icon className={`w-3.5 h-3.5 ${m.color}`} />
@@ -645,7 +645,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                               : `${data.transacciones} tx · ${pagos.length} pago${pagos.length !== 1 ? 's' : ''} detallado${pagos.length !== 1 ? 's' : ''}`}
                           </p>
                         </div>
-                        <p className={`text-sm font-bold mr-1 ${data.monto > 0 ? 'text-zinc-800' : 'text-zinc-300'}`}>
+                        <p className={`text-sm font-bold mr-1 ${data.monto > 0 ? 'text-zinc-800' : 'text-zinc-400'}`}>
                           {fmt$(data.monto)}
                         </p>
                         {data.monto > 0
@@ -697,14 +697,14 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                         : `${efectivoUSD.transacciones} tx${efectivoUSD.tcPromedio > 0 ? ` · TC $${efectivoUSD.tcPromedio.toFixed(2)}` : ''}`}
                     </p>
                   </div>
-                  <p className={`text-sm font-bold ${efectivoUSD.monto > 0 ? 'text-blue-700' : 'text-zinc-300'}`}>
+                  <p className={`text-sm font-bold ${efectivoUSD.monto > 0 ? 'text-blue-700' : 'text-zinc-400'}`}>
                     USD ${efectivoUSD.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
 
               {/* Total ingresos */}
-              <div className="px-5 py-3.5 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center">
+              <div className="px-5 py-3.5 bg-zinc-50 border-t border-zinc-200 flex justify-between items-center">
                 <span className="text-sm font-semibold text-zinc-600">Total ingresos</span>
                 <span className="text-base font-bold text-zinc-800">{fmt$(total)}</span>
               </div>
@@ -714,7 +714,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 
         {/* ── EGRESOS ── */}
         <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-zinc-200 flex items-center justify-between">
             <h3 className="text-sm font-bold text-zinc-700">Egresos del día</h3>
             <button
               onClick={() => setShowEgresoForm(!showEgresoForm)}
@@ -726,7 +726,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 
           {/* Formulario rápido de egreso */}
           {showEgresoForm && (
-            <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50 space-y-3">
+            <div className="px-5 py-4 border-b border-zinc-200 bg-zinc-50 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1">Categoría</label>
@@ -785,7 +785,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                 </button>
                 <button
                   onClick={() => { setShowEgresoForm(false); setErrorGuardado('') }}
-                  className="px-4 py-2 border border-zinc-200 text-zinc-500 rounded text-sm hover:bg-zinc-50"
+                  className="px-4 py-2 border border-zinc-200 text-zinc-500 rounded text-sm hover:bg-zinc-100"
                 >
                   Cancelar
                 </button>
@@ -893,7 +893,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
         </div>
 
         {/* Dólares USD — siempre visible */}
-        <div className="border-t border-zinc-100 pt-5">
+        <div className="border-t border-zinc-200 pt-5">
             <p className="text-xs font-bold text-blue-600 mb-3">🇺🇸 Caja dólares (USD)</p>
             <div className="grid grid-cols-2 gap-5">
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
@@ -985,7 +985,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
               <button
                 onClick={imprimirCorte}
                 disabled={!efectivoContado}
-                className="flex items-center gap-2 px-4 py-3 border border-zinc-200 text-zinc-500 rounded text-sm hover:bg-zinc-50 disabled:opacity-40"
+                className="flex items-center gap-2 px-4 py-3 border border-zinc-200 text-zinc-500 rounded text-sm hover:bg-zinc-100 disabled:opacity-40"
               >
                 <Printer className="w-4 h-4" /> Imprimir
               </button>
@@ -996,7 +996,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 
       {/* ── Historial de cortes ── */}
       <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-        <div className="px-5 py-4 border-b border-zinc-100">
+        <div className="px-5 py-4 border-b border-zinc-200">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-zinc-700 flex items-center gap-2">
               <Clock className="w-4 h-4 text-zinc-400" />
@@ -1044,7 +1044,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           return (
             <div className="divide-y divide-zinc-50">
               {filtrados.map(c => (
-                <div key={c.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-50 transition-colors">
+                <div key={c.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-100 transition-colors">
                   <div className="w-10 h-10 rounded bg-zinc-50 border border-zinc-200 flex items-center justify-center flex-shrink-0">
                     {c.diferencia === 0
                       ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />

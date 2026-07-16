@@ -44,14 +44,14 @@ function QuickActionCard({
   onSecondary: () => void
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-zinc-100 p-4 shadow-sm flex flex-col gap-3 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-sm flex flex-col gap-3 hover:shadow-md hover:border-zinc-300 transition-all">
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-xl bg-zinc-50 flex items-center justify-center flex-shrink-0">
           <Icon className="w-4 h-4 text-zinc-600" />
         </div>
         <div>
           <p className="text-sm font-semibold text-zinc-900 leading-tight">{label}</p>
-          <p className="text-[11px] text-zinc-400 leading-tight mt-0.5">{sublabel}</p>
+          <p className="text-[11px] text-zinc-500 leading-tight mt-0.5">{sublabel}</p>
         </div>
       </div>
       <div className="flex gap-2">
@@ -85,7 +85,7 @@ function TaskRow({
   if (count === 0) return null
   return (
     <button onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-50 transition-colors text-left group">
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 transition-colors text-left group">
       <span className="flex-shrink-0">{icon}</span>
       <span className="flex-1 text-sm text-zinc-700">{label}</span>
       <span className={`text-sm font-bold ${colorClass}`}>{count}</span>

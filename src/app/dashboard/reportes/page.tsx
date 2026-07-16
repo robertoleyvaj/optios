@@ -539,7 +539,7 @@ function ReportesPage() {
                     <span className={`text-base font-bold ${l.color}`}>{l.count}</span>
                   </div>
                 ))}
-                <div className="border-t border-zinc-100 pt-3 flex items-center justify-between">
+                <div className="border-t border-zinc-200 pt-3 flex items-center justify-between">
                   <span className="text-xs text-zinc-400">Total activos</span>
                   <span className="text-sm font-bold text-zinc-700">{ordLab.length}</span>
                 </div>
@@ -586,7 +586,7 @@ function ReportesPage() {
                     <p className="text-sm text-zinc-600">Vencida</p>
                     <p className="text-xs text-zinc-400">más de 30 días</p>
                   </div>
-                  <p className={`text-sm font-bold ${carteraVencida > 0 ? 'text-rose-600' : 'text-zinc-300'}`}>
+                  <p className={`text-sm font-bold ${carteraVencida > 0 ? 'text-rose-600' : 'text-zinc-400'}`}>
                     {$$(carteraVencida)}
                   </p>
                 </div>
@@ -600,7 +600,7 @@ function ReportesPage() {
                   </div>
                 )}
 
-                <div className="border-t border-zinc-100 pt-2 flex items-center justify-between">
+                <div className="border-t border-zinc-200 pt-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-zinc-500">Total por cobrar</span>
                   <span className="text-sm font-bold text-zinc-700">{$$(saldoTotal)}</span>
                 </div>

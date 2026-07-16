@@ -978,7 +978,7 @@ ${entregaHtml}
 
           {/* Cliente */}
           {(clienteNombre || clienteApellido) && (
-            <div className="px-5 py-3 border-b border-zinc-100 flex justify-between items-center">
+            <div className="px-5 py-3 border-b border-zinc-200 flex justify-between items-center">
               <span className="text-xs text-zinc-400">Cliente</span>
               <span className="text-sm font-semibold text-zinc-700">{clienteNombre} {clienteApellido}</span>
             </div>
@@ -998,7 +998,7 @@ ${entregaHtml}
                   return (
                     <div key={par}>
                       {pares.length > 1 && (
-                        <div className="flex justify-between items-center mb-1.5 border-b border-zinc-100 pb-1">
+                        <div className="flex justify-between items-center mb-1.5 border-b border-zinc-200 pb-1">
                           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Par {par}</span>
                           <span className="text-xs font-bold text-zinc-500">{sym}{fmt(subtotalDisplay)}</span>
                         </div>
@@ -1067,7 +1067,7 @@ ${entregaHtml}
         {/* Checklist de proceso (solo cuando hay micas) */}
         {tieneMicasGuardado && (
           <div className="bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-zinc-100">
+            <div className="px-5 py-3 border-b border-zinc-200">
               <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Checklist de orden</p>
             </div>
             <div className="divide-y divide-zinc-50">
@@ -1116,7 +1116,7 @@ ${entregaHtml}
             className={`flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-colors ${
               notaImpresa
                 ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+                : 'border border-zinc-200 text-zinc-600 hover:bg-zinc-100'
             }`}
           >
             <Printer className="w-4 h-4" /> {notaImpresa ? '✓ Nota' : 'Nota de venta'}
@@ -1143,7 +1143,7 @@ ${entregaHtml}
 
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/ventas" className="w-9 h-9 flex items-center justify-center rounded-md bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors flex-shrink-0">
+        <Link href="/dashboard/ventas" className="w-9 h-9 flex items-center justify-center rounded-md bg-white border border-zinc-200 hover:bg-zinc-100 transition-colors flex-shrink-0">
           <ArrowLeft className="w-4 h-4 text-zinc-500" />
         </Link>
         <div>
@@ -1193,13 +1193,13 @@ ${entregaHtml}
               )}
             </div>
             {showClienteDropdown && !cliente && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-100 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden">
                 {clientesSuggestions.length > 0
                   ? clientesSuggestions.slice(0, 6).map(c => (
                     <button
                       key={c.id}
                       onMouseDown={() => seleccionarCliente(c)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-100 transition-colors text-left"
                     >
                       <div className="w-8 h-8 rounded-full bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0">
                         <User className="w-4 h-4 text-[#0D9488]" />
@@ -1218,7 +1218,7 @@ ${entregaHtml}
                 }
                 <button
                   onMouseDown={() => setShowClienteDropdown(false)}
-                  className="w-full flex items-center gap-2 px-4 py-3 text-sm text-[#0D9488] hover:bg-zinc-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm text-[#0D9488] hover:bg-zinc-100 transition-colors"
                 >
                   <UserPlus className="w-4 h-4" />
                   Registrar nuevo cliente
@@ -1280,7 +1280,7 @@ ${entregaHtml}
       {/* Productos */}
       <div className="bg-white rounded-lg border border-zinc-200/80">
         {/* Tabs de pares */}
-        <div className="flex items-center gap-1 px-4 pt-3 border-b border-zinc-100">
+        <div className="flex items-center gap-1 px-4 pt-3 border-b border-zinc-200">
           {Array.from({ length: numPares }, (_, i) => i + 1).map(par => {
             const subtotalPar = carrito.filter(i => i.par === par).reduce((s, i) => s + (i.precio * (1 - i.descuento / 100) * i.cantidad), 0)
             const esMicaPar   = carrito.some(i => i.par === par && (
@@ -1337,12 +1337,12 @@ ${entregaHtml}
             className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
           />
           {showBuscadorProducto && busquedaProducto && (
-            <div className="absolute top-full left-6 right-6 mt-1 bg-white border border-zinc-100 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
+            <div className="absolute top-full left-6 right-6 mt-1 bg-white border border-zinc-200 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
               {productosFiltrados.slice(0, 10).map(p => (
                 <button
                   key={p.id}
                   onClick={() => agregar(p)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-50 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-100 transition-colors text-left"
                 >
                   <div className="flex items-center gap-2">
                     {p.sku === 'LC'
@@ -1371,7 +1371,7 @@ ${entregaHtml}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-100">
+              <tr className="border-b border-zinc-200">
                 <th className="text-left text-xs text-zinc-400 font-medium px-6 py-3 w-28">Código</th>
                 <th className="text-left text-xs text-zinc-400 font-medium px-4 py-3">Descripción</th>
                 <th className="text-center text-xs text-zinc-400 font-medium px-4 py-3 w-32">Cantidad</th>
@@ -1387,7 +1387,7 @@ ${entregaHtml}
               {carrito.filter(i => i.par === parActivo).length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center">
-                    <div className="flex flex-col items-center gap-2 text-zinc-300">
+                    <div className="flex flex-col items-center gap-2 text-zinc-400">
                       <Package className="w-10 h-10" />
                       <p className="text-sm">Busca y agrega productos arriba</p>
                     </div>
@@ -1407,7 +1407,7 @@ ${entregaHtml}
                 const fmtPrecio = (n: number) => esUSDVista ? `USD $${n}` : `$${n.toLocaleString('es-MX')}`
 
                 return (
-                  <tr key={item.uid} className="hover:bg-zinc-50/50 group">
+                  <tr key={item.uid} className="hover:bg-zinc-100/50 group">
                     <td className="px-6 py-3">
                       <span className="text-xs font-mono text-zinc-500">{item.sku}</span>
                     </td>
@@ -1456,7 +1456,7 @@ ${entregaHtml}
                       <span className="text-sm font-bold text-zinc-800">{fmtPrecio(subtotalDisplay)}</span>
                     </td>
                     <td className="px-2 py-3">
-                      <button onClick={() => eliminar(item.uid)} className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-300 hover:text-red-400">
+                      <button onClick={() => eliminar(item.uid)} className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -1468,7 +1468,7 @@ ${entregaHtml}
         </div>
 
         {carrito.length > 0 && (
-          <div className="px-6 py-4 border-t border-zinc-100 flex items-center justify-between">
+          <div className="px-6 py-4 border-t border-zinc-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { setBusquedaProducto(''); setShowBuscadorProducto(true) }}
@@ -1508,13 +1508,13 @@ ${entregaHtml}
         <div className="flex items-center gap-2">
           <button
             onClick={limpiar}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-500 hover:text-zinc-700 border border-zinc-200 rounded-md hover:bg-zinc-50 transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-500 hover:text-zinc-700 border border-zinc-200 rounded-md hover:bg-zinc-100 transition-all"
           >
             <X className="w-4 h-4" /> Limpiar
           </button>
           <button
             onClick={() => setShowProductoLibre(true)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-500 hover:text-zinc-700 border border-dashed border-zinc-300 rounded-md hover:bg-zinc-50 transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-500 hover:text-zinc-700 border border-dashed border-zinc-300 rounded-md hover:bg-zinc-100 transition-all"
           >
             <Plus className="w-4 h-4" /> Producto libre
           </button>
@@ -1549,7 +1549,7 @@ ${entregaHtml}
           <button
             onClick={() => { setEsCotizacion(true); setShowModal(true) }}
             disabled={carrito.length === 0}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-md text-sm font-semibold hover:bg-zinc-50 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-md text-sm font-semibold hover:bg-zinc-100 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <FileText className="w-4 h-4" />
             Generar cotización
@@ -1569,7 +1569,7 @@ ${entregaHtml}
       {showProductoLibre && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
               <h3 className="font-semibold text-zinc-800">Agregar producto no inventariado</h3>
               <button onClick={() => setShowProductoLibre(false)} className="text-zinc-400 hover:text-zinc-600">
                 <X className="w-5 h-5" />
@@ -1617,7 +1617,7 @@ ${entregaHtml}
             <div className="flex gap-3 px-6 pb-5">
               <button
                 onClick={() => setShowProductoLibre(false)}
-                className="flex-1 border border-zinc-200 text-zinc-600 rounded-md py-2 text-sm hover:bg-zinc-50 transition-colors"
+                className="flex-1 border border-zinc-200 text-zinc-600 rounded-md py-2 text-sm hover:bg-zinc-100 transition-colors"
               >
                 Cancelar
               </button>
@@ -1653,7 +1653,7 @@ ${entregaHtml}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
               <h2 className="text-base font-bold text-zinc-800">
                 {esCotizacion ? 'Confirmar cotización' : 'Opciones de pago'}
               </h2>
@@ -1793,7 +1793,7 @@ ${entregaHtml}
             <div className="px-6 pb-5 flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-3 border border-zinc-200 text-zinc-600 rounded-md text-sm font-semibold hover:bg-zinc-50 transition-colors"
+                className="flex-1 py-3 border border-zinc-200 text-zinc-600 rounded-md text-sm font-semibold hover:bg-zinc-100 transition-colors"
               >
                 Volver
               </button>
