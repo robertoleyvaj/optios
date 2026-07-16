@@ -1590,6 +1590,7 @@ export default function LaboratorioPage() {
 
     // Bloquear entrega si la venta tiene saldo pendiente
     if (estado === 'entregado' && orden?.folioVenta) {
+      const supabase = createClient()
       const { data: ventaDB } = await supabase
         .from('ventas')
         .select('saldo')
