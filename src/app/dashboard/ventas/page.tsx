@@ -228,6 +228,7 @@ export default function VentasPage() {
   const [showAbono, setShowAbono]   = useState(false)
   const [abonoMonto, setAbonoMonto]   = useState('')
   const [abonoMetodo, setAbonoMetodo] = useState('efectivo')
+  const [guardandoAbono, setGuardandoAbono] = useState(false)
   const [usuarioNombre, setUsuarioNombre] = useState('')
   const [usuarioId, setUsuarioId]         = useState<string | null>(null)
   const [esAdmin, setEsAdmin]             = useState(false)
@@ -376,19 +377,30 @@ export default function VentasPage() {
     const monto = parseFloat(abonoMonto)
     if (!detalle || isNaN(monto) || monto <= 0) return
 
-    const nuevoSaldo = Math.max(0, saldoPendiente(detalle) - monto)
+    // Validación: no permitir pagar más de lo que se debe
+    const saldoActual = saldoPendiente(detalle)
+    if (monto > saldoActual) {
+      alert(`El monto ($${monto.toLocaleString('es-MX')}) supera el saldo pendiente ($${saldoActual.toLocaleString('es-MX')}).`)
+      return
+    }
+
+    // Prevenir doble clic / doble envío
+    if (guardandoAbono) return
+    setGuardandoAbono(true)
+
+    const nuevoSaldo = saldoActual - monto
     const esLiquidacion = nuevoSaldo === 0
     const supabase = createClient()
 
-    // 1. Actualizar saldo en ventas (el estado lo determina el saldo, no un campo separado)
+    // 1. Actualizar saldo en ventas
     const { error: errVenta } = await supabase
       .from('ventas')
       .update({ saldo: nuevoSaldo })
       .eq('id', detalle.uuid)
 
     if (errVenta) {
-      console.error('Error actualizando venta:', errVenta)
       alert(`Error al actualizar la venta: ${errVenta.message}`)
+      setGuardandoAbono(false)
       return
     }
 
@@ -406,8 +418,8 @@ export default function VentasPage() {
     })
 
     if (errPago) {
-      console.error('Error registrando pago:', errPago)
       alert(`Error al registrar el pago: ${errPago.message}`)
+      setGuardandoAbono(false)
       return
     }
 
@@ -419,7 +431,7 @@ export default function VentasPage() {
       sucursal:   detalle.sucursal,
     })
 
-    // 4. Actualizar estado local con saldo_db correcto
+    // 4. Actualizar estado local
     const fechaPago = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
     const nuevoPago: Pago = { fecha: fechaPago, monto, metodo: abonoMetodo }
     const ventaActualizada: Venta = {
@@ -432,6 +444,7 @@ export default function VentasPage() {
     setDetalle(ventaActualizada)
     setAbonoMonto('')
     setShowAbono(false)
+    setGuardandoAbono(false)
   }
 
   const eliminarPago = async (pago: Pago) => {
@@ -439,14 +452,30 @@ export default function VentasPage() {
     if (!confirm(`¿Eliminar este pago de $${pago.monto.toLocaleString('es-MX')}? El saldo de la venta se restaurará.`)) return
 
     const supabase = createClient()
-    const nuevoSaldo = detalle.saldo_db + pago.monto
 
+    // 1. Borrar el pago
     const { error: errDel } = await supabase
       .from('pagos_venta')
       .delete()
       .eq('id', pago.pagos_venta_id)
 
     if (errDel) { alert(`Error: ${errDel.message}`); return }
+
+    // 2. Recalcular saldo desde cero: total - anticipo - SUM(pagos restantes)
+    //    Así el saldo siempre refleja la realidad, sin importar qué pasó antes.
+    const { data: ventaDB } = await supabase
+      .from('ventas')
+      .select('total, anticipo')
+      .eq('id', detalle.uuid)
+      .single()
+
+    const { data: pagosRestantes } = await supabase
+      .from('pagos_venta')
+      .select('monto')
+      .eq('venta_id', detalle.uuid)
+
+    const totalPagosVenta = (pagosRestantes ?? []).reduce((s, p) => s + Number(p.monto), 0)
+    const nuevoSaldo = Math.max(0, (ventaDB?.total ?? detalle.total) - (ventaDB?.anticipo ?? 0) - totalPagosVenta)
 
     const { error: errUpd } = await supabase
       .from('ventas')
@@ -780,9 +809,9 @@ export default function VentasPage() {
                       className="flex-1 py-2 border border-zinc-200 rounded text-sm text-zinc-500 hover:bg-white transition-colors">
                       Cancelar
                     </button>
-                    <button onClick={registrarAbono} disabled={!abonoMonto || parseFloat(abonoMonto) <= 0}
+                    <button onClick={registrarAbono} disabled={!abonoMonto || parseFloat(abonoMonto) <= 0 || guardandoAbono}
                       className="flex-1 py-2 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40 transition-colors">
-                      Registrar abono
+                      {guardandoAbono ? 'Guardando...' : 'Registrar abono'}
                     </button>
                   </div>
                 </div>
