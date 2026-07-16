@@ -1445,6 +1445,7 @@ export default function LaboratorioPage() {
   // Usuario activo
   const { usuario: sessionUser } = useSession()
   const [demoUser, setDemoUser] = useState<{ rol: string; sucursal: string; nombre: string } | null>(null)
+  const [sucursalCrear, setSucursalCrear] = useState('Baja Visión')
 
   // ── Cargar órdenes desde Supabase ──────────────────────────
   useEffect(() => {
@@ -1459,7 +1460,12 @@ export default function LaboratorioPage() {
           sucursal: sessionUser?.sucursal || legacyU.sucursal || '',
           nombre:   sessionUser?.nombre   || legacyU.nombre   || '',
         }
+        // sucursalCheckIn: para crear órdenes, nunca se puede guardar 'Todas'
+        const sucursalParaCrear = (user.sucursal === 'Todas' || !user.sucursal)
+          ? (legacyU.sucursal && legacyU.sucursal !== 'Todas' ? legacyU.sucursal : 'Baja Visión')
+          : user.sucursal
         setDemoUser(user as { rol: string; sucursal: string; nombre: string })
+        setSucursalCrear(sucursalParaCrear)
 
         const supabase = createClient()
         let q = supabase.from('ordenes_lab').select('*').order('fecha_ingreso', { ascending: true })
@@ -1697,7 +1703,7 @@ export default function LaboratorioPage() {
     sucursal: demoUser?.sucursal ?? 'Todas',
     rol: demoUser?.rol ?? '',
     onPrint: (o: OrdenLab) => setPrintModal(o),
-    onNuevaOrden: () => { setForm(formVacio(demoUser?.sucursal)); setVentaVinculada(null); setModal(true) },
+    onNuevaOrden: () => { setForm(formVacio(sucursalCrear)); setVentaVinculada(null); setModal(true) },
     onUpdate: (id: number, changes: Partial<OrdenLab>) => {
       const orden = ordenes.find(o => o.id === id)
       if (changes.estado) cambiarEstado(id, changes.estado as EstadoOrden)
@@ -1858,7 +1864,7 @@ export default function LaboratorioPage() {
                         <p className="text-xs text-zinc-400">Datos auto-completados desde la venta</p>
                       </div>
                     </div>
-                    <button onClick={() => { setVentaVinculada(null); setForm(formVacio(demoUser?.sucursal)) }}
+                    <button onClick={() => { setVentaVinculada(null); setForm(formVacio(sucursalCrear)) }}
                       className="p-2 rounded border border-zinc-200 hover:bg-white text-zinc-400 hover:text-zinc-600">
                       <X className="w-4 h-4" />
                     </button>

@@ -164,6 +164,17 @@ export default function NuevaVentaPage() {
   const [guardando, setGuardando] = useState(false)
   const [confirmarSinAnticipo, setConfirmarSinAnticipo] = useState(false)
   const [guardado, setGuardado] = useState(false)
+  const [mostrarTicket, setMostrarTicket] = useState(false)
+  // Mostrar animación de éxito por 1.8s antes de revelar el ticket
+  useEffect(() => {
+    if (guardado) {
+      setMostrarTicket(false)
+      const t = setTimeout(() => setMostrarTicket(true), 1800)
+      return () => clearTimeout(t)
+    } else {
+      setMostrarTicket(false)
+    }
+  }, [guardado])
   const [esCotizacion, setEsCotizacion] = useState(false)
   const [folioGuardado, setFolioGuardado] = useState('')
   const [errorGuardado, setErrorGuardado] = useState('')
@@ -212,16 +223,28 @@ export default function NuevaVentaPage() {
   const [tcError, setTcError] = useState(false)
 
   // Leer sucursal y rol del usuario logueado (Supabase Auth o legacy localStorage)
+  // IMPORTANTE: cuando el usuario tiene acceso a 'Todas', usar la sucursal del check-in del día
   useEffect(() => {
+    const sucursalCheckIn = (): string => {
+      try {
+        const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
+        if (u?.sucursal && u.sucursal !== 'Todas') return u.sucursal
+      } catch {}
+      return 'Baja Visión'
+    }
+
     if (sessionUser) {
-      if (sessionUser.sucursal) setSucursal(sessionUser.sucursal)
+      const s = (!sessionUser.sucursal || sessionUser.sucursal === 'Todas')
+        ? sucursalCheckIn()
+        : sessionUser.sucursal
+      setSucursal(s)
       if (sessionUser.rol) setRolUsuario(sessionUser.rol)
       return
     }
     // Fallback legacy para usuarios sin migrar
     try {
       const user = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
-      if (user?.sucursal) setSucursal(user.sucursal)
+      if (user?.sucursal && user.sucursal !== 'Todas') setSucursal(user.sucursal)
       if (user?.rol) setRolUsuario(user.rol)
     } catch {}
   }, [sessionUser])
@@ -958,19 +981,34 @@ ${entregaHtml}
       setTimeout(() => { win.print() }, 300)
     }
 
+    // ── Fase animación (1.8s) ──────────────────────────────────────
+    if (!mostrarTicket) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+          <style>{`
+            @keyframes spin-ring { to { transform: rotate(360deg) } }
+            @keyframes pop-in { 0%{transform:scale(0.4);opacity:0} 70%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+            .spin-ring { animation: spin-ring 0.8s linear infinite }
+            .pop-check { animation: pop-in 0.4s cubic-bezier(.34,1.56,.64,1) forwards }
+          `}</style>
+          <div className="relative w-24 h-24">
+            {/* Anillo giratorio */}
+            <div className="spin-ring absolute inset-0 rounded-full border-[5px] border-zinc-100 border-t-[#0D9488]" />
+          </div>
+          <p className="text-zinc-400 text-sm tracking-wide">Registrando{esCotizacion ? ' cotización' : ' venta'}…</p>
+        </div>
+      )
+    }
+
     return (
       <div className="max-w-lg mx-auto py-8 space-y-5">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-7 h-7 text-emerald-500" />
+        {/* Folio label */}
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 className="w-3 h-3 text-white" />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">
-              {esCotizacion ? 'Cotización generada' : 'Venta registrada'}
-            </h2>
-            <p className="text-zinc-400 text-sm mt-0.5">{folio} · {sucursal}</p>
-          </div>
+          <span className="text-sm font-semibold text-zinc-700">{esCotizacion ? 'Cotización generada' : 'Venta registrada'}</span>
+          <span className="text-xs text-zinc-400 ml-1">{folio}</span>
         </div>
 
         {/* Ticket card */}
@@ -1136,7 +1174,7 @@ ${entregaHtml}
             Ver historial
           </Link>
           <button
-            onClick={() => { limpiar(); setGuardado(false) }}
+            onClick={() => { limpiar(); setGuardado(false); setMostrarTicket(false) }}
             className="flex items-center justify-center gap-2 py-3 bg-[#0B0E14] text-white rounded-lg text-sm font-bold hover:bg-[#1A1D27] transition-colors"
           >
             Nueva venta
