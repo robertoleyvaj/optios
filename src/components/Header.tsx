@@ -190,7 +190,7 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           <p className="text-[11px] text-zinc-400">{todayStr}</p>
           <div className="flex items-center justify-end gap-1 mt-0.5">
             <Store className="w-3 h-3 text-teal-500" />
-            {(usuario.rol === 'admin' || usuario.rol === 'gerente') ? (
+            {(usuario.rol === 'administrador' || usuario.rol === 'gerente') ? (
               <select
                 value={sucursalActual}
                 onChange={e => {
