@@ -125,27 +125,24 @@ export default function Sidebar({
 
   return (
     <aside className={`
-      w-64 bg-[#0B0E14] flex flex-col h-screen
+      w-64 bg-[#fafaf9] border-r border-[#ebebea] flex flex-col h-screen
       fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out
       lg:relative lg:flex-shrink-0 lg:translate-x-0
       ${isOpen ? 'translate-x-0' : '-translate-x-full'}
     `}>
 
-      {/* Logo */}
+      {/* Logo — wordmark split */}
       <div className="px-5 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#0D9488] flex items-center justify-center flex-shrink-0">
-            <Glasses className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <p className="text-white font-semibold text-[15px] leading-none tracking-tight">OptiOS</p>
-            <p className="text-white/35 text-[11px] mt-1">Sistema de Gestión</p>
-          </div>
+        <div>
+          <p className="leading-none tracking-[-0.04em]">
+            <span className="text-[#111] font-bold text-[16px]">Opti</span><span className="text-[#0D9488] font-light text-[16px]">OS</span>
+          </p>
+          <p className="text-[9px] font-light tracking-[0.08em] text-[#b0b0ad] mt-1 uppercase">Sistema de Gestión</p>
         </div>
         {/* Close button — mobile only */}
         <button
           onClick={onClose}
-          className="lg:hidden w-7 h-7 flex items-center justify-center rounded-md text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+          className="lg:hidden w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -158,7 +155,7 @@ export default function Sidebar({
           if (item.type === 'sep') {
             return (
               <div key={item.key} className="pt-4 pb-1 px-3">
-                <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">{item.label}</p>
+                <p className="text-[9px] font-medium text-[#ccc] uppercase tracking-[0.12em]">{item.label}</p>
               </div>
             )
           }
@@ -174,35 +171,35 @@ export default function Sidebar({
               <Link
                 href={pronto ? '#' : item.href}
                 onClick={pronto ? (e) => e.preventDefault() : onClose}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100 ${
+                className={`flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[14px] tracking-[-0.01em] transition-colors duration-100 ${
                   pronto
-                    ? 'text-white/20 cursor-default'
+                    ? 'text-[#d4d4d2] cursor-default'
                     : isParentActive
-                    ? 'bg-white/[0.07] text-white'
-                    : 'text-white/45 hover:text-white/90 hover:bg-white/[0.04]'
+                    ? 'text-[#111] font-semibold'
+                    : 'text-[#b0b0ad] font-light hover:text-[#555] hover:bg-black/[0.03]'
                 }`}
               >
-                <Icon className={`w-[15px] h-[15px] flex-shrink-0 ${isParentActive && !pronto ? 'text-[#2DD4BF]' : ''}`} />
+                <Icon className={`w-[16px] h-[16px] flex-shrink-0 ${isParentActive && !pronto ? 'text-[#0D9488]' : 'text-[#d4d4d2]'}`} />
                 <span className="flex-1">{item.label}</span>
                 {pronto && (
-                  <span className="text-[9px] font-bold text-white/20 uppercase tracking-wide">Pronto</span>
+                  <span className="text-[9px] font-medium text-[#ccc] uppercase tracking-wide">Pronto</span>
                 )}
                 {hasSubItems && !pronto && (
-                  <ChevronDown className={`w-3 h-3 transition-transform ${showSub ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 transition-transform text-[#ccc] ${showSub ? 'rotate-180' : ''}`} />
                 )}
               </Link>
 
               {showSub && item.subItems && (
-                <div className="ml-[18px] mt-0.5 pl-3.5 border-l border-white/10 space-y-0.5">
+                <div className="ml-[18px] mt-0.5 pl-3.5 border-l border-[#ebebea] space-y-0.5">
                   {item.subItems.map((sub) => {
                     const SubIcon = sub.icon
                     const isSubActive = pathname === sub.href
                     return (
                       <Link key={sub.href} href={sub.href}
-                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12.5px] font-medium transition-colors ${
-                          isSubActive ? 'text-[#2DD4BF] bg-white/[0.06]' : 'text-white/35 hover:text-white/70 hover:bg-white/[0.04]'
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] tracking-[-0.01em] transition-colors ${
+                          isSubActive ? 'text-[#0D9488] font-medium' : 'text-[#b0b0ad] font-light hover:text-[#555] hover:bg-black/[0.03]'
                         }`}>
-                        <SubIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <SubIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isSubActive ? 'text-[#0D9488]' : 'text-[#d4d4d2]'}`} />
                         {sub.label}
                       </Link>
                     )
@@ -215,20 +212,20 @@ export default function Sidebar({
       </nav>
 
       {/* Usuario activo */}
-      <div className="px-3 py-3 border-t border-white/[0.06]">
+      <div className="px-3 py-3 border-t border-[#ebebea]">
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg mb-0.5">
-          <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-[11px] font-semibold">{usuario.iniciales}</span>
+          <div className="w-7 h-7 rounded-full bg-[#e8f5f0] flex items-center justify-center flex-shrink-0">
+            <span className="text-[#0D9488] text-[10px] font-semibold">{usuario.iniciales}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-[13px] font-medium truncate leading-tight">{usuario.nombre}</p>
-            <p className="text-white/35 text-[11px] leading-tight mt-0.5">
+            <p className="text-[#111] text-[12px] font-medium truncate leading-tight tracking-[-0.01em]">{usuario.nombre}</p>
+            <p className="text-[#b0b0ad] text-[10px] font-light leading-tight mt-0.5">
               {ROL_LABEL[usuario.rol]}{usuario.sucursal && usuario.sucursal !== 'Todas' ? ` · ${usuario.sucursal}` : ''}
             </p>
           </div>
         </div>
         <button onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] text-white/35 hover:text-white/80 hover:bg-white/[0.04] transition-colors">
+          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] font-light text-[#b0b0ad] hover:text-[#555] hover:bg-black/[0.03] transition-colors">
           <LogOut className="w-3.5 h-3.5" />
           <span>Cerrar sesión</span>
         </button>
