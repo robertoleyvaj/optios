@@ -436,12 +436,20 @@ export default function NuevaVentaPage() {
 
       // Leer usuario actual (Supabase Auth o legacy localStorage)
       let atendioPor = sessionUser?.nombre || ''
-      let usuarioId: string | null = sessionUser?.id || null
+      // usuario_id debe ser el PK de la tabla `usuarios`, NO el UUID de auth
+      let usuarioId: string | null = null
+      if (sessionUser?.id) {
+        const { data: uRow } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('auth_user_id', sessionUser.id)
+          .single()
+        usuarioId = uRow?.id || null
+      }
       if (!atendioPor) {
         try {
           const u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')
           atendioPor = u?.nombre || ''
-          usuarioId  = u?.id || null
         } catch {}
       }
 
