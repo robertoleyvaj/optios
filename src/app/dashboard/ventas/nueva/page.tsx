@@ -64,6 +64,11 @@ const catalogo = [
   { id: 44, nombre: 'Cambio de plaquetas',                categoria: 'Servicios', precio:  100, sku: 'SRV-PLA', stock: 999 },
   { id: 45, nombre: 'Limpieza de armazón',                categoria: 'Servicios', precio:  100, sku: 'SRV-LIM', stock: 999 },
   { id: 46, nombre: 'Cambio de tornillo',                 categoria: 'Servicios', precio:  100, sku: 'SRV-TCR', stock: 999 },
+  // ── Paquetes ─────────────────────────────────────────────────
+  { id: 100, nombre: 'Paquete Fotocromático — Monofocal CR-39 + Armazón Eco + AR Conv. + Fotocromático Gris', categoria: 'Paquetes', precio: 3000, precioFinal: 1800, sku: 'PAQ-FC',  stock: 999, labMica: 'Monofocal CR-39',   labTratamiento: 'Fotocromático Gris + AR Convencional' },
+  { id: 101, nombre: 'Paquete Blueray — Monofocal CR-39 + Antireflejante Blue + Armazón Eco',                 categoria: 'Paquetes', precio: 2000, precioFinal: 1300, sku: 'PAQ-BL',  stock: 999, labMica: 'Monofocal CR-39',   labTratamiento: 'Antireflejante Blue' },
+  { id: 102, nombre: 'Paquete Bifocal — Bifocal CR-39 + AR Convencional + Armazón Eco',                       categoria: 'Paquetes', precio: 2400, precioFinal: 1300, sku: 'PAQ-BIF', stock: 999, labMica: 'Bifocal CR-39',      labTratamiento: 'AR Convencional' },
+  { id: 103, nombre: 'Paquete Progresivo — Progresivo CR-39 + AR Convencional + Armazón Eco',                 categoria: 'Paquetes', precio: 3000, precioFinal: 2000, sku: 'PAQ-PRO', stock: 999, labMica: 'Progresivo CR-39',   labTratamiento: 'AR Convencional' },
 ]
 
 const clientesMock = [
@@ -325,7 +330,7 @@ export default function NuevaVentaPage() {
   const agregarDirecto = (p: typeof catalogo[0], colorSufijo?: string, precioOverride?: number) => {
     const nombre = colorSufijo ? `${p.nombre} — ${colorSufijo}` : p.nombre
     const idVirtual = colorSufijo ? p.id * 1000 + p.nombre.length + colorSufijo.charCodeAt(0) : p.id
-    const precio = precioOverride ?? p.precio
+    const precio = precioOverride ?? ('precioFinal' in p && p.precioFinal ? p.precioFinal : p.precio)
     setCarrito(prev => {
       const ex = prev.find(i => i.id === idVirtual && i.par === parActivo)
       if (ex) return prev.map(i => i.uid === ex.uid ? { ...i, cantidad: i.cantidad + 1 } : i)
@@ -602,10 +607,27 @@ export default function NuevaVentaPage() {
           : ''
 
         const foliosLab: string[] = []
+        // Mapa SKU → info de lab para paquetes
+        const todoCatalogo = [...catalogo, ...catalogoLC] as (typeof catalogo[0] & { labMica?: string; labTratamiento?: string })[]
+        const catPorSku = Object.fromEntries(todoCatalogo.map(c => [c.sku, c]))
+
         for (const par of parsConMicas) {
           const itemsPar = carrito.filter(i => i.par === par)
-          const micasPar = itemsPar.filter(i => isMica(i.nombre) || isLC(i.sku)).map(i => i.nombre).join(', ')
-          const filtrosPar = itemsPar.filter(i => isFiltro(i.nombre)).map(i => i.nombre).join(', ')
+
+          // Para paquetes: usar el desglose explícito; para micas sueltas: usar el nombre
+          const micasPar = itemsPar
+            .filter(i => isMica(i.nombre) || isLC(i.sku))
+            .map(i => catPorSku[i.sku]?.labMica ?? i.nombre)
+            .join(', ')
+
+          // Para paquetes: leer tratamiento del catálogo; para filtros sueltos: usar nombre
+          const filtrosSueltos = itemsPar
+            .filter(i => !i.sku.startsWith('PAQ-') && isFiltro(i.nombre))
+            .map(i => i.nombre)
+          const tratamientosPaq = itemsPar
+            .filter(i => i.sku.startsWith('PAQ-') && catPorSku[i.sku]?.labTratamiento)
+            .map(i => catPorSku[i.sku].labTratamiento!)
+          const filtrosPar = [...filtrosSueltos, ...tratamientosPaq].join(', ')
           const subtotalPar = itemsPar.reduce((s, i) => s + i.precio * (1 - i.descuento / 100) * i.cantidad, 0)
           const folioLab = `L-${String(nL).padStart(4, '0')}`
           nL++
@@ -1329,7 +1351,14 @@ ${entregaHtml}
                     }
                     <span className="text-sm font-medium text-zinc-700">{p.nombre}</span>
                   </div>
-                  <span className="text-sm font-bold text-zinc-800">${p.precio.toLocaleString('es-MX')}</span>
+                  <div className="text-right">
+                    {'precioFinal' in p && p.precioFinal && (
+                      <div className="text-xs text-zinc-400 line-through">${p.precio.toLocaleString('es-MX')}</div>
+                    )}
+                    <span className="text-sm font-bold text-zinc-800">
+                      ${'precioFinal' in p && p.precioFinal ? p.precioFinal.toLocaleString('es-MX') : p.precio.toLocaleString('es-MX')}
+                    </span>
+                  </div>
                 </button>
               ))}
               {productosFiltrados.length === 0 && (
