@@ -36,6 +36,7 @@ type GastoHoy = {
   concepto: string
   notas: string
   monto: number
+  metodo_pago?: string
 }
 
 type ResumenMetodo = { monto: number; transacciones: number }
@@ -148,8 +149,13 @@ export default function CajaPage() {
 
   // ── Cálculos ──
   const totalEgresos  = gastosHoy.reduce((s, g) => s + Number(g.monto), 0)
+  // Solo los egresos pagados en efectivo bajan del cajón físico.
+  // Los pagados por banco/transferencia/tarjeta salen del banco, no de la caja.
+  const egresosEfectivo = gastosHoy
+    .filter(g => (g.metodo_pago ?? 'efectivo') === 'efectivo')
+    .reduce((s, g) => s + Number(g.monto), 0)
   const saldoInicialNum = saldoAnterior ?? 0
-  const esperado      = saldoInicialNum + ventas.efectivo.monto - totalEgresos
+  const esperado      = saldoInicialNum + ventas.efectivo.monto - egresosEfectivo
   const esperadoUSD   = efectivoUSD.monto
   const contado       = parseFloat(efectivoContado) || 0
   const contadoUSD    = parseFloat(efectivoUSDContado) || 0
@@ -263,7 +269,7 @@ export default function CajaPage() {
     // 3. Gastos del día
     const { data: gastosData } = await sb
       .from('gastos')
-      .select('id, fecha, categoria, concepto, notas, monto')
+      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
       .eq('sucursal', sucursal)
       .eq('fecha', hoy)
       .order('created_at', { ascending: true })
@@ -338,12 +344,13 @@ export default function CajaPage() {
     const hoy = hoyLocal()
     const catLabel = CATEGORIAS_EGRESO.find(c => c.value === egresoCategoria)?.label ?? egresoCategoria
     const { error } = await sb.from('gastos').insert({
-      fecha:     hoy,
-      categoria: egresoCategoria,
-      concepto:  catLabel,
-      notas:     egresoDescripcion || null,
+      fecha:       hoy,
+      categoria:   egresoCategoria,
+      concepto:    catLabel,
+      notas:       egresoDescripcion || null,
       monto,
-      sucursal:  usuario.sucursal,
+      metodo_pago: egresoMetodoPago,
+      sucursal:    usuario.sucursal,
     })
     if (error) {
       setErrorGuardado(`Error al guardar egreso: ${error.message}`)
@@ -352,7 +359,7 @@ export default function CajaPage() {
     }
     const { data } = await sb
       .from('gastos')
-      .select('id, fecha, categoria, concepto, notas, monto')
+      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
       .eq('sucursal', usuario.sucursal)
       .eq('fecha', hoy)
       .order('created_at', { ascending: true })
@@ -734,8 +741,11 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                     onChange={e => setEgresoMetodoPago(e.target.value)}
                     className="w-full border border-zinc-200 rounded px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                   >
-                    <option value="efectivo">Pesos (MXN)</option>
-                    <option value="efectivo_usd">Dólares (USD)</option>
+                    <option value="efectivo">Efectivo (pesos)</option>
+                    <option value="efectivo_usd">Efectivo (dólares)</option>
+                    <option value="debito">Tarjeta débito</option>
+                    <option value="credito">Tarjeta crédito</option>
+                    <option value="transferencia">Transferencia</option>
                   </select>
                 </div>
               </div>
