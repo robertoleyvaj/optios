@@ -270,6 +270,7 @@ export default function VentasPage() {
         .select(`
           id,
           folio,
+          estado,
           paciente_nombre,
           paciente_telefono,
           sucursal,
@@ -282,6 +283,7 @@ export default function VentasPage() {
           ventas_items(nombre, cantidad, precio_unitario, descuento),
           pagos_venta(id, monto, metodo_pago, created_at, tipo)
         `)
+        .neq('estado', 'cancelada')
         .order('created_at', { ascending: false })
 
       // Vendedor solo ve su sucursal
