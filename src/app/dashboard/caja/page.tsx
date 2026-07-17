@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { hoyLocal, rangoDiaLocal } from '@/lib/fecha'
+import { hoyLocal } from '@/lib/fecha'
 import { getSucursalActual } from '@/lib/session'
 import { useSession } from '@/hooks/useSession'
 import {
@@ -56,6 +56,8 @@ type CorteGuardado = {
   diferencia: number
   fondo: number
   entrega: number
+  fondo_usd?: number
+  entrega_usd?: number
   notas: string
   cerrado: boolean
   cerrado_at?: string | null
@@ -126,6 +128,7 @@ export default function CajaPage() {
   const [historial, setHistorial] = useState<CorteGuardado[]>([])
   const [corteHoy, setCorteHoy]   = useState<CorteGuardado | null>(null)
   const [saldoAnterior, setSaldoAnterior] = useState<number | null>(null)
+  const [saldoAnteriorUSD, setSaldoAnteriorUSD] = useState(0)  // remanente en dólares del último cierre
   const [fechaCorteAnterior, setFechaCorteAnterior] = useState<string | null>(null)
   const [cargando, setCargando]   = useState(true)
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null)
@@ -149,6 +152,7 @@ export default function CajaPage() {
   const [efectivoContado, setEfectivoContado]       = useState('')
   const [efectivoUSDContado, setEfectivoUSDContado] = useState('')
   const [retiro, setRetiro]   = useState('')
+  const [retiroUSD, setRetiroUSD] = useState('')
   const [notas, setNotas]     = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -161,13 +165,16 @@ export default function CajaPage() {
     .reduce((s, g) => s + Number(g.monto), 0)
   const saldoInicialNum = saldoAnterior ?? 0
   const esperado      = saldoInicialNum + ventas.efectivo.monto - egresosEfectivo
-  const esperadoUSD   = efectivoUSD.monto
+  // Dólares: arrastra el remanente del cierre anterior + los dólares que entraron
+  const esperadoUSD   = saldoAnteriorUSD + efectivoUSD.monto
   const contado       = parseFloat(efectivoContado) || 0
   const contadoUSD    = parseFloat(efectivoUSDContado) || 0
   const retiroNum     = parseFloat(retiro) || 0
+  const retiroUSDNum  = parseFloat(retiroUSD) || 0
   const diferencia    = contado - esperado
   const diferenciaUSD = contadoUSD - esperadoUSD
-  const remanente     = Math.max(0, contado - retiroNum)  // lo que queda en caja para mañana
+  const remanente     = Math.max(0, contado - retiroNum)        // pesos que quedan para mañana
+  const remanenteUSD  = Math.max(0, contadoUSD - retiroUSDNum)  // dólares que quedan para mañana
   const totalMXN      = Object.values(ventas).reduce((s, v) => s + v.monto, 0)
   const total         = totalMXN + (efectivoUSD.tcPromedio > 0 ? efectivoUSD.monto * efectivoUSD.tcPromedio : 0)
   const cerrado       = isClosed || corteHoy?.cerrado === true
@@ -198,27 +205,40 @@ export default function CajaPage() {
     setCargando(true)
     const sb  = createClient()
     const hoy = hoyLocal()
-    // Rango del día en hora Tijuana (00:00–23:59 local), convertido a UTC para el filtro
-    const { start: inicioDia, end: finDia } = rangoDiaLocal(hoy)
 
-    // 1. Pagos registrados HOY (por fecha de pago, no de venta)
-    //    Incluye anticipos de ventas nuevas Y abonos/liquidaciones de ventas anteriores
+    // Último corte CERRADO antes de hoy → define el inicio del periodo y el saldo que
+    // quedó en caja. El dinero se ACUMULA desde ese cierre (pesos y dólares); no se
+    // resetea al cambiar de día. Si nunca se ha cerrado, el periodo abarca todo.
+    const { data: ultimoCorte } = await sb
+      .from('cortes_caja')
+      .select('fondo, fondo_usd, cerrado_at, fecha')
+      .eq('sucursal', sucursal)
+      .eq('cerrado', true)
+      .lt('fecha', hoy)
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const periodStart = ultimoCorte?.cerrado_at ?? '2000-01-01T00:00:00Z'
+    setSaldoAnterior(Number(ultimoCorte?.fondo ?? 0))
+    setSaldoAnteriorUSD(Number(ultimoCorte?.fondo_usd ?? 0))
+    setFechaCorteAnterior(ultimoCorte?.fecha ?? null)
+
+    // 1. Pagos ACUMULADOS desde el último cierre (no solo hoy)
     const { data: pagosData } = await sb
       .from('pagos_venta')
       .select('*')
       .eq('sucursal', sucursal)
-      .gte('created_at', inicioDia)
-      .lte('created_at', finDia)
+      .gt('created_at', periodStart)
       .order('created_at', { ascending: true })
 
-    // 2. Ventas creadas hoy (para fallback: ventas sin registro en pagos_venta)
+    // 2. Ventas del periodo (fallback: ventas sin registro en pagos_venta)
     const { data: ventasData } = await sb
       .from('ventas')
       .select('id, metodo_pago, total, saldo, moneda, tipo_cambio')
       .eq('sucursal', sucursal)
       .in('estado', ['activa'])
-      .gte('created_at', inicioDia)
-      .lte('created_at', finDia)
+      .gt('created_at', periodStart)
 
     const pagosHoyList = pagosData ?? []
     setPagosHoy(pagosHoyList)
@@ -260,12 +280,12 @@ export default function CajaPage() {
       setEfectivoUSD({ monto: usdMonto, transacciones: usdTx, tcPromedio: usdTx > 0 ? usdTCSum / usdTx : 0 })
     }
 
-    // 3. Gastos del día
+    // 3. Gastos ACUMULADOS del periodo (desde el último cierre)
     const { data: gastosData } = await sb
       .from('gastos')
       .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
       .eq('sucursal', sucursal)
-      .eq('fecha', hoy)
+      .gt('created_at', periodStart)
       .order('created_at', { ascending: true })
     setGastosHoy(gastosData ?? [])
 
@@ -282,6 +302,7 @@ export default function CajaPage() {
       setIsClosed(!!corteData.cerrado)
       setEfectivoContado(String(corteData.efectivo_contado))
       setRetiro(corteData.entrega ? String(corteData.entrega) : '')
+      setRetiroUSD(corteData.entrega_usd ? String(corteData.entrega_usd) : '')
       setNotas(corteData.notas)
       // Pagos que entraron DESPUÉS de la hora de cierre (dinero tardío que el corte no cubrió)
       if (corteData.cerrado && corteData.cerrado_at) {
@@ -295,20 +316,7 @@ export default function CajaPage() {
       setPagosTardios([])
     }
 
-    // 5. Saldo anterior (último corte cerrado antes de hoy)
-    const { data: corteAnteriorData } = await sb
-      .from('cortes_caja')
-      .select('fondo, fecha')
-      .eq('sucursal', sucursal)
-      .eq('cerrado', true)
-      .lt('fecha', hoy)
-      .order('fecha', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    // Saldo inicial de hoy = remanente que quedó en caja el último corte (columna fondo)
-    setSaldoAnterior(corteAnteriorData?.fondo ?? 0)
-    setFechaCorteAnterior(corteAnteriorData?.fecha ?? null)
+    // (El saldo inicial y el inicio del periodo ya se calcularon arriba con `ultimoCorte`.)
 
     // 6. Historial — admin ve todas las sucursales
     let histQuery = sb
@@ -445,17 +453,19 @@ ${gastosHoy.length > 0 ? `
 <div class="row"><span>Esperado (sistema)</span><span>${fmt$(esperado)}</span></div>
 <div class="row"><span>Contado físicamente</span><span>${fmt$(contado)}</span></div>
 <div class="dif-box ${difClass}">${difLabel}</div>
-${efectivoUSD.transacciones > 0 ? `
+${(efectivoUSD.transacciones > 0 || esperadoUSD > 0) ? `
 <div class="sep"></div>
 <div class="titulo">Caja dólares — USD</div>
 <div class="row"><span>Esperado</span><span>USD $${esperadoUSD.toFixed(2)}</span></div>
 <div class="row"><span>Contado</span><span>USD $${contadoUSD.toFixed(2)}</span></div>
 <div class="dif-box">${diferenciaUSD === 0 ? 'Sin diferencia' : diferenciaUSD > 0 ? `Sobrante: +$${diferenciaUSD.toFixed(2)} USD` : `Faltante: -$${Math.abs(diferenciaUSD).toFixed(2)} USD`}</div>
+<div class="row"><span>Retiro dólares</span><span>USD $${retiroUSDNum.toFixed(2)}</span></div>
+<div class="row"><span>Quedan (mañana)</span><span>USD $${remanenteUSD.toFixed(2)}</span></div>
 ` : ''}
 <div class="sep"></div>
-<div class="row"><span>Queda en caja (mañana)</span><span>${fmt$(remanente)}</span></div>
+<div class="row"><span>Queda en caja pesos (mañana)</span><span>${fmt$(remanente)}</span></div>
 <div class="entrega-box">
-  <div style="font-size:10px;margin-bottom:2px">RETIRO AL SOBRE</div>
+  <div style="font-size:10px;margin-bottom:2px">RETIRO AL SOBRE (PESOS)</div>
   <div class="num">${fmt$(retiroNum)}</div>
 </div>
 ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
@@ -498,8 +508,10 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
       efectivo_sistema: esperado,
       efectivo_contado: contado,
       diferencia,
-      fondo:            remanente,   // remanente que queda en caja para mañana
-      entrega:          retiroNum,   // retiro que va al sobre
+      fondo:            remanente,     // remanente en pesos que queda para mañana
+      entrega:          retiroNum,     // retiro en pesos que va al sobre
+      fondo_usd:        remanenteUSD,  // remanente en dólares que queda para mañana
+      entrega_usd:      retiroUSDNum,  // retiro en dólares que va al sobre
       notas:            notasConUSD,
       cerrado:          true,
       cerrado_at:       new Date().toISOString(),  // momento exacto del cierre
@@ -571,6 +583,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
             <p className="text-sm font-bold text-emerald-700">Caja cerrada</p>
             <p className="text-xs text-emerald-600">
               Cerrada por {corteHoy?.usuario} · Retiro: {fmt$(corteHoy?.entrega ?? 0)} · Queda: {fmt$(corteHoy?.fondo ?? 0)}
+              {(corteHoy?.entrega_usd ?? 0) > 0 && ` · USD retiro: $${(corteHoy?.entrega_usd ?? 0).toFixed(2)} · quedan $${(corteHoy?.fondo_usd ?? 0).toFixed(2)}`}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -965,6 +978,11 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                 <p className="text-3xl font-bold text-blue-700">
                   ${esperadoUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>
+                {saldoAnteriorUSD > 0 && (
+                  <p className="text-[11px] text-blue-400 mt-0.5">
+                    Quedaban ${saldoAnteriorUSD.toFixed(2)} + entró ${efectivoUSD.monto.toFixed(2)}
+                  </p>
+                )}
                 <p className="text-xs text-blue-400 mt-1">
                   {efectivoUSD.transacciones} cobro{efectivoUSD.transacciones !== 1 ? 's' : ''} en USD
                   {efectivoUSD.tcPromedio > 0 ? ` · TC prom. $${efectivoUSD.tcPromedio.toFixed(2)}` : ''}
@@ -1005,6 +1023,29 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                 )}
               </div>
             </div>
+
+            {/* Retiro en dólares */}
+            {efectivoUSDContado !== '' && !cerrado && (
+              <div className="grid grid-cols-2 gap-5 mt-4">
+                <div>
+                  <p className="text-xs font-semibold text-zinc-500 mb-1.5">Retiro en dólares (al sobre)</p>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400 font-bold text-sm">USD</span>
+                    <input
+                      type="number" value={retiroUSD}
+                      onChange={e => setRetiroUSD(e.target.value)}
+                      className="w-full border-2 border-blue-200 rounded-lg pl-14 pr-4 py-4 text-2xl font-bold text-blue-800 focus:outline-none focus:border-blue-400"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 flex flex-col justify-center">
+                  <p className="text-xs font-semibold text-blue-400 mb-1">Dólares que quedan para mañana</p>
+                  <p className="text-3xl font-bold text-blue-700">${remanenteUSD.toFixed(2)}</p>
+                  <p className="text-xs text-blue-400 mt-1">Contado ${contadoUSD.toFixed(2)} − retiro ${retiroUSDNum.toFixed(2)}</p>
+                </div>
+              </div>
+            )}
           </div>
 
         {/* Notas */}
