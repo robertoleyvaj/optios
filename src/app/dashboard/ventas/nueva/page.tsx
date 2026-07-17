@@ -859,7 +859,7 @@ export default function NuevaVentaPage() {
   }
   /* ── Header ── */
   .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
-  .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 0 auto 2mm; display: block; }
+  .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 4mm auto 0; display: block; }
   .b1  { font-size: 5.2mm; font-weight: 900; line-height: 1.15; }
   .b2  { font-size: 3.8mm; font-weight: 900; line-height: 1.2; }
   .dt  { font-size: 3mm; margin-top: 1.5mm; }
@@ -914,7 +914,6 @@ export default function NuevaVentaPage() {
 </div>
 
 <div class="hdr">
-  ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
   <div class="b1">${(SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal).toUpperCase()}</div>
   ${SUCURSAL_CONFIG[sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
   <div class="dt">${fechaFmt} | ${horaHoy}</div>
@@ -957,6 +956,8 @@ ${entregaHtml}
   <div>${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
   <div class="fbar">... Gracias por su compra! ...</div>
 </div>
+
+${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
 
 </body></html>`)
       win.document.close()

@@ -130,7 +130,7 @@ function imprimirTicket(v: Venta, logo = '') {
     -webkit-font-smoothing: none;
   }
   .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
-  .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 0 auto 2mm; display: block; }
+  .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 4mm auto 0; display: block; }
   .b1  { font-size: 5.2mm; font-weight: 900; line-height: 1.15; }
   .b2  { font-size: 3.8mm; font-weight: 900; line-height: 1.2; }
   .dt  { font-size: 3mm; margin-top: 1.5mm; }
@@ -173,7 +173,6 @@ function imprimirTicket(v: Venta, logo = '') {
 <div class="tip">Configurar impresion: <b>Margenes → Ninguno</b> · Sin encabezados/pies</div>
 
 <div class="hdr">
-  ${logo ? `<img src="${logo}" class="logo" alt="" />` : ''}
   <div class="b1">${(SUCURSAL_CONFIG[v.sucursal]?.nombreLinea1 ?? v.sucursal).toUpperCase()}</div>
   ${SUCURSAL_CONFIG[v.sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[v.sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
   <div class="dt">${fechaFmt} | ${horaFmt}</div>
@@ -215,6 +214,8 @@ ${pagosHtml}
   <div>${SUCURSAL_CONFIG[v.sucursal]?.web ?? 'gonmx.com'}</div>
   <div class="fbar">... Gracias por su compra! ...</div>
 </div>
+
+${logo ? `<img src="${logo}" class="logo" alt="" />` : ''}
 
 </body></html>`)
   win.document.close()
