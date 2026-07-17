@@ -843,24 +843,25 @@ export default function NuevaVentaPage() {
       win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Ticket ${folio}</title>
 <style>
-  @page { size: 58mm auto; margin: 0 5mm 4mm 5mm; }
+  @page { size: 58mm auto; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { height: auto; }
   body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-size: 3.4mm;
-    font-weight: 500;
+    font-size: 3.3mm;
+    font-weight: 600;
     color: #000;
     background: #fff;
-    width: 100%;
+    width: 48mm;
+    padding: 1mm 1.5mm 4mm 1.5mm;
     overflow: visible;
     -webkit-font-smoothing: none;
   }
   /* ── Header ── */
   .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
-  .logo { max-width: 44mm; max-height: 20mm; object-fit: contain; margin: 0 auto 2mm; display: block; }
-  .b1  { font-size: 6mm; font-weight: 900; line-height: 1.2; }
-  .b2  { font-size: 4.5mm; font-weight: 900; line-height: 1.2; }
+  .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 0 auto 2mm; display: block; }
+  .b1  { font-size: 5.2mm; font-weight: 900; line-height: 1.15; }
+  .b2  { font-size: 3.8mm; font-weight: 900; line-height: 1.2; }
   .dt  { font-size: 3mm; margin-top: 1.5mm; }
   /* ── Info ── */
   .info-sec { margin-bottom: 3mm; padding-bottom: 2mm; border-bottom: 0.4mm dashed #000; }
@@ -869,7 +870,7 @@ export default function NuevaVentaPage() {
   /* ── Folio ── */
   .folio { text-align: center; border: 0.5mm solid #000; padding: 2.5mm 1mm; margin-bottom: 3mm; }
   .folio-lbl { font-size: 3mm; }
-  .folio-num { font-size: 6mm; font-weight: 900; margin-top: 1mm; }
+  .folio-num { font-size: 5.2mm; font-weight: 900; margin-top: 1mm; }
   /* ── Productos ── */
   table.prods { width: 100%; border-collapse: collapse; margin-bottom: 2mm; font-size: 3.2mm; }
   table.prods th { border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 1.5mm 1mm; text-align: left; font-weight: 900; }
@@ -877,7 +878,7 @@ export default function NuevaVentaPage() {
   .tc { width: 6mm; text-align: center; }
   .tp { text-align: right; width: 14mm; }
   /* ── Total ── */
-  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 4.6mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; }
   .pago-line { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.4mm; padding: 2mm 0 0; margin-bottom: 3mm; }
   /* ── Pagos ── */
   .ph-title { text-align: center; font-weight: 900; font-size: 3.2mm; border-top: 0.4mm dashed #000; border-bottom: 0.4mm dashed #000; padding: 1.5mm 0; margin: 2.5mm 0 2mm; }
@@ -889,7 +890,7 @@ export default function NuevaVentaPage() {
   .pagos-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.2mm; border-top: 0.5mm solid #000; padding-top: 1.5mm; margin: 1.5mm 0 3mm; }
   .saldo-box { border: 0.5mm solid #000; padding: 3mm 2mm; text-align: center; margin-bottom: 3mm; }
   .saldo-lbl { font-size: 3mm; line-height: 1.4; }
-  .saldo-val { font-size: 6mm; font-weight: 900; margin-top: 1.5mm; }
+  .saldo-val { font-size: 5.2mm; font-weight: 900; margin-top: 1.5mm; }
   /* ── Info cards ── */
   .icard { padding: 2.5mm 0; border-top: 0.4mm dashed #000; font-size: 3mm; line-height: 1.5; }
   /* ── Firma ── */
