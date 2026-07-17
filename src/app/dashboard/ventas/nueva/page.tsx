@@ -428,14 +428,17 @@ export default function NuevaVentaPage() {
   const lineaEnPesos = (l: LineaPago) =>
     l.moneda === 'USD' ? Number(l.monto || 0) * (tipoCambio || 0) : Number(l.monto || 0)
   const recibido = Math.round(lineasPago.reduce((s, l) => s + lineaEnPesos(l), 0) * 100) / 100
-  const saldoCalc = Math.round((total - recibido) * 100) / 100
-  const sobrepago = recibido - total > 0.01
   const usaDolares = lineasPago.some(l => l.moneda === 'USD')
+  // Tolerancia de redondeo: al cobrar en dólares enteros, la conversión casi nunca da
+  // exacto. Aceptamos hasta ~1 dólar de diferencia y la venta se considera liquidada.
+  const tolerancia = usaDolares && tipoCambio ? tipoCambio + 0.01 : 0.5
+  const sobrepago = recibido - total > tolerancia
+  const saldoCalc = Math.abs(total - recibido) <= tolerancia ? 0 : Math.round((total - recibido) * 100) / 100
   const metodosUsados = [...new Set(lineasPago.filter(l => Number(l.monto) > 0).map(l => l.metodo))]
   const metodoVenta = metodosUsados.length === 0 ? 'efectivo'
     : metodosUsados.length === 1 ? metodosUsados[0] : 'mixto'
-  // Válido para guardar: no sobrepasa el total. En liquidar debe cubrir el total.
-  const pagoValido = !sobrepago && (modoPago === 'liquidar' ? Math.abs(recibido - total) < 0.5 : recibido > 0)
+  // Válido para guardar: en liquidar debe cubrir el total (dentro de la tolerancia).
+  const pagoValido = !sobrepago && (modoPago === 'liquidar' ? Math.abs(recibido - total) <= tolerancia : recibido > 0)
   // Firma de la moneda de la única línea, para que el efecto reaccione al cambiar MXN↔USD
   const lineaUnicaMoneda = lineasPago.length === 1 ? lineasPago[0].moneda : 'multi'
 
@@ -449,7 +452,7 @@ export default function NuevaVentaPage() {
           const t = String(total)
           if (prev[0].monto !== t) return [{ ...prev[0], monto: t }]
         } else if (prev[0].moneda === 'USD' && tipoCambio) {
-          const t = String(Math.round((total / tipoCambio) * 100) / 100)
+          const t = String(Math.round(total / tipoCambio))  // dólar entero más cercano
           if (prev[0].monto !== t) return [{ ...prev[0], monto: t }]
         }
       }
@@ -515,7 +518,10 @@ export default function NuevaVentaPage() {
       const folio: string = `${prefijo}-${String(nV).padStart(4, '0')}`
 
       // El anticipo/recibido es la suma de las líneas de pago (en pesos).
-      const anticoNum = cotizacion ? 0 : recibido
+      // En liquidar dentro de la tolerancia de redondeo, la venta queda cubierta al 100%
+      // (el pequeño desfase por redondear dólares se absorbe: la venta cuenta como el total).
+      const liquidadaPorRedondeo = modoPago === 'liquidar' && saldoCalc === 0
+      const anticoNum = cotizacion ? 0 : (liquidadaPorRedondeo ? total : recibido)
       const saldoNum  = total - anticoNum
       setAnticipoGuardado(anticoNum)
       setSaldoGuardado(saldoNum)
@@ -606,21 +612,38 @@ export default function NuevaVentaPage() {
         const nombrePac = `${clienteNombre} ${clienteApellido}`.trim()
         const tipoPago  = saldoDB === 0 ? 'liquidacion' : 'anticipo'
 
-        for (const l of lineasPago) {
-          const montoOrigen = Number(l.monto || 0)
-          if (montoOrigen <= 0) continue
-          const esUSDLinea = l.moneda === 'USD' && !!tipoCambio
-          const montoPesos = esUSDLinea
-            ? Math.round(montoOrigen * tipoCambio! * 100) / 100
-            : montoOrigen
+        // Pesos por línea (dólares → equivalente en pesos)
+        const lineasPay = lineasPago
+          .map(l => {
+            const montoOrigen = Number(l.monto || 0)
+            const esUSDLinea = l.moneda === 'USD' && !!tipoCambio
+            const montoPesos = esUSDLinea ? Math.round(montoOrigen * tipoCambio! * 100) / 100 : montoOrigen
+            return { metodo: l.metodo, moneda: l.moneda, montoOrigen, esUSDLinea, montoPesos }
+          })
+          .filter(x => x.montoOrigen > 0)
+
+        // Ajustar el residuo del redondeo (dólares enteros) en la última línea, para que
+        // los pagos sumen exacto al anticipo registrado (en liquidar = el total).
+        const sumaPesos = lineasPay.reduce((s, x) => s + x.montoPesos, 0)
+        const diff = Math.round((anticoDB - sumaPesos) * 100) / 100
+        if (lineasPay.length > 0 && Math.abs(diff) > 0.001) {
+          const last = lineasPay[lineasPay.length - 1]
+          last.montoPesos = Math.round((last.montoPesos + diff) * 100) / 100
+        }
+
+        for (const x of lineasPay) {
+          // TC efectivo de la línea (absorbe el redondeo si se ajustó el residuo)
+          const tcLinea = x.esUSDLinea && x.montoOrigen > 0
+            ? Math.round((x.montoPesos / x.montoOrigen) * 100) / 100
+            : null
 
           // caja_movimientos (contabilidad general)
           await supabase.from('caja_movimientos').insert({
             tipo:           'ingreso',
             concepto:       `Venta ${folio} — ${nombrePac || 'Sin nombre'}`,
-            monto:          montoPesos,
+            monto:          x.montoPesos,
             sucursal,
-            metodo_pago:    l.metodo,
+            metodo_pago:    x.metodo,
             referencia:     folio,
             registrado_por: atendioPor,
           })
@@ -630,11 +653,11 @@ export default function NuevaVentaPage() {
             venta_id:       ventaId,
             folio_venta:    folio,
             paciente:       nombrePac,
-            monto:          montoPesos,
-            metodo_pago:    l.metodo,
-            moneda:         l.moneda,
-            monto_origen:   montoOrigen,
-            tipo_cambio:    esUSDLinea ? tipoCambio : null,
+            monto:          x.montoPesos,
+            metodo_pago:    x.metodo,
+            moneda:         x.moneda,
+            monto_origen:   x.montoOrigen,
+            tipo_cambio:    tcLinea,
             tipo:           tipoPago,
             sucursal,
             registrado_por: atendioPor,
@@ -647,8 +670,8 @@ export default function NuevaVentaPage() {
 
           // comisión terminal por cada línea de tarjeta
           await registrarComisionTerminal({
-            metodoPago: l.metodo,
-            monto:      montoPesos,
+            metodoPago: x.metodo,
+            monto:      x.montoPesos,
             folio,
             sucursal,
           })
