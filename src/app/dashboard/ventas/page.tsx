@@ -71,7 +71,7 @@ function fechaHoy() {
   return new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function imprimirTicket(v: Venta) {
+function imprimirTicket(v: Venta, logo = '') {
   // Usar la fecha/hora originales de la venta
   const fechaFmt = v.fecha
   const horaFmt  = v.hora
@@ -128,6 +128,7 @@ function imprimirTicket(v: Venta) {
     overflow: visible;
   }
   .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
+  .logo { max-width: 44mm; max-height: 20mm; object-fit: contain; margin: 0 auto 2mm; display: block; }
   .b1  { font-size: 6mm; font-weight: 900; line-height: 1.2; }
   .b2  { font-size: 4.5mm; font-weight: 900; line-height: 1.2; }
   .dt  { font-size: 3mm; margin-top: 1.5mm; }
@@ -142,7 +143,8 @@ function imprimirTicket(v: Venta) {
   table.prods td { padding: 1.5mm 1mm; vertical-align: top; line-height: 1.4; }
   .tc { width: 6mm; text-align: center; }
   .tp { text-align: right; width: 14mm; }
-  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; margin-bottom: 3mm; }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; }
+  .pago-line { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.4mm; padding: 2mm 0 0; margin-bottom: 3mm; }
   .ph-title { text-align: center; font-weight: 900; font-size: 3.2mm; border-top: 0.4mm dashed #000; border-bottom: 0.4mm dashed #000; padding: 1.5mm 0; margin: 2.5mm 0 2mm; }
   .ph-line { display: none; }
   table.pagos { width: 100%; border-collapse: collapse; font-size: 3mm; }
@@ -158,6 +160,7 @@ function imprimirTicket(v: Venta) {
   .fline-rule { border-bottom: 0.4mm solid #000; height: 6mm; }
   .flbl { font-size: 3mm; text-align: center; margin-top: 1mm; }
   .footer { border-top: 0.5mm solid #000; padding-top: 3mm; margin-top: 2mm; text-align: center; font-size: 3mm; line-height: 2; }
+  .faddr { font-weight: 700; line-height: 1.4; margin-bottom: 1.5mm; }
   .fatendio { font-weight: 900; }
   .fbar { margin-top: 2.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; font-weight: 900; font-size: 3.5mm; }
   * { page-break-inside: avoid; break-inside: avoid; }
@@ -168,6 +171,7 @@ function imprimirTicket(v: Venta) {
 <div class="tip">Configurar impresion: <b>Margenes → Ninguno</b> · Sin encabezados/pies</div>
 
 <div class="hdr">
+  ${logo ? `<img src="${logo}" class="logo" alt="" />` : ''}
   <div class="b1">${(SUCURSAL_CONFIG[v.sucursal]?.nombreLinea1 ?? v.sucursal).toUpperCase()}</div>
   ${SUCURSAL_CONFIG[v.sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[v.sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
   <div class="dt">${fechaFmt} | ${horaFmt}</div>
@@ -189,6 +193,7 @@ function imprimirTicket(v: Venta) {
 </table>
 
 <div class="total-row"><span>TOTAL:</span><span>$${v.total.toLocaleString('es-MX')}</span></div>
+<div class="pago-line"><span>Forma de pago:</span><span>${metodoBadge[v.metodo]?.label ?? v.metodo}</span></div>
 
 ${pagosHtml}
 
@@ -201,6 +206,7 @@ ${pagosHtml}
 </div>
 
 <div class="footer">
+  ${SUCURSAL_CONFIG[v.sucursal]?.direccion ? `<div class="faddr">${SUCURSAL_CONFIG[v.sucursal].direccion}</div>` : ''}
   <div>Tel. ${SUCURSAL_CONFIG[v.sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[v.sucursal]?.whatsapp ?? '664 834 3018'}</div>
   <div>${SUCURSAL_CONFIG[v.sucursal]?.horario ?? 'Lun-Sab 10:00-18:00'}</div>
   ${vendedorCorto ? `<div class="fatendio">Atendio: ${vendedorCorto}</div>` : ''}
@@ -227,6 +233,13 @@ export default function VentasPage() {
   )
   const [detalle, setDetalle]       = useState<Venta | null>(null)
   const [showAbono, setShowAbono]   = useState(false)
+  const [ticketLogo, setTicketLogo] = useState('')
+
+  // Logo del ticket (configurado en Ajustes)
+  useEffect(() => {
+    createClient().from('configuracion').select('valor').eq('clave', 'ticket_logo').maybeSingle()
+      .then(({ data }) => { if (data?.valor) setTicketLogo(data.valor) })
+  }, [])
   const [abonoMonto, setAbonoMonto]   = useState('')
   const [abonoMetodo, setAbonoMetodo] = useState('efectivo')
   const [guardandoAbono, setGuardandoAbono] = useState(false)
@@ -843,7 +856,7 @@ export default function VentasPage() {
                   <CheckCircle2 className="w-4 h-4" /> Venta liquidada al 100%
                 </div>
               )}
-              <button onClick={() => imprimirTicket(detalle)}
+              <button onClick={() => imprimirTicket(detalle, ticketLogo)}
                 className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
                 <Printer className="w-4 h-4" /> Reimprimir ticket
               </button>
