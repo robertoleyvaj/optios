@@ -91,7 +91,6 @@ const CATEGORIAS_EGRESO = [
   { value: 'bono_diario',        label: 'Bono diario' },
   { value: 'adelanto',           label: 'Adelanto sueldo' },
   { value: 'retiro_admin',       label: 'Retiro admin' },
-  { value: 'nomina',             label: 'Nómina' },
   { value: 'compras',            label: 'Compras' },
   { value: 'otros',              label: 'Otro' },
 ]
@@ -281,11 +280,13 @@ export default function CajaPage() {
       setEfectivoUSD({ monto: usdMonto, transacciones: usdTx, tcPromedio: usdTx > 0 ? usdTCSum / usdTx : 0 })
     }
 
-    // 3. Gastos ACUMULADOS del periodo (desde el último cierre)
+    // 3. Gastos ACUMULADOS del periodo (desde el último cierre).
+    //    Solo los "de caja" (salen del cajón); los de empresa viven en finanzas.
     const { data: gastosData } = await sb
       .from('gastos')
       .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
       .eq('sucursal', sucursal)
+      .eq('es_caja', true)
       .gt('created_at', periodStart)
       .order('created_at', { ascending: true })
     setGastosHoy(gastosData ?? [])
@@ -361,23 +362,18 @@ export default function CajaPage() {
       monto,
       metodo_pago: egresoMetodoPago,
       sucursal:    usuario.sucursal,
+      es_caja:     true,   // se agregó desde la caja → sale del cajón
     })
     if (error) {
       setErrorGuardado(`Error al guardar egreso: ${error.message}`)
       setGuardandoEgreso(false)
       return
     }
-    const { data } = await sb
-      .from('gastos')
-      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
-      .eq('sucursal', usuario.sucursal)
-      .eq('fecha', hoy)
-      .order('created_at', { ascending: true })
-    setGastosHoy(data ?? [])
     setEgresoMonto('')
     setEgresoDescripcion('')
     setShowEgresoForm(false)
     setGuardandoEgreso(false)
+    await cargarDatos(usuario.sucursal, usuario.rol)  // refresca respetando periodo + es_caja
   }
 
   // ── Imprimir corte ──

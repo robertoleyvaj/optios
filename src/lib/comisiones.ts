@@ -59,5 +59,6 @@ export async function registrarComisionTerminal({
     metodo_pago:    'banco',
     sucursal,
     registrado_por: 'sistema',
+    es_caja:        false,   // comisión bancaria: no sale del cajón, es gasto de empresa
   })
 }
