@@ -414,14 +414,22 @@ export default function NuevaVentaPage() {
   // El total al cliente es el subtotal. La comisión bancaria la absorbe la tienda (se registra en finanzas).
   const total = subtotal
 
-  // Tipo de cambio USD → MXN
+  // Tipo de cambio USD → MXN — DOF oficial (Banxico FIX), con respaldo de mercado
   const fetchTipoCambio = async () => {
     setLoadingTC(true)
     setTcError(false)
     try {
-      const res = await fetch('https://open.er-api.com/v6/latest/USD')
+      // 1. Intentar DOF oficial (Banxico, vía nuestra ruta de servidor)
+      const res = await fetch('/api/tipo-cambio')
       const data = await res.json()
-      if (data?.rates?.MXN) setTipoCambio(Math.round(data.rates.MXN * 100) / 100)
+      if (res.ok && data?.tipoCambio) {
+        setTipoCambio(Math.round(data.tipoCambio * 100) / 100)
+        return
+      }
+      // 2. Respaldo: API de mercado
+      const res2 = await fetch('https://open.er-api.com/v6/latest/USD')
+      const data2 = await res2.json()
+      if (data2?.rates?.MXN) setTipoCambio(Math.round(data2.rates.MXN * 100) / 100)
       else setTcError(true)
     } catch {
       setTcError(true)
@@ -459,12 +467,12 @@ export default function NuevaVentaPage() {
       const anticoNum = modoPago === 'liquidar' ? total : Number(anticipo || 0)
       const saldoNum  = total - anticoNum
 
-      // Si la venta es en USD, guardamos el monto en dólares
-      const esUSD = !cotizacion && metodoPago === 'efectivo' && moneda === 'USD' && tipoCambio
-      const totalDB    = esUSD ? Math.round((total / tipoCambio!) * 100) / 100 : total
-      const subtotalDB = esUSD ? Math.round((subtotal / tipoCambio!) * 100) / 100 : subtotal
-      const anticoDB   = esUSD ? Math.round((anticoNum / tipoCambio!) * 100) / 100 : anticoNum
-      const saldoDB    = esUSD ? Math.round((saldoNum / tipoCambio!) * 100) / 100 : saldoNum
+      // La venta SIEMPRE se guarda en pesos. El dólar es solo traducción visual
+      // para el paciente; el rastreo de efectivo en dólares vive en el pago (caja USD).
+      const totalDB    = total
+      const subtotalDB = subtotal
+      const anticoDB   = anticoNum
+      const saldoDB    = saldoNum
 
       // ── 2. Auto-crear paciente si no existe ────────────────
       // Si el cliente ya viene vinculado desde expedientes, usamos su id.
@@ -514,8 +522,8 @@ export default function NuevaVentaPage() {
           fecha_entrega: fechaEntrega || null,
           atendido_por:  atendioPor,
           usuario_id:    usuarioId,
-          moneda:       esUSD ? 'USD' : 'MXN',
-          tipo_cambio:  esUSD ? tipoCambio : null,
+          moneda:       'MXN',   // la venta siempre vive en pesos
+          tipo_cambio:  null,
         })
         .select('id')
         .single()
