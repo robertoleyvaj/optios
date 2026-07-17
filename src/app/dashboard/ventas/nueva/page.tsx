@@ -790,11 +790,12 @@ export default function NuevaVentaPage() {
 
     const handleImprimirTicket = () => {
       setNotaImpresa(true)
-      // Usuario que atendió — formato "Nombre A."
-      let atendioPorRaw = ''
-      try { atendioPorRaw = JSON.parse(localStorage.getItem('optios_demo_user') || '{}')?.nombre || '' } catch {}
-      const _ap = atendioPorRaw.trim().split(/\s+/)
-      const atendioPor = _ap.length >= 2 ? `${_ap[0]} ${_ap[1][0].toUpperCase()}.` : _ap[0] || ''
+      // Usuario que atendió — usa el "Nombre en receta" configurado; si no, arma "Nombre A."
+      let u: { nombre?: string; nombre_receta?: string } = {}
+      try { u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch {}
+      const recetaNombre = (u.nombre_receta || '').trim()
+      const _ap = (u.nombre || '').trim().split(/\s+/)
+      const atendioPor = recetaNombre || (_ap.length >= 2 ? `${_ap[0]} ${_ap[1][0].toUpperCase()}.` : _ap[0] || '')
 
       const fechaFmt = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
 

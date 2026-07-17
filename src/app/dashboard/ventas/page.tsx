@@ -71,14 +71,14 @@ function fechaHoy() {
   return new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function imprimirTicket(v: Venta, logo = '') {
+function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
   // Usar la fecha/hora originales de la venta
   const fechaFmt = v.fecha
   const horaFmt  = v.hora
 
-  // Vendedor: "Nombre A."
+  // Quién atendió: "Nombre en receta" si existe; si no, arma "Nombre A."
   const _vp = (v.vendedor || '').trim().split(/\s+/)
-  const vendedorCorto = _vp.length >= 2 ? `${_vp[0]} ${_vp[1][0].toUpperCase()}.` : _vp[0] || ''
+  const vendedorCorto = atendioReceta.trim() || (_vp.length >= 2 ? `${_vp[0]} ${_vp[1][0].toUpperCase()}.` : _vp[0] || '')
 
   const productosRows = v.items.map((item) => {
     const precioUnit = item.precio * (1 - item.descuento / 100)
@@ -237,11 +237,22 @@ export default function VentasPage() {
   const [detalle, setDetalle]       = useState<Venta | null>(null)
   const [showAbono, setShowAbono]   = useState(false)
   const [ticketLogo, setTicketLogo] = useState('')
+  const [recetaMap, setRecetaMap] = useState<Record<string, string>>({})
 
   // Logo del ticket (configurado en Ajustes)
   useEffect(() => {
     createClient().from('configuracion').select('valor').eq('clave', 'ticket_logo').maybeSingle()
       .then(({ data }) => { if (data?.valor) setTicketLogo(data.valor) })
+  }, [])
+
+  // Mapa nombre completo → nombre en receta (para el "Atendió" del ticket)
+  useEffect(() => {
+    createClient().from('usuarios').select('nombre, nombre_receta')
+      .then(({ data }) => {
+        const m: Record<string, string> = {}
+        for (const u of data ?? []) if (u.nombre_receta) m[u.nombre] = u.nombre_receta
+        setRecetaMap(m)
+      })
   }, [])
   const [abonoMonto, setAbonoMonto]   = useState('')
   const [abonoMetodo, setAbonoMetodo] = useState('efectivo')
@@ -859,7 +870,7 @@ export default function VentasPage() {
                   <CheckCircle2 className="w-4 h-4" /> Venta liquidada al 100%
                 </div>
               )}
-              <button onClick={() => imprimirTicket(detalle, ticketLogo)}
+              <button onClick={() => imprimirTicket(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
                 className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
                 <Printer className="w-4 h-4" /> Reimprimir ticket
               </button>
