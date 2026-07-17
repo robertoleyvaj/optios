@@ -235,7 +235,7 @@ export default function VentasPage() {
   const [cargando, setCargando]     = useState(true)
   const [busqueda, setBusqueda]     = useState('')
   const [sucursal, setSucursal]     = useState('Todas')
-  const [filtroPago, setFiltroPago] = useState<'todas' | 'pendientes' | 'liquidadas'>(
+  const [filtroPago, setFiltroPago] = useState<'todas' | 'pendientes' | 'liquidadas' | 'cotizaciones'>(
     searchParams.get('pendientes') === '1' ? 'pendientes' : 'todas'
   )
   const [detalle, setDetalle]       = useState<Venta | null>(null)
@@ -392,11 +392,15 @@ export default function VentasPage() {
     const matchQ = v.cliente.toLowerCase().includes(q) || v.id.toLowerCase().includes(q) ||
       v.items.some(i => i.nombre.toLowerCase().includes(q))
     const matchS = sucursal === 'Todas' || v.sucursal === sucursal
+    if (!matchQ || !matchS) return false
+    const esCot = v.id.startsWith('COT-')
+    // La pestaña "Cotizaciones" muestra solo cotizaciones; las demás, solo ventas reales
+    if (filtroPago === 'cotizaciones') return esCot
+    if (esCot) return false
     const sp = saldoPendiente(v)
-    const matchP = filtroPago === 'todas'
+    return filtroPago === 'todas'
       || (filtroPago === 'pendientes' && sp > 0)
       || (filtroPago === 'liquidadas' && sp === 0)
-    return matchQ && matchS && matchP
   })
 
   const hoy = fechaHoy()
@@ -624,12 +628,12 @@ export default function VentasPage() {
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
           </div>
           <div className="flex bg-zinc-100 rounded p-0.5 gap-0.5 text-xs">
-            {(['todas', 'pendientes', 'liquidadas'] as const).map(f => (
+            {(['todas', 'pendientes', 'liquidadas', 'cotizaciones'] as const).map(f => (
               <button key={f} onClick={() => setFiltroPago(f)}
                 className={`px-2.5 py-1 rounded font-medium transition-all ${
                   filtroPago === f ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
                 }`}>
-                {f === 'todas' ? 'Todas' : f === 'pendientes' ? 'Con saldo' : 'Liquidadas'}
+                {f === 'todas' ? 'Todas' : f === 'pendientes' ? 'Con saldo' : f === 'liquidadas' ? 'Liquidadas' : 'Cotizaciones'}
               </button>
             ))}
           </div>
@@ -666,7 +670,11 @@ export default function VentasPage() {
                       className="hover:bg-zinc-100 transition-colors cursor-pointer group">
                       <td className="px-5 py-3.5">
                         <span className="text-xs font-mono font-semibold text-zinc-500">{v.id}</span>
-                        {saldo > 0 && (
+                        {v.id.startsWith('COT-') ? (
+                          <span className="ml-2 text-xs font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                            Cotización
+                          </span>
+                        ) : saldo > 0 && (
                           <span className="ml-2 text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
                             ${saldo.toLocaleString('es-MX')} pendiente
                           </span>
