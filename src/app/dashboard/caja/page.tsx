@@ -24,6 +24,9 @@ type PagoVenta = {
   paciente: string
   monto: number
   metodo_pago: MetodoPago
+  moneda?: string
+  monto_origen?: number
+  tipo_cambio?: number
   tipo: 'anticipo' | 'abono' | 'liquidacion'
   sucursal: string
   registrado_por: string
@@ -213,22 +216,8 @@ export default function CajaPage() {
       .gte('created_at', `${hoy}T00:00:00`)
       .lte('created_at', `${hoy}T23:59:59`)
 
-    // 3. Para abonos a ventas anteriores, traer info de moneda/tipo_cambio de esas ventas
     const pagosHoyList = pagosData ?? []
     setPagosHoy(pagosHoyList)
-
-    const ventaIdsAbonos = [...new Set(pagosHoyList.map(p => p.venta_id))]
-    let ventaMap = new Map((ventasData ?? []).map(v => [v.id, v]))
-    if (ventaIdsAbonos.length > 0) {
-      const { data: ventasAbonosData } = await sb
-        .from('ventas')
-        .select('id, moneda, tipo_cambio')
-        .in('id', ventaIdsAbonos)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const v of (ventasAbonosData ?? []) as any[]) {
-        if (!ventaMap.has(v.id)) ventaMap.set(v.id, v)
-      }
-    }
 
     {
       // Ventas con al menos un pago en pagos_venta hoy
@@ -237,12 +226,13 @@ export default function CajaPage() {
       const resumen = JSON.parse(JSON.stringify(RESUMEN_VACIO)) as Record<MetodoPago, ResumenMetodo>
       let usdMonto = 0, usdTx = 0, usdTCSum = 0
 
-      // Sumar todos los pagos registrados hoy (anticipos + abonos + liquidaciones)
+      // Sumar todos los pagos registrados hoy (anticipos + abonos + liquidaciones).
+      // La moneda vive en el PAGO: efectivo USD va a la caja de dólares (con su monto
+      // original en USD), todo lo demás cuenta en pesos por su método.
       for (const p of pagosHoyList) {
         const key = p.metodo_pago as MetodoPago
-        const vo = ventaMap.get(p.venta_id)
-        if (key === 'efectivo' && vo?.moneda === 'USD') {
-          usdMonto += Number(p.monto); usdTx++; usdTCSum += Number(vo.tipo_cambio ?? 0)
+        if (key === 'efectivo' && p.moneda === 'USD') {
+          usdMonto += Number(p.monto_origen ?? 0); usdTx++; usdTCSum += Number(p.tipo_cambio ?? 0)
         } else if (resumen[key]) {
           resumen[key] = { monto: resumen[key].monto + Number(p.monto), transacciones: resumen[key].transacciones + 1 }
         }
