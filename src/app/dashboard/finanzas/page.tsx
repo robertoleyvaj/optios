@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { hoyLocal } from '@/lib/fecha'
+import { hoyLocal, rangoDiaLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
 import {
   TrendingUp, TrendingDown, DollarSign, FlaskConical,
@@ -143,6 +143,8 @@ function FinanzasPage() {
   const cargar = useCallback(async () => {
     setCargando(true)
     const { inicio, fin } = getDateRange(periodo, desde, hasta)
+    const rangoInicio = rangoDiaLocal(inicio).start
+    const rangoFin    = rangoDiaLocal(fin).end
     const supabase = createClient()
 
     // Cobrado: lo que efectivamente entró de ventas del período (total - saldo)
@@ -150,8 +152,8 @@ function FinanzasPage() {
       .from('ventas')
       .select('folio, total, saldo, created_at, atendido_por')
       .eq('es_cotizacion', false)
-      .gte('created_at', `${inicio}T00:00:00`)
-      .lte('created_at', `${fin}T23:59:59`)
+      .gte('created_at', rangoInicio)
+      .lte('created_at', rangoFin)
       .order('created_at', { ascending: false })
     if (sucursal !== 'Todas') qVentas = qVentas.eq('sucursal', sucursal)
     const { data: ventasData } = await qVentas

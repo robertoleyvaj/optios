@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { rangoDiaLocal } from '@/lib/fecha'
 import { createClient } from '@/lib/supabase/client'
 import { TrendingUp, Zap, Award, ChevronLeft, ChevronRight, ExternalLink, Star } from 'lucide-react'
 import Link from 'next/link'
@@ -161,6 +162,7 @@ export default function MiDesempenoPage() {
       try {
         const sb = createClient()
         const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+        const rangoHoy = rangoDiaLocal(hoyStr)  // día completo en hora Tijuana
         const inicio = new Date(anio, mes, 1).toISOString()
         const fin    = new Date(anio, mes + 1, 0, 23, 59, 59).toISOString()
         const esMesActualFetch = mes === now.getMonth() && anio === now.getFullYear()
@@ -173,7 +175,7 @@ export default function MiDesempenoPage() {
               .gte('created_at', inicio).lte('created_at', fin),
             esMesActualFetch
               ? sb.from('ventas').select('total').eq('es_cotizacion', false)
-                  .gte('created_at', `${hoyStr}T00:00:00`).lte('created_at', `${hoyStr}T23:59:59`)
+                  .gte('created_at', rangoHoy.start).lte('created_at', rangoHoy.end)
               : Promise.resolve({ data: [] }),
             sb.from('metas').select('meta').eq('mes', mesStr),
           ])
@@ -194,7 +196,7 @@ export default function MiDesempenoPage() {
           const [rMes, rHoy] = await Promise.all([
             qBase(inicio, fin),
             esMesActualFetch
-              ? qBase(`${hoyStr}T00:00:00`, `${hoyStr}T23:59:59`)
+              ? qBase(rangoHoy.start, rangoHoy.end)
               : Promise.resolve({ data: [] }),
           ])
           const lista = rMes.data || []

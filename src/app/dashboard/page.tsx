@@ -180,11 +180,10 @@ export default function DashboardPage() {
       try {
         const { createClient } = await import('@/lib/supabase/client')
         const sb       = createClient()
-        const now      = new Date()
-        const startHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
-        const endHoy   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-        const { hoyLocal: getHoy } = await import('@/lib/fecha')
+        const { hoyLocal: getHoy, rangoDiaLocal } = await import('@/lib/fecha')
         const hoyStr   = getHoy()
+        // Día completo en hora Tijuana (mismo criterio que la caja)
+        const { start: startHoy, end: endHoy } = rangoDiaLocal(hoyStr)
 
         const [vSuc, vProp, citas, listos, retrasados, saldos, actVentas] = await Promise.all([
           // Total vendido hoy en la sucursal
@@ -192,15 +191,15 @@ export default function DashboardPage() {
             .eq('sucursal', sucursalEfectiva)
             .eq('es_cotizacion', false)
             .neq('estado', 'cancelada')
-            .gte('created_at', startHoy.toISOString())
-            .lte('created_at', endHoy.toISOString()),
+            .gte('created_at', startHoy)
+            .lte('created_at', endHoy),
           // Total vendido hoy por el usuario (en cualquier sucursal)
           sb.from('ventas').select('total')
             .eq('atendido_por', usuario.nombre)
             .eq('es_cotizacion', false)
             .neq('estado', 'cancelada')
-            .gte('created_at', startHoy.toISOString())
-            .lte('created_at', endHoy.toISOString()),
+            .gte('created_at', startHoy)
+            .lte('created_at', endHoy),
           // Citas de hoy
           sb.from('citas').select('id,hora,paciente,tipo,estado')
             .eq('fecha', hoyStr)
@@ -230,7 +229,7 @@ export default function DashboardPage() {
           // Actividad reciente (ventas de hoy)
           sb.from('ventas').select('id,folio,paciente_nombre,created_at,total')
             .eq('sucursal', sucursalEfectiva)
-            .gte('created_at', startHoy.toISOString())
+            .gte('created_at', startHoy)
             .order('created_at', { ascending: false })
             .limit(8),
         ])

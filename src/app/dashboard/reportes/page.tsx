@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { rangoDiaLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
 import {
   TrendingUp, ShoppingBag, Package, Target,
@@ -220,25 +221,29 @@ function ReportesPage() {
     const { inicio, fin } = getDateRange(periodo, desde, hasta)
     const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
     const sb = createClient()
+    // Rango del periodo en hora Tijuana (mismo criterio que caja e inicio)
+    const rangoInicio = rangoDiaLocal(inicio).start
+    const rangoFin    = rangoDiaLocal(fin).end
+    const rangoHoy    = rangoDiaLocal(hoyStr)
 
     // Query builder helpers
     const baseVentas = () => sb.from('ventas')
       .select('id, total, anticipo, saldo, sucursal, metodo_pago, atendido_por, created_at')
       .eq('es_cotizacion', false)
-      .gte('created_at', `${inicio}T00:00:00`)
-      .lte('created_at', `${fin}T23:59:59`)
+      .gte('created_at', rangoInicio)
+      .lte('created_at', rangoFin)
 
     let qVentas = baseVentas()
     let qHoy    = sb.from('ventas')
       .select('id, total, anticipo, saldo, sucursal, metodo_pago, atendido_por, created_at')
       .eq('es_cotizacion', false)
-      .gte('created_at', `${hoyStr}T00:00:00`)
-      .lte('created_at', `${hoyStr}T23:59:59`)
+      .gte('created_at', rangoHoy.start)
+      .lte('created_at', rangoHoy.end)
     let qCot    = sb.from('ventas')
       .select('id', { count: 'exact', head: true })
       .eq('es_cotizacion', true)
-      .gte('created_at', `${inicio}T00:00:00`)
-      .lte('created_at', `${fin}T23:59:59`)
+      .gte('created_at', rangoInicio)
+      .lte('created_at', rangoFin)
     let qLab    = sb.from('ordenes_lab')
       .select('estado')
       .neq('estado', 'entregado')
