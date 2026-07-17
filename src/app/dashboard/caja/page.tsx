@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { hoyLocal } from '@/lib/fecha'
+import { hoyLocal, rangoDiaLocal } from '@/lib/fecha'
 import { getSucursalActual } from '@/lib/session'
 import { useSession } from '@/hooks/useSession'
 import {
@@ -196,6 +196,8 @@ export default function CajaPage() {
     setCargando(true)
     const sb  = createClient()
     const hoy = hoyLocal()
+    // Rango del día en hora Tijuana (00:00–23:59 local), convertido a UTC para el filtro
+    const { start: inicioDia, end: finDia } = rangoDiaLocal(hoy)
 
     // 1. Pagos registrados HOY (por fecha de pago, no de venta)
     //    Incluye anticipos de ventas nuevas Y abonos/liquidaciones de ventas anteriores
@@ -203,8 +205,8 @@ export default function CajaPage() {
       .from('pagos_venta')
       .select('*')
       .eq('sucursal', sucursal)
-      .gte('created_at', `${hoy}T00:00:00`)
-      .lte('created_at', `${hoy}T23:59:59`)
+      .gte('created_at', inicioDia)
+      .lte('created_at', finDia)
       .order('created_at', { ascending: true })
 
     // 2. Ventas creadas hoy (para fallback: ventas sin registro en pagos_venta)
@@ -213,8 +215,8 @@ export default function CajaPage() {
       .select('id, metodo_pago, total, saldo, moneda, tipo_cambio')
       .eq('sucursal', sucursal)
       .in('estado', ['activa'])
-      .gte('created_at', `${hoy}T00:00:00`)
-      .lte('created_at', `${hoy}T23:59:59`)
+      .gte('created_at', inicioDia)
+      .lte('created_at', finDia)
 
     const pagosHoyList = pagosData ?? []
     setPagosHoy(pagosHoyList)
