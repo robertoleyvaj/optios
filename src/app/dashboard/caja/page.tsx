@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { hoyLocal } from '@/lib/fecha'
+import { hoyLocal, rangoDiaLocal } from '@/lib/fecha'
 import { getSucursalActual } from '@/lib/session'
 import { useSession } from '@/hooks/useSession'
 import {
@@ -179,7 +179,11 @@ export default function CajaPage() {
   const total         = totalMXN + (efectivoUSD.tcPromedio > 0 ? efectivoUSD.monto * efectivoUSD.tcPromedio : 0)
   const cerrado       = isClosed || corteHoy?.cerrado === true
 
-  const pagosPorMetodo = (m: MetodoPago) => pagosHoy.filter(p => p.metodo_pago === m)
+  // Detalle por método: efectivo muestra todo el periodo; tarjeta/transfer solo hoy
+  const rangoHoyTS = rangoDiaLocal(hoyLocal())
+  const pagosPorMetodo = (m: MetodoPago) => pagosHoy.filter(p =>
+    p.metodo_pago === m && (m === 'efectivo' || (p.created_at >= rangoHoyTS.start && p.created_at <= rangoHoyTS.end)),
+  )
 
   // ── Leer usuario (legacy localStorage para usuarios sin migrar) ──
   const [sucursalActual, setSucursalActual] = useState('')
@@ -224,6 +228,11 @@ export default function CajaPage() {
     setSaldoAnteriorUSD(Number(ultimoCorte?.fondo_usd ?? 0))
     setFechaCorteAnterior(ultimoCorte?.fecha ?? null)
 
+    // Rango de HOY (Tijuana): el efectivo acumula todo el periodo, pero tarjeta y
+    // transferencia se reinician cada día (van al banco, no se quedan en la caja).
+    const { start: inicioDiaTJ, end: finDiaTJ } = rangoDiaLocal(hoy)
+    const esHoy = (ts: string) => ts >= inicioDiaTJ && ts <= finDiaTJ
+
     // 1. Pagos ACUMULADOS desde el último cierre (no solo hoy)
     const { data: pagosData } = await sb
       .from('pagos_venta')
@@ -235,7 +244,7 @@ export default function CajaPage() {
     // 2. Ventas del periodo (fallback: ventas sin registro en pagos_venta)
     const { data: ventasData } = await sb
       .from('ventas')
-      .select('id, metodo_pago, total, saldo, moneda, tipo_cambio')
+      .select('id, metodo_pago, total, saldo, moneda, tipo_cambio, created_at')
       .eq('sucursal', sucursal)
       .in('estado', ['activa'])
       .gt('created_at', periodStart)
@@ -250,20 +259,20 @@ export default function CajaPage() {
       const resumen = JSON.parse(JSON.stringify(RESUMEN_VACIO)) as Record<MetodoPago, ResumenMetodo>
       let usdMonto = 0, usdTx = 0, usdTCSum = 0
 
-      // Sumar todos los pagos registrados hoy (anticipos + abonos + liquidaciones).
-      // La moneda vive en el PAGO: efectivo USD va a la caja de dólares (con su monto
-      // original en USD), todo lo demás cuenta en pesos por su método.
+      // Efectivo (pesos y dólares) acumula todo el periodo (se queda en el cajón).
+      // Tarjeta y transferencia solo cuentan si son de HOY (van al banco, se reinician diario).
       for (const p of pagosHoyList) {
         const key = p.metodo_pago as MetodoPago
         if (key === 'efectivo' && p.moneda === 'USD') {
           usdMonto += Number(p.monto_origen ?? 0); usdTx++; usdTCSum += Number(p.tipo_cambio ?? 0)
-        } else if (resumen[key]) {
+        } else if (key === 'efectivo') {
+          resumen.efectivo = { monto: resumen.efectivo.monto + Number(p.monto), transacciones: resumen.efectivo.transacciones + 1 }
+        } else if (resumen[key] && esHoy(p.created_at)) {
           resumen[key] = { monto: resumen[key].monto + Number(p.monto), transacciones: resumen[key].transacciones + 1 }
         }
       }
 
-      // Fallback: ventas de contado creadas hoy sin registro en pagos_venta
-      //    (ventas anteriores a que existiera pagos_venta)
+      // Fallback: ventas de contado sin registro en pagos_venta (misma regla)
       for (const v of (ventasData ?? [])) {
         if (ventasConPagos.has(v.id)) continue
         const recibido = Math.max(0, Number(v.total) - Number(v.saldo ?? 0))
@@ -271,7 +280,9 @@ export default function CajaPage() {
         const key = v.metodo_pago as MetodoPago
         if (key === 'efectivo' && v.moneda === 'USD') {
           usdMonto += recibido; usdTx++; usdTCSum += Number(v.tipo_cambio ?? 0)
-        } else if (resumen[key]) {
+        } else if (key === 'efectivo') {
+          resumen.efectivo = { monto: resumen.efectivo.monto + recibido, transacciones: resumen.efectivo.transacciones + 1 }
+        } else if (resumen[key] && esHoy(v.created_at)) {
           resumen[key] = { monto: resumen[key].monto + recibido, transacciones: resumen[key].transacciones + 1 }
         }
       }
