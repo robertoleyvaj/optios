@@ -8,7 +8,7 @@ import { useSession } from '@/hooks/useSession'
 import {
   Banknote, CreditCard, Building2, CheckCircle2,
   AlertTriangle, Printer, Clock, Lock, RefreshCw, MapPin,
-  ChevronDown, ChevronRight, Plus,
+  ChevronDown, ChevronRight, Plus, X,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -138,6 +138,7 @@ export default function CajaPage() {
   // ── UI state ──
   const [expandedMetodo, setExpandedMetodo] = useState<MetodoPago | null>(null)
   const [showEgresoForm, setShowEgresoForm] = useState(false)
+  const [showCierreModal, setShowCierreModal] = useState(false)
   const [egresoCategoria, setEgresoCategoria]   = useState('bono_diario')
   const [egresoDescripcion, setEgresoDescripcion] = useState('')
   const [egresoMonto, setEgresoMonto]   = useState('')
@@ -528,6 +529,8 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
     } else {
       setIsClosed(true)
       if (data) setCorteHoy(data)
+      setShowCierreModal(false)
+      setTimeout(() => imprimirCorte(), 300)  // imprimir el corte automáticamente
     }
     setGuardando(false)
   }
@@ -941,33 +944,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           </div>
         </div>
 
-        {/* Retiro al sobre */}
-        {efectivoContado !== '' && !cerrado && (
-          <div className="border-t border-zinc-200 pt-5">
-            <p className="text-xs font-bold text-zinc-600 mb-3">💵 Retiro al sobre</p>
-            <div className="grid grid-cols-2 gap-5">
-              <div>
-                <p className="text-xs font-semibold text-zinc-500 mb-1.5">Cantidad a retirar (cerrada)</p>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
-                  <input
-                    type="number"
-                    value={retiro}
-                    onChange={e => setRetiro(e.target.value)}
-                    className="w-full border-2 border-zinc-200 rounded-lg pl-8 pr-4 py-4 text-2xl font-bold text-zinc-800 focus:outline-none focus:border-[#0D9488]"
-                    placeholder="0.00"
-                  />
-                </div>
-                <p className="text-xs text-zinc-400 mt-1.5">Va al sobre con el corte impreso</p>
-              </div>
-              <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200 flex flex-col justify-center">
-                <p className="text-xs font-semibold text-emerald-500 mb-1">Queda en caja para mañana</p>
-                <p className="text-3xl font-bold text-emerald-700">{fmt$(remanente)}</p>
-                <p className="text-xs text-emerald-500 mt-1">Contado {fmt$(contado)} − retiro {fmt$(retiroNum)}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* El retiro (pesos y dólares) se pide en la ventanita al cerrar caja */}
 
         {/* Dólares USD — siempre visible */}
         <div className="border-t border-zinc-200 pt-5">
@@ -1024,28 +1001,6 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
               </div>
             </div>
 
-            {/* Retiro en dólares */}
-            {efectivoUSDContado !== '' && !cerrado && (
-              <div className="grid grid-cols-2 gap-5 mt-4">
-                <div>
-                  <p className="text-xs font-semibold text-zinc-500 mb-1.5">Retiro en dólares (al sobre)</p>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400 font-bold text-sm">USD</span>
-                    <input
-                      type="number" value={retiroUSD}
-                      onChange={e => setRetiroUSD(e.target.value)}
-                      className="w-full border-2 border-blue-200 rounded-lg pl-14 pr-4 py-4 text-2xl font-bold text-blue-800 focus:outline-none focus:border-blue-400"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 flex flex-col justify-center">
-                  <p className="text-xs font-semibold text-blue-400 mb-1">Dólares que quedan para mañana</p>
-                  <p className="text-3xl font-bold text-blue-700">${remanenteUSD.toFixed(2)}</p>
-                  <p className="text-xs text-blue-400 mt-1">Contado ${contadoUSD.toFixed(2)} − retiro ${retiroUSDNum.toFixed(2)}</p>
-                </div>
-              </div>
-            )}
           </div>
 
         {/* Notas */}
@@ -1078,21 +1033,11 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
             )}
             <div className="flex gap-3">
               <button
-                onClick={cerrarCaja}
+                onClick={() => setShowCierreModal(true)}
                 disabled={!efectivoContado || guardando}
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40 transition-all"
               >
-                {guardando
-                  ? <RefreshCw className="w-4 h-4 animate-spin" />
-                  : <Lock className="w-4 h-4" />}
-                {guardando ? 'Guardando...' : 'Cerrar caja del día'}
-              </button>
-              <button
-                onClick={imprimirCorte}
-                disabled={!efectivoContado}
-                className="flex items-center gap-2 px-4 py-3 border border-zinc-200 text-zinc-500 rounded text-sm hover:bg-zinc-100 disabled:opacity-40"
-              >
-                <Printer className="w-4 h-4" /> Imprimir
+                <Lock className="w-4 h-4" /> Cerrar caja del día
               </button>
             </div>
           </div>
@@ -1181,6 +1126,78 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           )
         })()}
       </div>
+
+      {/* ── Ventanita de cierre: retiro + remanente ── */}
+      {showCierreModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
+              <h2 className="text-base font-bold text-zinc-800">Cerrar caja del día</h2>
+              <button onClick={() => setShowCierreModal(false)} className="text-zinc-400 hover:text-zinc-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+              {/* Referencia */}
+              <div className="bg-zinc-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm"><span className="text-zinc-500">Esperado (sistema)</span><span className="font-semibold">{fmt$(esperado)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-zinc-500">Contaste</span><span className="font-semibold">{fmt$(contado)}</span></div>
+                <div className={`flex justify-between text-sm font-bold ${diferencia === 0 ? 'text-emerald-700' : diferencia > 0 ? 'text-blue-700' : 'text-red-600'}`}>
+                  <span>{diferencia === 0 ? 'Cuadra perfecto' : diferencia > 0 ? 'Sobrante' : 'Faltante'}</span>
+                  <span>{diferencia === 0 ? '✓' : `${diferencia > 0 ? '+' : ''}${fmt$(diferencia)}`}</span>
+                </div>
+                {esperadoUSD > 0 && (
+                  <div className="pt-2 border-t border-zinc-200 flex justify-between text-sm">
+                    <span className="text-blue-500">Dólares contados</span>
+                    <span className="font-semibold text-blue-700">USD ${contadoUSD.toFixed(2)} <span className="text-blue-400 font-normal">(esperado ${esperadoUSD.toFixed(2)})</span></span>
+                  </div>
+                )}
+              </div>
+
+              {/* Retiro pesos */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">¿Cuánto retiras en pesos? (va al sobre)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">$</span>
+                  <input type="number" value={retiro} onChange={e => setRetiro(e.target.value)} autoFocus
+                    className="w-full border-2 border-zinc-200 rounded-lg pl-8 pr-4 py-3 text-xl font-bold text-zinc-800 focus:outline-none focus:border-[#0D9488]" placeholder="0.00" />
+                </div>
+                <p className="text-xs text-emerald-600 mt-1.5 font-medium">Queda en caja para mañana: {fmt$(remanente)}</p>
+              </div>
+
+              {/* Retiro dólares */}
+              {esperadoUSD > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">¿Cuánto retiras en dólares?</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400 font-bold text-sm">USD</span>
+                    <input type="number" value={retiroUSD} onChange={e => setRetiroUSD(e.target.value)}
+                      className="w-full border-2 border-blue-200 rounded-lg pl-14 pr-4 py-3 text-xl font-bold text-blue-800 focus:outline-none focus:border-blue-400" placeholder="0.00" />
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1.5 font-medium">Quedan en dólares para mañana: ${remanenteUSD.toFixed(2)}</p>
+                </div>
+              )}
+
+              {errorGuardado && (
+                <div className="px-4 py-2.5 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-medium">⚠️ {errorGuardado}</div>
+              )}
+            </div>
+
+            <div className="px-6 pb-5 flex gap-3">
+              <button onClick={() => setShowCierreModal(false)}
+                className="flex-1 py-3 border border-zinc-200 text-zinc-600 rounded-md text-sm font-semibold hover:bg-zinc-100 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={cerrarCaja} disabled={guardando}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#0B0E14] text-white rounded-md text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40 transition-all">
+                {guardando ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                {guardando ? 'Guardando...' : 'Cerrar e imprimir corte'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
