@@ -187,16 +187,18 @@ export default function DashboardPage() {
         const hoyStr   = getHoy()
 
         const [vSuc, vProp, citas, listos, retrasados, saldos, actVentas] = await Promise.all([
-          // Ventas cobradas hoy en la sucursal
-          sb.from('ventas').select('total,saldo')
+          // Total vendido hoy en la sucursal
+          sb.from('ventas').select('total')
             .eq('sucursal', sucursalEfectiva)
             .eq('es_cotizacion', false)
+            .neq('estado', 'cancelada')
             .gte('created_at', startHoy.toISOString())
             .lte('created_at', endHoy.toISOString()),
-          // Ventas cobradas hoy del usuario
-          sb.from('ventas').select('total,saldo')
+          // Total vendido hoy por el usuario (en cualquier sucursal)
+          sb.from('ventas').select('total')
             .eq('atendido_por', usuario.nombre)
             .eq('es_cotizacion', false)
+            .neq('estado', 'cancelada')
             .gte('created_at', startHoy.toISOString())
             .lte('created_at', endHoy.toISOString()),
           // Citas de hoy
@@ -233,11 +235,12 @@ export default function DashboardPage() {
             .limit(8),
         ])
 
-        const cobrado = (arr: { total: number; saldo: number }[]) =>
-          arr.reduce((s, v) => s + Number(v.total) - Number(v.saldo ?? 0), 0)
+        // Total VENDIDO (venta bruta), no lo cobrado — el KPI de ventas del día
+        const totalVendido = (arr: { total: number }[]) =>
+          arr.reduce((s, v) => s + Number(v.total), 0)
 
-        setVentasSucursal(cobrado(vSuc.data ?? []))
-        setVentasPropias(cobrado(vProp.data ?? []))
+        setVentasSucursal(totalVendido(vSuc.data ?? []))
+        setVentasPropias(totalVendido(vProp.data ?? []))
         setCitasHoy((citas.data ?? []) as CitaItem[])
         setTrabajosListos((listos.data ?? []) as TrabajoItem[])
         setTrabajosRetrasados((retrasados.data ?? []) as TrabajoItem[])
