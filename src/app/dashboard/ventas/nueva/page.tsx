@@ -427,18 +427,22 @@ export default function NuevaVentaPage() {
   // El anticipo/recibido SALE de las líneas — no hay campo aparte.
   const lineaEnPesos = (l: LineaPago) =>
     l.moneda === 'USD' ? Number(l.monto || 0) * (tipoCambio || 0) : Number(l.monto || 0)
-  const recibido = Math.round(lineasPago.reduce((s, l) => s + lineaEnPesos(l), 0) * 100) / 100
+  const recibidoRaw = Math.round(lineasPago.reduce((s, l) => s + lineaEnPesos(l), 0) * 100) / 100
   const usaDolares = lineasPago.some(l => l.moneda === 'USD')
   // Tolerancia de redondeo: al cobrar en dólares enteros, la conversión casi nunca da
-  // exacto. Aceptamos hasta ~1 dólar de diferencia y la venta se considera liquidada.
+  // exacto. Aceptamos hasta ~1 dólar de diferencia (el TC efectivo absorbe el redondeo).
   const tolerancia = usaDolares && tipoCambio ? tipoCambio + 0.01 : 0.5
-  const sobrepago = recibido - total > tolerancia
-  const saldoCalc = Math.abs(total - recibido) <= tolerancia ? 0 : Math.round((total - recibido) * 100) / 100
+  const cubreTotal = recibidoRaw > 0 && Math.abs(recibidoRaw - total) <= tolerancia
+  // En liquidar, si el pago cubre el total dentro de la tolerancia, se muestra como el
+  // total EXACTO (sin gap ni falso descuento). El redondeo se absorbe en el TC efectivo.
+  const recibido = (modoPago === 'liquidar' && cubreTotal) ? total : recibidoRaw
+  const sobrepago = recibidoRaw - total > tolerancia
+  const saldoCalc = Math.round((total - recibido) * 100) / 100
   const metodosUsados = [...new Set(lineasPago.filter(l => Number(l.monto) > 0).map(l => l.metodo))]
   const metodoVenta = metodosUsados.length === 0 ? 'efectivo'
     : metodosUsados.length === 1 ? metodosUsados[0] : 'mixto'
   // Válido para guardar: en liquidar debe cubrir el total (dentro de la tolerancia).
-  const pagoValido = !sobrepago && (modoPago === 'liquidar' ? Math.abs(recibido - total) <= tolerancia : recibido > 0)
+  const pagoValido = !sobrepago && (modoPago === 'liquidar' ? cubreTotal : recibidoRaw > 0)
   // Firma de la moneda de la única línea, para que el efecto reaccione al cambiar MXN↔USD
   const lineaUnicaMoneda = lineasPago.length === 1 ? lineasPago[0].moneda : 'multi'
 
