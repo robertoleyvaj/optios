@@ -170,7 +170,8 @@ export default function NuevaVentaPage() {
   const [showModal, setShowModal] = useState(false)
   const [modoPago, setModoPago] = useState<'liquidar' | 'diferir'>('liquidar')
   const [lineasPago, setLineasPago] = useState<LineaPago[]>([{ metodo: 'efectivo', moneda: 'MXN', monto: '' }])
-  const [anticipo, setAnticipo] = useState<number | ''>('')
+  const [anticipoGuardado, setAnticipoGuardado] = useState(0)  // recibido, para ticket post-venta
+  const [saldoGuardado, setSaldoGuardado] = useState(0)
   const [guardando, setGuardando] = useState(false)
   const [confirmarSinAnticipo, setConfirmarSinAnticipo] = useState(false)
   const [guardado, setGuardado] = useState(false)
@@ -410,7 +411,6 @@ export default function NuevaVentaPage() {
     setNotaImpresa(false)
     setOrdenLabImpresa(false)
     setModoPago('liquidar')
-    setAnticipo('')
     setLineasPago([{ metodo: 'efectivo', moneda: 'MXN', monto: '' }])
     setConfirmarSinAnticipo(false)
   }
@@ -424,26 +424,30 @@ export default function NuevaVentaPage() {
   const total = subtotal
 
   // ── Líneas de pago (pago dividido: método + moneda por línea) ──
-  const montoCobrar = modoPago === 'liquidar' ? total : Number(anticipo || 0)
+  // El anticipo/recibido SALE de las líneas — no hay campo aparte.
   const lineaEnPesos = (l: LineaPago) =>
     l.moneda === 'USD' ? Number(l.monto || 0) * (tipoCambio || 0) : Number(l.monto || 0)
-  const sumaLineasPesos = lineasPago.reduce((s, l) => s + lineaEnPesos(l), 0)
-  const lineasCuadran = montoCobrar > 0 && Math.abs(sumaLineasPesos - montoCobrar) < 0.5
+  const recibido = Math.round(lineasPago.reduce((s, l) => s + lineaEnPesos(l), 0) * 100) / 100
+  const saldoCalc = Math.round((total - recibido) * 100) / 100
+  const sobrepago = recibido - total > 0.01
   const usaDolares = lineasPago.some(l => l.moneda === 'USD')
   const metodosUsados = [...new Set(lineasPago.filter(l => Number(l.monto) > 0).map(l => l.metodo))]
   const metodoVenta = metodosUsados.length === 0 ? 'efectivo'
     : metodosUsados.length === 1 ? metodosUsados[0] : 'mixto'
+  // Válido para guardar: no sobrepasa el total. En liquidar debe cubrir el total.
+  const pagoValido = !sobrepago && (modoPago === 'liquidar' ? Math.abs(recibido - total) < 0.5 : recibido > 0)
 
-  // Si hay una sola línea en pesos, mantenerla sincronizada con el monto a cobrar
+  // En modo Liquidar con una sola línea en pesos, mantenerla igual al total
   useEffect(() => {
+    if (modoPago !== 'liquidar') return
     setLineasPago(prev => {
       if (prev.length === 1 && prev[0].moneda === 'MXN') {
-        const target = montoCobrar > 0 ? String(montoCobrar) : ''
-        if (prev[0].monto !== target) return [{ ...prev[0], monto: target }]
+        const t = String(total)
+        if (prev[0].monto !== t) return [{ ...prev[0], monto: t }]
       }
       return prev
     })
-  }, [montoCobrar])
+  }, [total, modoPago])
 
   // Si alguna línea es USD y aún no hay tipo de cambio, jalarlo
   useEffect(() => {
@@ -500,9 +504,11 @@ export default function NuevaVentaPage() {
       const nV = ultimoV?.[0]?.folio ? parseInt(ultimoV[0].folio.replace(/\D/g, '')) + 1 : 1
       const folio: string = `${prefijo}-${String(nV).padStart(4, '0')}`
 
-      // Si es pago inmediato (liquidar), el anticipo ES el total completo
-      const anticoNum = modoPago === 'liquidar' ? total : Number(anticipo || 0)
+      // El anticipo/recibido es la suma de las líneas de pago (en pesos).
+      const anticoNum = cotizacion ? 0 : recibido
       const saldoNum  = total - anticoNum
+      setAnticipoGuardado(anticoNum)
+      setSaldoGuardado(saldoNum)
 
       // La venta SIEMPRE se guarda en pesos. El dólar es solo traducción visual
       // para el paciente; el rastreo de efectivo en dólares vive en el pago (caja USD).
@@ -768,11 +774,11 @@ export default function NuevaVentaPage() {
         return headerRow + rows
       }).join('')
 
-      // Sección de pagos realizados (solo si hay anticipo diferido)
-      const anticoNum = Number(anticipo || 0)
-      const saldo = total - anticoNum
+      // Sección de pagos realizados (solo si quedó saldo diferido)
+      const anticoNum = anticipoGuardado
+      const saldo = saldoGuardado
 
-      const pagosHtml = modoPago === 'diferir' ? `
+      const pagosHtml = saldoGuardado > 0 ? `
         <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">PAGOS REALIZADOS</div><div class="ph-line"></div></div>
         <table class="pagos">
           <tr><th>#</th><th>Fecha</th><th class="r">Pago</th></tr>
@@ -1113,7 +1119,7 @@ ${entregaHtml}
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-zinc-400">Método de pago</p>
-                <p className="text-sm font-semibold text-zinc-600 mt-0.5">{metodoPagoLabel}{modoPago === 'diferir' ? ' · Diferido' : ''}</p>
+                <p className="text-sm font-semibold text-zinc-600 mt-0.5">{metodoPagoLabel}{saldoGuardado > 0 ? ' · Diferido' : ''}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-zinc-400">Total venta</p>
@@ -1127,15 +1133,15 @@ ${entregaHtml}
                 )}
               </div>
             </div>
-            {modoPago === 'diferir' && (
+            {saldoGuardado > 0 && (
               <div className="border-t border-zinc-200 pt-3 space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-500">Anticipo recibido</span>
-                  <span className="font-bold text-emerald-700">${Number(anticipo || 0).toLocaleString('es-MX')}</span>
+                  <span className="font-bold text-emerald-700">${anticipoGuardado.toLocaleString('es-MX')}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-600 font-semibold">Saldo pendiente</span>
-                  <span className="font-bold text-red-600">${(total - Number(anticipo || 0)).toLocaleString('es-MX')}</span>
+                  <span className="font-bold text-red-600">${saldoGuardado.toLocaleString('es-MX')}</span>
                 </div>
               </div>
             )}
@@ -1735,13 +1741,13 @@ ${entregaHtml}
                     <label className="block text-xs font-semibold text-zinc-500 mb-2">Modo de pago</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => setModoPago('liquidar')}
+                        onClick={() => { setModoPago('liquidar'); setLineasPago([{ metodo: 'efectivo', moneda: 'MXN', monto: String(total) }]) }}
                         className={`py-3 rounded-md text-sm font-semibold border transition-all ${modoPago === 'liquidar' ? 'border-[#0B0E14] bg-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}
                       >
                         Liquidar total
                       </button>
                       <button
-                        onClick={() => setModoPago('diferir')}
+                        onClick={() => { setModoPago('diferir'); setLineasPago([{ metodo: 'efectivo', moneda: 'MXN', monto: '' }]) }}
                         className={`py-3 rounded-md text-sm font-semibold border transition-all ${modoPago === 'diferir' ? 'border-[#0B0E14] bg-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}
                       >
                         Diferir pagos
@@ -1749,114 +1755,99 @@ ${entregaHtml}
                     </div>
                   </div>
 
-                  {/* Anticipo — solo cuando se difiere */}
-                  {modoPago === 'diferir' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-2">
-                        Anticipo recibido <span className="text-red-400">*</span>
+                  {/* Método(s) de pago — pago dividido (el anticipo sale de las líneas) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold text-zinc-500">
+                        {modoPago === 'liquidar' ? '¿Cómo paga el total?' : '¿Cuánto y cómo deja de anticipo?'}
                       </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-semibold text-sm">$</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={total}
-                          value={anticipo}
-                          onChange={e => { const v = parseFloat(e.target.value.replace(/,/g, '')) || 0; setAnticipo(e.target.value === '' ? '' : Math.min(total, Math.max(0, v))) }}
-                          className="w-full border-2 border-[#0D9488] rounded-md pl-8 pr-4 py-3 text-lg font-bold text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                          placeholder="0"
-                          autoFocus
-                        />
-                      </div>
-                      {anticipo !== '' && anticipo > 0 && (
-                        <p className="text-xs text-zinc-500 mt-1.5">
-                          Saldo pendiente: <span className="font-bold text-zinc-700">${(total - Number(anticipo)).toLocaleString('es-MX')}</span>
-                        </p>
-                      )}
-                      {(!anticipo || Number(anticipo) <= 0) && (
-                        <p className="text-xs text-amber-600 mt-1.5 font-medium">
-                          ⚠️ Captura el monto recibido ahora — sin anticipo no se puede guardar en modo Diferir
-                        </p>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setLineasPago(prev => [...prev, { metodo: 'efectivo', moneda: 'MXN', monto: '' }])}
+                        className="text-xs font-semibold text-[#0D9488] hover:underline"
+                      >
+                        + Agregar línea
+                      </button>
                     </div>
-                  )}
 
-                  {/* Método(s) de pago — pago dividido */}
-                  {montoCobrar > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs font-semibold text-zinc-500">
-                          ¿Cómo se paga? <span className="text-zinc-400 font-normal">(A cobrar: ${montoCobrar.toLocaleString('es-MX')})</span>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setLineasPago(prev => [...prev, { metodo: 'efectivo', moneda: 'MXN', monto: '' }])}
-                          className="text-xs font-semibold text-[#0D9488] hover:underline"
-                        >
-                          + Agregar línea
-                        </button>
-                      </div>
+                    <div className="space-y-2">
+                      {lineasPago.map((l, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <select
+                            value={l.metodo}
+                            onChange={e => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, metodo: e.target.value } : x))}
+                            className="flex-1 min-w-0 border border-zinc-200 rounded-md px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                          >
+                            {METODOS_LINEA.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                          </select>
 
-                      <div className="space-y-2">
-                        {lineasPago.map((l, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <select
-                              value={l.metodo}
-                              onChange={e => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, metodo: e.target.value } : x))}
-                              className="flex-1 min-w-0 border border-zinc-200 rounded-md px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                            >
-                              {METODOS_LINEA.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-                            </select>
-
-                            {/* Moneda: solo tiene sentido en efectivo */}
-                            {l.metodo === 'efectivo' ? (
-                              <div className="flex rounded-md border border-zinc-200 overflow-hidden flex-shrink-0">
-                                <button type="button"
-                                  onClick={() => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, moneda: 'MXN' } : x))}
-                                  className={`px-2 py-2 text-xs font-bold ${l.moneda === 'MXN' ? 'bg-zinc-800 text-white' : 'text-zinc-400'}`}>MXN</button>
-                                <button type="button"
-                                  onClick={() => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, moneda: 'USD' } : x))}
-                                  className={`px-2 py-2 text-xs font-bold ${l.moneda === 'USD' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}>USD</button>
-                              </div>
-                            ) : null}
-
-                            <div className="relative w-28 flex-shrink-0">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 text-xs font-semibold">
-                                {l.metodo === 'efectivo' && l.moneda === 'USD' ? 'US$' : '$'}
-                              </span>
-                              <input
-                                type="number" min={0} value={l.monto}
-                                onChange={e => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, monto: e.target.value } : x))}
-                                className="w-full border border-zinc-200 rounded-md pl-7 pr-2 py-2 text-sm font-semibold text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                                placeholder="0"
-                              />
-                            </div>
-
-                            {lineasPago.length > 1 && (
+                          {/* Moneda: solo tiene sentido en efectivo */}
+                          {l.metodo === 'efectivo' ? (
+                            <div className="flex rounded-md border border-zinc-200 overflow-hidden flex-shrink-0">
                               <button type="button"
-                                onClick={() => setLineasPago(prev => prev.filter((_, j) => j !== i))}
-                                className="text-zinc-300 hover:text-red-500 flex-shrink-0">✕</button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                                onClick={() => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, moneda: 'MXN', monto: '' } : x))}
+                                className={`px-2 py-2 text-xs font-bold ${l.moneda === 'MXN' ? 'bg-zinc-800 text-white' : 'text-zinc-400'}`}>MXN</button>
+                              <button type="button"
+                                onClick={() => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, moneda: 'USD', monto: '' } : x))}
+                                className={`px-2 py-2 text-xs font-bold ${l.moneda === 'USD' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}>USD</button>
+                            </div>
+                          ) : null}
 
-                      {/* Equivalencia USD → pesos */}
-                      {usaDolares && tipoCambio && (
-                        <p className="text-[11px] text-blue-500 mt-1.5">
-                          TC DOF ${tipoCambio.toFixed(2)} · dólares abonan su equivalente en pesos y van a la caja de dólares
+                          <div className="relative w-28 flex-shrink-0">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 text-xs font-semibold">
+                              {l.metodo === 'efectivo' && l.moneda === 'USD' ? 'US$' : '$'}
+                            </span>
+                            <input
+                              type="number" min={0} value={l.monto}
+                              onChange={e => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, monto: e.target.value } : x))}
+                              className="w-full border border-zinc-200 rounded-md pl-7 pr-2 py-2 text-sm font-semibold text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                              placeholder="0"
+                            />
+                          </div>
+
+                          {lineasPago.length > 1 && (
+                            <button type="button"
+                              onClick={() => setLineasPago(prev => prev.filter((_, j) => j !== i))}
+                              className="text-zinc-300 hover:text-red-500 flex-shrink-0">✕</button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Equivalencia USD → pesos */}
+                    {usaDolares && tipoCambio && (
+                      <p className="text-[11px] text-blue-500 mt-1.5">
+                        TC DOF ${tipoCambio.toFixed(2)} · un pago en dólares abona su equivalente en pesos y va a la caja de dólares
+                      </p>
+                    )}
+
+                    {/* Resumen: total / recibido / saldo */}
+                    <div className="mt-3 border-t border-zinc-200 pt-3 space-y-1.5 text-sm">
+                      <div className="flex justify-between text-zinc-500">
+                        <span>Total venta</span><span className="font-semibold">${total.toLocaleString('es-MX')}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700">
+                        <span>Recibido ahora</span>
+                        <span className="font-bold">${recibido.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-600 font-semibold">Saldo pendiente</span>
+                        <span className={`font-bold ${saldoCalc > 0.01 ? 'text-red-600' : 'text-zinc-700'}`}>
+                          ${Math.max(0, saldoCalc).toLocaleString('es-MX', { maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {sobrepago && (
+                        <p className="text-xs text-red-600 font-medium">
+                          ⚠️ El pago excede el total por ${(recibido - total).toLocaleString('es-MX', { maximumFractionDigits: 2 })}. Ajusta las líneas.
                         </p>
                       )}
-
-                      {/* Validación de la suma */}
-                      <div className={`mt-2 flex justify-between text-xs px-3 py-2 rounded-md ${
-                        lineasCuadran ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                      }`}>
-                        <span>Suma de pagos: <b>${sumaLineasPesos.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</b></span>
-                        <span>{lineasCuadran ? '✓ Cuadra' : `Faltan $${(montoCobrar - sumaLineasPesos).toLocaleString('es-MX', { maximumFractionDigits: 2 })}`}</span>
-                      </div>
+                      {modoPago === 'liquidar' && !sobrepago && Math.abs(recibido - total) >= 0.5 && (
+                        <p className="text-xs text-amber-600 font-medium">
+                          En &ldquo;Liquidar total&rdquo; los pagos deben cubrir ${total.toLocaleString('es-MX')}.
+                        </p>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </>
               )}
 
@@ -1865,28 +1856,10 @@ ${entregaHtml}
                 {(() => {
                   const isUSD = !esCotizacion && moneda === 'USD' && tipoCambio
                   const totalUSD = isUSD ? total / tipoCambio! : 0
-                  if (modoPago === 'diferir' && anticipo !== '' && Number(anticipo) > 0) {
-                    return (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm text-zinc-500">
-                          <span>Total venta</span>
-                          <span className="font-semibold">{isUSD ? `USD $${totalUSD.toFixed(2)}` : `$${total.toLocaleString('es-MX')}`}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-emerald-700">
-                          <span>Anticipo</span>
-                          <span className="font-bold">− ${Number(anticipo).toLocaleString('es-MX')}</span>
-                        </div>
-                        <div className="border-t border-zinc-200 pt-2 flex justify-between">
-                          <span className="text-sm font-semibold text-zinc-700">Saldo pendiente</span>
-                          <span className="text-xl font-bold text-red-600">${(total - Number(anticipo)).toLocaleString('es-MX')}</span>
-                        </div>
-                      </div>
-                    )
-                  }
                   return (
                     <div className="text-center">
                       <p className="text-xs text-zinc-400 mb-1">
-                        {esCotizacion ? 'Total estimado' : (modoPago === 'diferir' ? 'Total (pendiente de anticipo)' : 'Total a cobrar')}
+                        {esCotizacion ? 'Total estimado' : 'Total venta'}
                       </p>
                       {isUSD ? (
                         <>
@@ -1939,13 +1912,13 @@ ${entregaHtml}
               ) : (
                 <button
                   onClick={() => {
-                    if (!esCotizacion && modoPago === 'diferir' && (!anticipo || Number(anticipo) <= 0)) {
+                    if (!esCotizacion && modoPago === 'diferir' && recibido <= 0) {
                       setConfirmarSinAnticipo(true)
                     } else {
                       handleFinalizar(esCotizacion)
                     }
                   }}
-                  disabled={guardando || (!esCotizacion && montoCobrar > 0 && !lineasCuadran)}
+                  disabled={guardando || (!esCotizacion && (modoPago === 'liquidar' ? !pagoValido : (recibido > 0 && !pagoValido)))}
                   className="flex-1 py-3 bg-[#0D9488] text-white rounded-md text-sm font-bold hover:bg-teal-500 active:scale-[0.99] transition-all disabled:opacity-50"
                 >
                   {guardando ? 'Guardando...' : esCotizacion ? 'Generar cotización' : 'Finalizar venta'}
