@@ -23,7 +23,6 @@ import {
   CheckCircle2,
   Package,
   X,
-  ChevronDown,
   FileText,
   CalendarDays,
   Phone,
@@ -89,6 +88,16 @@ const metodosPago = [
   { key: 'deposito',      label: 'Depósito bancario',  icon: Building2 },
   { key: 'otros',         label: 'Otros',              icon: Clock     },
 ]
+
+// Métodos válidos para líneas de pago (los que la caja reconoce)
+const METODOS_LINEA = [
+  { key: 'efectivo',      label: 'Efectivo' },
+  { key: 'debito',        label: 'T. Débito' },
+  { key: 'credito',       label: 'T. Crédito' },
+  { key: 'transferencia', label: 'Transferencia' },
+]
+
+type LineaPago = { metodo: string; moneda: 'MXN' | 'USD'; monto: string }
 
 type Item = { uid: string; id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number; par: number }
 type Cliente = { id: string; nombre: string; apellido: string; telefono: string }
@@ -160,7 +169,7 @@ export default function NuevaVentaPage() {
   const [numPares, setNumPares] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [modoPago, setModoPago] = useState<'liquidar' | 'diferir'>('liquidar')
-  const [metodoPago, setMetodoPago] = useState('efectivo')
+  const [lineasPago, setLineasPago] = useState<LineaPago[]>([{ metodo: 'efectivo', moneda: 'MXN', monto: '' }])
   const [anticipo, setAnticipo] = useState<number | ''>('')
   const [guardando, setGuardando] = useState(false)
   const [confirmarSinAnticipo, setConfirmarSinAnticipo] = useState(false)
@@ -402,7 +411,7 @@ export default function NuevaVentaPage() {
     setOrdenLabImpresa(false)
     setModoPago('liquidar')
     setAnticipo('')
-    setMetodoPago('efectivo')
+    setLineasPago([{ metodo: 'efectivo', moneda: 'MXN', monto: '' }])
     setConfirmarSinAnticipo(false)
   }
 
@@ -413,6 +422,34 @@ export default function NuevaVentaPage() {
 
   // El total al cliente es el subtotal. La comisión bancaria la absorbe la tienda (se registra en finanzas).
   const total = subtotal
+
+  // ── Líneas de pago (pago dividido: método + moneda por línea) ──
+  const montoCobrar = modoPago === 'liquidar' ? total : Number(anticipo || 0)
+  const lineaEnPesos = (l: LineaPago) =>
+    l.moneda === 'USD' ? Number(l.monto || 0) * (tipoCambio || 0) : Number(l.monto || 0)
+  const sumaLineasPesos = lineasPago.reduce((s, l) => s + lineaEnPesos(l), 0)
+  const lineasCuadran = montoCobrar > 0 && Math.abs(sumaLineasPesos - montoCobrar) < 0.5
+  const usaDolares = lineasPago.some(l => l.moneda === 'USD')
+  const metodosUsados = [...new Set(lineasPago.filter(l => Number(l.monto) > 0).map(l => l.metodo))]
+  const metodoVenta = metodosUsados.length === 0 ? 'efectivo'
+    : metodosUsados.length === 1 ? metodosUsados[0] : 'mixto'
+
+  // Si hay una sola línea en pesos, mantenerla sincronizada con el monto a cobrar
+  useEffect(() => {
+    setLineasPago(prev => {
+      if (prev.length === 1 && prev[0].moneda === 'MXN') {
+        const target = montoCobrar > 0 ? String(montoCobrar) : ''
+        if (prev[0].monto !== target) return [{ ...prev[0], monto: target }]
+      }
+      return prev
+    })
+  }, [montoCobrar])
+
+  // Si alguna línea es USD y aún no hay tipo de cambio, jalarlo
+  useEffect(() => {
+    if (usaDolares && !tipoCambio) fetchTipoCambio()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usaDolares])
 
   // Tipo de cambio USD → MXN — DOF oficial (Banxico FIX), con respaldo de mercado
   const fetchTipoCambio = async () => {
@@ -516,7 +553,7 @@ export default function NuevaVentaPage() {
           total:       totalDB,
           anticipo:    anticoDB,
           saldo:       saldoDB,
-          metodo_pago: metodoPago,
+          metodo_pago: metodoVenta,
           estado:      'activa',
           es_cotizacion: cotizacion,
           fecha_entrega: fechaEntrega || null,
@@ -548,46 +585,58 @@ export default function NuevaVentaPage() {
       })
       await supabase.from('ventas_items').insert(items)
 
-      // ── 4. Crear movimiento de caja ─────────────────────────
-      if (!cotizacion) {
-        const montoIngreso = anticoDB > 0 ? anticoDB : totalDB
-        await supabase.from('caja_movimientos').insert({
-          tipo:           'ingreso',
-          concepto:       `Venta ${folio} — ${`${clienteNombre} ${clienteApellido}`.trim() || 'Sin nombre'}`,
-          monto:          montoIngreso,
-          sucursal,
-          metodo_pago:    metodoPago,
-          referencia:     folio,
-          registrado_por: atendioPor,
-        })
-      }
-
-      // ── 4b. Registrar anticipo en pagos_venta ──────────────────
+      // ── 4. Registrar pagos por línea (método + moneda) ─────────
       if (!cotizacion && anticoDB > 0) {
-        const { error: errPago } = await supabase.from('pagos_venta').insert({
-          venta_id:       ventaId,
-          folio_venta:    folio,
-          paciente:       `${clienteNombre} ${clienteApellido}`.trim(),
-          monto:          anticoDB,
-          metodo_pago:    metodoPago,
-          tipo:           saldoDB === 0 ? 'liquidacion' : 'anticipo',
-          sucursal,
-          registrado_por: atendioPor,
-          usuario_id:     usuarioId,
-        })
-        if (errPago) {
-          // La venta ya se guardó — avisar pero no bloquear
-          console.error('pagos_venta insert error:', errPago)
-          setErrorGuardado(`⚠️ Venta guardada (${folio}) pero el registro de caja falló: ${errPago.message}. Avisa a Rob.`)
-        }
+        const nombrePac = `${clienteNombre} ${clienteApellido}`.trim()
+        const tipoPago  = saldoDB === 0 ? 'liquidacion' : 'anticipo'
 
-        // ── 4c. Comisión terminal automática ──────────────────────
-        await registrarComisionTerminal({
-          metodoPago,
-          monto:    anticoDB,
-          folio,
-          sucursal,
-        })
+        for (const l of lineasPago) {
+          const montoOrigen = Number(l.monto || 0)
+          if (montoOrigen <= 0) continue
+          const esUSDLinea = l.moneda === 'USD' && !!tipoCambio
+          const montoPesos = esUSDLinea
+            ? Math.round(montoOrigen * tipoCambio! * 100) / 100
+            : montoOrigen
+
+          // caja_movimientos (contabilidad general)
+          await supabase.from('caja_movimientos').insert({
+            tipo:           'ingreso',
+            concepto:       `Venta ${folio} — ${nombrePac || 'Sin nombre'}`,
+            monto:          montoPesos,
+            sucursal,
+            metodo_pago:    l.metodo,
+            referencia:     folio,
+            registrado_por: atendioPor,
+          })
+
+          // pagos_venta (fuente de verdad de la caja)
+          const { error: errPago } = await supabase.from('pagos_venta').insert({
+            venta_id:       ventaId,
+            folio_venta:    folio,
+            paciente:       nombrePac,
+            monto:          montoPesos,
+            metodo_pago:    l.metodo,
+            moneda:         l.moneda,
+            monto_origen:   montoOrigen,
+            tipo_cambio:    esUSDLinea ? tipoCambio : null,
+            tipo:           tipoPago,
+            sucursal,
+            registrado_por: atendioPor,
+            usuario_id:     usuarioId,
+          })
+          if (errPago) {
+            console.error('pagos_venta insert error:', errPago)
+            setErrorGuardado(`⚠️ Venta guardada (${folio}) pero un pago falló: ${errPago.message}. Avisa a Rob.`)
+          }
+
+          // comisión terminal por cada línea de tarjeta
+          await registrarComisionTerminal({
+            metodoPago: l.metodo,
+            monto:      montoPesos,
+            folio,
+            sucursal,
+          })
+        }
       }
 
       // ── 5. Crear órdenes de laboratorio por par ─────────────
@@ -683,7 +732,9 @@ export default function NuevaVentaPage() {
   // ── PANTALLA POST-VENTA ──
   if (guardado) {
     const folio = folioGuardado
-    const metodoPagoLabel = metodosPago.find(m => m.key === metodoPago)?.label ?? metodoPago
+    const metodoPagoLabel = metodoVenta === 'mixto'
+      ? 'Pago mixto'
+      : (metodosPago.find(m => m.key === metodoVenta)?.label ?? metodoVenta)
     const fechaHoy = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })
     const horaHoy = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 
@@ -1698,28 +1749,6 @@ ${entregaHtml}
                     </div>
                   </div>
 
-                  {/* Método de pago */}
-                  <div>
-                    <label className="block text-xs font-semibold text-zinc-500 mb-2">Método de pago</label>
-                    <div className="relative">
-                      <select
-                        value={metodoPago}
-                        onChange={e => setMetodoPago(e.target.value)}
-                        className="w-full appearance-none border border-zinc-200 rounded-md px-4 py-3 text-sm text-zinc-700 bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 pr-10"
-                      >
-                        {metodosPago.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Aviso si moneda USD pero método no es efectivo */}
-                  {moneda === 'USD' && metodoPago !== 'efectivo' && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-md px-4 py-3 text-xs text-amber-700">
-                      El modo dólar solo aplica a pagos en efectivo. Cambia el método o regresa a pesos.
-                    </div>
-                  )}
-
                   {/* Anticipo — solo cuando se difiere */}
                   {modoPago === 'diferir' && (
                     <div>
@@ -1751,13 +1780,90 @@ ${entregaHtml}
                       )}
                     </div>
                   )}
+
+                  {/* Método(s) de pago — pago dividido */}
+                  {montoCobrar > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-semibold text-zinc-500">
+                          ¿Cómo se paga? <span className="text-zinc-400 font-normal">(A cobrar: ${montoCobrar.toLocaleString('es-MX')})</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setLineasPago(prev => [...prev, { metodo: 'efectivo', moneda: 'MXN', monto: '' }])}
+                          className="text-xs font-semibold text-[#0D9488] hover:underline"
+                        >
+                          + Agregar línea
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {lineasPago.map((l, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <select
+                              value={l.metodo}
+                              onChange={e => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, metodo: e.target.value } : x))}
+                              className="flex-1 min-w-0 border border-zinc-200 rounded-md px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                            >
+                              {METODOS_LINEA.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                            </select>
+
+                            {/* Moneda: solo tiene sentido en efectivo */}
+                            {l.metodo === 'efectivo' ? (
+                              <div className="flex rounded-md border border-zinc-200 overflow-hidden flex-shrink-0">
+                                <button type="button"
+                                  onClick={() => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, moneda: 'MXN' } : x))}
+                                  className={`px-2 py-2 text-xs font-bold ${l.moneda === 'MXN' ? 'bg-zinc-800 text-white' : 'text-zinc-400'}`}>MXN</button>
+                                <button type="button"
+                                  onClick={() => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, moneda: 'USD' } : x))}
+                                  className={`px-2 py-2 text-xs font-bold ${l.moneda === 'USD' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}>USD</button>
+                              </div>
+                            ) : null}
+
+                            <div className="relative w-28 flex-shrink-0">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 text-xs font-semibold">
+                                {l.metodo === 'efectivo' && l.moneda === 'USD' ? 'US$' : '$'}
+                              </span>
+                              <input
+                                type="number" min={0} value={l.monto}
+                                onChange={e => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, monto: e.target.value } : x))}
+                                className="w-full border border-zinc-200 rounded-md pl-7 pr-2 py-2 text-sm font-semibold text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                                placeholder="0"
+                              />
+                            </div>
+
+                            {lineasPago.length > 1 && (
+                              <button type="button"
+                                onClick={() => setLineasPago(prev => prev.filter((_, j) => j !== i))}
+                                className="text-zinc-300 hover:text-red-500 flex-shrink-0">✕</button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Equivalencia USD → pesos */}
+                      {usaDolares && tipoCambio && (
+                        <p className="text-[11px] text-blue-500 mt-1.5">
+                          TC DOF ${tipoCambio.toFixed(2)} · dólares abonan su equivalente en pesos y van a la caja de dólares
+                        </p>
+                      )}
+
+                      {/* Validación de la suma */}
+                      <div className={`mt-2 flex justify-between text-xs px-3 py-2 rounded-md ${
+                        lineasCuadran ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        <span>Suma de pagos: <b>${sumaLineasPesos.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</b></span>
+                        <span>{lineasCuadran ? '✓ Cuadra' : `Faltan $${(montoCobrar - sumaLineasPesos).toLocaleString('es-MX', { maximumFractionDigits: 2 })}`}</span>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
               {/* Total */}
               <div className="bg-zinc-50 rounded-lg px-5 py-4">
                 {(() => {
-                  const isUSD = !esCotizacion && metodoPago === 'efectivo' && moneda === 'USD' && tipoCambio
+                  const isUSD = !esCotizacion && moneda === 'USD' && tipoCambio
                   const totalUSD = isUSD ? total / tipoCambio! : 0
                   if (modoPago === 'diferir' && anticipo !== '' && Number(anticipo) > 0) {
                     return (
@@ -1839,7 +1945,7 @@ ${entregaHtml}
                       handleFinalizar(esCotizacion)
                     }
                   }}
-                  disabled={guardando}
+                  disabled={guardando || (!esCotizacion && montoCobrar > 0 && !lineasCuadran)}
                   className="flex-1 py-3 bg-[#0D9488] text-white rounded-md text-sm font-bold hover:bg-teal-500 active:scale-[0.99] transition-all disabled:opacity-50"
                 >
                   {guardando ? 'Guardando...' : esCotizacion ? 'Generar cotización' : 'Finalizar venta'}
