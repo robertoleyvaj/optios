@@ -436,6 +436,8 @@ export default function NuevaVentaPage() {
     : metodosUsados.length === 1 ? metodosUsados[0] : 'mixto'
   // Válido para guardar: no sobrepasa el total. En liquidar debe cubrir el total.
   const pagoValido = !sobrepago && (modoPago === 'liquidar' ? Math.abs(recibido - total) < 0.5 : recibido > 0)
+  // Firma de la moneda de la única línea, para que el efecto reaccione al cambiar MXN↔USD
+  const lineaUnicaMoneda = lineasPago.length === 1 ? lineasPago[0].moneda : 'multi'
 
   // En modo Liquidar con una sola línea, prellenar el monto que cubre el total:
   // en pesos → el total; en dólares → el equivalente en USD (total / TC).
@@ -453,7 +455,7 @@ export default function NuevaVentaPage() {
       }
       return prev
     })
-  }, [total, modoPago, tipoCambio])
+  }, [total, modoPago, tipoCambio, lineaUnicaMoneda])
 
   // Si alguna línea es USD y aún no hay tipo de cambio, jalarlo
   useEffect(() => {
