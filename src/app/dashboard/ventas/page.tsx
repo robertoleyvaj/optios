@@ -119,13 +119,14 @@ function imprimirTicket(v: Venta, logo = '') {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { height: auto; }
   body {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 3.5mm;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 3.4mm;
     font-weight: 500;
     color: #000;
     background: #fff;
     width: 100%;
     overflow: visible;
+    -webkit-font-smoothing: none;
   }
   .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
   .logo { max-width: 44mm; max-height: 20mm; object-fit: contain; margin: 0 auto 2mm; display: block; }
