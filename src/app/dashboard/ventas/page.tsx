@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Plus, Search, Filter, ShoppingCart, TrendingUp,
+  Plus, Search, Filter,
   CreditCard, Banknote, Building2, X, Printer,
   ChevronDown, Clock, CheckCircle2, AlertCircle,
 } from 'lucide-react'
@@ -68,10 +68,6 @@ function fmtHora(iso: string) {
   const d = new Date(iso)
   return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 }
-function fechaHoy() {
-  return new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
 function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
   // Usar la fecha/hora originales de la venta
   const fechaFmt = v.fecha
@@ -403,10 +399,6 @@ export default function VentasPage() {
       || (filtroPago === 'liquidadas' && sp === 0)
   })
 
-  const hoy = fechaHoy()
-  const totalHoy = ventas.filter(v => v.fecha === hoy && !v.id.startsWith('COT-')).reduce((s, v) => s + v.total, 0)
-  const transHoy = ventas.filter(v => v.fecha === hoy && !v.id.startsWith('COT-')).length
-
   const registrarAbono = async () => {
     const monto = parseFloat(abonoMonto)
     if (!detalle || isNaN(monto) || monto <= 0) return
@@ -559,56 +551,6 @@ export default function VentasPage() {
           className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27] active:scale-[0.98] transition-all">
           <Plus className="w-4 h-4" /> Nueva venta
         </Link>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-zinc-500 font-medium">Ventas de hoy</p>
-              <p className="text-2xl font-bold text-zinc-800 mt-1">${totalHoy.toLocaleString('es-MX')}</p>
-            </div>
-            <div className="w-11 h-11 rounded-md bg-[#0D9488]/10 flex items-center justify-center">
-              <ShoppingCart className="w-5 h-5 text-[#0D9488]" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-xs font-medium text-emerald-500">{transHoy} transacciones hoy</span>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-zinc-500 font-medium">Promedio por venta</p>
-              <p className="text-2xl font-bold text-zinc-800 mt-1">
-                {(() => { const real = ventas.filter(v => !v.id.startsWith('COT-')); return real.length > 0 ? `$${Math.round(real.reduce((s,v) => s+v.total,0) / real.length).toLocaleString('es-MX')}` : '$0' })()}
-              </p>
-            </div>
-            <div className="w-11 h-11 rounded-md bg-indigo-50 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-indigo-500" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <span className="text-xs text-zinc-500">Últimas {ventas.filter(v => !v.id.startsWith('COT-')).length} ventas registradas</span>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg p-5 border border-zinc-200/80">
-          <p className="text-sm text-zinc-500 font-medium mb-2">Por método de pago</p>
-          {['efectivo','debito','credito','transferencia'].map(m => {
-            const count = ventas.filter(v => v.metodo === m).length
-            const b = metodoBadge[m]
-            const Icon = b.icon
-            return (
-              <div key={m} className="flex items-center gap-2 mb-1">
-                <Icon className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="text-xs text-zinc-500">{b.label}</span>
-                <span className="text-xs font-semibold text-zinc-700 ml-auto">{count}</span>
-              </div>
-            )
-          })}
-        </div>
       </div>
 
       {/* Tabla */}
