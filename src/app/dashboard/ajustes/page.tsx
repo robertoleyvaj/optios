@@ -234,12 +234,14 @@ function TicketTab() {
   }
 
   const guardar = async () => {
-    setGuardando(true)
-    await supabase.from('configuracion').upsert(
+    setGuardando(true); setError('')
+    const { error: err } = await supabase.from('configuracion').upsert(
       { clave: 'ticket_logo', valor: logo ?? '', descripcion: 'Logo del ticket de venta (imagen base64)' },
       { onConflict: 'clave' },
     )
-    setGuardando(false); setGuardado(true); setTimeout(() => setGuardado(false), 2000)
+    setGuardando(false)
+    if (err) { setError(`No se pudo guardar: ${err.message}`); return }
+    setGuardado(true); setTimeout(() => setGuardado(false), 2000)
   }
 
   return (
