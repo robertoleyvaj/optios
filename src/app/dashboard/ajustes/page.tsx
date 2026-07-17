@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ChangeEvent } from 'react'
 import RequireRol from '@/components/RequireRol'
 import { createClient } from '@/lib/supabase/client'
 import {
   Store, CreditCard, Bell, Globe, Save,
   Plus, X, Edit2, ChevronDown, CheckCircle2, Target,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Receipt, Upload, Trash2,
 } from 'lucide-react'
 
 type Sucursal = {
@@ -24,6 +24,7 @@ const TABS = [
   { key: 'sucursales', label: 'Sucursales',    icon: Store    },
   { key: 'metas',      label: 'Metas',          icon: Target   },
   { key: 'pagos',      label: 'Pagos',          icon: CreditCard },
+  { key: 'ticket',     label: 'Ticket',         icon: Receipt  },
   { key: 'sistema',    label: 'Sistema',        icon: Globe    },
   { key: 'notif',      label: 'Notificaciones', icon: Bell     },
 ]
@@ -207,6 +208,82 @@ function MetasTab() {
   )
 }
 
+// ── TicketTab ────────────────────────────────────────────────────────────────
+function TicketTab() {
+  const supabase = createClient()
+  const [logo, setLogo] = useState<string | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  const [guardado, setGuardado] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    supabase.from('configuracion').select('valor').eq('clave', 'ticket_logo').maybeSingle()
+      .then(({ data }) => { if (data?.valor) setLogo(data.valor) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setError('El archivo debe ser una imagen (PNG o JPG).'); return }
+    if (file.size > 300 * 1024) { setError('La imagen pesa mucho (máx. 300 KB). Usa un PNG más chico.'); return }
+    setError('')
+    const reader = new FileReader()
+    reader.onload = () => setLogo(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const guardar = async () => {
+    setGuardando(true)
+    await supabase.from('configuracion').upsert(
+      { clave: 'ticket_logo', valor: logo ?? '', descripcion: 'Logo del ticket de venta (imagen base64)' },
+      { onConflict: 'clave' },
+    )
+    setGuardando(false); setGuardado(true); setTimeout(() => setGuardado(false), 2000)
+  }
+
+  return (
+    <div className="space-y-5 max-w-lg">
+      <div>
+        <h3 className="text-sm font-bold text-zinc-700 mb-1">Logo del ticket</h3>
+        <p className="text-sm text-zinc-500">Aparece arriba de cada nota de venta impresa. Ideal: PNG de <b>384 px de ancho</b>, ~130–170 px de alto, en negro/alto contraste (la impresora térmica es blanco y negro).</p>
+      </div>
+
+      {/* Vista previa sobre "papel" blanco */}
+      <div className="border border-zinc-200 rounded-lg p-5 flex flex-col items-center gap-3 bg-zinc-50">
+        <div className="bg-white border border-zinc-200 rounded w-[220px] py-4 flex items-center justify-center">
+          {logo
+            ? <img src={logo} alt="Logo del ticket" className="max-w-[180px] max-h-[90px] object-contain" />
+            : <span className="text-xs text-zinc-400">Sin logo</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 px-4 py-2 border border-zinc-200 rounded text-sm text-zinc-600 hover:bg-white cursor-pointer transition-colors">
+            <Upload className="w-4 h-4" /> {logo ? 'Cambiar logo' : 'Subir logo'}
+            <input type="file" accept="image/png,image/jpeg" onChange={onFile} className="hidden" />
+          </label>
+          {logo && (
+            <button onClick={() => setLogo(null)}
+              className="flex items-center gap-2 px-4 py-2 border border-zinc-200 rounded text-sm text-red-500 hover:bg-red-50 transition-colors">
+              <Trash2 className="w-4 h-4" /> Quitar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && <p className="text-xs text-red-600 font-medium">{error}</p>}
+
+      <div className="pt-4 border-t border-zinc-100 flex items-center gap-3">
+        <button onClick={guardar} disabled={guardando}
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-[#1A1D27] disabled:opacity-50">
+          <Save className="w-4 h-4" />
+          {guardando ? 'Guardando...' : guardado ? '¡Guardado!' : 'Guardar logo'}
+        </button>
+        {guardado && <span className="text-sm text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Logo guardado</span>}
+      </div>
+    </div>
+  )
+}
+
 // ── AjustesPage ───────────────────────────────────────────────────────────────
 function AjustesPage() {
   const [tab, setTab] = useState('sucursales')
@@ -315,6 +392,9 @@ function AjustesPage() {
 
           {/* ── METAS ── */}
           {tab === 'metas' && <MetasTab />}
+
+          {/* ── TICKET ── */}
+          {tab === 'ticket' && <TicketTab />}
 
           {/* ── PAGOS ── */}
           {tab === 'pagos' && (

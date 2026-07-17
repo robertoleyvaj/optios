@@ -232,6 +232,13 @@ export default function NuevaVentaPage() {
   const [tipoCambio, setTipoCambio] = useState<number | null>(null)
   const [loadingTC, setLoadingTC] = useState(false)
   const [tcError, setTcError] = useState(false)
+  const [ticketLogo, setTicketLogo] = useState<string>('')  // logo configurable del ticket
+
+  // Cargar el logo del ticket (configurado en Ajustes)
+  useEffect(() => {
+    createClient().from('configuracion').select('valor').eq('clave', 'ticket_logo').maybeSingle()
+      .then(({ data }) => { if (data?.valor) setTicketLogo(data.valor) })
+  }, [])
 
   // Sucursal y rol: siempre desde getSucursalActual() (check-in del día)
   useEffect(() => {
@@ -850,6 +857,7 @@ export default function NuevaVentaPage() {
   }
   /* ── Header ── */
   .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
+  .logo { max-width: 44mm; max-height: 20mm; object-fit: contain; margin: 0 auto 2mm; display: block; }
   .b1  { font-size: 6mm; font-weight: 900; line-height: 1.2; }
   .b2  { font-size: 4.5mm; font-weight: 900; line-height: 1.2; }
   .dt  { font-size: 3mm; margin-top: 1.5mm; }
@@ -868,7 +876,8 @@ export default function NuevaVentaPage() {
   .tc { width: 6mm; text-align: center; }
   .tp { text-align: right; width: 14mm; }
   /* ── Total ── */
-  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; margin-bottom: 3mm; }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; }
+  .pago-line { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.4mm; padding: 2mm 0 0; margin-bottom: 3mm; }
   /* ── Pagos ── */
   .ph-title { text-align: center; font-weight: 900; font-size: 3.2mm; border-top: 0.4mm dashed #000; border-bottom: 0.4mm dashed #000; padding: 1.5mm 0; margin: 2.5mm 0 2mm; }
   .ph-line { display: none; }
@@ -888,6 +897,7 @@ export default function NuevaVentaPage() {
   .flbl { font-size: 3mm; text-align: center; margin-top: 1mm; }
   /* ── Footer ── */
   .footer { border-top: 0.5mm solid #000; padding-top: 3mm; margin-top: 2mm; text-align: center; font-size: 3mm; line-height: 2; }
+  .faddr { font-weight: 700; line-height: 1.4; margin-bottom: 1.5mm; }
   .fatendio { font-weight: 900; }
   .fbar { margin-top: 2.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; font-weight: 900; font-size: 3.5mm; }
   /* ── Evitar cortes ── */
@@ -902,6 +912,7 @@ export default function NuevaVentaPage() {
 </div>
 
 <div class="hdr">
+  ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
   <div class="b1">${(SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal).toUpperCase()}</div>
   ${SUCURSAL_CONFIG[sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
   <div class="dt">${fechaFmt} | ${horaHoy}</div>
@@ -923,7 +934,7 @@ export default function NuevaVentaPage() {
 </table>
 
 <div class="total-row"><span>TOTAL:</span><span>$${total.toLocaleString('es-MX')}</span></div>
-${moneda === 'USD' && tipoCambio ? `<div class="icard" style="text-align:center;font-size:2.6mm;">Pago en dolares: USD $${(total / tipoCambio).toFixed(2)} · TC $${tipoCambio.toFixed(2)}</div>` : ''}
+<div class="pago-line"><span>Forma de pago:</span><span>${metodoPagoLabel}</span></div>
 
 ${pagosHtml}
 
@@ -937,6 +948,7 @@ ${entregaHtml}
 </div>
 
 <div class="footer">
+  ${SUCURSAL_CONFIG[sucursal]?.direccion ? `<div class="faddr">${SUCURSAL_CONFIG[sucursal].direccion}</div>` : ''}
   <div>Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
   <div>${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun-Sab 10:00-18:00'}</div>
   ${atendioPor ? `<div class="fatendio">Atendio: ${atendioPor}</div>` : ''}
