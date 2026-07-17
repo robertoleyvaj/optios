@@ -58,6 +58,7 @@ type CorteGuardado = {
   entrega: number
   notas: string
   cerrado: boolean
+  cerrado_at?: string | null
 }
 
 // ─────────────────────────────────────────
@@ -120,6 +121,7 @@ export default function CajaPage() {
   const [ventas, setVentas]       = useState<Record<MetodoPago, ResumenMetodo>>(RESUMEN_VACIO)
   const [efectivoUSD, setEfectivoUSD] = useState<ResumenUSD>({ monto: 0, transacciones: 0, tcPromedio: 0 })
   const [pagosHoy, setPagosHoy]   = useState<PagoVenta[]>([])
+  const [pagosTardios, setPagosTardios] = useState<PagoVenta[]>([])  // pagos que entraron después del cierre
   const [gastosHoy, setGastosHoy] = useState<GastoHoy[]>([])
   const [historial, setHistorial] = useState<CorteGuardado[]>([])
   const [corteHoy, setCorteHoy]   = useState<CorteGuardado | null>(null)
@@ -281,9 +283,16 @@ export default function CajaPage() {
       setEfectivoContado(String(corteData.efectivo_contado))
       setRetiro(corteData.entrega ? String(corteData.entrega) : '')
       setNotas(corteData.notas)
+      // Pagos que entraron DESPUÉS de la hora de cierre (dinero tardío que el corte no cubrió)
+      if (corteData.cerrado && corteData.cerrado_at) {
+        setPagosTardios(pagosHoyList.filter(p => p.created_at > corteData.cerrado_at))
+      } else {
+        setPagosTardios([])
+      }
     } else {
       setCorteHoy(null)
       setIsClosed(false)
+      setPagosTardios([])
     }
 
     // 5. Saldo anterior (último corte cerrado antes de hoy)
@@ -493,6 +502,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
       entrega:          retiroNum,   // retiro que va al sobre
       notas:            notasConUSD,
       cerrado:          true,
+      cerrado_at:       new Date().toISOString(),  // momento exacto del cierre
     }
 
     const { data, error } = await sb
@@ -575,6 +585,43 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                 🔓 Reabrir
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Alerta: dinero que entró DESPUÉS del cierre ── */}
+      {cerrado && pagosTardios.length > 0 && (
+        <div className="px-4 py-3 bg-amber-50 border border-amber-300 rounded-lg">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-800">
+                Entró dinero después del cierre — {fmt$(pagosTardios.reduce((s, p) => s + Number(p.monto), 0))}
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                {pagosTardios.length} pago{pagosTardios.length > 1 ? 's se registraron' : ' se registró'} después de que cerraste el corte. Reabre para incluirlo en el día.
+              </p>
+              <div className="mt-2 space-y-1">
+                {pagosTardios.map(p => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 text-xs bg-white border border-amber-200 rounded px-2.5 py-1.5">
+                    <span className="text-zinc-600 truncate">
+                      <span className="font-semibold">{p.folio_venta}</span> · {p.paciente} · {fmtHora(p.created_at)}
+                    </span>
+                    <span className="font-bold text-zinc-800 flex-shrink-0">
+                      {fmt$(Number(p.monto))} <span className="font-normal text-zinc-400">{p.metodo_pago}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {usuario.rol === 'administrador' && (
+                <button
+                  onClick={reabrirCaja}
+                  className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded hover:bg-amber-200 transition-colors font-semibold"
+                >
+                  🔓 Reabrir e incluir
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
