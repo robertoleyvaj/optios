@@ -1656,13 +1656,18 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
           </button>
           <button
             onClick={() => { setEsCotizacion(false); setShowModal(true) }}
-            disabled={carrito.length === 0 || !clienteNombre}
+            disabled={carrito.length === 0 || !clienteNombre || !fechaEntrega}
             className="flex items-center gap-2 px-6 py-2.5 bg-[#0B0E14] text-white rounded-md text-sm font-bold hover:bg-[#1A1D27] active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <CheckCircle2 className="w-4 h-4" />
             Generar venta
           </button>
         </div>
+        {carrito.length > 0 && clienteNombre && !fechaEntrega && (
+          <p className="text-xs text-amber-600 mt-2 font-medium text-right">
+            ⚠️ Falta la <b>fecha de entrega</b> (arriba) para poder generar la venta.
+          </p>
+        )}
       </div>
 
       {/* Modal producto libre */}

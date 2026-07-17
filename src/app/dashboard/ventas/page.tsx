@@ -33,6 +33,7 @@ type Venta = {
   fecha: string
   hora: string
   vendedor: string
+  fechaEntrega: string
 }
 
 // ─────────────────────────────────────────
@@ -93,22 +94,24 @@ function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
 
   const saldo = saldoPendiente(v)
   const pagadoTotal = v.pagos.reduce((s, p) => s + p.monto, 0)
+  const mAbbr = (m: string) => (({ efectivo: 'Efvo', debito: 'Déb', credito: 'Créd', transferencia: 'Transf', banco: 'Banco' } as Record<string, string>)[m] || m)
 
   const pagosRows = v.pagos.map((p, i) =>
-    `<tr><td>${i + 1}</td><td>${p.fecha}</td><td class="r">$${p.monto.toLocaleString('es-MX')}</td></tr>`
+    `<tr><td>${i + 1}</td><td>${p.fecha}</td><td>${mAbbr(p.metodo)}</td><td class="r">$${p.monto.toLocaleString('es-MX')}</td></tr>`
   ).join('')
 
-  const pagosHtml = v.modoPago === 'diferida' ? `
+  const pagosHtml = v.pagos.length > 0 ? `
     <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">PAGOS REALIZADOS</div><div class="ph-line"></div></div>
     <table class="pagos">
-      <tr><th>#</th><th>Fecha</th><th class="r">Pago</th></tr>
+      <tr><th>#</th><th>Fecha</th><th>Método</th><th class="r">Pago</th></tr>
       ${pagosRows}
     </table>
     <div class="pagos-total-row"><span>TOTAL PAGADO:</span><span>$${pagadoTotal.toLocaleString('es-MX')}</span></div>
-    <div class="saldo-box">
+    ${saldo > 0 ? `<div class="saldo-box">
       <div class="saldo-lbl">Cantidad restante para liquidar el pago:</div>
       <div class="saldo-val">$${saldo.toLocaleString('es-MX')}</div>
-    </div>` : ''
+    </div>` : ''}
+  ` : ''
 
   const win = window.open('', '_blank', 'width=230,height=900')
   if (!win) return
@@ -149,7 +152,8 @@ function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
   .pago-line { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.4mm; padding: 2mm 0 0; margin-bottom: 3mm; }
   .ph-title { text-align: center; font-weight: 900; font-size: 3.2mm; border-top: 0.4mm dashed #000; border-bottom: 0.4mm dashed #000; padding: 1.5mm 0; margin: 2.5mm 0 2mm; }
   .ph-line { display: none; }
-  table.pagos { width: 100%; border-collapse: collapse; font-size: 3mm; }
+  table.pagos { width: 100%; border-collapse: collapse; font-size: 2.7mm; }
+  table.pagos td, table.pagos th { padding: 0.8mm 0.5mm; }
   table.pagos th { text-align: left; font-weight: 700; padding: 1mm; border-bottom: 0.4mm solid #000; }
   table.pagos td { padding: 1mm; }
   .r { text-align: right; }
@@ -198,7 +202,7 @@ function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
 
 ${pagosHtml}
 
-<div class="icard">Fecha de entrega de 3 a 5 dias habiles a partir de la compra.</div>
+<div class="icard">${v.fechaEntrega ? `Fecha de entrega: <b>${v.fechaEntrega}</b>` : 'Fecha de entrega de 3 a 5 dias habiles a partir de la compra.'}</div>
 <div class="icard">Conserve este ticket para cualquier aclaracion o garantia.</div>
 
 <div class="firma-sec">
@@ -307,6 +311,7 @@ export default function VentasPage() {
           metodo_pago,
           atendido_por,
           created_at,
+          fecha_entrega,
           ventas_items(nombre, cantidad, precio_unitario, descuento),
           pagos_venta(id, monto, metodo_pago, created_at, tipo)
         `)
@@ -372,6 +377,7 @@ export default function VentasPage() {
           fecha,
           hora,
           vendedor: v.atendido_por ?? '',
+          fechaEntrega: v.fecha_entrega ?? '',
         }
       })
 
