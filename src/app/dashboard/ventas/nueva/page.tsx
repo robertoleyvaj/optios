@@ -437,17 +437,23 @@ export default function NuevaVentaPage() {
   // Válido para guardar: no sobrepasa el total. En liquidar debe cubrir el total.
   const pagoValido = !sobrepago && (modoPago === 'liquidar' ? Math.abs(recibido - total) < 0.5 : recibido > 0)
 
-  // En modo Liquidar con una sola línea en pesos, mantenerla igual al total
+  // En modo Liquidar con una sola línea, prellenar el monto que cubre el total:
+  // en pesos → el total; en dólares → el equivalente en USD (total / TC).
   useEffect(() => {
     if (modoPago !== 'liquidar') return
     setLineasPago(prev => {
-      if (prev.length === 1 && prev[0].moneda === 'MXN') {
-        const t = String(total)
-        if (prev[0].monto !== t) return [{ ...prev[0], monto: t }]
+      if (prev.length === 1) {
+        if (prev[0].moneda === 'MXN') {
+          const t = String(total)
+          if (prev[0].monto !== t) return [{ ...prev[0], monto: t }]
+        } else if (prev[0].moneda === 'USD' && tipoCambio) {
+          const t = String(Math.round((total / tipoCambio) * 100) / 100)
+          if (prev[0].monto !== t) return [{ ...prev[0], monto: t }]
+        }
       }
       return prev
     })
-  }, [total, modoPago])
+  }, [total, modoPago, tipoCambio])
 
   // Si alguna línea es USD y aún no hay tipo de cambio, jalarlo
   useEffect(() => {
@@ -490,8 +496,10 @@ export default function NuevaVentaPage() {
       // Leer usuario actual
       const localU = getUsuarioLocal()
       const atendioPor = sessionUser?.nombre || localU.nombre || ''
-      // usuario_id: auth UUID — se guarda para trazabilidad pero es nullable, nunca bloquea el pago
-      const usuarioId: string | null = sessionUser?.id || null
+      // usuario_id: la columna tiene FK a la tabla `usuarios`, y el id de Supabase Auth
+      // NO es ese id → mandarlo rompe la venta. Lo dejamos null; quién atendió/cobró
+      // queda guardado por nombre en atendido_por / registrado_por.
+      const usuarioId: string | null = null
 
       // ── 1. Obtener folio siguiente ──────────────────────────
       const prefijo = cotizacion ? 'COT' : 'V'
@@ -1793,14 +1801,14 @@ ${entregaHtml}
                             </div>
                           ) : null}
 
-                          <div className="relative w-28 flex-shrink-0">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 text-xs font-semibold">
+                          <div className="relative w-36 flex-shrink-0">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 text-xs font-semibold">
                               {l.metodo === 'efectivo' && l.moneda === 'USD' ? 'US$' : '$'}
                             </span>
                             <input
-                              type="number" min={0} value={l.monto}
+                              type="number" min={0} step="any" value={l.monto}
                               onChange={e => setLineasPago(prev => prev.map((x, j) => j === i ? { ...x, monto: e.target.value } : x))}
-                              className="w-full border border-zinc-200 rounded-md pl-7 pr-2 py-2 text-sm font-semibold text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                              className="w-full border border-zinc-200 rounded-md pl-9 pr-2 py-2.5 text-sm font-semibold text-zinc-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                               placeholder="0"
                             />
                           </div>
