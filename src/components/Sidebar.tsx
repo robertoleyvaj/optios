@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
-  DollarSign, BarChart3, CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Microscope, Star, X,
+  CalendarDays, FolderOpen, Settings,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -68,9 +68,10 @@ const MENU_CORE: MenuItem[] = [
 const MENU_GESTION: MenuItem[] = [
   { type: 'sep', label: 'Gestión', key: '_sep_gestion' },
   { href: '/dashboard/inventario',  label: 'Inventario',       icon: Package,    key: 'inventario' },
-  { href: '/dashboard/reportes',    label: 'Reportes',         icon: BarChart3,  key: 'reportes' },
-  { href: '/dashboard/analitica',   label: 'Analítica',        icon: Microscope, key: 'analitica', pronto: true },
-  { href: '/dashboard/finanzas',    label: 'Finanzas',         icon: DollarSign, key: 'finanzas' },
+  // Ocultos temporalmente para enfocar el flujo hasta el corte (reactivar después):
+  // { href: '/dashboard/reportes',    label: 'Reportes',         icon: BarChart3,  key: 'reportes' },
+  // { href: '/dashboard/analitica',   label: 'Analítica',        icon: Microscope, key: 'analitica', pronto: true },
+  // { href: '/dashboard/finanzas',    label: 'Finanzas',         icon: DollarSign, key: 'finanzas' },
   { href: '/dashboard/usuarios',    label: 'Usuarios',         icon: Users,      key: 'usuarios' },
   { href: '/dashboard/ajustes',     label: 'Ajustes',          icon: Settings,   key: 'ajustes' },
 ]

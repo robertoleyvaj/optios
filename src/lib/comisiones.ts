@@ -56,7 +56,7 @@ export async function registrarComisionTerminal({
     categoria:      'comision_terminal',
     concepto:       `Comisión ${metodoPago === 'debito' ? 'débito' : 'crédito'} · ${folio}`,
     monto:          comision,
-    metodo_pago:    'efectivo',
+    metodo_pago:    'banco',
     sucursal,
     registrado_por: 'sistema',
   })
