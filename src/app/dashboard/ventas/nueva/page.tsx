@@ -1076,25 +1076,24 @@ ${entregaHtml}
     }
 
     return (
-      <div className="max-w-lg mx-auto py-8 space-y-5">
-        {/* Folio label */}
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
-            <CheckCircle2 className="w-3 h-3 text-white" />
-          </div>
-          <span className="text-sm font-semibold text-zinc-700">{esCotizacion ? 'Cotización generada' : 'Venta registrada'}</span>
-          <span className="text-xs text-zinc-400 ml-1">{folio}</span>
-        </div>
-
-        {/* Ticket card */}
+      <div className="max-w-4xl mx-auto py-4">
+        <div className="grid lg:grid-cols-2 gap-5 items-start">
+        {/* Columna izquierda: nota de venta */}
         <div className="bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden">
-          {/* Header del ticket */}
-          <div className="bg-[#0B0E14] px-5 py-4 text-center">
-            <p className="text-white font-bold text-base">{SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal}</p>
-            {SUCURSAL_CONFIG[sucursal]?.nombreLinea2 && (
-              <p className="text-white/70 text-xs mt-0.5">{SUCURSAL_CONFIG[sucursal].nombreLinea2}</p>
+          {/* Encabezado limpio */}
+          <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-zinc-900 truncate">{SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{folio} · {fechaHoy}, {horaHoy}</p>
+            </div>
+            {!esCotizacion && (
+              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${
+                saldoGuardado > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+              }`}>
+                <CheckCircle2 className="w-3 h-3" />
+                {saldoGuardado > 0 ? 'Con saldo' : 'Liquidada'}
+              </span>
             )}
-            <p className="text-white/40 text-xs mt-1">{fechaHoy} · {horaHoy} · {folio}</p>
           </div>
 
           {/* Cliente */}
@@ -1155,19 +1154,14 @@ ${entregaHtml}
           <div className="px-5 py-4 bg-zinc-50 border-t border-zinc-200 space-y-3">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-xs text-zinc-400">Método de pago</p>
-                <p className="text-sm font-semibold text-zinc-600 mt-0.5">{metodoPagoLabel}{saldoGuardado > 0 ? ' · Diferido' : ''}</p>
+                <p className="text-xs text-zinc-400">{saldoGuardado > 0 ? 'Anticipo · ' : 'Pagado · '}{metodoPagoLabel}</p>
+                {saldoGuardado > 0 && (
+                  <p className="text-sm font-semibold text-emerald-700 mt-0.5">${anticipoGuardado.toLocaleString('es-MX')}</p>
+                )}
               </div>
               <div className="text-right">
-                <p className="text-xs text-zinc-400">Total venta</p>
-                {moneda === 'USD' && tipoCambio ? (
-                  <>
-                    <p className="text-2xl font-bold text-blue-700">USD ${(total / tipoCambio).toFixed(2)}</p>
-                    <p className="text-xs text-zinc-400">${total.toLocaleString('es-MX')} MXN</p>
-                  </>
-                ) : (
-                  <p className="text-2xl font-bold text-[#0B0E14]">${total.toLocaleString('es-MX')}</p>
-                )}
+                <p className="text-xs text-zinc-400">Total</p>
+                <p className="text-2xl font-bold text-zinc-900">${total.toLocaleString('es-MX')}</p>
               </div>
             </div>
             {saldoGuardado > 0 && (
@@ -1185,63 +1179,42 @@ ${entregaHtml}
           </div>
         </div>
 
-        {/* Checklist de proceso (solo cuando hay micas) */}
-        {tieneMicasGuardado && (
-          <div className="bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-zinc-200">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Checklist de orden</p>
-            </div>
-            <div className="divide-y divide-zinc-50">
-              {[
-                { done: true,                        label: 'Venta registrada',        sub: folio },
-                { done: folioLabGuardado.length > 0, label: 'Órdenes de lab creadas',  sub: folioLabGuardado.join(', ') },
-                { done: notaImpresa,                 label: 'Nota de venta impresa',   sub: '' },
-                { done: ordenLabImpresa,             label: 'Órdenes de lab impresas', sub: '' },
-              ].map((step, i) => (
-                <div key={i} className="flex items-center gap-3 px-5 py-2.5">
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${step.done ? 'bg-emerald-500' : 'border-2 border-zinc-200'}`}>
-                    {step.done && <CheckCircle2 className="w-3 h-3 text-white" />}
-                  </div>
-                  <span className={`text-sm ${step.done ? 'text-zinc-700' : 'text-zinc-400'}`}>{step.label}</span>
-                  {step.sub && <span className="ml-auto text-xs font-mono text-zinc-400">{step.sub}</span>}
-                </div>
-              ))}
-              <div className="flex items-center gap-3 px-5 py-2.5">
-                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-zinc-200" />
-                <span className="text-sm text-zinc-400">Completar y enviar al laboratorio</span>
-                <Link href="/dashboard/laboratorio" className="ml-auto text-xs text-[#0D9488] font-semibold hover:underline whitespace-nowrap">
-                  Ir al lab →
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Columna derecha: checklist + acciones */}
+        <div className="space-y-4">
 
-        {/* Acciones */}
+        <p className="text-sm text-zinc-500">¿Qué sigue?</p>
+
+        {/* Acción principal: la nota de venta (para el paciente) */}
+        <button
+          onClick={handleImprimirTicket}
+          className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${
+            notaImpresa
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : 'bg-[#0D9488] text-white hover:bg-[#0B7A70]'
+          }`}
+        >
+          <Printer className="w-[18px] h-[18px]" /> {notaImpresa ? 'Nota de venta impresa' : 'Imprimir nota de venta'}
+        </button>
+
+        {/* Acción secundaria: orden de laboratorio */}
         {tieneMicasGuardado && (
           <button
             onClick={handleImprimirOrdenLab}
-            className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-colors ${
+            className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-lg text-sm transition-colors ${
               ordenLabImpresa
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : 'bg-[#0D9488] text-white hover:bg-[#0B7A70]'
+                : 'border border-zinc-200 text-zinc-700 hover:bg-zinc-100'
             }`}
           >
-            <Printer className="w-4 h-4" />
-            {ordenLabImpresa ? '✓ Órdenes de lab impresas' : `Imprimir órdenes de laboratorio (${folioLabGuardado.join(', ')})`}
+            <Printer className="w-[18px] h-[18px] text-zinc-500" />
+            {ordenLabImpresa ? 'Órdenes de lab impresas' : 'Imprimir orden de laboratorio'}
+            {!ordenLabImpresa && folioLabGuardado.length > 0 && (
+              <span className="text-zinc-400 text-xs ml-auto">{folioLabGuardado.join(', ')}</span>
+            )}
           </button>
         )}
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            onClick={handleImprimirTicket}
-            className={`flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-colors ${
-              notaImpresa
-                ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border border-zinc-200 text-zinc-600 hover:bg-zinc-100'
-            }`}
-          >
-            <Printer className="w-4 h-4" /> {notaImpresa ? '✓ Nota' : 'Nota de venta'}
-          </button>
+
+        <div className="grid grid-cols-2 gap-3">
           <Link
             href="/dashboard/ventas"
             className="flex items-center justify-center gap-2 py-3 bg-zinc-100 text-zinc-600 rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors text-center"
@@ -1255,6 +1228,9 @@ ${entregaHtml}
             Nueva venta
           </button>
         </div>
+
+        </div>{/* fin columna derecha */}
+        </div>{/* fin grid dos columnas */}
       </div>
     )
   }
