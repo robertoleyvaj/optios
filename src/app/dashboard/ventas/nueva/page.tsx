@@ -1568,21 +1568,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
         </div>
 
         {carrito.length > 0 && (
-          <div className="px-6 py-4 border-t border-zinc-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => { setBusquedaProducto(''); setShowBuscadorProducto(true) }}
-                className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-600 border border-dashed border-zinc-200 rounded-md px-4 py-2 hover:border-zinc-300 transition-all"
-              >
-                <Plus className="w-4 h-4" /> Agregar producto
-              </button>
-              <button
-                onClick={() => { setProductoLibre({ descripcion: '', precio: '', cantidad: '1' }); setShowProductoLibre(true) }}
-                className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-600 border border-dashed border-zinc-200 rounded-md px-4 py-2 hover:border-zinc-300 transition-all"
-              >
-                <Plus className="w-4 h-4" /> Producto libre
-              </button>
-            </div>
+          <div className="px-6 py-4 border-t border-zinc-200 flex items-center justify-end">
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <span className="text-sm text-zinc-400">Total</span>
