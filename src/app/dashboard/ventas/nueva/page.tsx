@@ -1345,8 +1345,8 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
             <label className="block text-xs font-medium text-zinc-500 mb-1.5">Nombre *</label>
             <input
               value={clienteNombre}
-              onChange={e => setClienteNombre(e.target.value)}
-              placeholder="Nombre"
+              onChange={e => setClienteNombre(e.target.value.toUpperCase())}
+              placeholder="NOMBRE"
               className="w-full py-2.5 px-4 text-sm border border-zinc-200 rounded-md bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
             />
           </div>
@@ -1356,8 +1356,8 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
             <label className="block text-xs font-medium text-zinc-500 mb-1.5">Apellido *</label>
             <input
               value={clienteApellido}
-              onChange={e => setClienteApellido(e.target.value)}
-              placeholder="Apellido"
+              onChange={e => setClienteApellido(e.target.value.toUpperCase())}
+              placeholder="APELLIDO"
               className="w-full py-2.5 px-4 text-sm border border-zinc-200 rounded-md bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
             />
           </div>
@@ -1685,9 +1685,9 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                 <label className="block text-sm font-medium text-zinc-700 mb-1">Descripción</label>
                 <input
                   type="text"
-                  placeholder="Descripción del producto o servicio"
+                  placeholder="DESCRIPCIÓN DEL PRODUCTO O SERVICIO"
                   value={productoLibre.descripcion}
-                  onChange={e => setProductoLibre(p => ({ ...p, descripcion: e.target.value }))}
+                  onChange={e => setProductoLibre(p => ({ ...p, descripcion: e.target.value.toUpperCase() }))}
                   className="w-full border border-zinc-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                   autoFocus
                 />
