@@ -1692,6 +1692,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                       className="w-full border border-zinc-200 rounded-md pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
                     />
                   </div>
+                  <p className="text-[11px] text-zinc-400 mt-1">Puedes dejarlo en $0 — ej. armazón propio del paciente</p>
                 </div>
                 <div className="w-24">
                   <label className="block text-sm font-medium text-zinc-700 mb-1">Cantidad</label>
@@ -1716,7 +1717,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                 onClick={() => {
                   const precio = parseFloat(productoLibre.precio) || 0
                   const cantidad = parseInt(productoLibre.cantidad) || 1
-                  if (!productoLibre.descripcion.trim() || precio <= 0) return
+                  if (!productoLibre.descripcion.trim() || precio < 0) return
                   const uid = `libre-${Date.now()}`
                   setCarrito(prev => [...prev, {
                     uid,
