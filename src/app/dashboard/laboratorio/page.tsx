@@ -677,8 +677,8 @@ function VistaRepartidor({ ordenes, onUpdate }: {
             <div>
               <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Observaciones</label>
               <textarea value={llevandoDraft.notas} rows={2} placeholder="—"
-                onChange={e => setLlevandoDraft(d => ({ ...d, notas: e.target.value }))}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] resize-none" />
+                onChange={e => setLlevandoDraft(d => ({ ...d, notas: e.target.value.toUpperCase() }))}
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] resize-none uppercase placeholder:normal-case" />
             </div>
           </div>
         </div>
@@ -1196,10 +1196,10 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
               <p className="text-xs font-semibold text-red-700">¿Cuál es el problema?</p>
               <textarea
                 value={motivoInput}
-                onChange={e => setMotivoInput(e.target.value)}
+                onChange={e => setMotivoInput(e.target.value.toUpperCase())}
                 rows={2}
                 placeholder="Ej: tinte llegó incorrecto, graduación muy diferente…"
-                className="w-full border border-red-200 rounded px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-red-400 resize-none"
+                className="w-full border border-red-200 rounded px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-red-400 resize-none uppercase placeholder:normal-case"
                 autoFocus
               />
               <div className="flex gap-2">
@@ -1877,8 +1877,8 @@ export default function LaboratorioPage() {
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
                     <User className="inline w-3 h-3 mr-1 -mt-0.5" /> Paciente *
                   </label>
-                  <input value={form.paciente} onChange={e => f('paciente', e.target.value)}
-                    className={`w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 ${ventaVinculada ? 'text-zinc-400' : ''}`}
+                  <input value={form.paciente} onChange={e => f('paciente', e.target.value.toUpperCase())}
+                    className={`w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case ${ventaVinculada ? 'text-zinc-400' : ''}`}
                     placeholder="Nombre completo" readOnly={!!ventaVinculada} />
                 </div>
                 <div>
@@ -1930,8 +1930,8 @@ export default function LaboratorioPage() {
                     </button>
                   ))}
                 </div>
-                <input value={form.descripcionArmazon} onChange={e => f('descripcionArmazon', e.target.value)}
-                  className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                <input value={form.descripcionArmazon} onChange={e => f('descripcionArmazon', e.target.value.toUpperCase())}
+                  className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
                   placeholder="Marca, color, modelo..." />
               </div>
 
@@ -1948,8 +1948,8 @@ export default function LaboratorioPage() {
                   ].map(row => (
                     <div key={row.field} className="flex items-center gap-3">
                       <span className="text-xs font-bold bg-zinc-100 px-2 py-1.5 rounded text-zinc-600 w-10 text-center flex-shrink-0">{row.label}</span>
-                      <input value={form[row.field]} onChange={e => f(row.field, e.target.value)}
-                        className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm font-mono bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                      <input value={form[row.field]} onChange={e => f(row.field, e.target.value.toUpperCase())}
+                        className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm font-mono bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
                         placeholder={row.ph} />
                     </div>
                   ))}
@@ -1961,8 +1961,8 @@ export default function LaboratorioPage() {
                     ].map(row => (
                       <div key={row.f} className="flex items-center gap-2">
                         <span className="text-xs font-bold bg-zinc-100 px-2 py-1.5 rounded text-zinc-600 min-w-[42px] text-center flex-shrink-0">{row.l}</span>
-                        <input value={form[row.f]} onChange={e => f(row.f, e.target.value)}
-                          className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm font-mono bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                        <input value={form[row.f]} onChange={e => f(row.f, e.target.value.toUpperCase())}
+                          className="flex-1 border border-zinc-200 rounded px-3 py-2 text-sm font-mono bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
                           placeholder={row.ph} />
                       </div>
                     ))}
@@ -1988,8 +1988,8 @@ export default function LaboratorioPage() {
                     {(form.tratamiento === 'tinte' || form.tratamiento === 'polarizado') && (
                       <input
                         value={form.colorTratamiento}
-                        onChange={e => f('colorTratamiento', e.target.value)}
-                        className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                        onChange={e => f('colorTratamiento', e.target.value.toUpperCase())}
+                        className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
                         placeholder={form.tratamiento === 'tinte' ? 'Color del tinte (ej. café, gris, rosa...)' : 'Color de polarizado (ej. gris, café, verde...)'}
                       />
                     )}
@@ -2041,8 +2041,8 @@ export default function LaboratorioPage() {
               {/* Notas */}
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Notas</label>
-                <textarea value={form.notas} onChange={e => f('notas', e.target.value)} rows={3}
-                  className="w-full border border-zinc-200 rounded px-3 py-3 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none placeholder:text-zinc-400"
+                <textarea value={form.notas} onChange={e => f('notas', e.target.value.toUpperCase())} rows={3}
+                  className="w-full border border-zinc-200 rounded px-3 py-3 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 resize-none placeholder:text-zinc-400 uppercase placeholder:normal-case"
                   placeholder="Indicaciones especiales, observaciones..." />
               </div>
             </div>

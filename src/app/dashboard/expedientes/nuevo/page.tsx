@@ -129,6 +129,9 @@ const DIAG_INFO: Record<string, { que_es: string; por_que: string }> = {
 
 const rxVacia = (): RxEye => ({ esfera: '', cilindro: '', eje: '', add: '' })
 
+// Uppercase seguro para texto libre (no toca null/undefined)
+const up = (s: string | null | undefined): string => (s ?? '').toUpperCase()
+
 // ─────────────────────────────────────────────
 // Motor de diagnóstico
 // ─────────────────────────────────────────────
@@ -483,14 +486,14 @@ export default function NuevaConsultaPage() {
       // Paso 1: crear paciente
       if (paso === 1) {
         const { data, error } = await supabase.from('pacientes').insert({
-          nombre: pNombre.trim(),
-          apellido: pApellido.trim(),
+          nombre: up(pNombre.trim()),
+          apellido: up(pApellido.trim()),
           telefono: pTelefono ? `${pLada}${pTelefono}` : '',
           whatsapp: pWhatsapp ? pWhatsapp : (pTelefono ? `${pLada}${pTelefono}` : ''),
           email: pEmail,
-          direccion: pDireccion,
-          ocupacion: pOcupacion,
-          empresa: pEmpresa,
+          direccion: up(pDireccion),
+          ocupacion: up(pOcupacion),
+          empresa: up(pEmpresa),
           sexo: pSexo,
           fecha_nacimiento: pFechaNac || null,
           sucursal_principal: getSucursalActual(),
@@ -508,22 +511,22 @@ export default function NuevaConsultaPage() {
           sucursal: getSucursalActual(),
           atendido_por: rxOptometrista,
           motivo,
-          sintoma_principal: sintomaPrincipal,
+          sintoma_principal: up(sintomaPrincipal),
           antecedentes_medicos: Object.fromEntries(
             antecMedicos
-              .map(x => x === '_otra' ? (antecMedOtra.trim() ? `Otra: ${antecMedOtra.trim()}` : 'Otra') : x)
+              .map(x => x === '_otra' ? (antecMedOtra.trim() ? `Otra: ${up(antecMedOtra.trim())}` : 'Otra') : x)
               .filter(Boolean).map(k => [k, true])
           ),
           antecedentes_oculares: Object.fromEntries(antecOculares.map(k => [k, true])),
           antecedentes_familiares: Object.fromEntries(
             antecFamiliares
-              .map(x => x === '_otra_fam' ? (antecFamOtra.trim() ? `Otra: ${antecFamOtra.trim()}` : 'Otra') : x)
+              .map(x => x === '_otra_fam' ? (antecFamOtra.trim() ? `Otra: ${up(antecFamOtra.trim())}` : 'Otra') : x)
               .filter(Boolean).map(k => [k, true])
           ),
-          medicamentos: tieneMedicamentos === false ? 'Ninguno' : medicamentos,
-          alergias: tieneAlergias === false ? 'Ninguna' : alergias,
+          medicamentos: tieneMedicamentos === false ? 'Ninguno' : up(medicamentos),
+          alergias: tieneAlergias === false ? 'Ninguna' : up(alergias),
           sintomas_lista: sintomasSeleccionados,
-          sintomas_obs: sintomasObs,
+          sintomas_obs: up(sintomasObs),
           paso_actual: 3,
         }).select('id').single()
         if (error || !data) { alert('Error al guardar consulta: ' + error?.message); return }
@@ -535,7 +538,7 @@ export default function NuevaConsultaPage() {
         const updates: Record<string, unknown> = { paso_actual: paso + 1 }
 
         if (paso === 3) Object.assign(updates, { habitos })
-        if (paso === 4) Object.assign(updates, { sintomas_lista: sintomasSeleccionados, sintomas_obs: sintomasObs })
+        if (paso === 4) Object.assign(updates, { sintomas_lista: sintomasSeleccionados, sintomas_obs: up(sintomasObs) })
         if (paso === 5) Object.assign(updates, {
           av_vl_od: avVlOd, av_vl_oi: avVlOi,
           av_vc_od: avVcOd, av_vc_oi: avVcOi,
@@ -544,7 +547,7 @@ export default function NuevaConsultaPage() {
           auto_od: autoOd, auto_oi: autoOi,
           rx_od: rxOd, rx_oi: rxOi,
           rx_dp_od: rxDpOd, rx_dp_oi: rxDpOi,
-          observaciones_clinicas: obsClinicas,
+          observaciones_clinicas: up(obsClinicas),
         })
         if (paso === 6) Object.assign(updates, { diagnosticos: diagnosticos.filter(d => d.confirmado).map(d => d.nombre) })
         if (paso === 7) Object.assign(updates, { rec_clinicas: recClinicas.filter(r => r.activa).map(r => r.texto) })
@@ -566,7 +569,7 @@ export default function NuevaConsultaPage() {
           oi_esfera: rxFinal.oi.esfera, oi_cilindro: rxFinal.oi.cilindro,
           oi_eje: rxFinal.oi.eje, oi_add: rxFinal.oi.add,
           dp_od: rxFinal.dp_od, dp_oi: rxFinal.dp_oi,
-          tipo: rxTipo, optometrista: rxOptometrista, observaciones: rxObservaciones,
+          tipo: rxTipo, optometrista: rxOptometrista, observaciones: up(rxObservaciones),
           diagnostico: diagnosticos.filter(d => d.confirmado).map(d => d.nombre).join(', '),
         })
         // Solo actualizar paso_actual — rec_comerciales y estado se guardan en finalizar()
@@ -629,7 +632,7 @@ export default function NuevaConsultaPage() {
           oi_esfera: rxFinal.oi.esfera, oi_cilindro: rxFinal.oi.cilindro,
           oi_eje: rxFinal.oi.eje,       oi_add: rxFinal.oi.add,
           dp_od: rxFinal.dp_od,         dp_oi: rxFinal.dp_oi,
-          tipo: rxTipo, optometrista: rxOptometrista, observaciones: rxObservaciones,
+          tipo: rxTipo, optometrista: rxOptometrista, observaciones: up(rxObservaciones),
           diagnostico: diagnosticos.filter(d => d.confirmado).map(d => d.nombre).join(', '),
         })
       }
@@ -1711,11 +1714,12 @@ export default function NuevaConsultaPage() {
 // Subcomponentes reutilizables
 // ─────────────────────────────────────────────
 function Field({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+  const upper = type === 'text'   // texto libre en mayúscula; email/tel/etc. intactos
   return (
     <div>
       <label className="block text-xs font-semibold text-zinc-500 mb-1.5">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 text-zinc-800" />
+      <input type={type} value={value} onChange={e => onChange(upper ? e.target.value.toUpperCase() : e.target.value)}
+        className={`w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 text-zinc-800 ${upper ? 'uppercase placeholder:normal-case' : ''}`} />
     </div>
   )
 }
