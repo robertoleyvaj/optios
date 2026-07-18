@@ -1232,16 +1232,17 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
 
           {o.estado === 'listo' && (
             <div className="flex flex-col gap-1.5">
-              {o.costoLab === 0 && !o.esGarantia && (
+              {/* Aviso y candado de costo: solo admin. Gerente/vendedor entregan sin ver costos */}
+              {rol === 'admin' && o.costoLab === 0 && !o.esGarantia && (
                 <p className="text-xs text-center text-amber-600 bg-amber-50 border border-amber-200 rounded-lg py-2 px-3 font-medium">
                   ⚠️ Falta registrar el costo del laboratorio antes de entregar
                 </p>
               )}
               <button
-                disabled={o.costoLab === 0 && !o.esGarantia}
+                disabled={rol === 'admin' && o.costoLab === 0 && !o.esGarantia}
                 onClick={() => onUpdate(o.id, { estado: 'entregado', fechaEntrega: hoyLocal() })}
                 className={`w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-lg transition-colors ${
-                  o.costoLab > 0 || o.esGarantia
+                  rol !== 'admin' || o.costoLab > 0 || o.esGarantia
                     ? 'bg-zinc-900 text-white hover:bg-zinc-700'
                     : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
                 }`}
@@ -1545,8 +1546,8 @@ export default function LaboratorioPage() {
     if (data) setHistorial(data as HistorialItem[])
   }, [])
 
-  const esVendedor   = demoUser?.rol === 'vendedor'
   const esRepartidor = demoUser?.rol === 'repartidor'
+  const esAdmin      = demoUser?.rol === 'admin'   // solo admin ve costos de laboratorio
 
   const filtradas = ordenes
     .filter(o => {
@@ -2012,9 +2013,9 @@ export default function LaboratorioPage() {
               </div>
 
               {/* Financiero */}
-              <div className={`grid gap-4 grid-cols-1 ${esVendedor ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+              <div className={`grid gap-4 grid-cols-1 ${esAdmin ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
                 {[
-                  ...(!esVendedor ? [{ l: 'Costo laboratorio', f: 'costoLab' as const }] : []),
+                  ...(esAdmin ? [{ l: 'Costo laboratorio', f: 'costoLab' as const }] : []),
                   { l: 'Precio al cliente',  f: 'precioCliente' as const },
                   { l: 'Anticipo recibido',  f: 'anticipo' as const },
                 ].map(item => (
