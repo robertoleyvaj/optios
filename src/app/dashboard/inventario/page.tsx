@@ -543,15 +543,14 @@ function InventarioPage() {
 
         {tipoFiltro === 'lc' ? (
           <div>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 bg-blue-50/40">
-              <p className="text-xs text-blue-700">Catálogo de lentes de contacto · disponibilidad infinita (se piden a laboratorio, no hay stock).</p>
-              {esAdmin && (
+            {esAdmin && (
+              <div className="flex justify-end px-5 py-3 border-b border-zinc-100">
                 <button onClick={abrirNuevoLC}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#0B0E14] px-3 py-1.5 rounded hover:bg-[#1A1D27] transition-colors flex-shrink-0">
+                  className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#0B0E14] px-3 py-1.5 rounded hover:bg-[#1A1D27] transition-colors">
                   <Plus className="w-3.5 h-3.5" /> Nuevo lente de contacto
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50/50">
