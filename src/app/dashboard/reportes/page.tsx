@@ -6,13 +6,13 @@ import { rangoDiaLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
 import {
   TrendingUp, ShoppingBag, Package, Target,
-  BarChart3, Beaker, CheckCircle2, AlertTriangle,
+  BarChart3, CheckCircle2,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────
 // Tipos
 // ─────────────────────────────────────────────
-type Periodo = 'hoy' | 'semana' | 'mes' | 'trimestre' | 'anio' | 'personalizado'
+type Periodo = 'hoy' | 'semana' | 'mes' | 'trimestre' | 'semestre' | 'anio' | 'personalizado'
 
 type Venta = {
   id: string
@@ -25,24 +25,22 @@ type Venta = {
   created_at: string
 }
 
-type VentaItem = {
-  venta_id: string
-  nombre: string
-  cantidad: number
-  subtotal: number
-}
-
-type OrdenLab = { estado: string }
+type OrdenLab = { estado: string; precio_cliente: number; fecha_promesa: string | null }
 
 // ─────────────────────────────────────────────
 // Constantes
 // ─────────────────────────────────────────────
-const PERIODOS: { key: Periodo; label: string }[] = [
-  { key: 'hoy',           label: 'Hoy'           },
-  { key: 'semana',        label: 'Esta semana'   },
-  { key: 'mes',           label: 'Este mes'      },
+// Gerente solo ve hasta mensual (sus metas); admin ve todo el rango.
+const PERIODOS_GERENTE: { key: Periodo; label: string }[] = [
+  { key: 'hoy',    label: 'Hoy'         },
+  { key: 'semana', label: 'Semana'      },
+  { key: 'mes',    label: 'Mes'         },
+]
+const PERIODOS_ADMIN: { key: Periodo; label: string }[] = [
+  ...PERIODOS_GERENTE,
   { key: 'trimestre',     label: 'Trimestre'     },
-  { key: 'anio',          label: 'Este año'      },
+  { key: 'semestre',      label: 'Semestre'      },
+  { key: 'anio',          label: 'Año'           },
   { key: 'personalizado', label: 'Personalizado' },
 ]
 
@@ -75,7 +73,22 @@ function getDateRange(periodo: Periodo, desde = '', hasta = '') {
     const q = Math.floor(hoy.getMonth() / 3)
     return { inicio: `${hoy.getFullYear()}-${pad(q*3+1)}-01`, fin }
   }
+  if (periodo === 'semestre') {
+    const h = hoy.getMonth() < 6 ? 1 : 7
+    return { inicio: `${hoy.getFullYear()}-${pad(h)}-01`, fin }
+  }
   return { inicio: `${hoy.getFullYear()}-01-01`, fin }
+}
+
+// Rango del periodo INMEDIATAMENTE anterior (mismo tamaño), para comparar ▲/▼.
+function getPrevRange(periodo: Periodo, inicio: string, fin: string) {
+  const dIni = new Date(inicio + 'T12:00:00')
+  const dFin = new Date(fin + 'T12:00:00')
+  const dias = Math.round((dFin.getTime() - dIni.getTime()) / 86400000) + 1
+  const prevFin = new Date(dIni.getTime() - 86400000)
+  const prevIni = new Date(prevFin.getTime() - (dias - 1) * 86400000)
+  const f = (d: Date) => d.toLocaleDateString('en-CA')
+  return { inicio: f(prevIni), fin: f(prevFin) }
 }
 
 function metaPeriodo(periodo: Periodo, mensual: number): number {
@@ -83,21 +96,9 @@ function metaPeriodo(periodo: Periodo, mensual: number): number {
   if (periodo === 'semana')    return Math.round(mensual / 4)
   if (periodo === 'mes')       return mensual
   if (periodo === 'trimestre') return mensual * 3
+  if (periodo === 'semestre')  return mensual * 6
   if (periodo === 'anio')      return mensual * 12
   return mensual
-}
-
-function categorizarProducto(nombre: string): string {
-  const n = nombre.toLowerCase()
-  if (n.includes('progresiv'))                                                          return 'Progresivos'
-  if (n.includes('bifocal'))                                                            return 'Bifocales'
-  if (n.includes('monofocal'))                                                          return 'Monofocales'
-  if (n.includes('contacto') || /\blc\b/.test(n) ||
-      ['biofinity','air optix','acuvue','oasys','clariti','dailies'].some(k=>n.includes(k))) return 'Lentes de contacto'
-  if (n.includes('filtro')||n.includes('antirreflejo')||n.includes('blue')||
-      n.includes('fotocrom')||n.includes('transitions')||n.includes('tinte'))          return 'Filtros'
-  if (n.includes('armazon')||n.includes('marco'))                                      return 'Armazones'
-  return 'Otros'
 }
 
 const $$ = (n: number) =>
@@ -125,24 +126,6 @@ function KPI({ label, value, sub, icon: Icon, color, children }: {
   )
 }
 
-function BarRow({ label, value, max, right, color }: {
-  label: string; value: number; max: number; right: string; color: string
-}) {
-  const pct = max > 0 ? Math.max(Math.round((value / max) * 100), 2) : 2
-  return (
-    <div>
-      <div className="flex justify-between items-baseline mb-1">
-        <span className="text-xs text-zinc-700 truncate max-w-[60%]">{label}</span>
-        <span className="text-xs text-zinc-500 font-medium shrink-0">{right}</span>
-      </div>
-      <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, background: color }} />
-      </div>
-    </div>
-  )
-}
-
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-white border border-zinc-200/80 rounded-lg p-5">
@@ -166,16 +149,15 @@ function ReportesPage() {
   const [hasta,       setHasta]       = useState('')
   const [sucursal,    setSucursal]    = useState('Todas')
   const [metaMensual, setMetaMensual] = useState(0)
-  const [editMeta,    setEditMeta]    = useState(false)
-  const [metaInput,   setMetaInput]   = useState('0')
+  const [metasPorSuc, setMetasPorSuc] = useState<Record<string, number>>({})
   const [rolUsuario,  setRolUsuario]  = useState('administrador')
 
   // Data
   const [ventas,     setVentas]     = useState<Venta[]>([])
-  const [items,      setItems]      = useState<VentaItem[]>([])
-  const [ventasHoy,  setVentasHoy]  = useState<Venta[]>([])
   const [cotCount,   setCotCount]   = useState(0)
   const [ordLab,     setOrdLab]     = useState<OrdenLab[]>([])
+  const [prevTotal,  setPrevTotal]  = useState(0)   // ventas del periodo anterior (para ▲/▼)
+  const [enCaja,     setEnCaja]     = useState(0)    // efectivo en caja hoy (las 3 sucursales)
   const [cargando,   setCargando]   = useState(true)
 
   useEffect(() => {
@@ -193,27 +175,16 @@ function ReportesPage() {
     const fetchMeta = async () => {
       const mes = hoyMes()
       const sb = createClient()
-      if (sucursal === 'Todas') {
-        const { data } = await sb.from('metas').select('meta').eq('mes', mes)
-        const total = (data || []).reduce((s: number, r: { meta: number }) => s + Number(r.meta), 0)
-        setMetaMensual(total)
-        setMetaInput(String(total))
-      } else {
-        const { data } = await sb.from('metas').select('meta')
-          .eq('sucursal', sucursal).eq('mes', mes).maybeSingle()
-        const val = data ? Number(data.meta) : 0
-        setMetaMensual(val)
-        setMetaInput(String(val))
-      }
+      const { data } = await sb.from('metas').select('sucursal, meta').eq('mes', mes)
+      const map: Record<string, number> = {}
+      for (const r of data || []) map[r.sucursal] = Number(r.meta)
+      setMetasPorSuc(map)
+      const val = sucursal === 'Todas'
+        ? Object.values(map).reduce((s, m) => s + m, 0)
+        : (map[sucursal] ?? 0)
+      setMetaMensual(val)
     }
     fetchMeta()
-  }, [sucursal])
-
-  const guardarMetaDB = useCallback(async (valor: number) => {
-    if (sucursal === 'Todas') return
-    const mes = hoyMes()
-    const sb = createClient()
-    await sb.from('metas').upsert({ sucursal, mes, meta: valor }, { onConflict: 'sucursal,mes' })
   }, [sucursal])
 
   const cargar = useCallback(async () => {
@@ -234,44 +205,47 @@ function ReportesPage() {
       .lte('created_at', rangoFin)
 
     let qVentas = baseVentas()
-    let qHoy    = sb.from('ventas')
-      .select('id, total, anticipo, saldo, sucursal, metodo_pago, atendido_por, created_at')
-      .eq('es_cotizacion', false)
-      .gte('created_at', rangoHoy.start)
-      .lte('created_at', rangoHoy.end)
     let qCot    = sb.from('ventas')
       .select('id', { count: 'exact', head: true })
       .eq('es_cotizacion', true)
       .gte('created_at', rangoInicio)
       .lte('created_at', rangoFin)
     let qLab    = sb.from('ordenes_lab')
-      .select('estado')
+      .select('estado, precio_cliente, fecha_promesa')
       .neq('estado', 'entregado')
+      .neq('estado', 'cancelada')
+
+    // Periodo anterior (mismo tamaño) para comparación ▲/▼
+    const prev = getPrevRange(periodo, inicio, fin)
+    let qPrev = sb.from('ventas')
+      .select('total')
+      .eq('es_cotizacion', false)
+      .gte('created_at', rangoDiaLocal(prev.inicio).start)
+      .lte('created_at', rangoDiaLocal(prev.fin).end)
+
+    // Efectivo que entró HOY a caja (foto del día)
+    let qCaja = sb.from('pagos_venta')
+      .select('monto')
+      .eq('metodo_pago', 'efectivo')
+      .neq('moneda', 'USD')
+      .gte('created_at', rangoHoy.start)
+      .lte('created_at', rangoHoy.end)
 
     if (sucursal !== 'Todas') {
       qVentas = qVentas.eq('sucursal', sucursal)
-      qHoy    = qHoy.eq('sucursal', sucursal)
       qCot    = qCot.eq('sucursal', sucursal)
       qLab    = qLab.eq('sucursal', sucursal)
+      qPrev   = qPrev.eq('sucursal', sucursal)
+      qCaja   = qCaja.eq('sucursal', sucursal)
     }
 
-    const [rV, rH, rC, rL] = await Promise.all([qVentas, qHoy, qCot, qLab])
+    const [rV, rC, rL, rP, rCaja] = await Promise.all([qVentas, qCot, qLab, qPrev, qCaja])
 
-    const vList = rV.data || []
-    setVentas(vList)
-    setVentasHoy(rH.data || [])
+    setVentas(rV.data || [])
     setCotCount(rC.count ?? 0)
     setOrdLab(rL.data || [])
-
-    if (vList.length > 0) {
-      const { data: iData } = await sb
-        .from('ventas_items')
-        .select('venta_id, nombre, cantidad, subtotal')
-        .in('venta_id', vList.map(v => v.id))
-      setItems(iData || [])
-    } else {
-      setItems([])
-    }
+    setPrevTotal((rP.data || []).reduce((s: number, v: { total: number }) => s + Number(v.total), 0))
+    setEnCaja((rCaja.data || []).reduce((s: number, p: { monto: number }) => s + Number(p.monto), 0))
 
     setCargando(false)
   }, [periodo, desde, hasta, sucursal])
@@ -280,71 +254,71 @@ function ReportesPage() {
 
   // ── Cálculos ──────────────────────────────
   const totalFacturado = ventas.reduce((s, v) => s + Number(v.total), 0)
-  const totalCobrado   = ventas.reduce((s, v) => s + (Number(v.total) - Number(v.saldo)), 0)
   const saldoTotal     = ventas.reduce((s, v) => s + Number(v.saldo), 0)
   const ticketPromedio = ventas.length ? totalFacturado / ventas.length : 0
 
   const metaP   = metaPeriodo(periodo, metaMensual)
   const metaPct = metaP > 0 ? Math.min(Math.round((totalFacturado / metaP) * 100), 100) : 0
   const metaFaltante = Math.max(0, metaP - totalFacturado)
-  const metaColor = metaPct >= 100 ? '#10B981' : metaPct >= 75 ? '#F59E0B' : '#EF4444'
 
-  const totalHoy = ventasHoy.reduce((s, v) => s + Number(v.total), 0)
+  // Variación vs periodo anterior
+  const deltaPct = prevTotal > 0
+    ? Math.round(((totalFacturado - prevTotal) / prevTotal) * 100)
+    : (totalFacturado > 0 ? 100 : 0)
+
+  // Lentes sin entregar (órdenes activas no entregadas) — presión para llamar/entregar
+  const lentesSinEntregar = ordLab.length
+  const valorSinEntregar  = ordLab.reduce((s, o) => s + Number(o.precio_cliente || 0), 0)
+  const lentesListas      = ordLab.filter(o => o.estado === 'listo').length
 
   const totalAtendidos = ventas.length + cotCount
   const convPct = totalAtendidos > 0 ? Math.round((ventas.length / totalAtendidos) * 100) : 0
 
-  const ventasCredito = ventas.filter(v => Number(v.anticipo) > 0 && Number(v.saldo) > 0)
-  const anticPromedio = ventasCredito.length > 0
-    ? Math.round(ventasCredito.reduce((s, v) => s + (Number(v.anticipo) / Number(v.total)), 0) / ventasCredito.length * 100)
-    : 0
-
   const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30)
   const carteraVencida = ventas.filter(v => Number(v.saldo) > 0 && new Date(v.created_at) < hace30)
     .reduce((s, v) => s + Number(v.saldo), 0)
-  const carteraAlCorriente = saldoTotal - carteraVencida
 
+  const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
 
-  // Por sucursal — siempre muestra las 3
-  const porSucursal = ['Baja Visión', '5 de Mayo', 'Plaza Laureles'].map(s => ({
-    nombre: s,
-    total:  ventas.filter(v => v.sucursal === s).reduce((sum, v) => sum + Number(v.total), 0),
-    count:  ventas.filter(v => v.sucursal === s).length,
-  }))
+  // Por sucursal — siempre muestra las 3, con su % de meta del periodo
+  const porSucursal = ['Baja Visión', '5 de Mayo', 'Plaza Laureles'].map(s => {
+    const total = ventas.filter(v => v.sucursal === s).reduce((sum, v) => sum + Number(v.total), 0)
+    const metaSuc = metaPeriodo(periodo, metasPorSuc[s] ?? 0)
+    return { nombre: s, total, count: ventas.filter(v => v.sucursal === s).length,
+      metaPct: metaSuc > 0 ? Math.round((total / metaSuc) * 100) : 0 }
+  })
   const maxSuc = Math.max(...porSucursal.map(s => s.total), 1)
 
-  // Por vendedor
-  const porVendedor = Object.entries(
-    ventas.reduce((acc, v) => {
-      const n = v.atendido_por || 'Sin asignar'
-      const p = acc[n] || { total: 0, count: 0 }
-      acc[n] = { total: p.total + Number(v.total), count: p.count + 1 }
-      return acc
-    }, {} as Record<string, { total: number; count: number }>)
-  ).map(([nombre, d]) => ({ nombre, ...d })).sort((a, b) => b.total - a.total)
-  const maxVend = Math.max(...porVendedor.map(v => v.total), 1)
+  // Lab: en proceso / listas para llamar / atrasadas
+  const labListas   = ordLab.filter(o => o.estado === 'listo').length
+  const labProceso  = ordLab.filter(o => o.estado !== 'listo').length
+  const labAtrasadas = ordLab.filter(o => o.estado !== 'listo' && o.fecha_promesa && o.fecha_promesa < hoyStr).length
 
-  // Categorías
-  const porCat = Object.entries(
-    items.reduce((acc, i) => {
-      const c = categorizarProducto(i.nombre)
-      acc[c] = (acc[c] || 0) + Number(i.subtotal)
-      return acc
-    }, {} as Record<string, number>)
-  ).map(([cat, total]) => ({ cat, total })).sort((a, b) => b.total - a.total)
-  const totalCat = porCat.reduce((s, c) => s + c.total, 0)
+  // Serie acumulada para "ritmo hacia la meta"
+  const porDia: Record<string, number> = {}
+  for (const v of ventas) {
+    const d = new Date(v.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+    porDia[d] = (porDia[d] || 0) + Number(v.total)
+  }
+  const diasOrden = Object.keys(porDia).sort()
+  let accSerie = 0
+  const serie = diasOrden.map(d => { accSerie += porDia[d]; return accSerie })
 
-  // Lab
-  const LAB_ESTADOS = [
-    { key: 'recibido',       label: 'Recibidos',   color: 'text-zinc-500',  dot: '#94A3B8' },
-    { key: 'en_laboratorio', label: 'En proceso',  color: 'text-amber-600', dot: '#F59E0B' },
-    { key: 'listo',          label: 'Listos',       color: 'text-green-600', dot: '#10B981' },
-  ]
-  const labCounts = LAB_ESTADOS.map(e => ({ ...e, count: ordLab.filter(o => o.estado === e.key).length }))
+  // Curvas SVG del ritmo acumulado vs meta
+  const ritmoYMax = Math.max(metaP, serie[serie.length - 1] || 0, 1)
+  const ritmoPts = serie.map((val, i) => {
+    const x = serie.length <= 1 ? 400 : (i / (serie.length - 1)) * 400
+    const y = 120 - (val / ritmoYMax) * 108
+    return `${x.toFixed(0)},${y.toFixed(0)}`
+  })
+  const ritmoLine = ritmoPts.length ? 'M' + ritmoPts.join(' L') : ''
+  const ritmoArea = ritmoPts.length ? `M0,120 L${ritmoPts.join(' L')} L400,120 Z` : ''
+  const ritmoYMeta = 120 - (metaP / ritmoYMax) * 108
 
   const esAdmin = rolUsuario === 'administrador' || rolUsuario === 'gerente'
+  const periodosDisponibles = rolUsuario === 'administrador' ? PERIODOS_ADMIN : PERIODOS_GERENTE
   const { inicio, fin } = getDateRange(periodo, desde, hasta)
-  const periodoLabel = { hoy: 'diaria', semana: 'semanal', mes: 'mensual', trimestre: 'trimestral', anio: 'anual', personalizado: 'del período' }[periodo]
+  const periodoLabel = { hoy: 'diaria', semana: 'semanal', mes: 'mensual', trimestre: 'trimestral', semestre: 'semestral', anio: 'anual', personalizado: 'del período' }[periodo]
 
   return (
     <div className="space-y-5">
@@ -359,43 +333,9 @@ function ReportesPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
-          {/* Meta mensual editable */}
-          <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full">
-            <Target className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-            <span className="text-amber-700 font-medium">Meta mensual:</span>
-            {editMeta ? (
-              <input
-                type="number"
-                value={metaInput}
-                onChange={e => setMetaInput(e.target.value)}
-                onBlur={() => {
-                  const v = Number(metaInput) || 0
-                  setMetaMensual(v); setEditMeta(false); guardarMetaDB(v)
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    const v = Number(metaInput) || 0
-                    setMetaMensual(v); setEditMeta(false); guardarMetaDB(v)
-                  }
-                }}
-                autoFocus
-                className="w-24 bg-transparent text-amber-700 font-bold focus:outline-none border-b border-amber-400"
-              />
-            ) : (
-              <button onClick={() => { setMetaInput(String(metaMensual)); setEditMeta(true) }}
-                className={`text-amber-700 font-bold ${sucursal !== 'Todas' ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
-                title={sucursal === 'Todas' ? 'Suma de metas por sucursal' : 'Clic para editar'}>
-                {metaMensual > 0 ? $$(metaMensual) : '—'}
-              </button>
-            )}
-            {sucursal === 'Todas' && metaMensual > 0 && (
-              <span className="text-amber-500 text-[10px]">(suma)</span>
-            )}
-          </div>
-
-          {/* Período */}
+          {/* Período (gerente: hasta mensual · admin: todo) */}
           <div className="flex bg-zinc-100 rounded-lg p-1 gap-0.5">
-            {PERIODOS.map(p => (
+            {periodosDisponibles.map(p => (
               <button key={p.key} onClick={() => setPeriodo(p.key)}
                 className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
                   periodo === p.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
@@ -427,198 +367,101 @@ function ReportesPage() {
       ) : (
         <>
 
-          {/* ── FILA 1: KPIs principales ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <KPI label="Ventas del período" value={$$(totalFacturado)}
-              sub={`${ventas.length} ${ventas.length === 1 ? 'venta' : 'ventas'}`}
-              icon={TrendingUp} color="text-teal-600" />
-            <KPI label="Cobrado" value={$$(totalCobrado)}
-              sub="efectivamente recibido"
-              icon={ShoppingBag} color="text-green-600" />
-            <KPI label="Por cobrar" value={$$(saldoTotal)}
-              sub={carteraVencida > 0 ? `Vencido: ${$$(carteraVencida)}` : 'Sin cartera vencida'}
-              icon={Package} color={saldoTotal > 0 ? 'text-amber-600' : 'text-green-600'} />
-
-            {/* Meta con barra */}
-            <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80 flex flex-col">
+          {/* ── KPIs ── */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="bg-white rounded-lg px-4 py-4 border border-zinc-200/80">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-zinc-400">Meta {periodoLabel}</p>
-                <Target className="w-4 h-4 text-amber-500 opacity-60" />
+                <p className="text-xs font-medium text-zinc-400">Ventas del periodo</p>
+                <TrendingUp className="w-4 h-4 text-teal-600 opacity-60" />
               </div>
-              <p className="text-2xl font-bold text-amber-600">{metaPct}%</p>
-              <div className="mt-2 h-2 bg-zinc-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${metaPct}%`, background: metaColor }} />
-              </div>
-              <p className="text-xs text-zinc-400 mt-1.5">
-                {metaPct >= 100 ? '¡Meta cumplida! 🎉' : `Faltan ${$$(metaFaltante)}`}
+              <p className="text-2xl font-bold text-teal-600">{$$(totalFacturado)}</p>
+              <p className="text-xs mt-1">
+                <span className="text-zinc-400">{metaPct}% meta · </span>
+                <span className={deltaPct >= 0 ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>
+                  {deltaPct >= 0 ? '▲' : '▼'}{Math.abs(deltaPct)}% vs ant.
+                </span>
               </p>
             </div>
-          </div>
-
-          {/* ── FILA 2: KPIs operativos ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Ventas hoy */}
-            <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
-              <p className="text-xs font-medium text-zinc-400">Ventas de hoy</p>
-              <p className="text-2xl font-bold mt-2 text-zinc-800">{$$(totalHoy)}</p>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                {ventasHoy.length} venta{ventasHoy.length !== 1 ? 's' : ''} registradas
-              </p>
-            </div>
-
             <KPI label="Ticket promedio" value={$$(ticketPromedio)}
-              sub={`${ventas.length} ventas en el período`}
+              sub={`${ventas.length} ${ventas.length === 1 ? 'venta' : 'ventas'}`}
               icon={BarChart3} color="text-blue-600" />
-
-            {/* Conversión */}
-            <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
-              <p className="text-xs font-medium text-zinc-400">Conversión</p>
-              <p className={`text-2xl font-bold mt-2 ${
-                convPct >= 60 ? 'text-green-600' : convPct >= 40 ? 'text-amber-600' : 'text-rose-600'
-              }`}>{convPct}%</p>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                {ventas.length} ventas · {cotCount} cotizaciones
-              </p>
-            </div>
-
-            {/* Anticipo promedio */}
-            <div className="bg-white rounded-lg px-5 py-4 border border-zinc-200/80">
-              <p className="text-xs font-medium text-zinc-400">Anticipo promedio</p>
-              <p className={`text-2xl font-bold mt-2 ${
-                anticPromedio >= 50 ? 'text-green-600' : anticPromedio >= 30 ? 'text-amber-600' : 'text-zinc-600'
-              }`}>{anticPromedio}%</p>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                {ventasCredito.length} ventas a crédito
-              </p>
-            </div>
+            <KPI label="# Ventas" value={String(ventas.length)} sub="transacciones"
+              icon={ShoppingBag} color="text-zinc-800" />
+            <KPI label="Por cobrar" value={$$(saldoTotal)}
+              sub={carteraVencida > 0 ? `Vencido: ${$$(carteraVencida)}` : 'saldos de clientes'}
+              icon={Package} color={saldoTotal > 0 ? 'text-rose-600' : 'text-green-600'} />
+            <KPI label="En caja hoy" value={$$(enCaja)} sub="efectivo del día"
+              icon={Target} color="text-teal-600" />
           </div>
 
-          {/* ── FILA 3: Vendedores + Sucursales ── */}
-          <div className="grid grid-cols-2 gap-5">
-            <Card title="Ventas por vendedor">
-              {porVendedor.length === 0 ? (
-                <p className="text-sm text-zinc-400">Sin datos en este período</p>
-              ) : (
-                <div className="space-y-3">
-                  {porVendedor.map(v => (
-                    <BarRow key={v.nombre}
-                      label={v.nombre}
-                      value={v.total}
-                      max={maxVend}
-                      right={`${$$(v.total)} · ${totalFacturado > 0 ? Math.round((v.total / totalFacturado) * 100) : 0}%`}
-                      color="#6366F1"
-                    />
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card title="Comparativo por sucursal">
-              <div className="space-y-3">
+          {/* ── Ventas por óptica + Operación ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card title="Ventas por óptica">
+              <div className="space-y-3.5">
                 {porSucursal.map(s => (
-                  <BarRow key={s.nombre}
-                    label={s.nombre}
-                    value={s.total}
-                    max={maxSuc}
-                    right={s.count > 0 ? `${$$(s.total)} · ${s.count} vtas` : '—'}
-                    color={COLOR_SUC[s.nombre] || '#94A3B8'}
-                  />
+                  <div key={s.nombre}>
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="text-xs text-zinc-700">{s.nombre}</span>
+                      <span className="text-xs text-zinc-500">{$$(s.total)}{s.metaPct > 0 ? ` · ${s.metaPct}% meta` : ''}</span>
+                    </div>
+                    <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.max(Math.round((s.total / maxSuc) * 100), 2)}%`, background: COLOR_SUC[s.nombre] }} />
+                    </div>
+                  </div>
                 ))}
+              </div>
+            </Card>
+
+            <Card title="Operación">
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="text-center bg-violet-50 rounded-lg py-3"><div className="text-xl font-bold text-violet-700">{labProceso}</div><div className="text-[10px] text-zinc-400">En lab</div></div>
+                <div className="text-center bg-emerald-50 rounded-lg py-3"><div className="text-xl font-bold text-emerald-700">{labListas}</div><div className="text-[10px] text-zinc-400">Listas</div></div>
+                <div className="text-center bg-rose-50 rounded-lg py-3"><div className="text-xl font-bold text-rose-600">{labAtrasadas}</div><div className="text-[10px] text-zinc-400">Atrasadas</div></div>
+              </div>
+              <div className="flex items-center justify-between border-t border-zinc-100 pt-3">
+                <div><p className="text-xs text-zinc-400">Cotizaciones abiertas</p><p className="text-lg font-bold text-zinc-700">{cotCount}</p></div>
+                <div className="text-right"><p className="text-xs text-zinc-400">Conversión</p><p className={`text-lg font-bold ${convPct >= 50 ? 'text-teal-600' : convPct >= 30 ? 'text-amber-600' : 'text-rose-600'}`}>{convPct}%</p></div>
               </div>
             </Card>
           </div>
 
-          {/* ── FILA 4: Lab + Categorías + Cartera ── */}
-          <div className="grid grid-cols-3 gap-5">
-
-            {/* Laboratorio */}
-            <Card title="Laboratorio">
-              <div className="space-y-3">
-                {labCounts.map(l => (
-                  <div key={l.key} className="flex items-center justify-between py-0.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: l.dot }} />
-                      <span className="text-sm text-zinc-600">{l.label}</span>
-                    </div>
-                    <span className={`text-base font-bold ${l.color}`}>{l.count}</span>
-                  </div>
-                ))}
-                <div className="border-t border-zinc-200 pt-3 flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">Total activos</span>
-                  <span className="text-sm font-bold text-zinc-700">{ordLab.length}</span>
-                </div>
-                {labCounts.find(l => l.key === 'listo' && l.count > 0) && (
-                  <div className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 px-3 py-2 rounded">
-                    <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-                    {labCounts.find(l => l.key === 'listo')?.count} lentes esperando al paciente
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Categorías */}
-            <Card title="Categorías vendidas">
-              {porCat.length === 0 ? (
-                <p className="text-sm text-zinc-400">Sin datos</p>
+          {/* ── Ritmo hacia meta + Lentes sin entregar ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card title={`Ritmo hacia la meta ${periodoLabel}`}>
+              {serie.length === 0 ? (
+                <p className="text-sm text-zinc-400 py-10 text-center">Sin ventas en el periodo</p>
               ) : (
-                <div className="space-y-3">
-                  {porCat.map(c => (
-                    <BarRow key={c.cat}
-                      label={c.cat}
-                      value={c.total}
-                      max={totalCat}
-                      right={`${totalCat > 0 ? Math.round((c.total / totalCat) * 100) : 0}%`}
-                      color="#0D9488"
-                    />
-                  ))}
-                </div>
+                <>
+                  <svg viewBox="0 0 400 120" className="w-full" style={{ height: 120 }} preserveAspectRatio="none">
+                    <defs><linearGradient id="ritmoG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0D9488" stopOpacity="0.18"/><stop offset="1" stopColor="#0D9488" stopOpacity="0"/></linearGradient></defs>
+                    {metaP > 0 && <line x1="0" y1={ritmoYMeta} x2="400" y2={ritmoYMeta} stroke="#F59E0B" strokeDasharray="4 3" strokeWidth="1.5" />}
+                    <path d={ritmoArea} fill="url(#ritmoG)" />
+                    <path d={ritmoLine} fill="none" stroke="#0D9488" strokeWidth="2.5" />
+                  </svg>
+                  <div className="flex justify-between text-xs mt-2">
+                    <span className="text-zinc-500">Acumulado: <b className="text-zinc-700">{$$(totalFacturado)}</b></span>
+                    <span className="text-amber-600">Meta: {$$(metaP)}</span>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">{metaPct >= 100 ? '¡Meta alcanzada! 🎉' : `Van ${metaPct}% · faltan ${$$(metaFaltante)}`}</p>
+                </>
               )}
             </Card>
 
-            {/* Cartera */}
-            <Card title="Cartera por cobrar">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-zinc-600">Al corriente</p>
-                    <p className="text-xs text-zinc-400">menos de 30 días</p>
-                  </div>
-                  <p className="text-sm font-bold text-amber-600">{$$(carteraAlCorriente)}</p>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-zinc-600">Vencida</p>
-                    <p className="text-xs text-zinc-400">más de 30 días</p>
-                  </div>
-                  <p className={`text-sm font-bold ${carteraVencida > 0 ? 'text-rose-600' : 'text-zinc-400'}`}>
-                    {$$(carteraVencida)}
-                  </p>
-                </div>
-
-                {saldoTotal > 0 && (
-                  <div className="h-2 bg-zinc-100 rounded-full overflow-hidden flex">
-                    <div className="h-full bg-amber-400 transition-all"
-                      style={{ width: `${Math.round((carteraAlCorriente / saldoTotal) * 100)}%` }} />
-                    <div className="h-full bg-rose-500 transition-all"
-                      style={{ width: `${Math.round((carteraVencida / saldoTotal) * 100)}%` }} />
-                  </div>
-                )}
-
-                <div className="border-t border-zinc-200 pt-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-zinc-500">Total por cobrar</span>
-                  <span className="text-sm font-bold text-zinc-700">{$$(saldoTotal)}</span>
-                </div>
-
-                {carteraVencida > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 px-3 py-2 rounded">
-                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                    Cobrar urgente: {$$(carteraVencida)}
-                  </div>
-                )}
+            <Card title="Lentes sin entregar">
+              <div className="flex items-end gap-5 mb-3">
+                <div><p className="text-3xl font-bold text-zinc-800">{lentesSinEntregar}</p><p className="text-xs text-zinc-400">sin entregar</p></div>
+                <div className="pb-1"><p className="text-lg font-bold text-zinc-600">{$$(valorSinEntregar)}</p><p className="text-xs text-zinc-400">valor en trabajos</p></div>
               </div>
+              {lentesListas > 0 ? (
+                <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 px-3 py-2.5 rounded-lg">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                  <span><b>{lentesListas}</b> ya {lentesListas === 1 ? 'está lista' : 'están listas'} para llamar y entregar</span>
+                </div>
+              ) : (
+                <p className="text-xs text-zinc-400">Ninguna lista para entregar aún</p>
+              )}
             </Card>
-
           </div>
 
         </>
