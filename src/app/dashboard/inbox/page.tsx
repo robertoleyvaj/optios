@@ -37,6 +37,8 @@ export default function InboxPage() {
   const [showCompose, setShowCompose] = useState(false)
   const [respuesta, setRespuesta]     = useState('')
   const [usuario, setUsuario]         = useState<{ nombre: string; sucursal: string; rol: string }>({ nombre: '', sucursal: '', rol: '' })
+  const [usuariosList, setUsuariosList] = useState<{ nombre: string; apodo: string; rol: string; sucursal: string }[]>([])
+  const [busqUsuario, setBusqUsuario] = useState('')
 
   // Compose form
   const [compForm, setCompForm] = useState({
@@ -51,6 +53,17 @@ export default function InboxPage() {
       const raw = localStorage.getItem('optios_demo_user')
       if (raw) setUsuario(JSON.parse(raw))
     } catch { /* noop */ }
+  }, [])
+
+  // Lista de usuarios activos para el selector de destinatario
+  useEffect(() => {
+    const load = async () => {
+      const sb = createClient()
+      const { data } = await sb.from('usuarios')
+        .select('nombre, apodo, rol, sucursal').eq('activo', true).order('nombre')
+      setUsuariosList(data ?? [])
+    }
+    load()
   }, [])
 
   const fetchMensajes = useCallback(async () => {
@@ -129,10 +142,20 @@ export default function InboxPage() {
     })
     setShowCompose(false)
     setCompForm({ para_tipo: 'sucursal', para_valor: '', asunto: '', cuerpo: '' })
+    setBusqUsuario('')
     fetchMensajes()
   }
 
   const noLeidos = mensajes.filter(m => !m.leido && m.de !== usuario.nombre).length
+
+  // Usuarios que coinciden con la búsqueda (por nombre o apodo), excluyéndome
+  const usuariosFiltrados = usuariosList
+    .filter(u => u.nombre !== usuario.nombre)
+    .filter(u => {
+      const q = busqUsuario.toLowerCase().trim()
+      if (!q) return false
+      return u.nombre.toLowerCase().includes(q) || (u.apodo ?? '').toLowerCase().includes(q)
+    })
 
   return (
     <div className="flex h-full gap-0 -mx-6 -my-5">
@@ -284,13 +307,13 @@ export default function InboxPage() {
               {/* Para: tipo */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => setCompForm(f => ({ ...f, para_tipo: 'sucursal', para_valor: '' }))}
+                  onClick={() => { setCompForm(f => ({ ...f, para_tipo: 'sucursal', para_valor: '' })); setBusqUsuario('') }}
                   className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'sucursal' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
                 >
                   <MapPin className="w-3.5 h-3.5" /> Sucursal
                 </button>
                 <button
-                  onClick={() => setCompForm(f => ({ ...f, para_tipo: 'usuario', para_valor: '' }))}
+                  onClick={() => { setCompForm(f => ({ ...f, para_tipo: 'usuario', para_valor: '' })); setBusqUsuario('') }}
                   className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'usuario' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
                 >
                   <User className="w-3.5 h-3.5" /> Persona
@@ -311,13 +334,39 @@ export default function InboxPage() {
                   ))}
                 </div>
               ) : (
-                <input
-                  type="text"
-                  placeholder="Nombre de la persona..."
-                  value={compForm.para_valor}
-                  onChange={e => setCompForm(f => ({ ...f, para_valor: e.target.value }))}
-                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Escribe un nombre o apodo (ej. MA)..."
+                    value={busqUsuario}
+                    onChange={e => { setBusqUsuario(e.target.value); setCompForm(f => ({ ...f, para_valor: '' })) }}
+                    className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                  />
+                  {compForm.para_valor && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                      <User className="w-3 h-3" /> {compForm.para_valor}
+                    </span>
+                  )}
+                  {busqUsuario.trim() && !compForm.para_valor && (
+                    <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                      {usuariosFiltrados.length > 0 ? usuariosFiltrados.map(u => (
+                        <button key={u.nombre}
+                          onClick={() => { setCompForm(f => ({ ...f, para_valor: u.nombre })); setBusqUsuario(u.apodo || u.nombre) }}
+                          className="w-full text-left px-3 py-2 hover:bg-zinc-100 flex items-center gap-2.5 transition-colors">
+                          <div className="w-7 h-7 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            {(u.apodo || u.nombre)[0]}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-zinc-700 truncate">{u.nombre}</p>
+                            <p className="text-[10px] text-zinc-400 capitalize">{u.rol} · {u.sucursal}</p>
+                          </div>
+                        </button>
+                      )) : (
+                        <p className="px-3 py-2.5 text-xs text-zinc-400">Sin coincidencias</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
 
               <input
