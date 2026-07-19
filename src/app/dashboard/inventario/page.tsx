@@ -14,6 +14,7 @@ import {
 // Tipos
 // ─────────────────────────────────────────
 type TipoProducto = 'armazon' | 'consumible' | 'servicio'
+type LenteContacto = { id: string; nombre: string; precio_publico: number; activo: boolean }
 type EstadoArmazon = 'disponible' | 'apartado' | 'vendido'
 
 const CANALES_DISPONIBLES = [
@@ -195,7 +196,14 @@ function InventarioPage() {
   const [productos, setProductos] = useState<Producto[]>([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
-  const [tipoFiltro, setTipoFiltro] = useState<'todos' | TipoProducto>('todos')
+  const [tipoFiltro, setTipoFiltro] = useState<'todos' | TipoProducto | 'lc'>('todos')
+  // Lentes de contacto (catálogo de precio, sin stock — se piden a laboratorio)
+  const [catalogoLC, setCatalogoLC] = useState<LenteContacto[]>([])
+  const [lcModal, setLcModal]   = useState(false)
+  const [lcEdit, setLcEdit]     = useState<LenteContacto | null>(null)
+  const [lcNombre, setLcNombre] = useState('')
+  const [lcPrecio, setLcPrecio] = useState('')
+  const [lcGuardando, setLcGuardando] = useState(false)
   const [ubicFiltro, setUbicFiltro] = useState('Todas')
   const [soloAlerta, setSoloAlerta] = useState(false)
   const [modal, setModal] = useState(false)
@@ -246,6 +254,44 @@ function InventarioPage() {
   }, [])
 
   useEffect(() => { cargarProductos() }, [cargarProductos])
+
+  // ── Cargar lentes de contacto (catálogo) ──
+  const cargarLC = useCallback(async () => {
+    const { data } = await createClient()
+      .from('productos_catalogo')
+      .select('id, nombre, precio_publico, activo')
+      .eq('tipo', 'lentes_contacto')
+      .order('nombre')
+    setCatalogoLC((data ?? []) as LenteContacto[])
+  }, [])
+  useEffect(() => { cargarLC() }, [cargarLC])
+
+  // Guardar / editar un lente de contacto
+  const guardarLC = async () => {
+    const precio = parseInt(lcPrecio) || 0
+    if (!lcNombre.trim() || precio <= 0 || lcGuardando) return
+    setLcGuardando(true)
+    const sb = createClient()
+    const payload = { nombre: lcNombre.trim().toUpperCase(), precio_publico: precio, tipo: 'lentes_contacto', activo: true }
+    const { error } = lcEdit
+      ? await sb.from('productos_catalogo').update(payload).eq('id', lcEdit.id)
+      : await sb.from('productos_catalogo').insert(payload)
+    setLcGuardando(false)
+    if (error) { alert(`No se pudo guardar: ${error.message}`); return }
+    setLcModal(false); setLcEdit(null); setLcNombre(''); setLcPrecio('')
+    cargarLC()
+  }
+
+  // Activar / desactivar un lente de contacto
+  const toggleLC = async (lc: LenteContacto) => {
+    await createClient().from('productos_catalogo').update({ activo: !lc.activo }).eq('id', lc.id)
+    setCatalogoLC(prev => prev.map(x => x.id === lc.id ? { ...x, activo: !x.activo } : x))
+  }
+
+  const abrirNuevoLC = () => { setLcEdit(null); setLcNombre(''); setLcPrecio(''); setLcModal(true) }
+  const abrirEditarLC = (lc: LenteContacto) => { setLcEdit(lc); setLcNombre(lc.nombre); setLcPrecio(String(lc.precio_publico)); setLcModal(true) }
+
+  const lcFiltrados = catalogoLC.filter(lc => lc.nombre.toLowerCase().includes(busqueda.toLowerCase()))
 
   const iniciarVerificacion = () => {
     const consumibles = productos.filter(p => p.tipo === 'consumible')
@@ -472,10 +518,10 @@ function InventarioPage() {
               className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400" />
           </div>
           <div className="flex items-center border border-zinc-200 rounded overflow-hidden">
-            {(['todos','armazon','servicio','consumible'] as const).map((k,i) => (
+            {(['todos','armazon','servicio','consumible','lc'] as const).map((k,i) => (
               <button key={k} onClick={() => setTipoFiltro(k)}
                 className={`px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap border-r last:border-r-0 border-zinc-200 ${tipoFiltro === k ? 'bg-[#0B0E14] text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}>
-                {['Todos','Armazones','Micas/Servicios','Consumibles'][i]}
+                {['Todos','Armazones','Micas/Servicios','Consumibles','Lentes de contacto'][i]}
               </button>
             ))}
           </div>
@@ -491,10 +537,53 @@ function InventarioPage() {
             <AlertTriangle className="w-3.5 h-3.5" /> Solo alertas
           </button>
           <span className="text-xs text-zinc-400 ml-auto flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5" /> {filtrados.length} registros
+            <Filter className="w-3.5 h-3.5" /> {tipoFiltro === 'lc' ? lcFiltrados.length : filtrados.length} registros
           </span>
         </div>
 
+        {tipoFiltro === 'lc' ? (
+          <div>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 bg-blue-50/40">
+              <p className="text-xs text-blue-700">Catálogo de lentes de contacto · disponibilidad infinita (se piden a laboratorio, no hay stock).</p>
+              {esAdmin && (
+                <button onClick={abrirNuevoLC}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#0B0E14] px-3 py-1.5 rounded hover:bg-[#1A1D27] transition-colors flex-shrink-0">
+                  <Plus className="w-3.5 h-3.5" /> Nuevo lente de contacto
+                </button>
+              )}
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 bg-zinc-50/50">
+                  <th className="text-left text-xs text-zinc-400 font-semibold px-5 py-3">Lente de contacto</th>
+                  <th className="text-right text-xs text-zinc-400 font-semibold px-4 py-3">Precio público</th>
+                  <th className="text-center text-xs text-zinc-400 font-semibold px-4 py-3">Estado</th>
+                  <th className="w-20 px-4" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50">
+                {lcFiltrados.map(lc => (
+                  <tr key={lc.id} className={`hover:bg-zinc-100 transition-colors ${!lc.activo ? 'opacity-50' : ''}`}>
+                    <td className="px-5 py-3.5"><p className="font-semibold text-zinc-700">{lc.nombre}</p></td>
+                    <td className="px-4 py-3.5 text-right"><span className="text-sm font-semibold text-zinc-800">${lc.precio_publico.toLocaleString('es-MX')}</span></td>
+                    <td className="px-4 py-3.5 text-center">
+                      <button onClick={() => esAdmin && toggleLC(lc)} disabled={!esAdmin}
+                        className={`text-xs font-medium px-2 py-1 rounded ${lc.activo ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-400'} ${esAdmin ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}>
+                        {lc.activo ? 'Activo' : 'Inactivo'}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      {esAdmin && <button onClick={() => abrirEditarLC(lc)} className="text-xs font-medium text-zinc-400 hover:text-zinc-700">Editar</button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {lcFiltrados.length === 0 && (
+              <div className="text-center py-16 text-zinc-400 text-sm">No hay lentes de contacto en el catálogo.</div>
+            )}
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -580,6 +669,7 @@ function InventarioPage() {
             <div className="text-center py-16 text-zinc-400 text-sm">No se encontraron productos.</div>
           )}
         </div>
+        )}
       </div>
 
       {/* ── Wizard de verificación de inventario ── */}
@@ -976,6 +1066,43 @@ function InventarioPage() {
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40">
                 <Save className="w-4 h-4" />
                 {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Agregar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal lente de contacto ── */}
+      {lcModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
+              <h3 className="font-semibold text-zinc-800">{lcEdit ? 'Editar lente de contacto' : 'Nuevo lente de contacto'}</h3>
+              <button onClick={() => setLcModal(false)} className="text-zinc-400 hover:text-zinc-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Nombre</label>
+                <input value={lcNombre} onChange={e => setLcNombre(e.target.value.toUpperCase())}
+                  placeholder="EJ. ACUVUE OASYS"
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Precio público</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
+                  <input type="number" value={lcPrecio} onChange={e => setLcPrecio(e.target.value)}
+                    placeholder="0"
+                    className="w-full border border-zinc-200 rounded-lg pl-7 pr-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-5">
+              <button onClick={() => setLcModal(false)}
+                className="flex-1 border border-zinc-200 text-zinc-600 rounded-lg py-2.5 text-sm hover:bg-zinc-100 transition-colors">Cancelar</button>
+              <button onClick={guardarLC} disabled={!lcNombre.trim() || !(parseInt(lcPrecio) > 0) || lcGuardando}
+                className="flex-1 bg-[#0B0E14] text-white rounded-lg py-2.5 text-sm font-medium hover:bg-[#1A1D27] disabled:opacity-40 transition-colors">
+                {lcGuardando ? 'Guardando...' : lcEdit ? 'Guardar' : 'Agregar'}
               </button>
             </div>
           </div>
