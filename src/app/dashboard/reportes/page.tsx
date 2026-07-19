@@ -5,8 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { rangoDiaLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
 import {
-  TrendingUp, ShoppingBag, Package, Target,
-  BarChart3, CheckCircle2,
+  TrendingUp, ShoppingBag, Package, Target, CheckCircle2,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────
@@ -104,6 +103,12 @@ function metaPeriodo(periodo: Periodo, mensual: number): number {
 const $$ = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n)
 
+const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+function fmtDia(iso: string): string {
+  const [, m, d] = iso.split('-')
+  return `${parseInt(d)} ${MESES_CORTO[parseInt(m) - 1] ?? ''}`
+}
+
 // ─────────────────────────────────────────────
 // Sub-componentes
 // ─────────────────────────────────────────────
@@ -159,6 +164,7 @@ function ReportesPage() {
   const [prevTotal,  setPrevTotal]  = useState(0)   // ventas del periodo anterior (para ▲/▼)
   const [enCaja,     setEnCaja]     = useState(0)    // efectivo en caja hoy (las 3 sucursales)
   const [cargando,   setCargando]   = useState(true)
+  const [hoverIdx,   setHoverIdx]   = useState<number | null>(null)  // punto activo del gráfico de ritmo
 
   useEffect(() => {
     try {
@@ -255,7 +261,6 @@ function ReportesPage() {
   // ── Cálculos ──────────────────────────────
   const totalFacturado = ventas.reduce((s, v) => s + Number(v.total), 0)
   const saldoTotal     = ventas.reduce((s, v) => s + Number(v.saldo), 0)
-  const ticketPromedio = ventas.length ? totalFacturado / ventas.length : 0
 
   const metaP   = metaPeriodo(periodo, metaMensual)
   const metaPct = metaP > 0 ? Math.min(Math.round((totalFacturado / metaP) * 100), 100) : 0
@@ -314,6 +319,13 @@ function ReportesPage() {
   const ritmoLine = ritmoPts.length ? 'M' + ritmoPts.join(' L') : ''
   const ritmoArea = ritmoPts.length ? `M0,120 L${ritmoPts.join(' L')} L400,120 Z` : ''
   const ritmoYMeta = 120 - (metaP / ritmoYMax) * 108
+  // Puntos con posición en % (para overlay HTML interactivo)
+  const ritmoPuntos = serie.map((val, i) => ({
+    xPct: serie.length <= 1 ? 100 : (i / (serie.length - 1)) * 100,
+    yPct: (120 - (val / ritmoYMax) * 108) / 120 * 100,
+    acc: val,
+    fecha: diasOrden[i],
+  }))
 
   const esAdmin = rolUsuario === 'administrador' || rolUsuario === 'gerente'
   const periodosDisponibles = rolUsuario === 'administrador' ? PERIODOS_ADMIN : PERIODOS_GERENTE
@@ -368,7 +380,7 @@ function ReportesPage() {
         <>
 
           {/* ── KPIs ── */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-white rounded-lg px-4 py-4 border border-zinc-200/80">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-zinc-400">Ventas del periodo</p>
@@ -382,9 +394,6 @@ function ReportesPage() {
                 </span>
               </p>
             </div>
-            <KPI label="Ticket promedio" value={$$(ticketPromedio)}
-              sub={`${ventas.length} ${ventas.length === 1 ? 'venta' : 'ventas'}`}
-              icon={BarChart3} color="text-blue-600" />
             <KPI label="# Ventas" value={String(ventas.length)} sub="transacciones"
               icon={ShoppingBag} color="text-zinc-800" />
             <KPI label="Por cobrar" value={$$(saldoTotal)}
@@ -433,12 +442,41 @@ function ReportesPage() {
                 <p className="text-sm text-zinc-400 py-10 text-center">Sin ventas en el periodo</p>
               ) : (
                 <>
-                  <svg viewBox="0 0 400 120" className="w-full" style={{ height: 120 }} preserveAspectRatio="none">
-                    <defs><linearGradient id="ritmoG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0D9488" stopOpacity="0.18"/><stop offset="1" stopColor="#0D9488" stopOpacity="0"/></linearGradient></defs>
-                    {metaP > 0 && <line x1="0" y1={ritmoYMeta} x2="400" y2={ritmoYMeta} stroke="#F59E0B" strokeDasharray="4 3" strokeWidth="1.5" />}
-                    <path d={ritmoArea} fill="url(#ritmoG)" />
-                    <path d={ritmoLine} fill="none" stroke="#0D9488" strokeWidth="2.5" />
-                  </svg>
+                  <div className="relative" style={{ height: 120 }} onMouseLeave={() => setHoverIdx(null)}>
+                    <svg viewBox="0 0 400 120" className="w-full h-full" preserveAspectRatio="none">
+                      <defs><linearGradient id="ritmoG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0D9488" stopOpacity="0.18"/><stop offset="1" stopColor="#0D9488" stopOpacity="0"/></linearGradient></defs>
+                      {metaP > 0 && <line x1="0" y1={ritmoYMeta} x2="400" y2={ritmoYMeta} stroke="#F59E0B" strokeDasharray="4 3" strokeWidth="1.5" />}
+                      <path d={ritmoArea} fill="url(#ritmoG)" />
+                      <path d={ritmoLine} fill="none" stroke="#0D9488" strokeWidth="2.5" />
+                    </svg>
+
+                    {/* Overlay interactivo: columnas de hover + puntos */}
+                    {ritmoPuntos.map((pt, i) => (
+                      <div key={i}>
+                        <div
+                          onMouseEnter={() => setHoverIdx(i)}
+                          className="absolute top-0 bottom-0 -translate-x-1/2 cursor-pointer"
+                          style={{ left: `${pt.xPct}%`, width: `${Math.max(100 / ritmoPuntos.length, 6)}%` }}
+                        />
+                        <div
+                          className={`absolute w-2 h-2 rounded-full -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all ${hoverIdx === i ? 'bg-teal-600 ring-2 ring-teal-200 scale-125' : 'bg-teal-500'}`}
+                          style={{ left: `${pt.xPct}%`, top: `${pt.yPct}%`, opacity: hoverIdx === null || hoverIdx === i ? 1 : 0.3 }}
+                        />
+                      </div>
+                    ))}
+
+                    {/* Tooltip */}
+                    {hoverIdx !== null && ritmoPuntos[hoverIdx] && (
+                      <div
+                        className="absolute z-10 -translate-x-1/2 -translate-y-full pointer-events-none bg-zinc-900 text-white rounded-lg px-2.5 py-1.5 text-[11px] whitespace-nowrap shadow-lg"
+                        style={{ left: `${Math.min(Math.max(ritmoPuntos[hoverIdx].xPct, 14), 86)}%`, top: `${ritmoPuntos[hoverIdx].yPct}%`, marginTop: -10 }}
+                      >
+                        <div className="text-zinc-300">{fmtDia(ritmoPuntos[hoverIdx].fecha)}</div>
+                        <div className="font-bold">Acumulado: {$$(ritmoPuntos[hoverIdx].acc)}</div>
+                        <div className="text-amber-300">Meta: {$$(metaP)}</div>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex justify-between text-xs mt-2">
                     <span className="text-zinc-500">Acumulado: <b className="text-zinc-700">{$$(totalFacturado)}</b></span>
                     <span className="text-amber-600">Meta: {$$(metaP)}</span>
