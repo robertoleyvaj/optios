@@ -118,7 +118,7 @@ export default function InboxPage() {
   const enviarRespuesta = async () => {
     if (!respuesta.trim() || !seleccionado) return
     const sb = createClient()
-    await sb.from('mensajes').insert({
+    const { error } = await sb.from('mensajes').insert({
       de: usuario.nombre,
       para_tipo: seleccionado.de === usuario.nombre ? seleccionado.para_tipo : 'usuario',
       para_valor: seleccionado.de === usuario.nombre ? seleccionado.para_valor : seleccionado.de,
@@ -126,6 +126,7 @@ export default function InboxPage() {
       cuerpo: respuesta.trim(),
       parent_id: seleccionado.id,
     })
+    if (error) { alert(`No se pudo enviar la respuesta: ${error.message}`); return }
     setRespuesta('')
     abrirMensaje(seleccionado)
   }
@@ -133,13 +134,14 @@ export default function InboxPage() {
   const enviarMensaje = async () => {
     if (!compForm.para_valor || !compForm.asunto || !compForm.cuerpo) return
     const sb = createClient()
-    await sb.from('mensajes').insert({
+    const { error } = await sb.from('mensajes').insert({
       de: usuario.nombre,
       para_tipo: compForm.para_tipo,
       para_valor: compForm.para_valor,
       asunto: compForm.asunto,
       cuerpo: compForm.cuerpo,
     })
+    if (error) { alert(`No se pudo enviar el mensaje: ${error.message}`); return }
     setShowCompose(false)
     setCompForm({ para_tipo: 'sucursal', para_valor: '', asunto: '', cuerpo: '' })
     setBusqUsuario('')
