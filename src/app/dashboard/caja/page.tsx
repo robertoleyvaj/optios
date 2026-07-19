@@ -40,6 +40,7 @@ type GastoHoy = {
   notas: string
   monto: number
   metodo_pago?: string
+  created_at?: string
 }
 
 type ResumenMetodo = { monto: number; transacciones: number }
@@ -128,7 +129,8 @@ export default function CajaPage() {
   const [corteHoy, setCorteHoy]   = useState<CorteGuardado | null>(null)
   const [saldoAnterior, setSaldoAnterior] = useState<number | null>(null)
   const [saldoAnteriorUSD, setSaldoAnteriorUSD] = useState(0)  // remanente en dólares del último cierre
-  const [fechaCorteAnterior, setFechaCorteAnterior] = useState<string | null>(null)
+  const [efectivoPrevio, setEfectivoPrevio] = useState(0)      // efectivo MXN acumulado antes de hoy (va a saldo inicial)
+  const [efectivoUSDPrevio, setEfectivoUSDPrevio] = useState(0) // dólares acumulados antes de hoy (va a saldo inicial)
   const [cargando, setCargando]   = useState(true)
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null)
   const [isClosed, setIsClosed]   = useState(false)
@@ -157,16 +159,29 @@ export default function CajaPage() {
   const [guardando, setGuardando] = useState(false)
 
   // ── Cálculos ──
-  const totalEgresos  = gastosHoy.reduce((s, g) => s + Number(g.monto), 0)
-  // Solo los egresos pagados en efectivo bajan del cajón físico.
-  // Los pagados por banco/transferencia/tarjeta salen del banco, no de la caja.
-  const egresosEfectivo = gastosHoy
+  // Rango de HOY (Tijuana) para separar "ingresos/egresos del día" del acumulado previo.
+  const rangoHoyTS = rangoDiaLocal(hoyLocal())
+  const esHoyTS = (ts?: string) => !!ts && ts >= rangoHoyTS.start && ts <= rangoHoyTS.end
+
+  // Egresos: los de HOY se muestran como "egresos del día"; los previos ya afectaron
+  // el saldo inicial. Solo los pagados en efectivo bajan del cajón físico.
+  const gastosHoyList = gastosHoy.filter(g => esHoyTS(g.created_at))
+  const totalEgresos  = gastosHoyList.reduce((s, g) => s + Number(g.monto), 0)
+  const egresosEfectivo = gastosHoyList
     .filter(g => (g.metodo_pago ?? 'efectivo') === 'efectivo')
     .reduce((s, g) => s + Number(g.monto), 0)
-  const saldoInicialNum = saldoAnterior ?? 0
+  const egresosEfectivoPrevio = gastosHoy
+    .filter(g => !esHoyTS(g.created_at) && (g.metodo_pago ?? 'efectivo') === 'efectivo')
+    .reduce((s, g) => s + Number(g.monto), 0)
+
+  // Saldo inicial = remanente del último corte + efectivo acumulado antes de hoy − egresos
+  // en efectivo previos. En operación diaria (corte cada día) esto = remanente de ayer.
+  const saldoInicialNum = (saldoAnterior ?? 0) + efectivoPrevio - egresosEfectivoPrevio
+  const saldoInicialUSD = saldoAnteriorUSD + efectivoUSDPrevio
+  // Esperado en caja = saldo inicial + ingresos en efectivo de HOY − egresos en efectivo de HOY.
+  // El total es idéntico al acumulado; solo se reagrupa para que "ingresos del día" sea solo hoy.
   const esperado      = saldoInicialNum + ventas.efectivo.monto - egresosEfectivo
-  // Dólares: arrastra el remanente del cierre anterior + los dólares que entraron
-  const esperadoUSD   = saldoAnteriorUSD + efectivoUSD.monto
+  const esperadoUSD   = saldoInicialUSD + efectivoUSD.monto
   const contado       = parseFloat(efectivoContado) || 0
   const contadoUSD    = parseFloat(efectivoUSDContado) || 0
   const retiroNum     = parseFloat(retiro) || 0
@@ -179,10 +194,10 @@ export default function CajaPage() {
   const total         = totalMXN + (efectivoUSD.tcPromedio > 0 ? efectivoUSD.monto * efectivoUSD.tcPromedio : 0)
   const cerrado       = isClosed || corteHoy?.cerrado === true
 
-  // Detalle por método: efectivo muestra todo el periodo; tarjeta/transfer solo hoy
-  const rangoHoyTS = rangoDiaLocal(hoyLocal())
+  // Detalle por método bajo "ingresos del día": todos los métodos solo de HOY.
+  // El efectivo acumulado de días previos ya vive en el saldo inicial.
   const pagosPorMetodo = (m: MetodoPago) => pagosHoy.filter(p =>
-    p.metodo_pago === m && (m === 'efectivo' || (p.created_at >= rangoHoyTS.start && p.created_at <= rangoHoyTS.end)),
+    p.metodo_pago === m && esHoyTS(p.created_at),
   )
 
   // ── Leer usuario (legacy localStorage para usuarios sin migrar) ──
@@ -226,7 +241,6 @@ export default function CajaPage() {
     const periodStart = ultimoCorte?.cerrado_at ?? '2000-01-01T00:00:00Z'
     setSaldoAnterior(Number(ultimoCorte?.fondo ?? 0))
     setSaldoAnteriorUSD(Number(ultimoCorte?.fondo_usd ?? 0))
-    setFechaCorteAnterior(ultimoCorte?.fecha ?? null)
 
     // Rango de HOY (Tijuana): el efectivo acumula todo el periodo, pero tarjeta y
     // transferencia se reinician cada día (van al banco, no se quedan en la caja).
@@ -258,16 +272,21 @@ export default function CajaPage() {
 
       const resumen = JSON.parse(JSON.stringify(RESUMEN_VACIO)) as Record<MetodoPago, ResumenMetodo>
       let usdMonto = 0, usdTx = 0, usdTCSum = 0
+      let efvoPrevioAcc = 0   // efectivo MXN de días previos → saldo inicial
+      let usdPrevioAcc = 0    // dólares de días previos → saldo inicial
 
-      // Efectivo (pesos y dólares) acumula todo el periodo (se queda en el cajón).
-      // Tarjeta y transferencia solo cuentan si son de HOY (van al banco, se reinician diario).
+      // Ingresos del día = SOLO hoy (todos los métodos). El efectivo/dólares de días
+      // previos se acumula aparte y se muestra como "saldo inicial en caja".
       for (const p of pagosHoyList) {
         const key = p.metodo_pago as MetodoPago
+        const hoyP = esHoy(p.created_at)
         if (key === 'efectivo' && p.moneda === 'USD') {
-          usdMonto += Number(p.monto_origen ?? 0); usdTx++; usdTCSum += Number(p.tipo_cambio ?? 0)
+          if (hoyP) { usdMonto += Number(p.monto_origen ?? 0); usdTx++; usdTCSum += Number(p.tipo_cambio ?? 0) }
+          else usdPrevioAcc += Number(p.monto_origen ?? 0)
         } else if (key === 'efectivo') {
-          resumen.efectivo = { monto: resumen.efectivo.monto + Number(p.monto), transacciones: resumen.efectivo.transacciones + 1 }
-        } else if (resumen[key] && esHoy(p.created_at)) {
+          if (hoyP) resumen.efectivo = { monto: resumen.efectivo.monto + Number(p.monto), transacciones: resumen.efectivo.transacciones + 1 }
+          else efvoPrevioAcc += Number(p.monto)
+        } else if (resumen[key] && hoyP) {
           resumen[key] = { monto: resumen[key].monto + Number(p.monto), transacciones: resumen[key].transacciones + 1 }
         }
       }
@@ -278,24 +297,29 @@ export default function CajaPage() {
         const recibido = Math.max(0, Number(v.total) - Number(v.saldo ?? 0))
         if (recibido <= 0) continue
         const key = v.metodo_pago as MetodoPago
+        const hoyV = esHoy(v.created_at)
         if (key === 'efectivo' && v.moneda === 'USD') {
-          usdMonto += recibido; usdTx++; usdTCSum += Number(v.tipo_cambio ?? 0)
+          if (hoyV) { usdMonto += recibido; usdTx++; usdTCSum += Number(v.tipo_cambio ?? 0) }
+          else usdPrevioAcc += recibido
         } else if (key === 'efectivo') {
-          resumen.efectivo = { monto: resumen.efectivo.monto + recibido, transacciones: resumen.efectivo.transacciones + 1 }
-        } else if (resumen[key] && esHoy(v.created_at)) {
+          if (hoyV) resumen.efectivo = { monto: resumen.efectivo.monto + recibido, transacciones: resumen.efectivo.transacciones + 1 }
+          else efvoPrevioAcc += recibido
+        } else if (resumen[key] && hoyV) {
           resumen[key] = { monto: resumen[key].monto + recibido, transacciones: resumen[key].transacciones + 1 }
         }
       }
 
       setVentas(resumen)
       setEfectivoUSD({ monto: usdMonto, transacciones: usdTx, tcPromedio: usdTx > 0 ? usdTCSum / usdTx : 0 })
+      setEfectivoPrevio(efvoPrevioAcc)
+      setEfectivoUSDPrevio(usdPrevioAcc)
     }
 
     // 3. Gastos ACUMULADOS del periodo (desde el último cierre).
     //    Solo los "de caja" (salen del cajón); los de empresa viven en finanzas.
     const { data: gastosData } = await sb
       .from('gastos')
-      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago')
+      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago, created_at')
       .eq('sucursal', sucursal)
       .eq('es_caja', true)
       .gt('created_at', periodStart)
@@ -401,8 +425,8 @@ export default function CajaPage() {
         : '',
     ].join('')
 
-    const egresosRows = gastosHoy.length > 0
-      ? gastosHoy.map(g => `<tr><td>${g.notas || g.concepto}</td><td class="r">${fmt$(Number(g.monto))}</td></tr>`).join('')
+    const egresosRows = gastosHoyList.length > 0
+      ? gastosHoyList.map(g => `<tr><td>${g.notas || g.concepto}</td><td class="r">${fmt$(Number(g.monto))}</td></tr>`).join('')
       : '<tr><td colspan="2">Sin egresos</td></tr>'
 
     const difClass = diferencia === 0 ? 'ok' : diferencia > 0 ? 'over' : 'short'
@@ -447,31 +471,35 @@ export default function CajaPage() {
   <p>${fechaFmt}</p>
   <p>${horaFmt} · ${usuario.nombre}</p>
 </div>
+<div class="titulo">Saldo inicial en caja</div>
+<div class="row"><span>Efectivo</span><span>${fmt$(saldoInicialNum)}</span></div>
+${saldoInicialUSD > 0 ? `<div class="row"><span>Dólares</span><span>USD $${saldoInicialUSD.toFixed(2)}</span></div>` : ''}
+<div class="sep"></div>
 <div class="titulo">Ingresos del día</div>
 <table><tbody>${metodosRows}</tbody></table>
-<div class="row big"><span>TOTAL INGRESOS</span><span>${fmt$(total)}</span></div>
-${gastosHoy.length > 0 ? `
+<div class="row big"><span>TOTAL INGRESOS DEL DÍA</span><span>${fmt$(total)}</span></div>
+${gastosHoyList.length > 0 ? `
 <div class="sep"></div>
 <div class="titulo">Egresos del día</div>
 <table><tbody>${egresosRows}</tbody></table>
-<div class="row big"><span>TOTAL EGRESOS</span><span>${fmt$(totalEgresos)}</span></div>
+<div class="row big"><span>TOTAL EGRESOS DEL DÍA</span><span>${fmt$(totalEgresos)}</span></div>
 ` : ''}
 <div class="sep"></div>
-<div class="titulo">Conteo de efectivo — PESOS</div>
-<div class="row"><span>Esperado (sistema)</span><span>${fmt$(esperado)}</span></div>
-<div class="row"><span>Contado físicamente</span><span>${fmt$(contado)}</span></div>
+<div class="titulo">Saldo esperado en caja — PESOS</div>
+<div class="row"><span>Saldo inicial + ingresos − egresos</span><span>${fmt$(esperado)}</span></div>
+<div class="row"><span>Conteo físico</span><span>${fmt$(contado)}</span></div>
 <div class="dif-box ${difClass}">${difLabel}</div>
 ${(efectivoUSD.transacciones > 0 || esperadoUSD > 0) ? `
 <div class="sep"></div>
-<div class="titulo">Caja dólares — USD</div>
-<div class="row"><span>Esperado</span><span>USD $${esperadoUSD.toFixed(2)}</span></div>
-<div class="row"><span>Contado</span><span>USD $${contadoUSD.toFixed(2)}</span></div>
+<div class="titulo">Saldo esperado en caja — USD</div>
+<div class="row"><span>Saldo esperado</span><span>USD $${esperadoUSD.toFixed(2)}</span></div>
+<div class="row"><span>Conteo físico</span><span>USD $${contadoUSD.toFixed(2)}</span></div>
 <div class="dif-box">${diferenciaUSD === 0 ? 'Sin diferencia' : diferenciaUSD > 0 ? `Sobrante: +$${diferenciaUSD.toFixed(2)} USD` : `Faltante: -$${Math.abs(diferenciaUSD).toFixed(2)} USD`}</div>
-<div class="row"><span>Retiro dólares</span><span>USD $${retiroUSDNum.toFixed(2)}</span></div>
-<div class="row"><span>Quedan (mañana)</span><span>USD $${remanenteUSD.toFixed(2)}</span></div>
+<div class="row"><span>Retiro (sobre)</span><span>USD $${retiroUSDNum.toFixed(2)}</span></div>
+<div class="row"><span>Remanente (mañana)</span><span>USD $${remanenteUSD.toFixed(2)}</span></div>
 ` : ''}
 <div class="sep"></div>
-<div class="row"><span>Queda en caja pesos (mañana)</span><span>${fmt$(remanente)}</span></div>
+<div class="row"><span>Remanente en caja — pesos (mañana)</span><span>${fmt$(remanente)}</span></div>
 <div class="entrega-box">
   <div style="font-size:10px;margin-bottom:2px">RETIRO AL SOBRE (PESOS)</div>
   <div class="num">${fmt$(retiroNum)}</div>
@@ -761,7 +789,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 
               {/* Total ingresos */}
               <div className="px-5 py-3.5 bg-zinc-50 border-t border-zinc-200 flex justify-between items-center">
-                <span className="text-sm font-semibold text-zinc-600">Total ingresos</span>
+                <span className="text-sm font-semibold text-zinc-600">Total ingresos del día</span>
                 <span className="text-base font-bold text-zinc-800">{fmt$(total)}</span>
               </div>
             </>
@@ -860,11 +888,11 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           {/* Lista de egresos */}
           {cargando ? (
             <div className="px-5 py-8 text-center text-sm text-zinc-400">Cargando...</div>
-          ) : gastosHoy.length === 0 ? (
+          ) : gastosHoyList.length === 0 ? (
             <div className="px-5 py-8 text-center text-sm text-zinc-400">Sin egresos registrados hoy</div>
           ) : (
             <div className="divide-y divide-zinc-50">
-              {gastosHoy.map(g => {
+              {gastosHoyList.map(g => {
                 const catLabel = CATEGORIAS_EGRESO.find(c => c.value === g.categoria)?.label ?? g.categoria
                 return (
                   <div key={g.id} className="flex items-center gap-3 px-5 py-3">
@@ -897,20 +925,13 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
         {/* Pesos MXN */}
         <div className="grid grid-cols-2 gap-5 mb-5">
           <div className="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
-            <p className="text-xs font-semibold text-zinc-400 mb-1">Esperado en caja (sistema)</p>
+            <p className="text-xs font-semibold text-zinc-400 mb-1">Saldo esperado en caja</p>
             <p className="text-3xl font-bold text-zinc-700">{fmt$(esperado)}</p>
             <div className="mt-2 space-y-0.5 text-xs text-zinc-400">
-              {saldoInicialNum > 0 && (
-                <p>
-                  Saldo {fechaCorteAnterior
-                    ? new Date(fechaCorteAnterior + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
-                    : 'anterior'}: {fmt$(saldoInicialNum)}
-                </p>
-              )}
+              <p>Saldo inicial: {fmt$(saldoInicialNum)}</p>
               {saldoAnterior === null && <p className="text-amber-500">Sin corte previo registrado</p>}
-              {saldoAnterior === 0 && saldoInicialNum === 0 && <p>Sin saldo de ayer</p>}
-              <p>+ Ventas efectivo: {fmt$(ventas.efectivo.monto)}</p>
-              {totalEgresos > 0 && <p>− Egresos: {fmt$(totalEgresos)}</p>}
+              <p>+ Efectivo del día: {fmt$(ventas.efectivo.monto)}</p>
+              {egresosEfectivo > 0 && <p>− Egresos del día: {fmt$(egresosEfectivo)}</p>}
             </div>
           </div>
           <div>
@@ -962,9 +983,9 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                 <p className="text-3xl font-bold text-blue-700">
                   ${esperadoUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>
-                {saldoAnteriorUSD > 0 && (
+                {saldoInicialUSD > 0 && (
                   <p className="text-[11px] text-blue-400 mt-0.5">
-                    Quedaban ${saldoAnteriorUSD.toFixed(2)} + entró ${efectivoUSD.monto.toFixed(2)}
+                    Saldo inicial ${saldoInicialUSD.toFixed(2)} + del día ${efectivoUSD.monto.toFixed(2)}
                   </p>
                 )}
                 <p className="text-xs text-blue-400 mt-1">
@@ -1148,8 +1169,8 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
             <div className="px-6 py-5 space-y-5">
               {/* Referencia */}
               <div className="bg-zinc-50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-zinc-500">Esperado (sistema)</span><span className="font-semibold">{fmt$(esperado)}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-zinc-500">Contaste</span><span className="font-semibold">{fmt$(contado)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-zinc-500">Saldo esperado en caja</span><span className="font-semibold">{fmt$(esperado)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-zinc-500">Conteo físico</span><span className="font-semibold">{fmt$(contado)}</span></div>
                 <div className={`flex justify-between text-sm font-bold ${diferencia === 0 ? 'text-emerald-700' : diferencia > 0 ? 'text-blue-700' : 'text-red-600'}`}>
                   <span>{diferencia === 0 ? 'Cuadra perfecto' : diferencia > 0 ? 'Sobrante' : 'Faltante'}</span>
                   <span>{diferencia === 0 ? '✓' : `${diferencia > 0 ? '+' : ''}${fmt$(diferencia)}`}</span>
