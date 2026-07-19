@@ -8,7 +8,6 @@ import {
   UserPlus,
   Calendar,
   FlaskConical,
-  Phone,
   CheckCircle2,
   AlertTriangle,
   Banknote,
@@ -215,7 +214,7 @@ export default function DashboardPage() {
           // Trabajos retrasados (fecha_promesa vencida y sin entregar)
           sb.from('ordenes_lab').select('id,folio,paciente,estado,fecha_promesa')
             .eq('sucursal', sucursalEfectiva)
-            .in('estado', ['recibido', 'en proceso'])
+            .in('estado', ['recibido', 'en_laboratorio', 'en_camino', 'en_sucursal'])
             .not('fecha_promesa', 'is', null)
             .lt('fecha_promesa', hoyStr)
             .order('fecha_promesa', { ascending: true })
@@ -408,13 +407,6 @@ export default function DashboardPage() {
               <p className="text-sm text-zinc-400 py-4 text-center">Todo al día ✓</p>
             ) : (
               <div className="space-y-0.5">
-                <TaskRow
-                  icon={<Phone className="w-4 h-4 text-blue-500" />}
-                  label="Pacientes listos para llamar"
-                  count={trabajosListos.length}
-                  colorClass="text-blue-600"
-                  onClick={() => router.push('/dashboard/laboratorio')}
-                />
                 <TaskRow
                   icon={<Calendar className="w-4 h-4 text-zinc-500" />}
                   label="Citas programadas hoy"

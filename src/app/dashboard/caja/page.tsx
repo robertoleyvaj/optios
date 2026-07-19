@@ -1078,10 +1078,10 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-zinc-700 flex items-center gap-2">
               <Clock className="w-4 h-4 text-zinc-400" />
-              {usuario.rol === 'admin' ? 'Historial de cortes — todas las sucursales' : `Cortes anteriores · ${usuario.sucursal}`}
+              {usuario.rol === 'administrador' ? 'Historial de cortes — todas las sucursales' : `Cortes anteriores · ${usuario.sucursal}`}
             </h3>
           </div>
-          {usuario.rol === 'admin' && (
+          {usuario.rol === 'administrador' && (
             <div className="flex gap-2">
               <input
                 type="text"
@@ -1135,7 +1135,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                       })}
                     </p>
                     <p className="text-xs text-zinc-400">
-                      {usuario.rol === 'admin' && <span className="font-medium text-zinc-500 mr-1">{c.sucursal} ·</span>}
+                      {usuario.rol === 'administrador' && <span className="font-medium text-zinc-500 mr-1">{c.sucursal} ·</span>}
                       {c.usuario}
                     </p>
                   </div>
