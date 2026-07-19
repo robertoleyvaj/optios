@@ -105,6 +105,7 @@ export default function InboxPage() {
       const sb = createClient()
       await sb.from('mensajes').update({ leido: true }).eq('id', m.id)
       setMensajes(prev => prev.map(x => x.id === m.id ? { ...x, leido: true } : x))
+      window.dispatchEvent(new Event('inbox-updated'))  // actualiza el badge del sidebar
     }
     // Cargar respuestas
     const sb = createClient()

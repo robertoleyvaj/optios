@@ -128,7 +128,9 @@ export default function Sidebar({
     }
     load()
     const t = setInterval(load, 60_000)  // refresca cada minuto
-    return () => clearInterval(t)
+    const onUpdate = () => load()        // refresco inmediato al leer/enviar
+    window.addEventListener('inbox-updated', onUpdate)
+    return () => { clearInterval(t); window.removeEventListener('inbox-updated', onUpdate) }
   }, [usuario.nombre, usuario.sucursal])
 
   const puedeVer = (key: string) => PERMISOS[usuario.rol]?.includes(key) ?? false
