@@ -97,6 +97,7 @@ export default function InboxPage() {
   useEffect(() => { fetchMensajes() }, [fetchMensajes])
 
   const abrirMensaje = async (m: Mensaje) => {
+    setShowCompose(false)
     setSeleccionado(m)
     setRespuesta('')
     // Marcar como leído
@@ -175,7 +176,7 @@ export default function InboxPage() {
             )}
           </div>
           <button
-            onClick={() => setShowCompose(true)}
+            onClick={() => { setShowCompose(true); setSeleccionado(null); setBusqUsuario('') }}
             className="flex items-center gap-1.5 bg-[#0B0E14] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#1B3A6B] transition-colors"
           >
             <Plus className="w-3.5 h-3.5" /> Nuevo
@@ -216,9 +217,112 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* ── Vista del mensaje ── */}
+      {/* ── Vista del mensaje / redacción ── */}
       <div className="flex-1 flex flex-col bg-[#F8FAFC]">
-        {seleccionado ? (
+        {showCompose ? (
+          <>
+            <div className="bg-white border-b border-zinc-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-zinc-900">Nuevo mensaje</h2>
+              <button onClick={() => { setShowCompose(false); setBusqUsuario('') }} className="text-zinc-400 hover:text-zinc-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="max-w-xl space-y-4">
+                {/* Para: tipo */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setCompForm(f => ({ ...f, para_tipo: 'sucursal', para_valor: '' })); setBusqUsuario('') }}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'sucursal' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
+                  >
+                    <MapPin className="w-3.5 h-3.5" /> Sucursal
+                  </button>
+                  <button
+                    onClick={() => { setCompForm(f => ({ ...f, para_tipo: 'usuario', para_valor: '' })); setBusqUsuario('') }}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'usuario' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
+                  >
+                    <User className="w-3.5 h-3.5" /> Persona
+                  </button>
+                </div>
+
+                {/* Para: valor */}
+                {compForm.para_tipo === 'sucursal' ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {SUCURSALES.map(s => (
+                      <button key={s} onClick={() => setCompForm(f => ({ ...f, para_valor: s }))}
+                        className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${compForm.para_valor === s ? 'bg-[#0D9488]/10 border-[#0D9488] text-[#0D9488]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Escribe un nombre o apodo (ej. MA)..."
+                      value={busqUsuario}
+                      onChange={e => { setBusqUsuario(e.target.value); setCompForm(f => ({ ...f, para_valor: '' })) }}
+                      className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                    />
+                    {compForm.para_valor && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                        <User className="w-3 h-3" /> {compForm.para_valor}
+                      </span>
+                    )}
+                    {busqUsuario.trim() && !compForm.para_valor && (
+                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                        {usuariosFiltrados.length > 0 ? usuariosFiltrados.map(u => (
+                          <button key={u.nombre}
+                            onClick={() => { setCompForm(f => ({ ...f, para_valor: u.nombre })); setBusqUsuario(u.apodo || u.nombre) }}
+                            className="w-full text-left px-3 py-2 hover:bg-zinc-100 flex items-center gap-2.5 transition-colors">
+                            <div className="w-7 h-7 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              {(u.apodo || u.nombre)[0]}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-zinc-700 truncate">{u.nombre}</p>
+                              <p className="text-[10px] text-zinc-400 capitalize">{u.rol} · {u.sucursal}</p>
+                            </div>
+                          </button>
+                        )) : (
+                          <p className="px-3 py-2.5 text-xs text-zinc-400">Sin coincidencias</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  placeholder="Asunto"
+                  value={compForm.asunto}
+                  onChange={e => setCompForm(f => ({ ...f, asunto: e.target.value }))}
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                />
+                <textarea
+                  placeholder="Escribe tu mensaje..."
+                  value={compForm.cuerpo}
+                  onChange={e => setCompForm(f => ({ ...f, cuerpo: e.target.value }))}
+                  rows={8}
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                />
+
+                <div className="flex gap-3">
+                  <button onClick={() => { setShowCompose(false); setBusqUsuario('') }}
+                    className="flex-1 border border-zinc-200 text-zinc-600 rounded-xl py-2.5 text-sm hover:bg-zinc-100 transition-colors">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={enviarMensaje}
+                    disabled={!compForm.para_valor || !compForm.asunto || !compForm.cuerpo}
+                    className="flex-1 bg-[#0B0E14] text-white rounded-xl py-2.5 text-sm font-medium hover:bg-[#1B3A6B] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-4 h-4" /> Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : seleccionado ? (
           <>
             <div className="bg-white border-b border-zinc-200 px-6 py-4">
               <h2 className="text-lg font-semibold text-zinc-900">{seleccionado.asunto}</h2>
@@ -295,112 +399,6 @@ export default function InboxPage() {
         )}
       </div>
 
-      {/* ── Modal Compose ── */}
-      {showCompose && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
-              <h3 className="font-semibold text-zinc-800">Nuevo mensaje</h3>
-              <button onClick={() => setShowCompose(false)} className="text-zinc-400 hover:text-zinc-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="px-6 py-5 space-y-4">
-              {/* Para: tipo */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setCompForm(f => ({ ...f, para_tipo: 'sucursal', para_valor: '' })); setBusqUsuario('') }}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'sucursal' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
-                >
-                  <MapPin className="w-3.5 h-3.5" /> Sucursal
-                </button>
-                <button
-                  onClick={() => { setCompForm(f => ({ ...f, para_tipo: 'usuario', para_valor: '' })); setBusqUsuario('') }}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border text-sm font-medium transition-colors ${compForm.para_tipo === 'usuario' ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
-                >
-                  <User className="w-3.5 h-3.5" /> Persona
-                </button>
-              </div>
-
-              {/* Para: valor */}
-              {compForm.para_tipo === 'sucursal' ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {SUCURSALES.map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setCompForm(f => ({ ...f, para_valor: s }))}
-                      className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${compForm.para_valor === s ? 'bg-[#0D9488]/10 border-[#0D9488] text-[#0D9488]' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Escribe un nombre o apodo (ej. MA)..."
-                    value={busqUsuario}
-                    onChange={e => { setBusqUsuario(e.target.value); setCompForm(f => ({ ...f, para_valor: '' })) }}
-                    className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                  />
-                  {compForm.para_valor && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                      <User className="w-3 h-3" /> {compForm.para_valor}
-                    </span>
-                  )}
-                  {busqUsuario.trim() && !compForm.para_valor && (
-                    <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
-                      {usuariosFiltrados.length > 0 ? usuariosFiltrados.map(u => (
-                        <button key={u.nombre}
-                          onClick={() => { setCompForm(f => ({ ...f, para_valor: u.nombre })); setBusqUsuario(u.apodo || u.nombre) }}
-                          className="w-full text-left px-3 py-2 hover:bg-zinc-100 flex items-center gap-2.5 transition-colors">
-                          <div className="w-7 h-7 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
-                            {(u.apodo || u.nombre)[0]}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-zinc-700 truncate">{u.nombre}</p>
-                            <p className="text-[10px] text-zinc-400 capitalize">{u.rol} · {u.sucursal}</p>
-                          </div>
-                        </button>
-                      )) : (
-                        <p className="px-3 py-2.5 text-xs text-zinc-400">Sin coincidencias</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <input
-                type="text"
-                placeholder="Asunto"
-                value={compForm.asunto}
-                onChange={e => setCompForm(f => ({ ...f, asunto: e.target.value }))}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-              />
-              <textarea
-                placeholder="Escribe tu mensaje..."
-                value={compForm.cuerpo}
-                onChange={e => setCompForm(f => ({ ...f, cuerpo: e.target.value }))}
-                rows={4}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-              />
-            </div>
-            <div className="flex gap-3 px-6 pb-5">
-              <button onClick={() => setShowCompose(false)} className="flex-1 border border-zinc-200 text-zinc-600 rounded-xl py-2.5 text-sm hover:bg-zinc-100 transition-colors">
-                Cancelar
-              </button>
-              <button
-                onClick={enviarMensaje}
-                disabled={!compForm.para_valor || !compForm.asunto || !compForm.cuerpo}
-                className="flex-1 bg-[#0B0E14] text-white rounded-xl py-2.5 text-sm font-medium hover:bg-[#1B3A6B] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" /> Enviar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

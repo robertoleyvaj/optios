@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   CalendarDays, FolderOpen, Settings,
@@ -110,6 +111,26 @@ export default function Sidebar({
     } catch { /* noop */ }
   }, [])
 
+  // Mensajes no leídos → badge rojo en Inbox
+  const [noLeidos, setNoLeidos] = useState(0)
+  useEffect(() => {
+    if (!usuario.nombre) return
+    const load = async () => {
+      try {
+        const sb = createClient()
+        const { count } = await sb.from('mensajes')
+          .select('id', { count: 'exact', head: true })
+          .or(`para_valor.eq.${usuario.nombre},para_valor.eq.${usuario.sucursal}`)
+          .eq('leido', false)
+          .neq('de', usuario.nombre)
+        setNoLeidos(count ?? 0)
+      } catch { /* noop */ }
+    }
+    load()
+    const t = setInterval(load, 60_000)  // refresca cada minuto
+    return () => clearInterval(t)
+  }, [usuario.nombre, usuario.sucursal])
+
   const puedeVer = (key: string) => PERMISOS[usuario.rol]?.includes(key) ?? false
 
   const handleLogout = () => {
@@ -182,6 +203,11 @@ export default function Sidebar({
               >
                 <Icon className={`w-[16px] h-[16px] flex-shrink-0 ${isParentActive && !pronto ? 'text-[#0D9488]' : 'text-zinc-400'}`} />
                 <span className="flex-1">{item.label}</span>
+                {item.key === 'inbox' && noLeidos > 0 && (
+                  <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {noLeidos}
+                  </span>
+                )}
                 {pronto && (
                   <span className="text-[9px] font-medium text-zinc-400 uppercase tracking-wide">Pronto</span>
                 )}
