@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { rangoDiaLocal } from '@/lib/fecha'
+import { rangoDiaLocal, rangoMesLocal } from '@/lib/fecha'
 import { createClient } from '@/lib/supabase/client'
 import { TrendingUp, Zap, Award, ChevronLeft, ChevronRight, ExternalLink, Star } from 'lucide-react'
 import Link from 'next/link'
@@ -163,8 +163,7 @@ export default function MiDesempenoPage() {
         const sb = createClient()
         const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
         const rangoHoy = rangoDiaLocal(hoyStr)  // día completo en hora Tijuana
-        const inicio = new Date(anio, mes, 1).toISOString()
-        const fin    = new Date(anio, mes + 1, 0, 23, 59, 59).toISOString()
+        const { start: inicio, end: fin } = rangoMesLocal(anio, mes)  // mes completo en hora Tijuana
         const esMesActualFetch = mes === now.getMonth() && anio === now.getFullYear()
         const mesStr = `${anio}-${String(mes + 1).padStart(2, '0')}`
 
@@ -187,12 +186,13 @@ export default function MiDesempenoPage() {
           const totalMeta = (rMetas.data || []).reduce((s, m) => s + Number(m.meta), 0)
           setMetaMes(totalMeta || 400_000)
         } else {
-          // Vendedor ve solo sus propias ventas
-          const qBase = (start: string, end: string) => {
-            const q = sb.from('ventas').select('total').eq('es_cotizacion', false)
+          // Vendedor ve solo sus propias ventas.
+          // Se atribuye por `atendido_por` (nombre) porque `usuario_id` se guarda en null
+          // en las ventas. Cuenta la venta completa sin importar liquidación ni sucursal.
+          const qBase = (start: string, end: string) =>
+            sb.from('ventas').select('total').eq('es_cotizacion', false)
               .gte('created_at', start).lte('created_at', end)
-            return usuarioId ? q.eq('usuario_id', usuarioId) : q.eq('atendido_por', nombre)
-          }
+              .eq('atendido_por', nombre)
           const [rMes, rHoy] = await Promise.all([
             qBase(inicio, fin),
             esMesActualFetch

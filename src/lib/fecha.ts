@@ -38,6 +38,19 @@ export function rangoDiaLocal(fecha: string): { start: string; end: string } {
   return { start: start.toISOString(), end: end.toISOString() }
 }
 
+/**
+ * Rango UTC [start, end] que cubre un mes completo en hora local (Tijuana),
+ * del día 1 00:00:00 al último día 23:59:59.999. `mes0` es 0-indexado (0 = enero).
+ * No depende de la zona horaria de la computadora.
+ */
+export function rangoMesLocal(anio: number, mes0: number): { start: string; end: string } {
+  const mm = String(mes0 + 1).padStart(2, '0')
+  const diasEnMes = new Date(anio, mes0 + 1, 0).getDate()
+  const primerDia = `${anio}-${mm}-01`
+  const ultimoDia = `${anio}-${mm}-${String(diasEnMes).padStart(2, '0')}`
+  return { start: rangoDiaLocal(primerDia).start, end: rangoDiaLocal(ultimoDia).end }
+}
+
 /** Devuelve la fecha local de hoy + n días en formato YYYY-MM-DD */
 export const hoyMasDias = (n: number): string => {
   const d = new Date()
