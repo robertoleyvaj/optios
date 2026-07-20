@@ -197,7 +197,10 @@ export default function CajaPage() {
   // Detalle por método bajo "ingresos del día": todos los métodos solo de HOY.
   // El efectivo acumulado de días previos ya vive en el saldo inicial.
   const pagosPorMetodo = (m: MetodoPago) => pagosHoy.filter(p =>
-    p.metodo_pago === m && esHoyTS(p.created_at),
+    p.metodo_pago === m && esHoyTS(p.created_at) &&
+    // El efectivo en dólares tiene su propia sección (Efectivo USD): no lo mezclamos
+    // en el detalle de efectivo en pesos para que el desglose cuadre con el encabezado.
+    !(m === 'efectivo' && p.moneda === 'USD'),
   )
 
   // ── Leer usuario (legacy localStorage para usuarios sin migrar) ──
