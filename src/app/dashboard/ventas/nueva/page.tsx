@@ -736,7 +736,7 @@ export default function NuevaVentaPage() {
       const isMica = (nombre: string) =>
         ['mica','monofocal','progres','bifocal','transitions','rebisel'].some(k => nombre.toLowerCase().includes(k))
       const isFiltro = (nombre: string) =>
-        ['filtro','antirreflejo','blue light','fotocrom','polariz','tinte'].some(k => nombre.toLowerCase().includes(k))
+        ['filtro','antirreflejo','blue light','fotocrom','polariz','tinte','crizal'].some(k => nombre.toLowerCase().includes(k))
       const isLC = (sku: string) => sku === 'LC'
 
       const parsConMicas = [...new Set(carrito.filter(i => isMica(i.nombre) || isLC(i.sku)).map(i => i.par))].sort()
@@ -1012,7 +1012,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
     const isMicaFn = (nombre: string) =>
       ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
     const isFiltroFn = (nombre: string) =>
-      ['filtro','antirreflejo','blue','fotocrom','tinte','polariz'].some(k => nombre.toLowerCase().includes(k))
+      ['filtro','antirreflejo','blue','fotocrom','tinte','polariz','crizal'].some(k => nombre.toLowerCase().includes(k))
     const isLCFn = (sku: string) => sku === 'LC'
     const parsConMicasGuardado = [...new Set(carrito.filter(i => isMicaFn(i.nombre) || isLCFn(i.sku)).map(i => i.par))].sort()
     const tieneMicasGuardado = parsConMicasGuardado.length > 0
