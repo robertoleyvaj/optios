@@ -378,10 +378,7 @@ export default function VentasPage() {
     try {
       const res = await fetch('/api/tipo-cambio')
       const data = await res.json()
-      if (res.ok && data?.tipoCambio) { setAbonoTC(Math.round(data.tipoCambio * 100) / 100); return }
-      const res2 = await fetch('https://open.er-api.com/v6/latest/USD')
-      const data2 = await res2.json()
-      if (data2?.rates?.MXN) setAbonoTC(Math.round(data2.rates.MXN * 100) / 100)
+      if (res.ok && data?.tipoCambio) setAbonoTC(Math.round(data.tipoCambio * 100) / 100)
     } catch { /* noop */ }
     finally { setAbonoLoadingTC(false) }
   }

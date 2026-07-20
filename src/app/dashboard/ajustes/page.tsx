@@ -298,6 +298,7 @@ function AjustesPage() {
 
   const [comDebito,  setComDebito]  = useState('2.99')
   const [comCredito, setComCredito] = useState('2.99')
+  const [tipoCambioUSD, setTipoCambioUSD] = useState('')
   const [metodosActivos, setMetodosActivos] = useState(['Efectivo', 'Tarjeta débito', 'Tarjeta crédito', 'Transferencia'])
   const [saved, setSaved] = useState(false)
 
@@ -306,21 +307,23 @@ function AjustesPage() {
     const supabase = createClient()
     supabase.from('configuracion')
       .select('clave, valor')
-      .in('clave', ['comision_debito', 'comision_credito'])
+      .in('clave', ['comision_debito', 'comision_credito', 'tipo_cambio_usd'])
       .then(({ data }) => {
         for (const row of data || []) {
           if (row.clave === 'comision_debito')  setComDebito(row.valor)
           if (row.clave === 'comision_credito') setComCredito(row.valor)
+          if (row.clave === 'tipo_cambio_usd')  setTipoCambioUSD(row.valor)
         }
       })
   }, [])
 
   const guardar = async () => {
-    // Guarda tasas de comisión en DB
+    // Guarda tasas de comisión y tipo de cambio en DB
     const supabase = createClient()
     await supabase.from('configuracion').upsert([
       { clave: 'comision_debito',  valor: comDebito,  descripcion: 'Comisión terminal tarjeta débito (%)'  },
       { clave: 'comision_credito', valor: comCredito, descripcion: 'Comisión terminal tarjeta crédito (%)' },
+      { clave: 'tipo_cambio_usd',  valor: tipoCambioUSD, descripcion: 'Tipo de cambio USD→MXN (manual)' },
     ], { onConflict: 'clave' })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -439,6 +442,20 @@ function AjustesPage() {
                   </div>
                 </div>
                 <p className="text-xs text-zinc-400 mt-2">Estos porcentajes se aplican automáticamente al calcular el neto en ventas y finanzas.</p>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-zinc-700 mb-3">Tipo de cambio (dólar)</h3>
+                <div className="flex items-center gap-4">
+                  <label className="text-sm text-zinc-600 w-40">USD → MXN</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
+                    <input type="number" value={tipoCambioUSD} onChange={e => setTipoCambioUSD(e.target.value)}
+                      className="border border-zinc-200 rounded pl-7 pr-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 w-28"
+                      step="0.01" placeholder="17.50" />
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-400 mt-2">Tú manejas este valor. Es el que se usa en todos los cobros y abonos en dólares (venta y caja). Si lo dejas vacío, no se podrá cobrar en USD.</p>
               </div>
 
               <div className="pt-5 border-t border-zinc-100 flex items-center gap-3">

@@ -540,18 +540,14 @@ export default function NuevaVentaPage() {
     setLoadingTC(true)
     setTcError(false)
     try {
-      // 1. Intentar DOF oficial (Banxico, vía nuestra ruta de servidor)
+      // Tipo de cambio manual (Ajustes → Pagos), vía nuestra ruta de servidor
       const res = await fetch('/api/tipo-cambio')
       const data = await res.json()
       if (res.ok && data?.tipoCambio) {
         setTipoCambio(Math.round(data.tipoCambio * 100) / 100)
         return
       }
-      // 2. Respaldo: API de mercado
-      const res2 = await fetch('https://open.er-api.com/v6/latest/USD')
-      const data2 = await res2.json()
-      if (data2?.rates?.MXN) setTipoCambio(Math.round(data2.rates.MXN * 100) / 100)
-      else setTcError(true)
+      setTcError(true)
     } catch {
       setTcError(true)
     } finally {
