@@ -134,6 +134,13 @@ const COLORES_FC_POR_MICA: Record<string, string[]> = {
   'PRO-USP': ['Gris'],
 }
 
+// Filtro Transition: tipos, colores y sobreprecio sobre el precio base del producto
+const TRANSITION_TIPOS: { tipo: string; extra: number; colores: string[] }[] = [
+  { tipo: 'Normal',       extra: 0,   colores: ['Gris', 'Café'] },
+  { tipo: 'Style Colors', extra: 657, colores: ['Ámbar', 'Amatista', 'Zafiro', 'Esmeralda', 'Verde Granito', 'Rubí'] },
+  { tipo: 'Extra-Active', extra: 847, colores: ['Gris'] },
+]
+
 // Precio del fotocromático según color + SKU de mica
 const precioFC = (color: string, micaSku: string): number => {
   if (color === 'Gris') return 949
@@ -212,6 +219,7 @@ export default function NuevaVentaPage() {
   const [avisoSinMica, setAvisoSinMica] = useState(false)
   // Flujo multi-paso para tinte
   const [pendingTinte, setPendingTinte] = useState<{ step: 'color' | 'tipo' | 'tono'; color: string; tipo: string } | null>(null)
+  const [pendingTransition, setPendingTransition] = useState<{ step: 'tipo' | 'color'; tipo: string } | null>(null)
 
   // Catálogo dinámico de lentes de contacto (desde Supabase productos_catalogo)
   const [catalogoLC, setCatalogoLC] = useState<CatItem[]>([])
@@ -423,6 +431,13 @@ export default function NuevaVentaPage() {
     // Tinte: flujo multi-paso
     if (p.sku === 'FIL-TIN') {
       setPendingTinte({ step: 'color', color: '', tipo: '' })
+      setBusquedaProducto('')
+      setShowBuscadorProducto(false)
+      return
+    }
+    // Filtro Transition: elegir tipo → color (sobreprecio según tipo)
+    if (p.sku === 'FIL-TRA') {
+      setPendingTransition({ step: 'tipo', tipo: '' })
       setBusquedaProducto('')
       setShowBuscadorProducto(false)
       return
@@ -736,7 +751,7 @@ export default function NuevaVentaPage() {
       const isMica = (nombre: string) =>
         ['mica','monofocal','progres','bifocal','transitions','rebisel'].some(k => nombre.toLowerCase().includes(k))
       const isFiltro = (nombre: string) =>
-        ['filtro','antirreflejo','blue light','fotocrom','polariz','tinte','crizal'].some(k => nombre.toLowerCase().includes(k))
+        ['filtro','antirreflej','blue','fotocrom','polariz','tinte','crizal'].some(k => nombre.toLowerCase().includes(k))
       const isLC = (sku: string) => sku === 'LC'
 
       const parsConMicas = [...new Set(carrito.filter(i => isMica(i.nombre) || isLC(i.sku)).map(i => i.par))].sort()
@@ -1012,7 +1027,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
     const isMicaFn = (nombre: string) =>
       ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
     const isFiltroFn = (nombre: string) =>
-      ['filtro','antirreflejo','blue','fotocrom','tinte','polariz','crizal'].some(k => nombre.toLowerCase().includes(k))
+      ['filtro','antirreflej','blue','fotocrom','tinte','polariz','crizal'].some(k => nombre.toLowerCase().includes(k))
     const isLCFn = (sku: string) => sku === 'LC'
     const parsConMicasGuardado = [...new Set(carrito.filter(i => isMicaFn(i.nombre) || isLCFn(i.sku)).map(i => i.par))].sort()
     const tieneMicasGuardado = parsConMicasGuardado.length > 0
@@ -2216,6 +2231,83 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                 className="mt-5 w-full text-xs text-zinc-400 hover:text-zinc-600 py-1 transition-colors"
               >
                 {pendingTinte.step === 'color' ? 'Cancelar' : '← Regresar'}
+              </button>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Modal Filtro Transition (tipo → color) ── */}
+      {pendingTransition && (() => {
+        const transProd = catalogo.find(p => p.sku === 'FIL-TRA')
+        if (!transProd) return null
+        const tipoDef = TRANSITION_TIPOS.find(t => t.tipo === pendingTransition.tipo)
+
+        const confirmar = (color: string) => {
+          const extra = tipoDef?.extra ?? 0
+          agregarDirecto(transProd, `${pendingTransition.tipo} · ${color}`, transProd.precio + extra)
+          setPendingTransition(null)
+        }
+
+        return (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+
+              {/* Indicador de pasos */}
+              <div className="flex items-center gap-1 mb-5">
+                {(['Tipo', 'Color'] as const).map((s, i) => {
+                  const stepIdx = pendingTransition.step === 'tipo' ? 0 : 1
+                  return (
+                    <div key={s} className="contents">
+                      {i > 0 && <div className={`flex-1 h-0.5 ${i <= stepIdx ? 'bg-[#0D9488]' : 'bg-zinc-200'}`} />}
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i <= stepIdx ? 'bg-[#0D9488] text-white' : 'bg-zinc-100 text-zinc-400'}`}>{i + 1}</div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Paso 1: Tipo */}
+              {pendingTransition.step === 'tipo' && (
+                <>
+                  <h3 className="text-sm font-bold text-zinc-800 mb-1">Filtro Transition — Tipo</h3>
+                  <p className="text-xs text-zinc-400 mb-4">¿Qué tipo de Transition?</p>
+                  <div className="flex flex-col gap-3">
+                    {TRANSITION_TIPOS.map(t => (
+                      <button key={t.tipo}
+                        onClick={() => setPendingTransition({ step: 'color', tipo: t.tipo })}
+                        className="px-4 py-3 border border-zinc-200 rounded-xl text-sm font-semibold text-zinc-700 hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all text-left flex justify-between items-center">
+                        <span>Transitions {t.tipo}</span>
+                        <span className="text-xs text-zinc-400 font-normal">{t.extra > 0 ? `+$${t.extra.toLocaleString('es-MX')}` : 'base'}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Paso 2: Color */}
+              {pendingTransition.step === 'color' && (
+                <>
+                  <h3 className="text-sm font-bold text-zinc-800 mb-1">Transitions {pendingTransition.tipo} — Color</h3>
+                  <p className="text-xs text-zinc-400 mb-4">¿Qué color lleva?</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(tipoDef?.colores ?? ['Gris']).map(color => (
+                      <button key={color}
+                        onClick={() => confirmar(color)}
+                        className="px-4 py-2 border border-zinc-200 rounded-lg text-sm font-semibold text-zinc-700 hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all">
+                        {color}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <button
+                onClick={() => {
+                  if (pendingTransition.step === 'tipo') setPendingTransition(null)
+                  else setPendingTransition({ step: 'tipo', tipo: '' })
+                }}
+                className="mt-5 w-full text-xs text-zinc-400 hover:text-zinc-600 py-1 transition-colors">
+                {pendingTransition.step === 'tipo' ? 'Cancelar' : '← Regresar'}
               </button>
             </div>
           </div>
