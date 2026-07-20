@@ -32,7 +32,15 @@ import {
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 
 // --- Catálogo GON ---
-const catalogo = [
+type CatItem = {
+  id: number; nombre: string; categoria: string; precio: number; sku: string; stock: number
+  precioFinal?: number; labMica?: string; labTratamiento?: string
+}
+
+// Catálogo fijo de respaldo. En runtime se fusiona con la tabla `productos`:
+// la base sobrescribe nombre/precio de micas y filtros, y agrega los nuevos
+// (Varilux, Kodak). Los servicios y paquetes viven aquí (no están en la tabla).
+const CATALOGO_FIJO: CatItem[] = [
   // ── Micas Monofocal ──────────────────────────────────────────
   { id:  1, nombre: 'Mica Monofocal Essential',      categoria: 'Micas', precio:  749, sku: 'MON-ESS',  stock: 999 },
   { id:  2, nombre: 'Mica Monofocal Slim HD 1.60',        categoria: 'Micas', precio: 1146, sku: 'MON-SHD',  stock: 999 },
@@ -197,7 +205,7 @@ export default function NuevaVentaPage() {
   const [showProductoLibre, setShowProductoLibre] = useState(false)
   const [productoLibre, setProductoLibre] = useState({ descripcion: '', precio: '', cantidad: '1' })
   // Modal de selección de color para filtros (Fotocromático, Polarizado, Tinte)
-  const [pendingFiltro, setPendingFiltro] = useState<typeof catalogo[0] | null>(null)
+  const [pendingFiltro, setPendingFiltro] = useState<CatItem | null>(null)
   // Segundo paso: elegir tratamiento (Antirreflejante o Bluelight) cuando FC no es Gris
   const [pendingTratamiento, setPendingTratamiento] = useState<{ color: string; micaSku: string; precio: number } | null>(null)
   // Aviso cuando intentan agregar FC sin mica
@@ -206,7 +214,9 @@ export default function NuevaVentaPage() {
   const [pendingTinte, setPendingTinte] = useState<{ step: 'color' | 'tipo' | 'tono'; color: string; tipo: string } | null>(null)
 
   // Catálogo dinámico de lentes de contacto (desde Supabase productos_catalogo)
-  const [catalogoLC, setCatalogoLC] = useState<typeof catalogo>([])
+  const [catalogoLC, setCatalogoLC] = useState<CatItem[]>([])
+  // Productos desde la tabla `productos` (se fusionan con el catálogo fijo)
+  const [catalogoDB, setCatalogoDB] = useState<CatItem[]>([])
   useEffect(() => {
     createClient()
       .from('productos_catalogo')
@@ -226,6 +236,39 @@ export default function NuevaVentaPage() {
         }
       })
   }, [])
+
+  // Productos desde la tabla `productos` (micas, filtros, y los nuevos Varilux/Kodak)
+  useEffect(() => {
+    createClient()
+      .from('productos')
+      .select('sku, nombre, precio, categoria')
+      .eq('activo', true)
+      .then(({ data }) => {
+        if (data) {
+          setCatalogoDB(data.map((p, i) => ({
+            id: 20000 + i,
+            nombre: p.nombre as string,
+            categoria: (p.categoria as string) || 'Micas',
+            precio: Number(p.precio),
+            sku: p.sku as string,
+            stock: 999,
+          })))
+        }
+      })
+  }, [])
+
+  // Catálogo efectivo: base fija + lo que llega de la tabla `productos`.
+  // La base de datos SOBRESCRIBE nombre/precio por SKU y AGREGA los nuevos.
+  // Nunca se pierde nada del fijo (servicios, paquetes) aunque la BD falle.
+  const catalogo: CatItem[] = (() => {
+    const bySku = new Map<string, CatItem>(CATALOGO_FIJO.map(p => [p.sku, p]))
+    for (const dp of catalogoDB) {
+      const ex = bySku.get(dp.sku)
+      if (ex) bySku.set(dp.sku, { ...ex, nombre: dp.nombre, precio: dp.precio, categoria: dp.categoria })
+      else    bySku.set(dp.sku, dp)
+    }
+    return Array.from(bySku.values())
+  })()
 
   // Moneda en efectivo (MXN / USD)
   const [moneda, setMoneda] = useState<'MXN' | 'USD'>('MXN') // moneda de cobro (solo efectivo)
@@ -348,7 +391,7 @@ export default function NuevaVentaPage() {
     if (c.id) cargarRecetaPaciente(c.id)
   }
 
-  const agregarDirecto = (p: typeof catalogo[0], colorSufijo?: string, precioOverride?: number) => {
+  const agregarDirecto = (p: CatItem, colorSufijo?: string, precioOverride?: number) => {
     const nombre = colorSufijo ? `${p.nombre} — ${colorSufijo}` : p.nombre
     const idVirtual = colorSufijo ? p.id * 1000 + p.nombre.length + colorSufijo.charCodeAt(0) : p.id
     const precio = precioOverride ?? ('precioFinal' in p && p.precioFinal ? p.precioFinal : p.precio)
@@ -362,7 +405,7 @@ export default function NuevaVentaPage() {
     setShowBuscadorProducto(false)
   }
 
-  const agregar = (p: typeof catalogo[0]) => {
+  const agregar = (p: CatItem) => {
     // Fotocromático: flujo especial con validación de mica
     if (p.sku === 'FIL-FC') {
       const micaEnPar = carrito.find(i => i.par === parActivo && COLORES_FC_POR_MICA[i.sku])
@@ -719,7 +762,7 @@ export default function NuevaVentaPage() {
 
         const foliosLab: string[] = []
         // Mapa SKU → info de lab para paquetes
-        const todoCatalogo = [...catalogo, ...catalogoLC] as (typeof catalogo[0] & { labMica?: string; labTratamiento?: string })[]
+        const todoCatalogo = [...catalogo, ...catalogoLC] as (CatItem & { labMica?: string; labTratamiento?: string })[]
         const catPorSku = Object.fromEntries(todoCatalogo.map(c => [c.sku, c]))
 
         for (const par of parsConMicas) {
