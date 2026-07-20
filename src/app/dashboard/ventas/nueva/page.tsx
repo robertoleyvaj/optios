@@ -65,18 +65,18 @@ const CATALOGO_FIJO: CatItem[] = [
   { id: 23, nombre: 'Filtro Polarizado',                  categoria: 'Filtros', precio: 1699, sku: 'FIL-POL', stock: 999 },
   { id: 24, nombre: 'Filtro Tinte',                       categoria: 'Filtros', precio:  549, sku: 'FIL-TIN', stock: 999 },
   // ── Servicios ─────────────────────────────────────────────────
-  { id: 40, nombre: 'Examen de la vista',                 categoria: 'Servicios', precio:  200, sku: 'SRV-EXA', stock: 999 },
-  { id: 41, nombre: 'Ajuste de armazón',                  categoria: 'Servicios', precio:   80, sku: 'SRV-AJU', stock: 999 },
-  { id: 42, nombre: 'Rebisel',                            categoria: 'Servicios', precio:  200, sku: 'SRV-REB', stock: 999 },
-  { id: 43, nombre: 'Ajuste de tornillo',                 categoria: 'Servicios', precio:  100, sku: 'SRV-TOR', stock: 999 },
-  { id: 44, nombre: 'Cambio de plaquetas',                categoria: 'Servicios', precio:  100, sku: 'SRV-PLA', stock: 999 },
-  { id: 45, nombre: 'Limpieza de armazón',                categoria: 'Servicios', precio:  100, sku: 'SRV-LIM', stock: 999 },
-  { id: 46, nombre: 'Cambio de tornillo',                 categoria: 'Servicios', precio:  100, sku: 'SRV-TCR', stock: 999 },
+  { id: 40, nombre: 'EXAMEN DE LA VISTA',                 categoria: 'Servicios', precio:  200, sku: 'SRV-EXA', stock: 999 },
+  { id: 41, nombre: 'AJUSTE DE ARMAZÓN',                  categoria: 'Servicios', precio:   80, sku: 'SRV-AJU', stock: 999 },
+  { id: 42, nombre: 'REBISEL',                            categoria: 'Servicios', precio:  200, sku: 'SRV-REB', stock: 999 },
+  { id: 43, nombre: 'AJUSTE DE TORNILLO',                 categoria: 'Servicios', precio:  100, sku: 'SRV-TOR', stock: 999 },
+  { id: 44, nombre: 'CAMBIO DE PLAQUETAS',                categoria: 'Servicios', precio:  100, sku: 'SRV-PLA', stock: 999 },
+  { id: 45, nombre: 'LIMPIEZA DE ARMAZÓN',                categoria: 'Servicios', precio:  100, sku: 'SRV-LIM', stock: 999 },
+  { id: 46, nombre: 'CAMBIO DE TORNILLO',                 categoria: 'Servicios', precio:  100, sku: 'SRV-TCR', stock: 999 },
   // ── Paquetes ─────────────────────────────────────────────────
-  { id: 100, nombre: 'Paquete Fotocromático — Monofocal CR-39 + Armazón Eco + AR Conv. + Fotocromático Gris', categoria: 'Paquetes', precio: 3000, precioFinal: 1800, sku: 'PAQ-FC',  stock: 999, labMica: 'Monofocal CR-39',   labTratamiento: 'Fotocromático Gris + AR Convencional' },
-  { id: 101, nombre: 'Paquete Blueray — Monofocal CR-39 + Antireflejante Blue + Armazón Eco',                 categoria: 'Paquetes', precio: 2000, precioFinal: 1300, sku: 'PAQ-BL',  stock: 999, labMica: 'Monofocal CR-39',   labTratamiento: 'Antireflejante Blue' },
-  { id: 102, nombre: 'Paquete Bifocal — Bifocal CR-39 + AR Convencional + Armazón Eco',                       categoria: 'Paquetes', precio: 2400, precioFinal: 1300, sku: 'PAQ-BIF', stock: 999, labMica: 'Bifocal CR-39',      labTratamiento: 'AR Convencional' },
-  { id: 103, nombre: 'Paquete Progresivo — Progresivo CR-39 + AR Convencional + Armazón Eco',                 categoria: 'Paquetes', precio: 3000, precioFinal: 2000, sku: 'PAQ-PRO', stock: 999, labMica: 'Progresivo CR-39',   labTratamiento: 'AR Convencional' },
+  { id: 100, nombre: 'PAQUETE FOTOCROMÁTICO — MONOFOCAL CR-39 + ARMAZÓN ECO + AR CONV. + FOTOCROMÁTICO GRIS', categoria: 'Paquetes', precio: 3000, precioFinal: 1800, sku: 'PAQ-FC',  stock: 999, labMica: 'MONOFOCAL CR-39',   labTratamiento: 'FOTOCROMÁTICO GRIS + AR CONVENCIONAL' },
+  { id: 101, nombre: 'PAQUETE BLUERAY — MONOFOCAL CR-39 + ANTIRREFLEJANTE BLUE + ARMAZÓN ECO',                categoria: 'Paquetes', precio: 2000, precioFinal: 1300, sku: 'PAQ-BL',  stock: 999, labMica: 'MONOFOCAL CR-39',   labTratamiento: 'ANTIRREFLEJANTE BLUE' },
+  { id: 102, nombre: 'PAQUETE BIFOCAL — BIFOCAL CR-39 + AR CONVENCIONAL + ARMAZÓN ECO',                       categoria: 'Paquetes', precio: 2400, precioFinal: 1300, sku: 'PAQ-BIF', stock: 999, labMica: 'BIFOCAL CR-39',      labTratamiento: 'AR CONVENCIONAL' },
+  { id: 103, nombre: 'PAQUETE PROGRESIVO — PROGRESIVO CR-39 + AR CONVENCIONAL + ARMAZÓN ECO',                 categoria: 'Paquetes', precio: 3000, precioFinal: 2000, sku: 'PAQ-PRO', stock: 999, labMica: 'PROGRESIVO CR-39',   labTratamiento: 'AR CONVENCIONAL' },
 ]
 
 const clientesMock = [
