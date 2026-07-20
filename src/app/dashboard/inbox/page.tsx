@@ -100,21 +100,33 @@ export default function InboxPage() {
     setShowCompose(false)
     setSeleccionado(m)
     setRespuesta('')
-    // Marcar como leído
+    const sb = createClient()
+    let cambio = false
+
+    // Marcar como leído el mensaje principal (si es para mí)
     if (!m.leido && m.de !== usuario.nombre) {
-      const sb = createClient()
       await sb.from('mensajes').update({ leido: true }).eq('id', m.id)
       setMensajes(prev => prev.map(x => x.id === m.id ? { ...x, leido: true } : x))
-      window.dispatchEvent(new Event('inbox-updated'))  // actualiza el badge del sidebar
+      cambio = true
     }
+
     // Cargar respuestas
-    const sb = createClient()
     const { data } = await sb
       .from('mensajes')
       .select('*')
       .eq('parent_id', m.id)
       .order('created_at', { ascending: true })
-    setSeleccionado({ ...m, respuestas: data ?? [] })
+    const respuestas = data ?? []
+
+    // Marcar leídas las respuestas dirigidas a mí (no las mías)
+    const noLeidasIds = respuestas.filter(r => !r.leido && r.de !== usuario.nombre).map(r => r.id)
+    if (noLeidasIds.length > 0) {
+      await sb.from('mensajes').update({ leido: true }).in('id', noLeidasIds)
+      cambio = true
+    }
+
+    if (cambio) window.dispatchEvent(new Event('inbox-updated'))  // actualiza el badge del sidebar
+    setSeleccionado({ ...m, respuestas })
   }
 
   const enviarRespuesta = async () => {
