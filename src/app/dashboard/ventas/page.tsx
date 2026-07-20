@@ -822,16 +822,24 @@ export default function VentasPage() {
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 font-semibold text-sm">{abonoMoneda === 'USD' ? 'USD $' : '$'}</span>
                       <input type="number" min={1}
                         value={abonoMonto} onChange={e => setAbonoMonto(e.target.value)}
-                        className={`w-full border-2 rounded ${abonoMoneda === 'USD' ? 'pl-12 border-blue-500' : 'pl-7 border-[#0D9488]'} pr-3 py-2.5 text-lg font-bold text-zinc-800 bg-white focus:outline-none`}
+                        className={`w-full border-2 rounded ${abonoMoneda === 'USD' ? 'pl-16 border-blue-500' : 'pl-7 border-[#0D9488]'} pr-3 py-2.5 text-lg font-bold text-zinc-800 bg-white focus:outline-none`}
                         placeholder="0" autoFocus />
                     </div>
                     {abonoMoneda === 'USD' ? (
-                      <p className="text-xs text-blue-600 mt-1">
-                        {abonoLoadingTC ? 'Obteniendo tipo de cambio…' : abonoTC
-                          ? `TC $${abonoTC.toFixed(2)} · ≈ $${Math.round((parseFloat(abonoMonto) || 0) * abonoTC).toLocaleString('es-MX')} MXN`
-                          : 'Sin tipo de cambio · toca USD otra vez'}
-                        <span className="text-zinc-400"> · Saldo: ${saldoPendiente(detalle).toLocaleString('es-MX')}</span>
-                      </p>
+                      abonoLoadingTC ? (
+                        <p className="text-xs text-blue-600 mt-1">Obteniendo tipo de cambio…</p>
+                      ) : abonoTC ? (
+                        <div className="text-xs mt-1.5 space-y-1">
+                          <p className="text-blue-700 bg-blue-100/60 rounded px-2 py-1.5 font-semibold">
+                            💵 Para liquidar cóbrale ≈ <b>${Math.round(saldoPendiente(detalle) / abonoTC).toLocaleString('en-US')} USD</b>
+                          </p>
+                          <p className="text-zinc-400">
+                            TC ${abonoTC.toFixed(2)} · lo que escribiste ≈ ${Math.round((parseFloat(abonoMonto) || 0) * abonoTC).toLocaleString('es-MX')} MXN · saldo ${saldoPendiente(detalle).toLocaleString('es-MX')}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-red-400 mt-1">Sin tipo de cambio · toca USD otra vez</p>
+                      )
                     ) : (
                       <p className="text-xs text-zinc-400 mt-1">Máximo: ${saldoPendiente(detalle).toLocaleString('es-MX')}</p>
                     )}
