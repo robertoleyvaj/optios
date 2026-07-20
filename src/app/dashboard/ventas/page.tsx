@@ -223,6 +223,118 @@ ${logo ? `<img src="${logo}" class="logo" alt="" />` : ''}
 }
 
 // ─────────────────────────────────────────
+// Impresión de COTIZACIÓN (ticket térmico 58mm)
+// Sin pagos, sin firma, sin "gracias por su compra". Vigencia 15 días.
+// ─────────────────────────────────────────
+function imprimirCotizacion(v: Venta, logo = '', atendioReceta = '') {
+  const fechaFmt = v.fecha
+  const horaFmt  = v.hora
+
+  const _vp = (v.vendedor || '').trim().split(/\s+/)
+  const vendedorCorto = atendioReceta.trim() || (_vp.length >= 2 ? `${_vp[0]} ${_vp[1][0].toUpperCase()}.` : _vp[0] || '')
+
+  const productosRows = v.items.map((item) => {
+    const precioUnit = item.precio * (1 - item.descuento / 100)
+    const sub = precioUnit * item.cantidad
+    const descStr = item.descuento > 0 ? `<br><small>(−${item.descuento}%)</small>` : ''
+    return `<tr>
+      <td class="tc">${item.cantidad}</td>
+      <td>${item.nombre}${descStr}</td>
+      <td class="tp">$${sub.toLocaleString('es-MX')}</td>
+    </tr>`
+  }).join('')
+
+  const win = window.open('', '_blank', 'width=230,height=900')
+  if (!win) return
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Cotización ${v.id}</title>
+<style>
+  @page { size: 58mm auto; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { height: auto; }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 3.3mm; font-weight: 600; color: #000; background: #fff;
+    width: 48mm; padding: 1mm 1.5mm 4mm 1.5mm; overflow: visible; -webkit-font-smoothing: none;
+  }
+  .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
+  .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 4mm auto 0; display: block; }
+  .b1  { font-size: 5.2mm; font-weight: 900; line-height: 1.15; }
+  .b2  { font-size: 3.8mm; font-weight: 900; line-height: 1.2; }
+  .dt  { font-size: 3mm; margin-top: 1.5mm; }
+  .info-sec { margin-bottom: 3mm; padding-bottom: 2mm; border-bottom: 0.4mm dashed #000; }
+  .irow { display: flex; padding: 1mm 0; font-size: 3.5mm; gap: 1mm; }
+  .ilbl { font-weight: 700; min-width: 18mm; flex-shrink: 0; }
+  .folio { text-align: center; border: 0.5mm solid #000; padding: 2.5mm 1mm; margin-bottom: 3mm; }
+  .folio-lbl { font-size: 3.4mm; font-weight: 900; letter-spacing: 0.3mm; }
+  .folio-num { font-size: 5mm; font-weight: 900; margin-top: 1mm; }
+  table.prods { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 2mm; font-size: 3.2mm; }
+  table.prods th { border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 1.5mm 0.6mm; text-align: left; font-weight: 900; }
+  table.prods td { padding: 1.5mm 0.6mm; vertical-align: top; line-height: 1.4; word-break: break-word; overflow-wrap: anywhere; }
+  .tc { width: 5mm; text-align: center; }
+  .tp { text-align: right; width: 12mm; white-space: nowrap; }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 4.4mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; }
+  .vig-box { border: 0.5mm solid #000; padding: 2.5mm 2mm; text-align: center; margin: 3mm 0; font-size: 3mm; line-height: 1.5; }
+  .vig-box b { font-size: 3.4mm; }
+  .icard { padding: 2.5mm 0; border-top: 0.4mm dashed #000; font-size: 3mm; line-height: 1.5; text-align: center; }
+  .footer { border-top: 0.5mm solid #000; padding-top: 3mm; margin-top: 2mm; text-align: center; font-size: 3mm; line-height: 2; }
+  .faddr { font-weight: 700; line-height: 1.4; margin-bottom: 1.5mm; }
+  .fatendio { font-weight: 900; }
+  .fbar { margin-top: 2.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; font-weight: 900; font-size: 3.3mm; }
+  * { page-break-inside: avoid; break-inside: avoid; }
+  .tip { display: block; background: #fff8e1; border: 1px solid #e5a; padding: 5px 6px; margin-bottom: 8px; font-size: 9px; line-height: 1.5; }
+  @media print { .tip { display: none; } }
+</style></head><body>
+
+<div class="tip">Configurar impresion: <b>Margenes → Ninguno</b> · Sin encabezados/pies</div>
+
+<div class="hdr">
+  <div class="b1">${(SUCURSAL_CONFIG[v.sucursal]?.nombreLinea1 ?? v.sucursal).toUpperCase()}</div>
+  ${SUCURSAL_CONFIG[v.sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[v.sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
+  <div class="dt">${fechaFmt} | ${horaFmt}</div>
+</div>
+
+<div class="info-sec">
+  ${v.cliente ? `<div class="irow"><span class="ilbl">Cliente:</span><span>${v.cliente}</span></div>` : ''}
+  ${v.telefono ? `<div class="irow"><span class="ilbl">Tel:</span><span>${v.telefono}</span></div>` : ''}
+</div>
+
+<div class="folio">
+  <div class="folio-lbl">COTIZACIÓN</div>
+  <div class="folio-num">${v.id}</div>
+</div>
+
+<table class="prods">
+  <thead><tr><th class="tc">CANT</th><th>DESCRIPCION</th><th class="tp">PRECIO</th></tr></thead>
+  <tbody>${productosRows || '<tr><td colspan="3" style="text-align:center;padding:4mm 1mm">---</td></tr>'}</tbody>
+</table>
+
+<div class="total-row"><span>TOTAL ESTIMADO:</span><span>$${v.total.toLocaleString('es-MX')}</span></div>
+
+<div class="vig-box">
+  <b>Cotización válida por 15 días</b><br>
+  Precios sujetos a cambio sin previo aviso.
+</div>
+
+<div class="icard">Esta cotización NO es un comprobante de pago.</div>
+
+<div class="footer">
+  ${SUCURSAL_CONFIG[v.sucursal]?.direccion ? `<div class="faddr">${SUCURSAL_CONFIG[v.sucursal].direccion}</div>` : ''}
+  <div>Tel. ${SUCURSAL_CONFIG[v.sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[v.sucursal]?.whatsapp ?? '664 834 3018'}</div>
+  <div>${SUCURSAL_CONFIG[v.sucursal]?.horario ?? 'Lun-Sab 10:00-18:00'}</div>
+  ${vendedorCorto ? `<div class="fatendio">Atendio: ${vendedorCorto}</div>` : ''}
+  <div>${SUCURSAL_CONFIG[v.sucursal]?.web ?? 'gonmx.com'}</div>
+  <div class="fbar">... Gracias por su preferencia! ...</div>
+</div>
+
+${logo ? `<img src="${logo}" class="logo" alt="" />` : ''}
+
+</body></html>`)
+  win.document.close()
+  setTimeout(() => { win.print() }, 400)
+}
+
+// ─────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────
 export default function VentasPage() {
@@ -906,21 +1018,30 @@ export default function VentasPage() {
 
             {/* Acciones fijas */}
             <div className="px-6 pb-5 pt-3 border-t border-zinc-200 flex-shrink-0 space-y-2">
-              {saldoPendiente(detalle) > 0 && !showAbono && (
-                <button onClick={() => setShowAbono(true)}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 transition-colors">
-                  <Plus className="w-4 h-4" /> Registrar abono · ${saldoPendiente(detalle).toLocaleString('es-MX')} pendiente
+              {detalle.id.startsWith('COT-') ? (
+                <button onClick={() => imprimirCotizacion(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 text-white rounded text-sm font-bold hover:bg-indigo-500 transition-colors">
+                  <Printer className="w-4 h-4" /> Imprimir cotización
                 </button>
+              ) : (
+                <>
+                  {saldoPendiente(detalle) > 0 && !showAbono && (
+                    <button onClick={() => setShowAbono(true)}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 transition-colors">
+                      <Plus className="w-4 h-4" /> Registrar abono · ${saldoPendiente(detalle).toLocaleString('es-MX')} pendiente
+                    </button>
+                  )}
+                  {saldoPendiente(detalle) === 0 && !showAbono && (
+                    <div className="flex items-center justify-center gap-2 py-2 text-sm text-emerald-600 font-semibold">
+                      <CheckCircle2 className="w-4 h-4" /> Venta liquidada al 100%
+                    </div>
+                  )}
+                  <button onClick={() => imprimirTicket(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
+                    <Printer className="w-4 h-4" /> Reimprimir ticket
+                  </button>
+                </>
               )}
-              {saldoPendiente(detalle) === 0 && !showAbono && (
-                <div className="flex items-center justify-center gap-2 py-2 text-sm text-emerald-600 font-semibold">
-                  <CheckCircle2 className="w-4 h-4" /> Venta liquidada al 100%
-                </div>
-              )}
-              <button onClick={() => imprimirTicket(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
-                className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
-                <Printer className="w-4 h-4" /> Reimprimir ticket
-              </button>
               {esAdmin && (
                 <button onClick={cancelarVenta}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-400 hover:text-red-600 transition-colors">

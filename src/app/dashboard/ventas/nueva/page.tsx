@@ -1023,6 +1023,113 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
       setTimeout(() => { win.print() }, 400)
     }
 
+    // ── Imprimir COTIZACIÓN (ticket térmico 58mm, sin pagos/firma, vigencia 15 días) ──
+    const handleImprimirCotizacion = () => {
+      setNotaImpresa(true)
+      let u: { nombre?: string; nombre_receta?: string } = {}
+      try { u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch {}
+      const recetaNombre = (u.nombre_receta || '').trim()
+      const _ap = (u.nombre || '').trim().split(/\s+/)
+      const atendioPor = recetaNombre || (_ap.length >= 2 ? `${_ap[0]} ${_ap[1][0].toUpperCase()}.` : _ap[0] || '')
+      const fechaFmt = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+      const paresC = [...new Set(carrito.map(i => i.par))].sort()
+      const productosRows = paresC.map(par => {
+        const itemsPar = carrito.filter(i => i.par === par)
+        const headerRow = paresC.length > 1
+          ? `<tr><td colspan="3" style="padding:1.5mm 0 0.5mm;font-weight:900;font-size:3mm;border-top:0.3mm dashed #000;">— PAR ${par} —</td></tr>`
+          : ''
+        const rows = itemsPar.map(item => {
+          const subtotalItem = item.precio * (1 - item.descuento / 100) * item.cantidad
+          const descStr = item.descuento > 0 ? `<br><small>(−${item.descuento}%)</small>` : ''
+          return `<tr><td class="tc">${item.cantidad}</td><td>${item.nombre}${descStr}</td><td class="tp">$${subtotalItem.toLocaleString('es-MX')}</td></tr>`
+        }).join('')
+        return headerRow + rows
+      }).join('')
+
+      const win = window.open('', '_blank', 'width=230,height=900')
+      if (!win) return
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Cotización ${folio}</title>
+<style>
+  @page { size: 58mm auto; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { height: auto; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 3.3mm; font-weight: 600; color: #000; background: #fff; width: 48mm; padding: 1mm 1.5mm 4mm 1.5mm; overflow: visible; -webkit-font-smoothing: none; }
+  .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
+  .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 4mm auto 0; display: block; }
+  .b1 { font-size: 5.2mm; font-weight: 900; line-height: 1.15; }
+  .b2 { font-size: 3.8mm; font-weight: 900; line-height: 1.2; }
+  .dt { font-size: 3mm; margin-top: 1.5mm; }
+  .info-sec { margin-bottom: 3mm; padding-bottom: 2mm; border-bottom: 0.4mm dashed #000; }
+  .irow { display: flex; padding: 1mm 0; font-size: 3.5mm; gap: 1mm; }
+  .ilbl { font-weight: 700; min-width: 18mm; flex-shrink: 0; }
+  .folio { text-align: center; border: 0.5mm solid #000; padding: 2.5mm 1mm; margin-bottom: 3mm; }
+  .folio-lbl { font-size: 3.4mm; font-weight: 900; letter-spacing: 0.3mm; }
+  .folio-num { font-size: 5mm; font-weight: 900; margin-top: 1mm; }
+  table.prods { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 2mm; font-size: 3.2mm; }
+  table.prods th { border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 1.5mm 0.6mm; text-align: left; font-weight: 900; }
+  table.prods td { padding: 1.5mm 0.6mm; vertical-align: top; line-height: 1.4; word-break: break-word; overflow-wrap: anywhere; }
+  .tc { width: 5mm; text-align: center; }
+  .tp { text-align: right; width: 12mm; white-space: nowrap; }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 4.4mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; }
+  .vig-box { border: 0.5mm solid #000; padding: 2.5mm 2mm; text-align: center; margin: 3mm 0; font-size: 3mm; line-height: 1.5; }
+  .vig-box b { font-size: 3.4mm; }
+  .icard { padding: 2.5mm 0; border-top: 0.4mm dashed #000; font-size: 3mm; line-height: 1.5; text-align: center; }
+  .footer { border-top: 0.5mm solid #000; padding-top: 3mm; margin-top: 2mm; text-align: center; font-size: 3mm; line-height: 2; }
+  .faddr { font-weight: 700; line-height: 1.4; margin-bottom: 1.5mm; }
+  .fatendio { font-weight: 900; }
+  .fbar { margin-top: 2.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; font-weight: 900; font-size: 3.3mm; }
+  * { page-break-inside: avoid; break-inside: avoid; }
+  .tip { display: block; background: #fff8e1; border: 1px solid #e5a; padding: 5px 6px; margin-bottom: 8px; font-size: 9px; line-height: 1.5; }
+  @media print { .tip { display: none; } }
+</style></head><body>
+
+<div class="tip">Configurar impresión: <b>Márgenes → Ninguno</b> · Sin encabezados/pies</div>
+
+<div class="hdr">
+  <div class="b1">${(SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal).toUpperCase()}</div>
+  ${SUCURSAL_CONFIG[sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
+  <div class="dt">${fechaFmt} | ${horaHoy}</div>
+</div>
+
+<div class="info-sec">
+  ${(clienteNombre || clienteApellido) ? `<div class="irow"><span class="ilbl">Cliente:</span><span>${clienteNombre} ${clienteApellido}</span></div>` : ''}
+  ${clienteTelefono ? `<div class="irow"><span class="ilbl">Tel:</span><span>${clienteTelefono}</span></div>` : ''}
+</div>
+
+<div class="folio">
+  <div class="folio-lbl">COTIZACIÓN</div>
+  <div class="folio-num">${folio}</div>
+</div>
+
+<table class="prods">
+  <thead><tr><th class="tc">CANT</th><th>DESCRIPCION</th><th class="tp">PRECIO</th></tr></thead>
+  <tbody>${productosRows}</tbody>
+</table>
+
+<div class="total-row"><span>TOTAL ESTIMADO:</span><span>$${total.toLocaleString('es-MX')}</span></div>
+
+<div class="vig-box"><b>Cotización válida por 15 días</b><br>Precios sujetos a cambio sin previo aviso.</div>
+
+<div class="icard">Esta cotización NO es un comprobante de pago.</div>
+
+<div class="footer">
+  ${SUCURSAL_CONFIG[sucursal]?.direccion ? `<div class="faddr">${SUCURSAL_CONFIG[sucursal].direccion}</div>` : ''}
+  <div>Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
+  <div>${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun-Sab 10:00-18:00'}</div>
+  ${atendioPor ? `<div class="fatendio">Atendio: ${atendioPor}</div>` : ''}
+  <div>${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
+  <div class="fbar">... Gracias por su preferencia! ...</div>
+</div>
+
+${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
+
+</body></html>`)
+      win.document.close()
+      setTimeout(() => { win.print() }, 400)
+    }
+
     // ── Imprimir órdenes de laboratorio (una página por par con micas) ──
     const isMicaFn = (nombre: string) =>
       ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
@@ -1260,14 +1367,16 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
 
         {/* Acción principal: la nota de venta (para el paciente) */}
         <button
-          onClick={handleImprimirTicket}
+          onClick={esCotizacion ? handleImprimirCotizacion : handleImprimirTicket}
           className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${
             notaImpresa
               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               : 'bg-[#0D9488] text-white hover:bg-[#0B7A70]'
           }`}
         >
-          <Printer className="w-[18px] h-[18px]" /> {notaImpresa ? 'Nota de venta impresa' : 'Imprimir nota de venta'}
+          <Printer className="w-[18px] h-[18px]" /> {esCotizacion
+            ? (notaImpresa ? 'Cotización impresa' : 'Imprimir cotización')
+            : (notaImpresa ? 'Nota de venta impresa' : 'Imprimir nota de venta')}
         </button>
 
         {/* Acción secundaria: orden de laboratorio */}
