@@ -1481,7 +1481,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
           />
           {showBuscadorProducto && busquedaProducto && (
             <div className="absolute top-full left-6 right-6 mt-1 bg-white border border-zinc-200 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
-              {productosFiltrados.slice(0, 10).map(p => (
+              {productosFiltrados.slice(0, 50).map(p => (
                 <button
                   key={p.id}
                   onClick={() => agregar(p)}
