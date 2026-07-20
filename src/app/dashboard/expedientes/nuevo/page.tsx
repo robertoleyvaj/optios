@@ -465,6 +465,124 @@ export default function NuevaConsultaPage() {
     }
   }, [paso])
 
+  // ─────────────────────────────────────────────
+  // Autoguardado del examen (borrador local) — red de seguridad si se pierde
+  // la sesión o se recarga la página. Todo protegido: nunca rompe el formulario.
+  // ─────────────────────────────────────────────
+  const DRAFT_KEY = 'optios_examen_draft'
+  const [draftInfo, setDraftInfo]   = useState<{ ts: number } | null>(null)
+  const [draftListo, setDraftListo] = useState(false)
+
+  // Al montar: ¿hay un borrador reciente sin terminar?
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (raw) {
+        const d = JSON.parse(raw)
+        const reciente = d?.ts && (Date.now() - d.ts) < 8 * 60 * 60 * 1000  // < 8 h
+        const conDatos = d?.data && (d.data.pNombre || (d.data.paso ?? 1) > 1)
+        if (reciente && conDatos) setDraftInfo({ ts: d.ts })
+      }
+    } catch { /* noop */ }
+    setDraftListo(true)
+  }, [])
+
+  // Guardar borrador a cada cambio (con pequeño retraso)
+  useEffect(() => {
+    if (!draftListo) return
+    if (draftInfo) return  // hay un borrador pendiente de restaurar: no lo pises
+    if (paso <= 1 && !pNombre && !pApellido) return  // no crear borrador vacío
+    const snapshot = {
+      paso, pasoMaximo, modoConsulta, pacienteId,
+      pNombre, pApellido, pFechaNac, pSexo, pLada, pTelefono, pWhatsapp, pEmail,
+      pDireccion, pOcupacion, pEmpresa, mostrarDatosExtra,
+      motivo, sintomaPrincipal, antecMedicos, antecOculares, antecFamiliares,
+      medicamentos, alergias, antecMedOtra, tieneMedicamentos, tieneAlergias,
+      tieneFamiliares, antecFamOtra, noOcular,
+      habitos, sintomasSeleccionados, sintomasObs,
+      avVlOd, avVlOi, avVcOd, avVcOi, avScOd, avScOi,
+      lensOd, lensOi, autoOd, autoOi, rxOd, rxOi, rxDpOd, rxDpOi, obsClinicas,
+      diagnosticos, diagManual, diagGenerado,
+      recClinicas, recManual,
+      rxFinal, rxTipo, rxOptometrista, rxObservaciones, editandoRx,
+      hizoLens, hizoAuto,
+      recComerciales, recComercialManual,
+    }
+    const t = setTimeout(() => {
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ts: Date.now(), data: snapshot })) } catch { /* noop */ }
+    }, 600)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftListo, draftInfo, paso, pasoMaximo, modoConsulta, pacienteId, pNombre, pApellido, pFechaNac, pSexo, pLada, pTelefono, pWhatsapp, pEmail, pDireccion, pOcupacion, pEmpresa, mostrarDatosExtra, motivo, sintomaPrincipal, antecMedicos, antecOculares, antecFamiliares, medicamentos, alergias, antecMedOtra, tieneMedicamentos, tieneAlergias, tieneFamiliares, antecFamOtra, noOcular, habitos, sintomasSeleccionados, sintomasObs, avVlOd, avVlOi, avVcOd, avVcOi, avScOd, avScOi, lensOd, lensOi, autoOd, autoOi, rxOd, rxOi, rxDpOd, rxDpOi, obsClinicas, diagnosticos, diagManual, diagGenerado, recClinicas, recManual, rxFinal, rxTipo, rxOptometrista, rxObservaciones, editandoRx, hizoLens, hizoAuto, recComerciales, recComercialManual])
+
+  const limpiarBorrador = () => {
+    try { localStorage.removeItem(DRAFT_KEY) } catch { /* noop */ }
+    setDraftInfo(null)
+  }
+
+  const restaurarBorrador = () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      const d = raw ? JSON.parse(raw)?.data : null
+      if (!d) { setDraftInfo(null); return }
+      if (d.paso != null) setPaso(d.paso)
+      if (d.pasoMaximo != null) setPasoMaximo(d.pasoMaximo)
+      if (d.modoConsulta !== undefined) setModoConsulta(d.modoConsulta)
+      if (d.pacienteId !== undefined) setPacienteId(d.pacienteId)
+      if (d.pNombre != null) setPNombre(d.pNombre)
+      if (d.pApellido != null) setPApellido(d.pApellido)
+      if (d.pFechaNac != null) setPFechaNac(d.pFechaNac)
+      if (d.pSexo != null) setPSexo(d.pSexo)
+      if (d.pLada != null) setPLada(d.pLada)
+      if (d.pTelefono != null) setPTelefono(d.pTelefono)
+      if (d.pWhatsapp != null) setPWhatsapp(d.pWhatsapp)
+      if (d.pEmail != null) setPEmail(d.pEmail)
+      if (d.pDireccion != null) setPDireccion(d.pDireccion)
+      if (d.pOcupacion != null) setPOcupacion(d.pOcupacion)
+      if (d.pEmpresa != null) setPEmpresa(d.pEmpresa)
+      if (d.mostrarDatosExtra != null) setMostrarDatosExtra(d.mostrarDatosExtra)
+      if (d.motivo != null) setMotivo(d.motivo)
+      if (d.sintomaPrincipal != null) setSintomaPrincipal(d.sintomaPrincipal)
+      if (d.antecMedicos != null) setAntecMedicos(d.antecMedicos)
+      if (d.antecOculares != null) setAntecOculares(d.antecOculares)
+      if (d.antecFamiliares != null) setAntecFamiliares(d.antecFamiliares)
+      if (d.medicamentos != null) setMedicamentos(d.medicamentos)
+      if (d.alergias != null) setAlergias(d.alergias)
+      if (d.antecMedOtra != null) setAntecMedOtra(d.antecMedOtra)
+      if (d.tieneMedicamentos !== undefined) setTieneMedicamentos(d.tieneMedicamentos)
+      if (d.tieneAlergias !== undefined) setTieneAlergias(d.tieneAlergias)
+      if (d.tieneFamiliares !== undefined) setTieneFamiliares(d.tieneFamiliares)
+      if (d.antecFamOtra != null) setAntecFamOtra(d.antecFamOtra)
+      if (d.noOcular != null) setNoOcular(d.noOcular)
+      if (d.habitos != null) setHabitos(d.habitos)
+      if (d.sintomasSeleccionados != null) setSintomasSeleccionados(d.sintomasSeleccionados)
+      if (d.sintomasObs != null) setSintomasObs(d.sintomasObs)
+      if (d.avVlOd != null) setAvVlOd(d.avVlOd) ; if (d.avVlOi != null) setAvVlOi(d.avVlOi)
+      if (d.avVcOd != null) setAvVcOd(d.avVcOd) ; if (d.avVcOi != null) setAvVcOi(d.avVcOi)
+      if (d.avScOd != null) setAvScOd(d.avScOd) ; if (d.avScOi != null) setAvScOi(d.avScOi)
+      if (d.lensOd != null) setLensOd(d.lensOd) ; if (d.lensOi != null) setLensOi(d.lensOi)
+      if (d.autoOd != null) setAutoOd(d.autoOd) ; if (d.autoOi != null) setAutoOi(d.autoOi)
+      if (d.rxOd != null) setRxOd(d.rxOd) ; if (d.rxOi != null) setRxOi(d.rxOi)
+      if (d.rxDpOd != null) setRxDpOd(d.rxDpOd) ; if (d.rxDpOi != null) setRxDpOi(d.rxDpOi)
+      if (d.obsClinicas != null) setObsClinicas(d.obsClinicas)
+      if (d.diagnosticos != null) setDiagnosticos(d.diagnosticos)
+      if (d.diagManual != null) setDiagManual(d.diagManual)
+      if (d.diagGenerado != null) setDiagGenerado(d.diagGenerado)
+      if (d.recClinicas != null) setRecClinicas(d.recClinicas)
+      if (d.recManual != null) setRecManual(d.recManual)
+      if (d.rxFinal != null) setRxFinal(d.rxFinal)
+      if (d.rxTipo != null) setRxTipo(d.rxTipo)
+      if (d.rxOptometrista != null) setRxOptometrista(d.rxOptometrista)
+      if (d.rxObservaciones != null) setRxObservaciones(d.rxObservaciones)
+      if (d.editandoRx != null) setEditandoRx(d.editandoRx)
+      if (d.hizoLens !== undefined) setHizoLens(d.hizoLens)
+      if (d.hizoAuto !== undefined) setHizoAuto(d.hizoAuto)
+      if (d.recComerciales != null) setRecComerciales(d.recComerciales)
+      if (d.recComercialManual != null) setRecComercialManual(d.recComercialManual)
+    } catch { /* noop */ }
+    setDraftInfo(null)
+  }
+
   function calcEdad(fechaNac: string): number {
     const hoy = new Date(); const nac = new Date(fechaNac)
     let edad = hoy.getFullYear() - nac.getFullYear()
@@ -642,6 +760,7 @@ export default function NuevaConsultaPage() {
         await supabase.from('consultas').update({ estado: 'completada', paso_actual: 8 }).eq('id', consultaId)
       }
 
+      limpiarBorrador()  // examen guardado: ya no hace falta el borrador
       // Ir a ventas con datos del paciente (sin pre-cargar productos)
       const nombre = encodeURIComponent(pacienteNombre || `${pNombre} ${pApellido}`)
       if (pId) {
@@ -676,6 +795,7 @@ export default function NuevaConsultaPage() {
         dp_oi:         rxDpOi         || null,
       })
       if (error) { alert('Error al guardar receta: ' + error.message); return }
+      limpiarBorrador()  // examen guardado: ya no hace falta el borrador
       const nombre = encodeURIComponent(`${pNombre} ${pApellido}`.trim())
       router.push(`/dashboard/ventas/nueva?pacienteId=${pId}&nombre=${nombre}`)
     } catch (err) {
@@ -1636,6 +1756,26 @@ export default function NuevaConsultaPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-6">
+        {/* Aviso de borrador sin terminar */}
+        {draftInfo && (
+          <div className="mb-5 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
+            </svg>
+            <p className="flex-1 text-sm text-amber-800">
+              Tienes un <b>examen sin terminar</b> guardado. ¿Continuar donde te quedaste?
+            </p>
+            <button onClick={restaurarBorrador}
+              className="px-3 py-1.5 bg-amber-600 text-white rounded text-xs font-bold hover:bg-amber-500 transition-colors flex-shrink-0">
+              Continuar
+            </button>
+            <button onClick={limpiarBorrador}
+              className="px-3 py-1.5 text-amber-700 rounded text-xs font-semibold hover:bg-amber-100 transition-colors flex-shrink-0">
+              Empezar de nuevo
+            </button>
+          </div>
+        )}
+
         {/* Steps indicator — ocultar en selector y en paso 1 */}
         <div className={`flex items-center gap-1 mb-6 overflow-x-auto pb-1 ${(pacienteId && modoConsulta === null) ? 'hidden' : ''}`}>
           {STEPS.map((s, idx) => {
