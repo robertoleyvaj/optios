@@ -569,15 +569,36 @@ export default function VentasPage() {
 
   const cancelarVenta = async () => {
     if (!detalle) return
-    if (!confirm(`¿Cancelar la venta ${detalle.id} de ${detalle.cliente}? Esta acción no se puede deshacer.`)) return
+    if (!confirm(
+      `¿BORRAR permanentemente la venta ${detalle.id} de ${detalle.cliente}?\n\n` +
+      `Se eliminará TODO: productos, pagos (sale de caja), orden de laboratorio ` +
+      `y comisiones. Esta acción NO se puede deshacer.`
+    )) return
 
     const supabase = createClient()
-    const { error } = await supabase
-      .from('ventas')
-      .update({ estado: 'cancelada' })
-      .eq('id', detalle.uuid)
 
-    if (error) { alert(`Error: ${error.message}`); return }
+    // Borra los hijos primero, luego la venta. Si algo falla, se detiene y avisa
+    // sin borrar la venta (así no quedan huérfanos).
+    // 1. Pagos → para que el dinero salga de la caja
+    const r1 = await supabase.from('pagos_venta').delete().eq('venta_id', detalle.uuid)
+    if (r1.error) { alert(`Error al borrar pagos: ${r1.error.message}`); return }
+
+    // 2. Partidas/productos de la venta
+    const r2 = await supabase.from('ventas_items').delete().eq('venta_id', detalle.uuid)
+    if (r2.error) { alert(`Error al borrar productos: ${r2.error.message}`); return }
+
+    // 3. Orden(es) de laboratorio ligadas a la venta
+    const r3 = await supabase.from('ordenes_lab').delete().eq('venta_id', detalle.uuid)
+    if (r3.error) { alert(`Error al borrar orden de lab: ${r3.error.message}`); return }
+
+    // 4. Comisión de terminal (gasto ligado por el folio en el concepto)
+    const r4 = await supabase.from('gastos').delete()
+      .eq('categoria', 'comision_terminal').ilike('concepto', `%${detalle.id}%`)
+    if (r4.error) { alert(`Error al borrar comisión: ${r4.error.message}`); return }
+
+    // 5. Finalmente la venta
+    const r5 = await supabase.from('ventas').delete().eq('id', detalle.uuid)
+    if (r5.error) { alert(`Error al borrar la venta: ${r5.error.message}`); return }
 
     setVentas(prev => prev.filter(v => v.id !== detalle.id))
     setDetalle(null)
@@ -903,7 +924,7 @@ export default function VentasPage() {
               {esAdmin && (
                 <button onClick={cancelarVenta}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-400 hover:text-red-600 transition-colors">
-                  Cancelar venta
+                  Borrar venta
                 </button>
               )}
             </div>
