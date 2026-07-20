@@ -256,7 +256,23 @@ export default function VentasPage() {
   }, [])
   const [abonoMonto, setAbonoMonto]   = useState('')
   const [abonoMetodo, setAbonoMetodo] = useState('efectivo')
+  const [abonoMoneda, setAbonoMoneda] = useState<'MXN' | 'USD'>('MXN')
+  const [abonoTC, setAbonoTC]         = useState<number | null>(null)
+  const [abonoLoadingTC, setAbonoLoadingTC] = useState(false)
   const [guardandoAbono, setGuardandoAbono] = useState(false)
+
+  const fetchAbonoTC = async () => {
+    setAbonoLoadingTC(true)
+    try {
+      const res = await fetch('/api/tipo-cambio')
+      const data = await res.json()
+      if (res.ok && data?.tipoCambio) { setAbonoTC(Math.round(data.tipoCambio * 100) / 100); return }
+      const res2 = await fetch('https://open.er-api.com/v6/latest/USD')
+      const data2 = await res2.json()
+      if (data2?.rates?.MXN) setAbonoTC(Math.round(data2.rates.MXN * 100) / 100)
+    } catch { /* noop */ }
+    finally { setAbonoLoadingTC(false) }
+  }
   const [usuarioNombre, setUsuarioNombre] = useState('')
   const [usuarioId, setUsuarioId]         = useState<string | null>(null)
   const [esAdmin, setEsAdmin]             = useState(false)
@@ -415,11 +431,21 @@ export default function VentasPage() {
   })
 
   const registrarAbono = async () => {
-    const monto = parseFloat(abonoMonto)
-    if (!detalle || isNaN(monto) || monto <= 0) return
+    const entrada = parseFloat(abonoMonto)
+    if (!detalle || isNaN(entrada) || entrada <= 0) return
 
-    // Validación: no permitir pagar más de lo que se debe
+    const esUSD = abonoMoneda === 'USD'
+    if (esUSD && !abonoTC) { alert('No hay tipo de cambio disponible. Reintenta.'); return }
+
+    // Monto en pesos (para saldo/caja). En USD: dólares × tipo de cambio.
+    const tc = esUSD ? (abonoTC as number) : null
+    const montoOrigen = esUSD ? entrada : null   // los dólares capturados
+    let monto = esUSD ? Math.round(entrada * (tc as number)) : entrada
+
+    // Validación: no permitir pagar más de lo que se debe (con tolerancia por redondeo USD)
     const saldoActual = saldoPendiente(detalle)
+    const tolerancia = esUSD ? Math.max(tc as number, 20) : 1
+    if (monto > saldoActual && monto - saldoActual <= tolerancia) monto = saldoActual  // snap a liquidación exacta
     if (monto > saldoActual) {
       alert(`El monto ($${monto.toLocaleString('es-MX')}) supera el saldo pendiente ($${saldoActual.toLocaleString('es-MX')}).`)
       return
@@ -458,6 +484,9 @@ export default function VentasPage() {
       sucursal:       sucursalPago,
       registrado_por: usuarioNombre,
       usuario_id:     usuarioId,
+      moneda:         abonoMoneda,
+      monto_origen:   montoOrigen,
+      tipo_cambio:    tc,
     })
 
     if (errPago) {
@@ -486,6 +515,7 @@ export default function VentasPage() {
     setVentas(prev => prev.map(v => v.id === detalle.id ? ventaActualizada : v))
     setDetalle(ventaActualizada)
     setAbonoMonto('')
+    setAbonoMoneda('MXN')
     setShowAbono(false)
     setGuardandoAbono(false)
   }
@@ -779,15 +809,32 @@ export default function VentasPage() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                   <p className="text-sm font-bold text-zinc-700">Registrar abono</p>
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-500 mb-1">Monto</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-zinc-500">Monto</label>
+                      <div className="flex gap-1">
+                        <button onClick={() => { setAbonoMoneda('MXN'); setAbonoMonto('') }}
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded border transition-all ${abonoMoneda === 'MXN' ? 'bg-zinc-800 text-white border-zinc-800' : 'border-zinc-200 text-zinc-400 hover:border-zinc-300'}`}>🇲🇽 MXN</button>
+                        <button onClick={() => { setAbonoMoneda('USD'); setAbonoMonto(''); if (!abonoTC) fetchAbonoTC() }}
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded border transition-all ${abonoMoneda === 'USD' ? 'bg-blue-600 text-white border-blue-600' : 'border-zinc-200 text-zinc-400 hover:border-blue-300'}`}>🇺🇸 USD</button>
+                      </div>
+                    </div>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 font-semibold text-sm">$</span>
-                      <input type="number" min={1} max={saldoPendiente(detalle)}
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 font-semibold text-sm">{abonoMoneda === 'USD' ? 'USD $' : '$'}</span>
+                      <input type="number" min={1}
                         value={abonoMonto} onChange={e => setAbonoMonto(e.target.value)}
-                        className="w-full border-2 border-[#0D9488] rounded pl-7 pr-3 py-2.5 text-lg font-bold text-zinc-800 bg-white focus:outline-none"
+                        className={`w-full border-2 rounded ${abonoMoneda === 'USD' ? 'pl-12 border-blue-500' : 'pl-7 border-[#0D9488]'} pr-3 py-2.5 text-lg font-bold text-zinc-800 bg-white focus:outline-none`}
                         placeholder="0" autoFocus />
                     </div>
-                    <p className="text-xs text-zinc-400 mt-1">Máximo: ${saldoPendiente(detalle).toLocaleString('es-MX')}</p>
+                    {abonoMoneda === 'USD' ? (
+                      <p className="text-xs text-blue-600 mt-1">
+                        {abonoLoadingTC ? 'Obteniendo tipo de cambio…' : abonoTC
+                          ? `TC $${abonoTC.toFixed(2)} · ≈ $${Math.round((parseFloat(abonoMonto) || 0) * abonoTC).toLocaleString('es-MX')} MXN`
+                          : 'Sin tipo de cambio · toca USD otra vez'}
+                        <span className="text-zinc-400"> · Saldo: ${saldoPendiente(detalle).toLocaleString('es-MX')}</span>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-zinc-400 mt-1">Máximo: ${saldoPendiente(detalle).toLocaleString('es-MX')}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-zinc-500 mb-1">Método</label>
@@ -806,7 +853,7 @@ export default function VentasPage() {
                       className="flex-1 py-2 border border-zinc-200 rounded text-sm text-zinc-500 hover:bg-white transition-colors">
                       Cancelar
                     </button>
-                    <button onClick={registrarAbono} disabled={!abonoMonto || parseFloat(abonoMonto) <= 0 || guardandoAbono}
+                    <button onClick={registrarAbono} disabled={!abonoMonto || parseFloat(abonoMonto) <= 0 || guardandoAbono || (abonoMoneda === 'USD' && !abonoTC)}
                       className="flex-1 py-2 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40 transition-colors">
                       {guardandoAbono ? 'Guardando...' : 'Registrar abono'}
                     </button>
