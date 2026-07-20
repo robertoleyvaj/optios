@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { getSucursalActual } from '@/lib/session'
+import { registrarComisionTerminal } from '@/lib/comisiones'
 import { hoyLocal, hoyMasDias } from '@/lib/fecha'
 
 // ─────────────────────────────────────────
@@ -1449,6 +1450,11 @@ export default function LaboratorioPage() {
   const [demoUser, setDemoUser] = useState<{ rol: string; sucursal: string; nombre: string } | null>(null)
   const [sucursalCrear, setSucursalCrear] = useState('Baja Visión')
 
+  // Liquidar-y-entregar: cobrar el saldo pendiente al momento de entregar
+  const [liquidar, setLiquidar] = useState<{ ordenId: number; folioVenta: string; ventaId: string; paciente: string; saldo: number; sucursal: string } | null>(null)
+  const [liquidarMetodo, setLiquidarMetodo] = useState('efectivo')
+  const [liquidarGuardando, setLiquidarGuardando] = useState(false)
+
   // ── Cargar órdenes desde Supabase ──────────────────────────
   useEffect(() => {
     const fetchOrdenes = async () => {
@@ -1592,16 +1598,24 @@ export default function LaboratorioPage() {
     const hoy = hoyLocal()
     const orden = ordenes.find(o => o.id === id)
 
-    // Bloquear entrega si la venta tiene saldo pendiente
+    // Si la venta tiene saldo pendiente al entregar, abrir el modal para liquidar
     if (estado === 'entregado' && orden?.folioVenta) {
       const supabase = createClient()
       const { data: ventaDB } = await supabase
         .from('ventas')
-        .select('saldo')
+        .select('id, saldo')
         .eq('folio', orden.folioVenta)
         .single()
       if (ventaDB && Number(ventaDB.saldo) > 0) {
-        alert(`No se puede marcar como entregado.\nEl cliente tiene un saldo pendiente de $${Number(ventaDB.saldo).toLocaleString('es-MX', { minimumFractionDigits: 2 })}.`)
+        setLiquidar({
+          ordenId: id,
+          folioVenta: orden.folioVenta,
+          ventaId: ventaDB.id as string,
+          paciente: orden.paciente,
+          saldo: Number(ventaDB.saldo),
+          sucursal: orden.sucursal,
+        })
+        setLiquidarMetodo('efectivo')
         return
       }
     }
@@ -1629,6 +1643,40 @@ export default function LaboratorioPage() {
       // Refresh historial si esta orden está en el detalle
       if (detalle?.id === id) fetchHistorial(orden.supabaseId)
     }
+  }
+
+  // Liquidar el saldo pendiente y entregar — misma lógica de dinero que "Registrar abono" de Ventas
+  const liquidarYEntregar = async () => {
+    if (!liquidar || liquidarGuardando) return
+    setLiquidarGuardando(true)
+    const sb = createClient()
+
+    // 1. Saldo de la venta a 0
+    const { error: eVenta } = await sb.from('ventas').update({ saldo: 0 }).eq('id', liquidar.ventaId)
+    if (eVenta) { alert(`Error al actualizar la venta: ${eVenta.message}`); setLiquidarGuardando(false); return }
+
+    // 2. Registrar el pago (entra a la caja de la sucursal actual)
+    const { error: ePago } = await sb.from('pagos_venta').insert({
+      venta_id:       liquidar.ventaId,
+      folio_venta:    liquidar.folioVenta,
+      paciente:       liquidar.paciente,
+      monto:          liquidar.saldo,
+      metodo_pago:    liquidarMetodo,
+      tipo:           'liquidacion',
+      sucursal:       getSucursalActual(),
+      registrado_por: demoUser?.nombre ?? '',
+      usuario_id:     null,
+    })
+    if (ePago) { alert(`Error al registrar el pago: ${ePago.message}`); setLiquidarGuardando(false); return }
+
+    // 3. Comisión terminal automática si se cobró con tarjeta
+    await registrarComisionTerminal({ metodoPago: liquidarMetodo, monto: liquidar.saldo, folio: liquidar.folioVenta, sucursal: liquidar.sucursal })
+
+    // 4. Ahora sí, entregar (el saldo ya es 0, pasa el check)
+    const ordenId = liquidar.ordenId
+    setLiquidar(null)
+    setLiquidarGuardando(false)
+    await cambiarEstado(ordenId, 'entregado')
   }
 
   const guardar = async () => {
@@ -1831,6 +1879,50 @@ export default function LaboratorioPage() {
 
       {/* ── MODAL IMPRIMIR ── */}
       {printModal && <PrintModal orden={printModal} onClose={() => setPrintModal(null)} />}
+
+      {/* ── MODAL LIQUIDAR Y ENTREGAR ── */}
+      {liquidar && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
+            <div className="px-6 py-4 border-b border-zinc-200">
+              <h3 className="font-semibold text-zinc-800">Liquidar para entregar</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">{liquidar.paciente} · {liquidar.folioVenta}</p>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                <span className="text-sm text-amber-700 font-medium">Saldo pendiente</span>
+                <span className="text-xl font-bold text-amber-700">${liquidar.saldo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Método de pago</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { v: 'efectivo', l: 'Efectivo' },
+                    { v: 'debito', l: 'T. Débito' },
+                    { v: 'credito', l: 'T. Crédito' },
+                    { v: 'transferencia', l: 'Transferencia' },
+                  ].map(m => (
+                    <button key={m.v} onClick={() => setLiquidarMetodo(m.v)}
+                      className={`py-2 rounded-lg text-sm font-medium border transition-all ${liquidarMetodo === m.v ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}>
+                      {m.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-5">
+              <button onClick={() => setLiquidar(null)}
+                className="flex-1 border border-zinc-200 text-zinc-600 rounded-lg py-2.5 text-sm hover:bg-zinc-100 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={liquidarYEntregar} disabled={liquidarGuardando}
+                className="flex-1 bg-emerald-600 text-white rounded-lg py-2.5 text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 transition-colors">
+                {liquidarGuardando ? 'Procesando...' : 'Liquidar y entregar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL NUEVA ORDEN ── */}
       {modal && (
