@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -382,6 +382,21 @@ export default function VentasPage() {
       setCargando(false)
     }
   }
+
+  // Si venimos de Laboratorio con ?liquidar=folio, abre esa venta y su abono
+  const liquidarAbierto = useRef(false)
+  useEffect(() => {
+    if (liquidarAbierto.current || ventas.length === 0) return
+    const folio = searchParams.get('liquidar')
+    if (!folio) return
+    const v = ventas.find(x => x.id === folio)
+    if (v) {
+      liquidarAbierto.current = true
+      setDetalle(v)
+      setShowAbono(true)
+      setAbonoMonto(String(saldoPendiente(v)))
+    }
+  }, [ventas, searchParams])
 
   const ventasFiltradas = ventas.filter(v => {
     const q = busqueda.toLowerCase()
