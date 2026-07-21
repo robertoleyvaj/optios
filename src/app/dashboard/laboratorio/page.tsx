@@ -1076,6 +1076,7 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
   const EntregaCard = ({ o }: { o: OrdenLab }) => {
     const [showProblema, setShowProblema] = useState(false)
     const [motivoInput, setMotivoInput]   = useState('')
+    const [confirmarEntrega, setConfirmarEntrega] = useState(false)
 
     const cfg = ESTADO_CONFIG[o.estado] ?? ESTADO_CONFIG['recibido']
     const Icon = cfg.icon
@@ -1257,17 +1258,37 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
                   ⚠️ Falta registrar el costo del laboratorio antes de entregar
                 </p>
               )}
-              <button
-                disabled={rol === 'administrador' && o.costoLab === 0 && !o.esGarantia}
-                onClick={() => onUpdate(o.id, { estado: 'entregado', fechaEntrega: hoyLocal() })}
-                className={`w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-lg transition-colors ${
-                  rol !== 'administrador' || o.costoLab > 0 || o.esGarantia
-                    ? 'bg-zinc-900 text-white hover:bg-zinc-700'
-                    : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
-                }`}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Entregado al paciente
-              </button>
+              {!confirmarEntrega ? (
+                <button
+                  disabled={rol === 'administrador' && o.costoLab === 0 && !o.esGarantia}
+                  onClick={() => setConfirmarEntrega(true)}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-lg transition-colors ${
+                    rol !== 'administrador' || o.costoLab > 0 || o.esGarantia
+                      ? 'bg-zinc-900 text-white hover:bg-zinc-700'
+                      : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Entregado al paciente
+                </button>
+              ) : (
+                <div className="border border-zinc-200 rounded-lg p-3 bg-zinc-50 space-y-2">
+                  <p className="text-xs font-semibold text-zinc-700 text-center">¿Confirmar entrega al paciente?</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setConfirmarEntrega(false)}
+                      className="flex-1 py-2 text-xs font-semibold text-zinc-500 border border-zinc-200 rounded-lg hover:bg-zinc-100 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => { setConfirmarEntrega(false); onUpdate(o.id, { estado: 'entregado', fechaEntrega: hoyLocal() }) }}
+                      className="flex-1 py-2 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+                    >
+                      Sí, entregar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
