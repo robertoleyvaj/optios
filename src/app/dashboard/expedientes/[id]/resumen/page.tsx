@@ -79,6 +79,19 @@ function fv(v: string | null | undefined) {
   if (!v || v === '' || v === '0.00') return '—'
   return v
 }
+// Formatea graduación que puede venir como texto o como objeto {esfera, cilindro, eje, add}
+function fmtRxEye(x: unknown): string {
+  if (!x) return ''
+  if (typeof x === 'string') return x.trim()
+  if (typeof x === 'object') {
+    const o = x as Partial<RxEye>
+    const parts = [o.esfera, o.cilindro, o.eje ? `x${o.eje}` : '', o.add ? `ADD ${o.add}` : '']
+      .map(p => (p ?? '').toString().trim())
+      .filter(p => p && p !== '0.00')
+    return parts.join(' ')
+  }
+  return String(x)
+}
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function ResumenInternoPage() {
@@ -285,12 +298,12 @@ export default function ResumenInternoPage() {
                   )}
 
                   {/* Lentes actuales */}
-                  {(c.lens_od || c.lens_oi) && (
+                  {(fmtRxEye(c.lens_od) || fmtRxEye(c.lens_oi)) && (
                     <div className="mb-4">
                       <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Lentes actuales</p>
                       <div className="flex gap-4 text-xs">
-                        {c.lens_od && <span className="text-zinc-700"><span className="font-semibold">OD:</span> {c.lens_od}</span>}
-                        {c.lens_oi && <span className="text-zinc-700"><span className="font-semibold">OI:</span> {c.lens_oi}</span>}
+                        {fmtRxEye(c.lens_od) && <span className="text-zinc-700"><span className="font-semibold">OD:</span> {fmtRxEye(c.lens_od)}</span>}
+                        {fmtRxEye(c.lens_oi) && <span className="text-zinc-700"><span className="font-semibold">OI:</span> {fmtRxEye(c.lens_oi)}</span>}
                       </div>
                     </div>
                   )}
