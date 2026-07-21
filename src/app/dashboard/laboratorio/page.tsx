@@ -252,7 +252,9 @@ function parseGrad(grad: string) {
 
 function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }) {
   const fecha = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  const tratLabel = TRATAMIENTO_LABEL[orden.tratamiento] || ''
+  // Si es un código conocido (orden manual) se traduce; si es texto libre
+  // (orden generada desde una venta: nombres de filtros), se muestra tal cual.
+  const tratLabel = TRATAMIENTO_LABEL[orden.tratamiento] ?? orden.tratamiento
   const tratFull  = tratLabel
     ? (orden.colorTratamiento ? `${tratLabel} ${orden.colorTratamiento}` : tratLabel)
     : ''
