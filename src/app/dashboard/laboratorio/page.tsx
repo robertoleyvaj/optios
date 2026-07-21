@@ -1699,6 +1699,8 @@ export default function LaboratorioPage() {
       anticipo:            form.anticipo,
       notas:               form.notas,
       creado_por:          demoUser?.nombre ?? '',
+      es_garantia:         form.esGarantia,
+      motivo_problema:     form.esGarantia ? form.motivoProblema : '',
     }).select('id').single()
 
     // Registrar evento de creación en el historial
@@ -2072,6 +2074,28 @@ export default function LaboratorioPage() {
                 }`}>
                 ⚡ {form.urgente ? 'URGENTE (activo)' : 'Marcar como urgente'}
               </button>
+
+              {/* Garantía */}
+              <button type="button"
+                onClick={() => {
+                  const nuevo = !form.esGarantia
+                  setForm(prev => ({ ...prev, esGarantia: nuevo, ...(nuevo ? { precioCliente: 0, anticipo: 0 } : {}) }))
+                }}
+                className={`w-full flex items-center justify-center gap-2 py-3 rounded text-sm font-black tracking-widest border-2 transition-all ${
+                  form.esGarantia
+                    ? 'bg-purple-600 border-purple-600 text-white'
+                    : 'border-zinc-300 text-zinc-400 hover:border-purple-300 hover:text-purple-500'
+                }`}>
+                🔄 {form.esGarantia ? 'GARANTÍA · sin cobro al cliente' : 'Marcar como garantía'}
+              </button>
+              {form.esGarantia && (
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Motivo de la garantía</label>
+                  <textarea value={form.motivoProblema} onChange={e => f('motivoProblema', e.target.value.toUpperCase())} rows={2}
+                    className="w-full border border-purple-200 rounded px-3 py-2 text-sm bg-purple-50/40 focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none uppercase placeholder:normal-case"
+                    placeholder="Ej: no se adaptó al progresivo, graduación incorrecta..." />
+                </div>
+              )}
 
               {/* Notas */}
               <div>
