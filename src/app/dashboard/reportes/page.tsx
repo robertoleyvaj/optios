@@ -441,7 +441,7 @@ function ReportesPage() {
                 <div className="text-center bg-rose-50 rounded-lg py-3"><div className="text-xl font-bold text-rose-600">{labAtrasadas}</div><div className="text-[10px] text-zinc-400">Atrasadas</div></div>
               </div>
               <div className="flex items-center justify-between border-t border-zinc-100 pt-3">
-                <div><p className="text-xs text-zinc-400">Cotizaciones abiertas</p><p className="text-lg font-bold text-zinc-700">{cotCount}</p></div>
+                <div><p className="text-xs text-zinc-400">Cotizaciones del periodo</p><p className="text-lg font-bold text-zinc-700">{cotCount}</p></div>
                 <div className="text-right"><p className="text-xs text-zinc-400">Conversión</p><p className={`text-lg font-bold ${convPct >= 50 ? 'text-teal-600' : convPct >= 30 ? 'text-amber-600' : 'text-rose-600'}`}>{convPct}%</p></div>
               </div>
             </Card>
