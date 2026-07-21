@@ -1819,6 +1819,7 @@ export default function LaboratorioPage() {
             const { data: inserted } = await supabase.from('ordenes_lab').insert({
               folio:               folioNuevo,
               folio_venta:         original.folioVenta,
+              venta_id:            original.ventaId || null,
               paciente:            original.paciente,
               telefono:            original.telefono,
               sucursal:            original.sucursal,
@@ -1852,6 +1853,7 @@ export default function LaboratorioPage() {
               folio: folioNuevo,
               supabaseId: inserted?.id ?? '',
               folioVenta: original.folioVenta,
+              ventaId: original.ventaId,
               pacienteId: original.pacienteId,
               paciente: original.paciente,
               telefono: original.telefono,
