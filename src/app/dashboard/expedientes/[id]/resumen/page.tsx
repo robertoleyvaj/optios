@@ -72,7 +72,7 @@ function formatHora(iso: string) {
   return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 }
 function keys(obj: Record<string, boolean> | null | undefined): string[] {
-  if (!obj) return []
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return []
   return Object.entries(obj).filter(([, v]) => v).map(([k]) => k)
 }
 function fv(v: string | null | undefined) {
@@ -192,9 +192,9 @@ export default function ResumenInternoPage() {
               </Card>
 
               {/* Síntomas */}
-              {(c.sintomas_lista?.length > 0 || c.sintomas_obs) && (
+              {((Array.isArray(c.sintomas_lista) && c.sintomas_lista.length > 0) || c.sintomas_obs) && (
                 <Card titulo="Síntomas referidos">
-                  {c.sintomas_lista?.length > 0 && (
+                  {(Array.isArray(c.sintomas_lista) && c.sintomas_lista.length > 0) && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {c.sintomas_lista.map(s => (
                         <span key={s} className="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 rounded text-xs">{s}</span>
@@ -336,7 +336,7 @@ export default function ResumenInternoPage() {
               )}
 
               {/* Diagnósticos */}
-              {c.diagnosticos?.length > 0 && (
+              {Array.isArray(c.diagnosticos) && c.diagnosticos.length > 0 && (
                 <Card titulo="Diagnósticos">
                   <div className="flex flex-wrap gap-2">
                     {c.diagnosticos.map((d, i) => (
@@ -384,7 +384,7 @@ export default function ResumenInternoPage() {
               )}
 
               {/* Recomendaciones clínicas */}
-              {c.rec_clinicas?.length > 0 && (
+              {Array.isArray(c.rec_clinicas) && c.rec_clinicas.length > 0 && (
                 <Card titulo="Recomendaciones clínicas">
                   <div className="space-y-1.5">
                     {c.rec_clinicas.map((r, i) => (
@@ -398,7 +398,7 @@ export default function ResumenInternoPage() {
               )}
 
               {/* Recomendaciones comerciales */}
-              {c.rec_comerciales && c.rec_comerciales.length > 0 && (
+              {Array.isArray(c.rec_comerciales) && c.rec_comerciales.length > 0 && (
                 <Card titulo="Recomendaciones comerciales">
                   <div className="space-y-2">
                     {c.rec_comerciales.map((r, i) => (
