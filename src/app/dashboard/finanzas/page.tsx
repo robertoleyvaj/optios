@@ -174,7 +174,9 @@ function FinanzasPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setVentasDetalle(ventasRows.map((v: any) => ({
       folio:       v.folio ?? '',
-      fecha:       v.created_at ? (v.created_at as string).split('T')[0] : '',
+      // Fecha en hora de Tijuana (no UTC): si no, una venta de la tarde/noche
+      // se ve como del día siguiente.
+      fecha:       v.created_at ? new Date(v.created_at as string).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' }) : '',
       atendidoPor: v.atendido_por ?? '',
       total:       parseFloat(v.total) || 0,
       saldo:       parseFloat(v.saldo) || 0,
@@ -595,7 +597,7 @@ function FinanzasPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
-              <h2 className="text-base font-bold text-zinc-800">{editandoId ? 'Editar gasto' : 'Registrar gasto'}</h2>
+              <h2 className="text-base font-bold text-zinc-800">{editandoId ? 'Editar egreso' : 'Registrar egreso'}</h2>
               <button onClick={() => { setModal(false); setEditandoId(null) }}><X className="w-5 h-5 text-zinc-400" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
