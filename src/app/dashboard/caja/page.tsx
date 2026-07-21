@@ -593,7 +593,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
     <div className="space-y-5 max-w-4xl">
 
       {/* ── Encabezado ── */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Corte de caja</h1>
           <p className="text-sm text-zinc-400 mt-0.5">
@@ -814,7 +814,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           {/* Formulario rápido de egreso */}
           {showEgresoForm && (
             <div className="px-5 py-4 border-b border-zinc-200 bg-zinc-50 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1">Categoría</label>
                   <select
@@ -926,7 +926,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
         <h3 className="text-sm font-bold text-zinc-700 mb-4">Conteo de efectivo</h3>
 
         {/* Pesos MXN */}
-        <div className="grid grid-cols-2 gap-5 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
           <div className="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
             <p className="text-xs font-semibold text-zinc-400 mb-1">Saldo esperado en caja</p>
             <p className="text-3xl font-bold text-zinc-700">{fmt$(esperado)}</p>
@@ -980,7 +980,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
         {/* Dólares USD — siempre visible */}
         <div className="border-t border-zinc-200 pt-5">
             <p className="text-xs font-bold text-blue-600 mb-3">🇺🇸 Caja dólares (USD)</p>
-            <div className="grid grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <p className="text-xs font-semibold text-blue-400 mb-1">Esperado (sistema)</p>
                 <p className="text-3xl font-bold text-blue-700">

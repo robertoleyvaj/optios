@@ -284,7 +284,7 @@ export default function DashboardPage() {
                   && trabajosRetrasados.length === 0 && saldosPendientes === 0
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4 lg:h-full">
 
       {/* ── Selector de sucursal (admin/gerente con "Todas") ─────────────── */}
       {esTodas && (
@@ -303,12 +303,12 @@ export default function DashboardPage() {
       )}
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Hola, {apodo}</h1>
           <p className="text-sm text-zinc-400 mt-0.5">{fechaLabel}</p>
         </div>
-        <div className="flex items-end gap-10 text-right">
+        <div className="flex items-end gap-6 sm:gap-10">
           <div>
             <p className="text-xs text-zinc-400 mb-1">Ventas sucursal</p>
             <p className="text-2xl font-bold text-zinc-900 leading-none tabular-nums">
@@ -365,7 +365,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Acciones rápidas ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <QuickActionCard
           icon={ShoppingCart} label="Ventas" sublabel="Registrar o consultar"
           primaryLabel="Nueva venta" secondaryLabel="Buscar venta"
@@ -393,10 +393,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Grid principal ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-5 gap-4 flex-1 min-h-0 pb-1">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:flex-1 lg:min-h-0 pb-1">
 
         {/* ── Columna izquierda (3/5) ── */}
-        <div className="col-span-3 flex flex-col gap-4 min-h-0">
+        <div className="lg:col-span-3 flex flex-col gap-4 lg:min-h-0">
 
           {/* Mi trabajo de hoy */}
           <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm">
@@ -440,7 +440,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Agenda de hoy */}
-          <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm lg:flex-1 lg:min-h-0 lg:overflow-hidden flex flex-col">
             <div className="flex items-center justify-between mb-3 flex-shrink-0">
               <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Agenda de hoy</p>
               <button onClick={() => router.push('/dashboard/agenda')}
@@ -480,7 +480,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Columna derecha (2/5) ── */}
-        <div className="col-span-2 flex flex-col gap-4 min-h-0">
+        <div className="lg:col-span-2 flex flex-col gap-4 lg:min-h-0">
 
           {/* Pendientes */}
           <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm">
@@ -532,7 +532,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Actividad reciente */}
-          <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm lg:flex-1 lg:min-h-0 lg:overflow-hidden flex flex-col">
             <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-3 flex-shrink-0">
               Actividad reciente
             </p>
