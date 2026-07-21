@@ -289,7 +289,7 @@ function FinanzasPage() {
     <div className="space-y-5">
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Finanzas</h1>
           <p className="text-sm text-zinc-400 mt-0.5">
@@ -298,7 +298,7 @@ function FinanzasPage() {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           {/* Período */}
-          <div className="flex bg-zinc-100 rounded-lg p-1 gap-0.5">
+          <div className="flex bg-zinc-100 rounded-lg p-1 gap-0.5 max-w-full overflow-x-auto">
             {PERIODOS.map(p => (
               <button key={p.key} onClick={() => setPeriodo(p.key)}
                 className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
@@ -392,7 +392,7 @@ function FinanzasPage() {
                   {ventasDetalle.length === 0 ? (
                     <p className="text-sm text-zinc-400 text-center py-10">Sin ventas en este período</p>
                   ) : (
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto"><table className="w-full text-sm min-w-[600px]">
                       <thead><tr className="border-b border-zinc-200">
                         {['Folio', 'Fecha', 'Atendió', 'Total', 'Saldo', 'Cobrado'].map(h => (
                           <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
@@ -410,7 +410,7 @@ function FinanzasPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></div>
                   )}
                 </>
               )}
@@ -446,7 +446,7 @@ function FinanzasPage() {
                   {labDetalle.length === 0 ? (
                     <p className="text-sm text-zinc-400 text-center py-10">Sin órdenes pagadas en este período</p>
                   ) : (
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto"><table className="w-full text-sm min-w-[600px]">
                       <thead><tr className="border-b border-zinc-200">
                         {['Folio', 'Paciente', 'Laboratorio', 'Fecha pago', 'Costo'].map(h => (
                           <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
@@ -463,7 +463,7 @@ function FinanzasPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></div>
                   )}
                 </>
               )}
@@ -486,7 +486,7 @@ function FinanzasPage() {
                       </button>
                     </div>
                   ) : (
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto"><table className="w-full text-sm min-w-[600px]">
                       <thead><tr className="border-b border-zinc-200">
                         {['Fecha', 'Concepto', 'Categoría', 'Sucursal', 'Monto', ''].map(h => (
                           <th key={h} className="text-left text-xs text-zinc-400 font-medium px-5 py-3">{h}</th>
@@ -520,7 +520,7 @@ function FinanzasPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></div>
                   )}
                 </>
               )}
