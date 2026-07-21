@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -72,7 +72,7 @@ const MENU_GESTION: MenuItem[] = [
   { href: '/dashboard/reportes',    label: 'Reportes',         icon: BarChart3,  key: 'reportes' },
   // Ocultos temporalmente para enfocar el flujo hasta el corte (reactivar después):
   // { href: '/dashboard/analitica',   label: 'Analítica',        icon: Microscope, key: 'analitica', pronto: true },
-  // { href: '/dashboard/finanzas',    label: 'Finanzas',         icon: DollarSign, key: 'finanzas' },
+  { href: '/dashboard/finanzas',    label: 'Finanzas',         icon: DollarSign, key: 'finanzas' },
   { href: '/dashboard/usuarios',    label: 'Usuarios',         icon: Users,      key: 'usuarios' },
   { href: '/dashboard/ajustes',     label: 'Ajustes',          icon: Settings,   key: 'ajustes' },
 ]

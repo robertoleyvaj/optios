@@ -35,21 +35,31 @@ const PERIODOS: { key: Periodo; label: string }[] = [
   { key: 'personalizado', label: 'Personalizado' },
 ]
 
-// Gastos que sí son costos operativos del negocio (restan utilidad)
-const CATEGORIAS_GASTO = ['renta', 'nomina', 'bono_diario', 'adelanto', 'comisiones', 'comision_terminal', 'servicios', 'compras', 'otros']
+// Categorías que captura el admin manualmente (opciones del formulario)
+const CATEGORIAS_MANUAL = ['renta', 'nomina', 'bonos_comisiones', 'proveedores', 'servicios', 'mantenimiento', 'marketing', 'papeleria', 'limpieza', 'otros']
+// Todas las que pueden aparecer como egreso operativo (para el desglose):
+// las manuales + la automática (comisión de terminal) + claves antiguas por compatibilidad
+const CATEGORIAS_GASTO = [...CATEGORIAS_MANUAL, 'comision_terminal', 'bono_diario', 'adelanto', 'comisiones', 'compras']
 // Movimientos del dueño (no son costos del negocio, se muestran aparte)
 const CATEGORIAS_RETIRO = ['retiro_admin']
 const CATEGORIAS_LABEL: Record<string, string> = {
   renta:              'Renta',
-  nomina:             'Nómina',
+  nomina:             'Nómina / Sueldos',
+  bonos_comisiones:   'Bonos y comisiones',
+  proveedores:        'Proveedores / Compras',
+  servicios:          'Servicios',
+  mantenimiento:      'Mantenimiento y equipo',
+  marketing:          'Publicidad / Marketing',
+  papeleria:          'Papelería / Administrativo',
+  limpieza:           'Artículos de limpieza',
+  comision_terminal:  'Comisión terminal (banco)',
+  otros:              'Otros',
+  // Claves antiguas (datos previos)
   bono_diario:        'Bono diario',
   adelanto:           'Adelanto sueldo',
-  retiro_admin:       'Retiro admin',
   comisiones:         'Comisiones',
-  comision_terminal:  'Comisión terminal',
-  servicios:          'Servicios',
   compras:            'Compras',
-  otros:              'Otros',
+  retiro_admin:       'Retiro admin',
 }
 
 const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles', 'General']
@@ -204,10 +214,12 @@ function FinanzasPage() {
       .map(([nombre, { total, count }]) => ({ nombre, total, count }))
       .sort((a, b) => b.total - a.total))
 
-    // Gastos manuales
+    // Egresos de empresa: SOLO es_caja = false (o null en datos viejos).
+    // Los egresos del cajón (es_caja = true, ej. bono del día) NO entran aquí.
     let qGastos = supabase
       .from('gastos')
       .select('*')
+      .or('es_caja.is.null,es_caja.eq.false')
       .gte('fecha', inicio)
       .lte('fecha', fin)
       .order('fecha', { ascending: false })
@@ -242,6 +254,7 @@ function FinanzasPage() {
       monto:     parseFloat(formGasto.monto),
       sucursal:  formGasto.sucursal,
       notas:     formGasto.notas || null,
+      es_caja:   false,   // egreso de empresa: nunca toca el corte de caja
     }
 
     if (editandoId) {
@@ -311,7 +324,7 @@ function FinanzasPage() {
           {/* Agregar gasto */}
           <button onClick={() => setModal(true)}
             className="flex items-center gap-1.5 bg-[#0B0E14] text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#1A1D27]">
-            <Plus className="w-3.5 h-3.5" /> Registrar gasto
+            <Plus className="w-3.5 h-3.5" /> Registrar egreso
           </button>
         </div>
       </div>
@@ -326,7 +339,7 @@ function FinanzasPage() {
               { key: 'facturado' as const, label: 'Total facturado',   value: totalVentas,  icon: TrendingUp,   color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-400'    },
               { key: 'cobrado'   as const, label: 'Ingresó (cobrado)', value: ingresos,     icon: TrendingUp,   color: 'text-teal-600',    bg: 'bg-teal-50',    border: 'border-teal-400'    },
               { key: 'costo_lab' as const, label: 'Costo laboratorio', value: costoLab,     icon: FlaskConical, color: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-400'  },
-              { key: 'gastos'    as const, label: 'Gastos operativos', value: totalGastos,  icon: TrendingDown, color: 'text-red-500',     bg: 'bg-red-50',     border: 'border-red-400'     },
+              { key: 'gastos'    as const, label: 'Egresos',           value: totalGastos,  icon: TrendingDown, color: 'text-red-500',     bg: 'bg-red-50',     border: 'border-red-400'     },
               { key: 'utilidad'  as const, label: 'Utilidad neta',     value: utilidadNeta, icon: DollarSign,   color: utilidadNeta >= 0 ? 'text-emerald-600' : 'text-red-600', bg: utilidadNeta >= 0 ? 'bg-emerald-50' : 'bg-red-50', border: utilidadNeta >= 0 ? 'border-emerald-400' : 'border-red-400' },
             ]).map(k => {
               const Icon = k.icon
@@ -601,7 +614,7 @@ function FinanzasPage() {
                   <select value={formGasto.categoria}
                     onChange={e => setFormGasto(f => ({ ...f, categoria: e.target.value }))}
                     className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none">
-                    {CATEGORIAS_GASTO.map(c => <option key={c} value={c}>{CATEGORIAS_LABEL[c]}</option>)}
+                    {CATEGORIAS_MANUAL.map(c => <option key={c} value={c}>{CATEGORIAS_LABEL[c]}</option>)}
                   </select>
                 </div>
                 <div>
@@ -662,7 +675,7 @@ function FinanzasPage() {
 
 export default function FinanzasPageProtected() {
   return (
-    <RequireRol roles={['administrador', 'gerente']}>
+    <RequireRol roles={['administrador']}>
       <FinanzasPage />
     </RequireRol>
   )
