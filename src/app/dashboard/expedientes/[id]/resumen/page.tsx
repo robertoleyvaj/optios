@@ -88,7 +88,7 @@ export default function ResumenInternoPage() {
   const [paciente, setPaciente]       = useState<Paciente | null>(null)
   const [consultas, setConsultas]     = useState<Consulta[]>([])
   const [seleccionada, setSeleccionada] = useState<Consulta | null>(null)
-  const [receta, setReceta]           = useState<Receta | null>(null)
+  const [recetas, setRecetas]         = useState<Receta[]>([])
   const [cargando, setCargando]       = useState(true)
 
   useEffect(() => {
@@ -98,13 +98,13 @@ export default function ResumenInternoPage() {
         const [pacRes, consRes, recRes] = await Promise.all([
           supabase.from('pacientes').select('id,nombre,apellido,fecha_nacimiento,telefono,email,sexo,ocupacion').eq('id', id).single(),
           supabase.from('consultas').select('*').eq('paciente_id', id).order('created_at', { ascending: false }),
-          supabase.from('recetas').select('*').eq('paciente_id', id).order('fecha', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('recetas').select('*').eq('paciente_id', id).order('fecha', { ascending: false }),
         ])
         if (pacRes.data) setPaciente(pacRes.data as Paciente)
         const lista = (consRes.data ?? []) as Consulta[]
         setConsultas(lista)
         setSeleccionada(lista[0] ?? null)
-        if (recRes.data) setReceta(recRes.data as Receta)
+        setRecetas((recRes.data ?? []) as Receta[])
       } catch (err) {
         console.error('Error cargando expediente:', err)
       } finally {
@@ -128,6 +128,8 @@ export default function ResumenInternoPage() {
   )
 
   const c = seleccionada
+  const receta = recetas[0] ?? null
+  const sinConsultas = consultas.length === 0
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -148,6 +150,7 @@ export default function ResumenInternoPage() {
         </button>
       </div>
 
+      {!sinConsultas ? (
       <div className="flex gap-5">
 
         {/* ─── Lista de consultas ─────────────────────────────────────────── */}
@@ -416,6 +419,9 @@ export default function ResumenInternoPage() {
           )}
         </div>
       </div>
+      ) : (
+        <FallbackRecetas recetas={recetas} paciente={paciente} />
+      )}
     </div>
   )
 }
@@ -467,6 +473,68 @@ function HabitoItem({ label, valor }: { label: string; valor: string }) {
     <div className="bg-zinc-50 rounded-lg p-2">
       <p className="text-[10px] text-zinc-400 uppercase tracking-wider">{label}</p>
       <p className="text-xs font-semibold text-zinc-700 mt-0.5">{valor}</p>
+    </div>
+  )
+}
+
+// Respaldo: pacientes sin examen completo (migrados o receta rápida) → su historial de recetas
+function FallbackRecetas({ recetas, paciente }: { recetas: Receta[]; paciente: Paciente }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+        <FileText className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-amber-800">
+          Este paciente no tiene un <b>examen completo</b> registrado (migrado del sistema anterior o receta rápida).
+          Se muestra su <b>historial de recetas</b>.
+        </p>
+      </div>
+
+      {recetas.length === 0 ? (
+        <div className="bg-white rounded-xl border border-zinc-100 p-8 text-center text-zinc-400 text-sm">
+          Sin recetas registradas para {paciente.nombre} {paciente.apellido}.
+        </div>
+      ) : (
+        recetas.map(r => (
+          <div key={r.id} className="bg-white rounded-xl border border-zinc-100 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+              <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                Receta — {r.tipo || '—'} · {formatFecha(r.fecha)}
+              </span>
+              {r.optometrista && <span className="text-xs text-zinc-400">{r.optometrista}</span>}
+            </div>
+            <div className="px-4 py-4">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-zinc-50">
+                    <th className="text-left px-3 py-2 text-zinc-500 font-semibold border border-zinc-200 w-16"></th>
+                    <th className="px-3 py-2 text-zinc-500 font-semibold border border-zinc-200">Esfera</th>
+                    <th className="px-3 py-2 text-zinc-500 font-semibold border border-zinc-200">Cilindro</th>
+                    <th className="px-3 py-2 text-zinc-500 font-semibold border border-zinc-200">Eje</th>
+                    <th className="px-3 py-2 text-zinc-500 font-semibold border border-zinc-200">ADD</th>
+                    <th className="px-3 py-2 text-zinc-500 font-semibold border border-zinc-200">D.P.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { label: 'OD', esf: r.od_esfera, cil: r.od_cilindro, eje: r.od_eje, add: r.od_add, dp: r.dp },
+                    { label: 'OI', esf: r.oi_esfera, cil: r.oi_cilindro, eje: r.oi_eje, add: r.oi_add, dp: '' },
+                  ].map(row => (
+                    <tr key={row.label}>
+                      <td className="px-3 py-2 font-bold text-zinc-700 border border-zinc-200">{row.label}</td>
+                      <td className="px-3 py-2 text-center font-mono border border-zinc-200">{fv(row.esf)}</td>
+                      <td className="px-3 py-2 text-center font-mono border border-zinc-200">{fv(row.cil)}</td>
+                      <td className="px-3 py-2 text-center font-mono border border-zinc-200">{row.eje ? `${row.eje}°` : '—'}</td>
+                      <td className="px-3 py-2 text-center font-mono border border-zinc-200">{fv(row.add)}</td>
+                      <td className="px-3 py-2 text-center font-mono border border-zinc-200">{row.dp ? `${row.dp} mm` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {r.observaciones && <p className="text-xs text-zinc-500 italic mt-3">{r.observaciones}</p>}
+            </div>
+          </div>
+        ))
+      )}
     </div>
   )
 }
