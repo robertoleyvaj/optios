@@ -32,7 +32,8 @@ type OrdenLab = {
   id: number
   supabaseId: string   // UUID real en Supabase ('' en mock)
   folio: string
-  folioVenta: string   // vínculo con venta
+  folioVenta: string   // vínculo con venta (folio de texto)
+  ventaId: string      // id real de la venta (uuid) — liga costos/finanzas
   pacienteId: string   // vínculo directo con expediente
   paciente: string
   telefono: string
@@ -46,7 +47,7 @@ type OrdenLab = {
   add: string
   dp: string
   altura: string           // altura de montaje (progresivos/bifocales)
-  tratamiento: Tratamiento
+  tratamiento: string      // texto libre: filtros que compró (antirreflejo, transition, etc.)
   colorTratamiento: string // para tinte o polarizado
   urgente: boolean
   fechaIngreso: string
@@ -92,6 +93,7 @@ type HistorialItem = {
 // Tipo para venta vinculada (real)
 // ─────────────────────────────────────────
 type VentaRef = {
+  id: string
   folio: string
   pacienteId: string
   paciente: string
@@ -103,6 +105,10 @@ type VentaRef = {
   dp: string
   armazon: string
 }
+
+// Clasificación de productos para auto-llenar la orden desde una venta
+const esMicaProd   = (n: string) => ['mica', 'monofocal', 'progres', 'bifocal', 'transitions', 'rebisel'].some(k => n.toLowerCase().includes(k))
+const esFiltroProd = (n: string) => ['filtro', 'antirreflej', 'blue', 'fotocrom', 'polariz', 'tinte', 'crizal'].some(k => n.toLowerCase().includes(k))
 
 // ─────────────────────────────────────────
 // Config estados
@@ -138,7 +144,7 @@ const dias = (n: number) => hoyMasDias(n)
 
 const formVacio = (sucursalDefault = 'Baja Visión'): Omit<OrdenLab, 'id' | 'folio'> => ({
   supabaseId: '',
-  folioVenta: '', pacienteId: '', paciente: '', telefono: '', sucursal: sucursalDefault,
+  folioVenta: '', ventaId: '', pacienteId: '', paciente: '', telefono: '', sucursal: sucursalDefault,
   laboratorio: 'Laboratorio Visión', tipoMica: 'Monofocal antirreflejante',
   armazon: 'comprado', descripcionArmazon: '',
   od: '', oi: '', add: '', dp: '', altura: '', tratamiento: 'ninguno', colorTratamiento: '', urgente: false,
@@ -166,19 +172,21 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (query.length < 2) { setResultados([]); return }
+    if (!query.trim()) { setResultados([]); return }
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
       const { data } = await createClient()
         .from('ventas')
-        .select('folio, sucursal, paciente_id, pacientes(nombre, apellido, telefono)')
-        .ilike('folio', `%${query}%`)
+        .select('id, folio, sucursal, paciente_id, pacientes(nombre, apellido, telefono)')
+        .ilike('folio', `%${query.trim()}%`)
         .eq('estado', 'activa')
-        .limit(5)
+        .order('folio', { ascending: false })
+        .limit(8)
       if (data) {
         setResultados(data.map((v: Record<string, unknown>) => {
           const p = v.pacientes as { nombre?: string; apellido?: string; telefono?: string } | null
           return {
+            id:         v.id as string,
             folio:      v.folio as string,
             sucursal:   v.sucursal as string,
             pacienteId: (v.paciente_id as string) ?? '',
@@ -210,7 +218,7 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
           placeholder="Buscar por folio (V-0041) o nombre de paciente..."
         />
       </div>
-      {open && query.length > 1 && resultados.length > 0 && (
+      {open && query.length > 0 && resultados.length > 0 && (
         <div className="absolute z-50 top-full mt-1 w-full bg-white border border-zinc-200 rounded-lg shadow-xl overflow-hidden">
           {resultados.map(v => (
             <button key={v.folio}
@@ -1412,6 +1420,7 @@ function rowToOrden(r: Record<string, unknown>, idx: number): OrdenLab {
     supabaseId: r.id as string,
     folio: r.folio as string,
     folioVenta: (r.folio_venta as string) ?? '',
+    ventaId: (r.venta_id as string) ?? '',
     pacienteId: (r.paciente_id as string) ?? '',
     paciente: r.paciente as string,
     telefono: (r.telefono as string) ?? '',
@@ -1425,7 +1434,7 @@ function rowToOrden(r: Record<string, unknown>, idx: number): OrdenLab {
     add: (r.add_graduacion as string) ?? '',
     dp: (r.dp as string) ?? '',
     altura: (r.altura as string) ?? '',
-    tratamiento: (r.tratamiento as Tratamiento) ?? 'ninguno',
+    tratamiento: (r.tratamiento as string) ?? '',
     colorTratamiento: (r.color_tratamiento as string) ?? '',
     urgente: (r.urgente as boolean) ?? false,
     fechaIngreso: (r.fecha_ingreso as string) ?? '',
@@ -1600,21 +1609,56 @@ export default function LaboratorioPage() {
 
   const nextFolio = `LAB-${String(ordenes.length + 42).padStart(4, '0')}`
 
-  const vincularVenta = (v: VentaRef) => {
+  const vincularVenta = async (v: VentaRef) => {
     setVentaVinculada(v)
     setForm(prev => ({
       ...prev,
       folioVenta: v.folio,
+      ventaId: v.id,
       pacienteId: v.pacienteId,
       paciente: v.paciente,
       telefono: v.telefono,
       sucursal: v.sucursal,
-      od: v.od,
-      oi: v.oi,
-      add: v.add,
-      dp: v.dp,
-      descripcionArmazon: v.armazon,
     }))
+
+    const supabase = createClient()
+
+    // 1. Productos de la venta → mica (lo que compró), tratamiento (filtros), armazón
+    if (v.id) {
+      const { data: items } = await supabase.from('ventas_items').select('nombre').eq('venta_id', v.id)
+      const nombres = (items ?? []).map(i => (i.nombre as string) ?? '').filter(Boolean)
+      const micas   = nombres.filter(esMicaProd)
+      const filtros = nombres.filter(esFiltroProd)
+      const armazon = nombres.find(n => !esMicaProd(n) && !esFiltroProd(n)) ?? ''
+      setForm(prev => ({
+        ...prev,
+        tipoMica:           micas.join(' + ') || prev.tipoMica,
+        tratamiento:        filtros.join(', '),
+        descripcionArmazon: armazon || prev.descripcionArmazon,
+      }))
+    }
+
+    // 2. ÚLTIMA receta del paciente → graduación (clave: en garantías por cambio de
+    //    graduación se usa la más reciente, no la de la venta original)
+    if (v.pacienteId) {
+      const { data: rec } = await supabase.from('recetas')
+        .select('od_esfera,od_cilindro,od_eje,od_add,oi_esfera,oi_cilindro,oi_eje,oi_add,dp_od,dp_oi,fecha')
+        .eq('paciente_id', v.pacienteId)
+        .order('fecha', { ascending: false })
+        .limit(1).maybeSingle()
+      if (rec) {
+        const r = rec as Record<string, string>
+        const fmtOjo = (esf: string, cil: string, eje: string) =>
+          [esf, cil, eje ? `${eje}°` : ''].filter(Boolean).join(' / ')
+        setForm(prev => ({
+          ...prev,
+          od:  fmtOjo(r.od_esfera, r.od_cilindro, r.od_eje),
+          oi:  fmtOjo(r.oi_esfera, r.oi_cilindro, r.oi_eje),
+          add: r.od_add || '',
+          dp:  (r.dp_od || r.dp_oi) ? `${r.dp_od ?? ''}/${r.dp_oi ?? ''}` : '',
+        }))
+      }
+    }
   }
 
   const cambiarEstado = async (id: number, estado: EstadoOrden, notasExtra?: string) => {
@@ -1679,6 +1723,7 @@ export default function LaboratorioPage() {
     const { data: inserted } = await supabase.from('ordenes_lab').insert({
       folio,
       folio_venta:         form.folioVenta,
+      venta_id:            form.ventaId || null,
       paciente_id:         form.pacienteId || null,
       paciente:            form.paciente,
       telefono:            form.telefono,
@@ -1918,13 +1963,7 @@ export default function LaboratorioPage() {
                     className={`w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case ${ventaVinculada ? 'text-zinc-400' : ''}`}
                     placeholder="Nombre completo" readOnly={!!ventaVinculada} />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Teléfono</label>
-                  <input value={form.telefono} onChange={e => f('telefono', e.target.value)}
-                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                    placeholder="686 000 0000" readOnly={!!ventaVinculada} />
-                </div>
-                <div>
+                <div className="col-span-2">
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Sucursal</label>
                   <div className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 text-zinc-600">
                     {form.sucursal}
@@ -1935,14 +1974,14 @@ export default function LaboratorioPage() {
               {/* Tipo + laboratorio */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo de mica *</label>
-                  <div className="relative">
-                    <select value={form.tipoMica} onChange={e => f('tipoMica', e.target.value)}
-                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
-                      {TIPOS_MICA.map(t => <option key={t}>{t}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  </div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo de mica * <span className="font-normal text-zinc-400">(lo que compró)</span></label>
+                  <input value={form.tipoMica} onChange={e => f('tipoMica', e.target.value.toUpperCase())}
+                    list="tipos-mica-list"
+                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
+                    placeholder="Ej: MICA PROGRESIVA POLY PLUS 1.58" />
+                  <datalist id="tipos-mica-list">
+                    {TIPOS_MICA.map(t => <option key={t} value={t} />)}
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Laboratorio</label>
@@ -2005,31 +2044,13 @@ export default function LaboratorioPage() {
                     ))}
                   </div>
 
-                  {/* Tratamiento */}
+                  {/* Tratamiento (texto libre: filtros que compró) */}
                   <div className="border-t border-zinc-200 pt-3">
-                    <p className="text-xs font-semibold text-zinc-500 mb-2">Tratamiento</p>
-                    <div className="grid grid-cols-4 gap-2 mb-2">
-                      {([
-                        { v: 'ninguno',      l: 'Ninguno' },
-                        { v: 'tinte',        l: 'Tinte' },
-                        { v: 'fotocromatico',l: 'Fotocromático' },
-                        { v: 'polarizado',   l: 'Polarizado' },
-                      ] as { v: Tratamiento; l: string }[]).map(opt => (
-                        <button key={opt.v} type="button"
-                          onClick={() => { f('tratamiento', opt.v); if (opt.v !== 'tinte' && opt.v !== 'polarizado') f('colorTratamiento', '') }}
-                          className={`py-2 rounded text-xs font-semibold border transition-all ${form.tratamiento === opt.v ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
-                          {opt.l}
-                        </button>
-                      ))}
-                    </div>
-                    {(form.tratamiento === 'tinte' || form.tratamiento === 'polarizado') && (
-                      <input
-                        value={form.colorTratamiento}
-                        onChange={e => f('colorTratamiento', e.target.value.toUpperCase())}
-                        className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
-                        placeholder={form.tratamiento === 'tinte' ? 'Color del tinte (ej. café, gris, rosa...)' : 'Color de polarizado (ej. gris, café, verde...)'}
-                      />
-                    )}
+                    <p className="text-xs font-semibold text-zinc-500 mb-2">Tratamiento <span className="font-normal text-zinc-400">(filtros que compró)</span></p>
+                    <input value={form.tratamiento === 'ninguno' ? '' : form.tratamiento}
+                      onChange={e => f('tratamiento', e.target.value.toUpperCase())}
+                      className="w-full border border-zinc-200 rounded px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
+                      placeholder="Ej: FILTRO ANTIRREFLEJO, FILTRO TRANSITION" />
                   </div>
                 </div>
               </div>
