@@ -439,35 +439,46 @@ export default function CajaPage() {
       ? `Sobrante: +${fmt$(diferencia)}`
       : `Faltante: -${fmt$(Math.abs(diferencia))}`
 
-    const win = window.open('', '_blank', 'width=380,height=700')
+    const win = window.open('', '_blank', 'width=230,height=900')
     if (!win) return
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Corte de caja</title>
 <style>
-  @page { size: 80mm auto; margin: 4mm 3mm; }
+  @page { size: 58mm auto; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Courier New', monospace; font-size: 11px; color: #000; width: 74mm; }
-  .hdr { text-align: center; padding-bottom: 8px; border-bottom: 2px solid #000; margin-bottom: 8px; }
-  .hdr h1 { font-size: 15px; font-weight: 900; }
-  .hdr p  { font-size: 10px; margin-top: 2px; }
-  .titulo { text-align: center; font-size: 12px; font-weight: 900; text-transform: uppercase;
-            border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin: 8px 0; }
-  table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px; }
-  td { padding: 2px 1px; vertical-align: top; }
-  td.r { text-align: right; }
+  html { height: auto; }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 3.2mm; font-weight: 600; color: #000; background: #fff;
+    width: 48mm; padding: 1mm 1.5mm 4mm 1.5mm; overflow: visible; -webkit-font-smoothing: none;
+  }
+  .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.6mm solid #000; margin-bottom: 3mm; }
+  .hdr h1 { font-size: 5mm; font-weight: 900; line-height: 1.15; }
+  .hdr p  { font-size: 3mm; margin-top: 1mm; }
+  .titulo { text-align: center; font-size: 3.4mm; font-weight: 900; text-transform: uppercase;
+            border-top: 0.4mm solid #000; border-bottom: 0.4mm solid #000; padding: 1.5mm 0; margin: 3mm 0 2mm; }
+  table { width: 100%; border-collapse: collapse; font-size: 3mm; margin-bottom: 2mm; }
+  td { padding: 1mm 0.5mm; vertical-align: top; line-height: 1.35; }
+  td:first-child { word-break: break-word; overflow-wrap: anywhere; }
+  td.r { text-align: right; white-space: nowrap; }
   td.bold { font-weight: 900; }
-  .sep { border-top: 1px dashed #000; margin: 6px 0; }
-  .row { display: flex; justify-content: space-between; font-size: 11px; margin: 3px 0; }
-  .row.big { font-size: 13px; font-weight: 900; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin: 5px 0; }
-  .dif-box { border: 1px solid #000; padding: 4px 6px; text-align: center; margin: 6px 0; font-size: 11px; font-weight: 900; }
-  .entrega-box { background: #000; color: #fff; padding: 6px; text-align: center; margin: 6px 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .entrega-box .num { font-size: 18px; font-weight: 900; }
-  .notas { border: 1px solid #000; padding: 4px 6px; font-size: 10px; margin: 6px 0; }
-  .firma { margin: 16px 0 6px; display: flex; gap: 8px; }
+  .sep { border-top: 0.4mm dashed #000; margin: 2.5mm 0; }
+  .row { display: flex; justify-content: space-between; gap: 2mm; font-size: 3.2mm; margin: 1.5mm 0; }
+  .row span:last-child { text-align: right; white-space: nowrap; font-weight: 700; }
+  .row.big { font-size: 3.8mm; font-weight: 900; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2mm 0; margin: 2.5mm 0; }
+  .dif-box { border: 0.5mm solid #000; padding: 2mm; text-align: center; margin: 2.5mm 0; font-size: 3.4mm; font-weight: 900; }
+  .entrega-box { border: 0.7mm solid #000; padding: 2.5mm; text-align: center; margin: 3mm 0; }
+  .entrega-box .num { font-size: 6mm; font-weight: 900; }
+  .notas { border: 0.5mm solid #000; padding: 2mm; font-size: 3mm; margin: 2.5mm 0; line-height: 1.4; }
+  .firma { margin: 8mm 0 3mm; display: flex; gap: 3mm; }
   .firma-item { flex: 1; text-align: center; }
-  .firma-line { display: inline-block; border-top: 1px solid #000; width: 100%; padding-top: 3px; font-size: 9px; }
-  .footer { text-align: center; font-size: 9px; color: #555; border-top: 1px dashed #000; padding-top: 5px; margin-top: 5px; }
+  .firma-line { display: block; border-top: 0.4mm solid #000; padding-top: 1mm; font-size: 2.8mm; }
+  .footer { text-align: center; font-size: 2.8mm; color: #000; border-top: 0.4mm dashed #000; padding-top: 2mm; margin-top: 3mm; }
+  * { page-break-inside: avoid; break-inside: avoid; }
+  .tip { display: block; background: #fff8e1; border: 1px solid #e5a; padding: 5px 6px; margin-bottom: 8px; font-size: 9px; line-height: 1.5; }
+  @media print { .tip { display: none; } }
 </style></head><body>
+<div class="tip">Configurar impresion: <b>Margenes → Ninguno</b> · Sin encabezados/pies</div>
 <div class="hdr">
   <h1>${usuario.sucursal.toUpperCase()}</h1>
   <p>Corte de caja</p>
