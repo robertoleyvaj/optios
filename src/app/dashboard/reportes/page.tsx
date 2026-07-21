@@ -24,7 +24,7 @@ type Venta = {
   created_at: string
 }
 
-type OrdenLab = { estado: string; precio_cliente: number; fecha_promesa: string | null }
+type OrdenLab = { estado: string; precio_cliente: number; fecha_promesa: string | null; venta_id: string | null }
 
 // ─────────────────────────────────────────────
 // Constantes
@@ -163,6 +163,7 @@ function ReportesPage() {
   const [ordLab,     setOrdLab]     = useState<OrdenLab[]>([])
   const [prevTotal,  setPrevTotal]  = useState(0)   // ventas del periodo anterior (para ▲/▼)
   const [enCaja,     setEnCaja]     = useState(0)    // efectivo en caja hoy (las 3 sucursales)
+  const [deudaListos, setDeudaListos] = useState(0)  // saldo pendiente de ventas con lentes listos
   const [cargando,   setCargando]   = useState(true)
   const [hoverIdx,   setHoverIdx]   = useState<number | null>(null)  // punto activo del gráfico de ritmo
 
@@ -217,7 +218,7 @@ function ReportesPage() {
       .gte('created_at', rangoInicio)
       .lte('created_at', rangoFin)
     let qLab    = sb.from('ordenes_lab')
-      .select('estado, precio_cliente, fecha_promesa')
+      .select('estado, precio_cliente, fecha_promesa, venta_id')
       .neq('estado', 'entregado')
       .neq('estado', 'cancelada')
 
@@ -247,11 +248,23 @@ function ReportesPage() {
 
     const [rV, rC, rL, rP, rCaja] = await Promise.all([qVentas, qCot, qLab, qPrev, qCaja])
 
+    const ordLabData = rL.data || []
     setVentas(rV.data || [])
     setCotCount(rC.count ?? 0)
-    setOrdLab(rL.data || [])
+    setOrdLab(ordLabData)
     setPrevTotal((rP.data || []).reduce((s: number, v: { total: number }) => s + Number(v.total), 0))
     setEnCaja((rCaja.data || []).reduce((s: number, p: { monto: number }) => s + Number(p.monto), 0))
+
+    // Deuda: saldo pendiente de las ventas cuyos lentes YA están listos (sin duplicar por venta)
+    const idsListos = [...new Set(
+      ordLabData.filter((o: OrdenLab) => o.estado === 'listo' && o.venta_id).map((o: OrdenLab) => o.venta_id),
+    )] as string[]
+    if (idsListos.length > 0) {
+      const { data: vDeuda } = await sb.from('ventas').select('saldo').in('id', idsListos)
+      setDeudaListos((vDeuda || []).reduce((s: number, v: { saldo: number }) => s + Number(v.saldo || 0), 0))
+    } else {
+      setDeudaListos(0)
+    }
 
     setCargando(false)
   }, [periodo, desde, hasta, sucursal])
@@ -271,9 +284,8 @@ function ReportesPage() {
     ? Math.round(((totalFacturado - prevTotal) / prevTotal) * 100)
     : (totalFacturado > 0 ? 100 : 0)
 
-  // Lentes sin entregar (órdenes activas no entregadas) — presión para llamar/entregar
+  // Lentes: listos por entregar (esperando pickup) vs total pendientes
   const lentesSinEntregar = ordLab.length
-  const valorSinEntregar  = ordLab.reduce((s, o) => s + Number(o.precio_cliente || 0), 0)
   const lentesListas      = ordLab.filter(o => o.estado === 'listo').length
 
   const totalAtendidos = ventas.length + cotCount
@@ -486,19 +498,20 @@ function ReportesPage() {
               )}
             </Card>
 
-            <Card title="Lentes sin entregar">
+            <Card title="Lentes listos por entregar">
               <div className="flex items-end gap-5 mb-3">
-                <div><p className="text-3xl font-bold text-zinc-800">{lentesSinEntregar}</p><p className="text-xs text-zinc-400">sin entregar</p></div>
-                <div className="pb-1"><p className="text-lg font-bold text-zinc-600">{$$(valorSinEntregar)}</p><p className="text-xs text-zinc-400">valor en trabajos</p></div>
+                <div><p className="text-3xl font-bold text-zinc-800">{lentesListas}</p><p className="text-xs text-zinc-400">listos, sin recoger</p></div>
+                <div className="pb-1"><p className="text-lg font-bold text-rose-600">{$$(deudaListos)}</p><p className="text-xs text-zinc-400">te deben (saldo)</p></div>
               </div>
               {lentesListas > 0 ? (
                 <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 px-3 py-2.5 rounded-lg">
                   <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                  <span><b>{lentesListas}</b> ya {lentesListas === 1 ? 'está lista' : 'están listas'} para llamar y entregar</span>
+                  <span>Llámale al cliente para que {lentesListas === 1 ? 'venga por su lente' : 'vengan por sus lentes'}</span>
                 </div>
               ) : (
-                <p className="text-xs text-zinc-400">Ninguna lista para entregar aún</p>
+                <p className="text-xs text-zinc-400">Ninguno listo por entregar aún</p>
               )}
+              <p className="text-[11px] text-zinc-400 mt-2">{lentesSinEntregar} en total sin entregar (incluye en proceso)</p>
             </Card>
           </div>
 
