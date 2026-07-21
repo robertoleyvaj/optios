@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, FileText, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, FileText, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 type RxEye = { esfera: string; cilindro: string; eje: string; add: string }
@@ -156,6 +156,13 @@ export default function ResumenInternoPage() {
           <h1 className="text-lg font-bold text-zinc-900">{paciente.nombre} {paciente.apellido}</h1>
           <p className="text-xs text-zinc-400">{calcEdad(paciente.fecha_nacimiento)} · {paciente.telefono} {paciente.email && `· ${paciente.email}`}</p>
         </div>
+        {c && (
+          <button
+            onClick={() => router.push(`/dashboard/expedientes/nuevo?editar=${c.id}`)}
+            className="flex items-center gap-2 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors">
+            <Pencil className="w-3.5 h-3.5" /> Editar consulta
+          </button>
+        )}
         <button
           onClick={() => router.push(`/dashboard/expedientes/${id}/hoja`)}
           className="flex items-center gap-2 px-3 py-2 border border-zinc-200 rounded text-xs text-zinc-600 hover:bg-zinc-50 transition-colors">

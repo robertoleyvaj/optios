@@ -321,11 +321,14 @@ export default function NuevaConsultaPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const pacienteIdParam = searchParams.get('pacienteId')
+  const editarParam     = searchParams.get('editar')   // id de consulta a editar
 
   const [paso, setPaso]         = useState(pacienteIdParam ? 2 : 1)
   const [pasoMaximo, setPasoMaximo] = useState(pacienteIdParam ? 2 : 1)
   const [guardando, setGuardando] = useState(false)
   const [consultaId, setConsultaId] = useState<string | null>(null)
+  const [recetaId, setRecetaId]     = useState<string | null>(null)   // receta existente al editar
+  const modoEditar = !!editarParam
   const [pacienteId, setPacienteId] = useState<string | null>(pacienteIdParam)
   const [pacienteNombre, setPacienteNombre] = useState('')
   const [modoConsulta, setModoConsulta]     = useState<null | 'especializada' | 'rapida'>(null)
@@ -422,9 +425,95 @@ export default function NuevaConsultaPage() {
     } catch {}
   }, [pacienteIdParam])
 
-  // Pre-fill prescripción desde Rx subjetiva cuando llega al paso 8
+  // ── EDITAR: cargar una consulta existente y prellenar TODO el asistente ──
   useEffect(() => {
-    if (paso === 8) {
+    if (!editarParam) return
+    const cargar = async () => {
+      const supabase = createClient()
+      const { data } = await supabase.from('consultas').select('*').eq('id', editarParam).single()
+      if (!data) return
+      const c = data as {
+        paciente_id: string; motivo: string; sintoma_principal: string
+        antecedentes_medicos: Record<string, boolean> | null
+        antecedentes_oculares: Record<string, boolean> | null
+        antecedentes_familiares: Record<string, boolean> | null
+        medicamentos: string; alergias: string
+        habitos: Habitos | null
+        sintomas_lista: string[] | null; sintomas_obs: string
+        av_vl_od: string; av_vl_oi: string; av_vc_od: string; av_vc_oi: string; av_sc_od: string; av_sc_oi: string
+        lens_od: RxEye | null; lens_oi: RxEye | null; auto_od: RxEye | null; auto_oi: RxEye | null
+        rx_od: RxEye | null; rx_oi: RxEye | null; rx_dp_od: string; rx_dp_oi: string
+        observaciones_clinicas: string
+        diagnosticos: string[] | null; rec_clinicas: string[] | null
+        rec_comerciales: RecComercial[] | null
+      }
+      setConsultaId(editarParam)
+      setPacienteId(c.paciente_id)
+
+      const { data: pac } = await supabase.from('pacientes').select('nombre, apellido').eq('id', c.paciente_id).single()
+      if (pac) setPacienteNombre(`${pac.nombre} ${pac.apellido}`)
+
+      // Historia clínica
+      setMotivo(c.motivo ?? '')
+      setSintomaPrincipal(c.sintoma_principal ?? '')
+      const objKeys = (o: Record<string, boolean> | null) => o ? Object.keys(o).filter(k => o[k]) : []
+      setAntecMedicos(objKeys(c.antecedentes_medicos))
+      setAntecOculares(objKeys(c.antecedentes_oculares))
+      setAntecFamiliares(objKeys(c.antecedentes_familiares))
+      setMedicamentos(c.medicamentos && c.medicamentos !== 'Ninguno' ? c.medicamentos : '')
+      setTieneMedicamentos(c.medicamentos === 'Ninguno' ? false : (c.medicamentos ? true : null))
+      setAlergias(c.alergias && c.alergias !== 'Ninguna' ? c.alergias : '')
+      setTieneAlergias(c.alergias === 'Ninguna' ? false : (c.alergias ? true : null))
+
+      if (c.habitos) setHabitos(c.habitos)
+      setSintomasSeleccionados(Array.isArray(c.sintomas_lista) ? c.sintomas_lista : [])
+      setSintomasObs(c.sintomas_obs ?? '')
+
+      setAvVlOd(c.av_vl_od ?? ''); setAvVlOi(c.av_vl_oi ?? '')
+      setAvVcOd(c.av_vc_od ?? ''); setAvVcOi(c.av_vc_oi ?? '')
+      setAvScOd(c.av_sc_od ?? ''); setAvScOi(c.av_sc_oi ?? '')
+      if (c.lens_od) { setLensOd(c.lens_od); setHizoLens(true) }
+      if (c.lens_oi) setLensOi(c.lens_oi)
+      if (c.auto_od) { setAutoOd(c.auto_od); setHizoAuto(true) }
+      if (c.auto_oi) setAutoOi(c.auto_oi)
+      if (c.rx_od) setRxOd(c.rx_od)
+      if (c.rx_oi) setRxOi(c.rx_oi)
+      setRxDpOd(c.rx_dp_od ?? ''); setRxDpOi(c.rx_dp_oi ?? '')
+      setObsClinicas(c.observaciones_clinicas ?? '')
+
+      setDiagnosticos((Array.isArray(c.diagnosticos) ? c.diagnosticos : []).map(n => ({ nombre: n, confirmado: true })))
+      setDiagGenerado(true)
+      setRecClinicas((Array.isArray(c.rec_clinicas) ? c.rec_clinicas : []).map(t => ({ texto: t, activa: true })))
+      if (Array.isArray(c.rec_comerciales)) setRecComerciales(c.rec_comerciales)
+
+      // Receta existente → rxFinal + recetaId (para ACTUALIZAR, no duplicar)
+      const { data: r } = await supabase.from('recetas').select('*')
+        .eq('consulta_id', editarParam).order('fecha', { ascending: false }).limit(1).maybeSingle()
+      if (r) {
+        const rr = r as Record<string, string>
+        setRecetaId(rr.id)
+        setRxFinal({
+          od: { esfera: rr.od_esfera ?? '', cilindro: rr.od_cilindro ?? '', eje: rr.od_eje ?? '', add: rr.od_add ?? '' },
+          oi: { esfera: rr.oi_esfera ?? '', cilindro: rr.oi_cilindro ?? '', eje: rr.oi_eje ?? '', add: rr.oi_add ?? '' },
+          dp_od: rr.dp_od ?? '', dp_oi: rr.dp_oi ?? '',
+        })
+        setRxTipo(rr.tipo ?? 'Lejos')
+        setRxOptometrista(rr.optometrista ?? '')
+        setRxObservaciones(rr.observaciones ?? '')
+      }
+
+      // Habilitar navegación por todos los pasos; empezar en Historia
+      setPasoMaximo(10)
+      setPaso(2)
+    }
+    cargar()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editarParam])
+
+  // Pre-fill prescripción desde Rx subjetiva cuando llega al paso 8
+  // (en modo editar NO se sobrescribe: se conserva la receta ya cargada)
+  useEffect(() => {
+    if (paso === 8 && !modoEditar) {
       setRxFinal({ od: { ...rxOd }, oi: { ...rxOi }, dp_od: rxDpOd, dp_oi: rxDpOi })
       setEditandoRx(false)  // siempre inicia en modo lectura
     }
@@ -475,6 +564,7 @@ export default function NuevaConsultaPage() {
 
   // Al montar: ¿hay un borrador reciente sin terminar?
   useEffect(() => {
+    if (editarParam) { setDraftListo(true); return }  // editando: sin borrador
     try {
       const raw = localStorage.getItem(DRAFT_KEY)
       if (raw) {
@@ -490,6 +580,7 @@ export default function NuevaConsultaPage() {
   // Guardar borrador a cada cambio (con pequeño retraso)
   useEffect(() => {
     if (!draftListo) return
+    if (modoEditar) return  // editando una consulta: no autoguardar borrador
     if (draftInfo) return  // hay un borrador pendiente de restaurar: no lo pises
     if (paso <= 1 && !pNombre && !pApellido) return  // no crear borrador vacío
     const snapshot = {
@@ -601,8 +692,8 @@ export default function NuevaConsultaPage() {
     try {
       const supabase = createClient()
 
-      // Paso 1: crear paciente
-      if (paso === 1) {
+      // Paso 1: crear paciente (nunca al editar una consulta existente)
+      if (paso === 1 && !modoEditar) {
         const { data, error } = await supabase.from('pacientes').insert({
           nombre: up(pNombre.trim()),
           apellido: up(pApellido.trim()),
@@ -675,13 +766,12 @@ export default function NuevaConsultaPage() {
         }
       }
 
-      // Paso 8: guardar receta
+      // Paso 8: guardar receta. Al EDITAR, actualiza la MISMA receta (no duplica).
       if (paso === 8 && consultaId) {
         const pId = pacienteId || pacienteIdParam
-        await supabase.from('recetas').insert({
+        const recetaBase = {
           consulta_id: consultaId,
           paciente_id: pId,
-          fecha: hoyLocal(),
           od_esfera: rxFinal.od.esfera, od_cilindro: rxFinal.od.cilindro,
           od_eje: rxFinal.od.eje, od_add: rxFinal.od.add,
           oi_esfera: rxFinal.oi.esfera, oi_cilindro: rxFinal.oi.cilindro,
@@ -689,7 +779,14 @@ export default function NuevaConsultaPage() {
           dp_od: rxFinal.dp_od, dp_oi: rxFinal.dp_oi,
           tipo: rxTipo, optometrista: rxOptometrista, observaciones: up(rxObservaciones),
           diagnostico: diagnosticos.filter(d => d.confirmado).map(d => d.nombre).join(', '),
-        })
+        }
+        if (recetaId) {
+          await supabase.from('recetas').update(recetaBase).eq('id', recetaId)  // conserva su fecha original
+        } else {
+          const { data: nuevaR } = await supabase.from('recetas')
+            .insert({ ...recetaBase, fecha: hoyLocal() }).select('id').single()
+          if (nuevaR?.id) setRecetaId(nuevaR.id)
+        }
         // Solo actualizar paso_actual — rec_comerciales y estado se guardan en finalizar()
         await supabase.from('consultas').update({
           paso_actual: 9,
@@ -739,12 +836,11 @@ export default function NuevaConsultaPage() {
       const supabase = createClient()
       const pId = pacienteId || pacienteIdParam
 
-      // Guardar receta
+      // Guardar receta (al EDITAR actualiza la misma, no duplica)
       if (pId) {
-        await supabase.from('recetas').insert({
+        const recetaBase = {
           consulta_id: consultaId,
           paciente_id: pId,
-          fecha: hoyLocal(),
           od_esfera: rxFinal.od.esfera, od_cilindro: rxFinal.od.cilindro,
           od_eje: rxFinal.od.eje,       od_add: rxFinal.od.add,
           oi_esfera: rxFinal.oi.esfera, oi_cilindro: rxFinal.oi.cilindro,
@@ -752,7 +848,12 @@ export default function NuevaConsultaPage() {
           dp_od: rxFinal.dp_od,         dp_oi: rxFinal.dp_oi,
           tipo: rxTipo, optometrista: rxOptometrista, observaciones: up(rxObservaciones),
           diagnostico: diagnosticos.filter(d => d.confirmado).map(d => d.nombre).join(', '),
-        })
+        }
+        if (recetaId) {
+          await supabase.from('recetas').update(recetaBase).eq('id', recetaId)
+        } else {
+          await supabase.from('recetas').insert({ ...recetaBase, fecha: hoyLocal() })
+        }
       }
 
       // Marcar consulta como completada
@@ -761,12 +862,17 @@ export default function NuevaConsultaPage() {
       }
 
       limpiarBorrador()  // examen guardado: ya no hace falta el borrador
-      // Ir a ventas con datos del paciente (sin pre-cargar productos)
-      const nombre = encodeURIComponent(pacienteNombre || `${pNombre} ${pApellido}`)
-      if (pId) {
-        router.push(`/dashboard/ventas/nueva?paciente_id=${pId}&nombre=${nombre}`)
+      if (modoEditar) {
+        // Editando: regresar al expediente, no ir a ventas
+        router.push(`/dashboard/expedientes?id=${pId}`)
       } else {
-        router.push('/dashboard/expedientes')
+        // Ir a ventas con datos del paciente (sin pre-cargar productos)
+        const nombre = encodeURIComponent(pacienteNombre || `${pNombre} ${pApellido}`)
+        if (pId) {
+          router.push(`/dashboard/ventas/nueva?paciente_id=${pId}&nombre=${nombre}`)
+        } else {
+          router.push('/dashboard/expedientes')
+        }
       }
     } finally {
       setGuardando(false)
