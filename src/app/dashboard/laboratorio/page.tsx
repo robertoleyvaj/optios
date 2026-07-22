@@ -468,7 +468,7 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
                     <div>
                       <p className="text-xs font-semibold text-zinc-400 mb-1">Armazón</p>
                       <p className="text-zinc-700">{orden.descripcionArmazon}</p>
-                      <p className="text-xs text-zinc-400">{orden.armazon === 'propio' ? 'Del cliente' : 'Comprado en tienda'}</p>
+                      <p className="text-xs text-zinc-400">{orden.armazon === 'propio' ? 'Del cliente' : 'Comprado con nosotros'}</p>
                     </div>
                   )}
                 </div>
@@ -1616,7 +1616,6 @@ export default function LaboratorioPage() {
   }, [])
 
   const esRepartidor = demoUser?.rol === 'repartidor'
-  const esAdmin      = demoUser?.rol === 'administrador'   // solo admin ve costos de laboratorio
 
   const filtradas = ordenes
     .filter(o => {
@@ -1659,7 +1658,8 @@ export default function LaboratorioPage() {
       const { data: items } = await supabase.from('ventas_items').select('nombre').eq('venta_id', v.id)
       const nombres = (items ?? []).map(i => (i.nombre as string) ?? '').filter(Boolean)
       const micas   = nombres.filter(esMicaProd)
-      const filtros = nombres.filter(esFiltroProd)
+      // Tratamiento = filtros que NO son mica (evita duplicar micas-combo en tratamiento)
+      const filtros = nombres.filter(n => esFiltroProd(n) && !esMicaProd(n))
       const armazon = nombres.find(n => !esMicaProd(n) && !esFiltroProd(n)) ?? ''
       setForm(prev => ({
         ...prev,
@@ -2032,7 +2032,7 @@ export default function LaboratorioPage() {
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Armazón</label>
                 <div className="flex gap-2 mb-2">
-                  {[{ v: 'comprado', l: 'Comprado en tienda' }, { v: 'propio', l: 'Propio del cliente' }].map(opt => (
+                  {[{ v: 'comprado', l: 'Comprado con nosotros' }, { v: 'propio', l: 'Propio del cliente' }].map(opt => (
                     <button key={opt.v} onClick={() => f('armazon', opt.v as 'comprado' | 'propio')}
                       className={`flex-1 py-2 rounded text-xs font-semibold border transition-all ${form.armazon === opt.v ? 'bg-[#0B0E14] border-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:bg-zinc-100'}`}>
                       {opt.l}
@@ -2100,22 +2100,6 @@ export default function LaboratorioPage() {
                   <input type="date" value={form.fechaPromesa} onChange={e => f('fechaPromesa', e.target.value)}
                     className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
                 </div>
-              </div>
-
-              {/* Financiero */}
-              <div className={`grid gap-4 grid-cols-1 ${esAdmin ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-                {[
-                  ...(esAdmin ? [{ l: 'Costo laboratorio', f: 'costoLab' as const }] : []),
-                  { l: 'Precio al cliente',  f: 'precioCliente' as const },
-                  { l: 'Anticipo recibido',  f: 'anticipo' as const },
-                ].map(item => (
-                  <div key={item.f}>
-                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">{item.l}</label>
-                    <input type="number" value={form[item.f] || ''} onChange={e => f(item.f, parseFloat(e.target.value) || 0)}
-                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                      placeholder="0.00" />
-                  </div>
-                ))}
               </div>
 
               {/* Urgente */}
