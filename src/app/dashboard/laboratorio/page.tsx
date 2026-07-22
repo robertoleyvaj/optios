@@ -161,6 +161,16 @@ function diasRestantes(fecha: string) {
   return Math.round((new Date(fecha).getTime() - Date.now()) / 86400000)
 }
 
+// Urgente AUTOMÁTICO: la orden aún no está lista/entregada y su fecha de promesa
+// es hoy, mañana o ya pasó. También respeta el marcado manual (o.urgente).
+function esUrgente(o: { urgente: boolean; estado: string; fechaPromesa: string }) {
+  if (o.estado === 'listo' || o.estado === 'entregado') return false
+  if (o.urgente) return true
+  if (!o.fechaPromesa) return false
+  const manana = new Date(Date.now() + 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+  return o.fechaPromesa <= manana   // YYYY-MM-DD: hoy, mañana o vencido
+}
+
 // ─────────────────────────────────────────
 // Componente: buscador de venta
 // ─────────────────────────────────────────
@@ -328,7 +338,7 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
   .folio-ref { font-size: 9px; font-family: monospace; color: #555; }
 </style></head><body>
   ${garantiaHtml}
-  ${orden.urgente ? `<div style="background:#000;color:#fff;text-align:center;font-size:22px;font-weight:900;letter-spacing:3px;padding:7px 0;margin-bottom:8px;border-radius:3px;">⚡ URGENTE</div>` : ''}
+  ${esUrgente(orden) ? `<div style="border:2px solid #000;text-align:center;font-size:17px;font-weight:900;letter-spacing:4px;padding:6px 0;margin-bottom:8px;">URGENTE</div>` : ''}
 
   <div class="hdr">
     <div class="hdr-left">
@@ -412,9 +422,9 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
             </div>
             <div className="border border-zinc-200 rounded-lg overflow-hidden text-sm">
               {/* Banner urgente */}
-              {orden.urgente && (
-                <div className="bg-black text-white text-center text-sm font-black tracking-widest py-2">
-                  ⚡ URGENTE
+              {esUrgente(orden) && (
+                <div className="bg-red-600 text-white text-center text-sm font-bold tracking-widest py-2">
+                  URGENTE
                 </div>
               )}
               {/* Header */}
@@ -921,7 +931,7 @@ function VistaRepartidor({ ordenes, onUpdate }: {
           </div>
           <p className="text-sm font-semibold text-zinc-800 leading-tight">
             {o.paciente}
-            {o.urgente && <span className="ml-1 text-red-500 text-xs">⚡</span>}
+            {esUrgente(o) && <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 bg-red-600 text-white rounded uppercase tracking-wide">Urgente</span>}
           </p>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs text-zinc-400">{o.sucursal}</span>
@@ -1127,7 +1137,7 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
           {/* Mica + promesa */}
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-600 font-medium">
-              {o.urgente && <span className="text-xs font-black text-black mr-1.5">⚡ URGENTE ·</span>}
+              {esUrgente(o) && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-600 text-white rounded uppercase tracking-wide mr-1.5">Urgente</span>}
               {o.tipoMica}
             </span>
             <span className={`${vencida ? 'text-red-500 font-semibold' : dr === 0 ? 'text-amber-500 font-semibold' : dr !== null && dr <= 2 ? 'text-amber-500' : 'text-zinc-400'}`}>
