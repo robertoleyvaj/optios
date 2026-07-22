@@ -181,6 +181,7 @@ export default function NuevaVentaPage() {
   const [fechaEntrega, setFechaEntrega] = useState('')
   const [carrito, setCarrito] = useState<Item[]>([])
   const [parActivo, setParActivo] = useState(1)
+  const [cotizacionOrigen, setCotizacionOrigen] = useState<string | null>(null)  // id de cotización a borrar al concretar
   const [numPares, setNumPares] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [modoPago, setModoPago] = useState<'liquidar' | 'diferir'>('liquidar')
@@ -324,6 +325,41 @@ export default function NuevaVentaPage() {
       const partes = decodeURIComponent(nombreParam).split(' ')
       setClienteNombre(partes[0] || '')
       setClienteApellido(partes.slice(1).join(' ') || '')
+    }
+
+    // Convertir cotización → venta: precargar paciente + productos de la cotización
+    const desdeCotizacion = searchParams.get('cotizacion')
+    if (desdeCotizacion) {
+      setCotizacionOrigen(desdeCotizacion)
+      supabase.from('ventas')
+        .select('paciente_id, pacientes(id, nombre, apellido, telefono), ventas_items(nombre, sku, precio_unitario, cantidad, descuento)')
+        .eq('id', desdeCotizacion)
+        .single()
+        .then(({ data }) => {
+          if (!data) return
+          const p = data.pacientes as unknown as { id: string; nombre: string; apellido: string; telefono: string } | null
+          if (p) {
+            setCliente({ id: p.id, nombre: p.nombre, apellido: p.apellido, telefono: p.telefono })
+            setClienteNombre(p.nombre); setClienteApellido(p.apellido); setClienteTelefono(p.telefono)
+            cargarRecetaPaciente(p.id)
+          }
+          const its = (data.ventas_items ?? []) as { nombre: string; sku: string | null; precio_unitario: number; cantidad: number; descuento: number }[]
+          const nuevo: Item[] = its.map((it, idx) => {
+            const cat = catalogo.find(c => c.sku === it.sku)
+            return {
+              uid: `cot-${idx}-${Date.now()}`,
+              id: cat?.id ?? -(idx + 1),
+              nombre: it.nombre,
+              precio: Number(it.precio_unitario) || (cat?.precio ?? 0),
+              cantidad: Number(it.cantidad) || 1,
+              sku: it.sku ?? cat?.sku ?? '',
+              stock: cat?.stock ?? 999,
+              descuento: Number(it.descuento) || 0,
+              par: 1,
+            }
+          })
+          if (nuevo.length > 0) setCarrito(nuevo)
+        })
     }
 
     if (!desdeConsulta) return
@@ -819,6 +855,12 @@ export default function NuevaVentaPage() {
           foliosLab.push(folioLab)
         }
         setFolioLabGuardado(foliosLab)
+      }
+
+      // Si esta venta viene de convertir una cotización, borrar la cotización de origen
+      if (!cotizacion && cotizacionOrigen) {
+        await supabase.from('ventas_items').delete().eq('venta_id', cotizacionOrigen)
+        await supabase.from('ventas').delete().eq('id', cotizacionOrigen)
       }
 
       setFolioGuardado(folio)

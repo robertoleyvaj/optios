@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -339,6 +339,7 @@ ${logo ? `<img src="${logo}" class="logo" alt="" />` : ''}
 // ─────────────────────────────────────────
 export default function VentasPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [ventas, setVentas]         = useState<Venta[]>([])
   const [cargando, setCargando]     = useState(true)
   const [busqueda, setBusqueda]     = useState('')
@@ -803,9 +804,13 @@ export default function VentasPage() {
                       </td>
                       <td className="px-5 py-3.5 text-xs text-zinc-500">{v.sucursal}</td>
                       <td className="px-5 py-3.5">
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${m.cls}`}>
-                          <MIcon className="w-3 h-3" />{m.label}
-                        </span>
+                        {v.id.startsWith('COT-') ? (
+                          <span className="text-xs text-zinc-300">—</span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${m.cls}`}>
+                            <MIcon className="w-3 h-3" />{m.label}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 font-bold text-zinc-800">${v.total.toLocaleString('es-MX')}</td>
                       <td className="px-5 py-3.5">
@@ -1016,10 +1021,16 @@ export default function VentasPage() {
             {/* Acciones fijas */}
             <div className="px-6 pb-5 pt-3 border-t border-zinc-200 flex-shrink-0 space-y-2">
               {detalle.id.startsWith('COT-') ? (
-                <button onClick={() => imprimirCotizacion(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 text-white rounded text-sm font-bold hover:bg-indigo-500 transition-colors">
-                  <Printer className="w-4 h-4" /> Imprimir cotización
-                </button>
+                <>
+                  <button onClick={() => router.push(`/dashboard/ventas/nueva?cotizacion=${detalle.uuid}`)}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 transition-colors">
+                    <Plus className="w-4 h-4" /> Convertir a venta
+                  </button>
+                  <button onClick={() => imprimirCotizacion(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
+                    <Printer className="w-4 h-4" /> Imprimir cotización
+                  </button>
+                </>
               ) : (
                 <>
                   {saldoPendiente(detalle) > 0 && !showAbono && (
@@ -1042,7 +1053,7 @@ export default function VentasPage() {
               {esAdmin && (
                 <button onClick={cancelarVenta}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-400 hover:text-red-600 transition-colors">
-                  Borrar venta
+                  {detalle.id.startsWith('COT-') ? 'Borrar cotización' : 'Borrar venta'}
                 </button>
               )}
             </div>
