@@ -105,7 +105,9 @@ function UsuariosPage() {
       nombre_receta: form.nombre_receta.trim(),
       activo: form.activo,
     }
-    if (form.password) payload.password = form.password
+    // OJO: el password NO se guarda en la tabla usuarios (era texto plano = leak).
+    // La contraseña real vive cifrada en Supabase Auth. La gestión de auth se hará
+    // por una ruta de servidor con service_role (pendiente).
 
     let err
     if (editando) {
