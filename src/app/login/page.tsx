@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Glasses, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 function LoginForm() {
@@ -89,52 +89,36 @@ function LoginForm() {
         {/* acento sutil de fondo */}
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#0D9488]/10 blur-3xl pointer-events-none" />
 
-        <div className="flex items-center gap-2.5 relative">
-          <div className="w-8 h-8 rounded-lg bg-[#0D9488] flex items-center justify-center">
-            <Glasses className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-white font-semibold text-lg tracking-tight">OptiOS</span>
+        {/* Logo — wordmark */}
+        <div className="relative">
+          <p className="leading-none tracking-[-0.04em]">
+            <span className="text-white font-bold text-2xl">Opti</span><span className="text-[#2DD4BF] font-light text-2xl">OS</span>
+          </p>
+          <p className="text-[10px] font-light tracking-[0.14em] text-white/40 mt-1.5 uppercase">Sistema de Gestión</p>
         </div>
 
         <div className="relative">
-          <h2 className="text-[2.6rem] font-semibold text-white leading-[1.1] tracking-tight">
-            Tu óptica,<br />
-            bajo control total.
+          <h2 className="text-[2.4rem] font-semibold text-white leading-[1.1] tracking-tight">
+            Grupo Óptico<br />del Noroeste
           </h2>
-          <p className="text-white/45 mt-4 text-[15px] leading-relaxed max-w-sm">
-            Gestiona inventario, agenda, expedientes, laboratorio y finanzas de todas tus sucursales desde un solo lugar.
+          <p className="text-white/40 mt-4 text-[15px] leading-relaxed max-w-sm">
+            Plataforma interna de gestión. Acceso exclusivo para personal autorizado.
           </p>
-
-          {/* Feature list */}
-          <div className="mt-10 space-y-3">
-            {[
-              'Inventario en tiempo real',
-              'Agenda y expedientes de pacientes',
-              'Control financiero por sucursal',
-            ].map((f) => (
-              <div key={f} className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-full bg-[#0D9488]/15 flex items-center justify-center flex-shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#2DD4BF]" />
-                </div>
-                <span className="text-white/60 text-sm">{f}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
-        <p className="text-white/20 text-xs relative">© 2026 GON Óptica. Todos los derechos reservados.</p>
+        <p className="text-white/20 text-xs relative">© 2026 Grupo Óptico del Noroeste · OptiOS</p>
       </div>
 
       {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center bg-[#FAFAFA] px-8">
         <div className="w-full max-w-sm">
 
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2.5 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-[#0D9488] flex items-center justify-center">
-              <Glasses className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-[#0B0E14] font-semibold text-lg tracking-tight">OptiOS</span>
+          {/* Mobile logo — wordmark */}
+          <div className="lg:hidden mb-8">
+            <p className="leading-none tracking-[-0.04em]">
+              <span className="text-[#111] font-bold text-xl">Opti</span><span className="text-[#0D9488] font-light text-xl">OS</span>
+            </p>
+            <p className="text-[9px] font-light tracking-[0.12em] text-[#b0b0ad] mt-1 uppercase">Sistema de Gestión</p>
           </div>
 
           <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Bienvenido</h1>
