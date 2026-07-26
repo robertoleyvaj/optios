@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useSession } from '@/hooks/useSession'
 import {
-  Plus, Search, X, Save, ChevronDown, ChevronLeft, Filter,
+  Plus, Search, X, Save, ChevronLeft, Filter,
   Clock, CheckCircle2, AlertTriangle, Truck,
   Package, Eye, Phone, Calendar, FileText,
   ArrowRight, Printer, Link2, User, DollarSign,
@@ -145,7 +145,7 @@ const dias = (n: number) => hoyMasDias(n)
 const formVacio = (sucursalDefault = 'Baja Visión'): Omit<OrdenLab, 'id' | 'folio'> => ({
   supabaseId: '',
   folioVenta: '', ventaId: '', pacienteId: '', paciente: '', telefono: '', sucursal: sucursalDefault,
-  laboratorio: 'Laboratorio Visión', tipoMica: 'Monofocal antirreflejante',
+  laboratorio: '', tipoMica: 'Monofocal antirreflejante',
   armazon: 'comprado', descripcionArmazon: '',
   od: '', oi: '', add: '', dp: '', altura: '', tratamiento: 'ninguno', colorTratamiento: '', urgente: false,
   fechaIngreso: dias(0), fechaPromesa: dias(7), fechaEntrega: '',
@@ -2004,28 +2004,16 @@ export default function LaboratorioPage() {
                 </div>
               </div>
 
-              {/* Tipo + laboratorio */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo de mica * <span className="font-normal text-zinc-400">(lo que compró)</span></label>
-                  <input value={form.tipoMica} onChange={e => f('tipoMica', e.target.value.toUpperCase())}
-                    list="tipos-mica-list"
-                    className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
-                    placeholder="Ej: MICA PROGRESIVA POLY PLUS 1.58" />
-                  <datalist id="tipos-mica-list">
-                    {TIPOS_MICA.map(t => <option key={t} value={t} />)}
-                  </datalist>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Laboratorio</label>
-                  <div className="relative">
-                    <select value={form.laboratorio} onChange={e => f('laboratorio', e.target.value)}
-                      className="w-full appearance-none border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none pr-8">
-                      {LABORATORIOS.map(l => <option key={l}>{l}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  </div>
-                </div>
+              {/* Tipo de mica (el laboratorio no se muestra a los empleados; se asigna al llevar al lab) */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo de mica * <span className="font-normal text-zinc-400">(lo que compró)</span></label>
+                <input value={form.tipoMica} onChange={e => f('tipoMica', e.target.value.toUpperCase())}
+                  list="tipos-mica-list"
+                  className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
+                  placeholder="Ej: MICA PROGRESIVA POLY PLUS 1.58" />
+                <datalist id="tipos-mica-list">
+                  {TIPOS_MICA.map(t => <option key={t} value={t} />)}
+                </datalist>
               </div>
 
               {/* Armazón */}
