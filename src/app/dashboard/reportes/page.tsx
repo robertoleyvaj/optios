@@ -163,6 +163,8 @@ function ReportesPage() {
   const [ordLab,     setOrdLab]     = useState<OrdenLab[]>([])
   const [prevTotal,  setPrevTotal]  = useState(0)   // ventas del periodo anterior (para ▲/▼)
   const [enCaja,     setEnCaja]     = useState(0)    // efectivo en caja hoy (las 3 sucursales)
+  const [cajaDetalle, setCajaDetalle] = useState<{ folio: string; cliente: string; monto: number; hora: string }[]>([])
+  const [cajaAbierto, setCajaAbierto] = useState(false)
   const [deudaListos, setDeudaListos] = useState(0)  // saldo pendiente de ventas con lentes listos
   const [cargando,   setCargando]   = useState(true)
   const [hoverIdx,   setHoverIdx]   = useState<number | null>(null)  // punto activo del gráfico de ritmo
@@ -232,11 +234,12 @@ function ReportesPage() {
 
     // Efectivo que entró HOY a caja (foto del día)
     let qCaja = sb.from('pagos_venta')
-      .select('monto')
+      .select('folio_venta, monto, created_at, ventas(paciente_nombre)')
       .eq('metodo_pago', 'efectivo')
       .neq('moneda', 'USD')
       .gte('created_at', rangoHoy.start)
       .lte('created_at', rangoHoy.end)
+      .order('created_at', { ascending: false })
 
     if (sucursal !== 'Todas') {
       qVentas = qVentas.eq('sucursal', sucursal)
@@ -253,7 +256,14 @@ function ReportesPage() {
     setCotCount(rC.count ?? 0)
     setOrdLab(ordLabData)
     setPrevTotal((rP.data || []).reduce((s: number, v: { total: number }) => s + Number(v.total), 0))
-    setEnCaja((rCaja.data || []).reduce((s: number, p: { monto: number }) => s + Number(p.monto), 0))
+    const cajaRows = (rCaja.data || []) as unknown as { folio_venta: string; monto: number; created_at: string; ventas: { paciente_nombre: string } | null }[]
+    setEnCaja(cajaRows.reduce((s, p) => s + Number(p.monto), 0))
+    setCajaDetalle(cajaRows.map(p => ({
+      folio: p.folio_venta ?? '',
+      cliente: p.ventas?.paciente_nombre ?? '',
+      monto: Number(p.monto),
+      hora: new Date(p.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' }),
+    })))
 
     // Deuda: saldo pendiente de las ventas cuyos lentes YA están listos (sin duplicar por venta)
     const idsListos = [...new Set(
@@ -411,8 +421,17 @@ function ReportesPage() {
             <KPI label="Por cobrar" value={$$(saldoTotal)}
               sub={carteraVencida > 0 ? `Vencido: ${$$(carteraVencida)}` : 'saldos de clientes'}
               icon={Package} color={saldoTotal > 0 ? 'text-rose-600' : 'text-green-600'} />
-            <KPI label="En caja hoy" value={$$(enCaja)} sub="efectivo del día"
-              icon={Target} color="text-teal-600" />
+            {rolUsuario === 'administrador' && (
+              <button onClick={() => setCajaAbierto(true)}
+                className="bg-white rounded-lg px-4 py-4 border border-zinc-200/80 text-left hover:border-teal-300 hover:shadow-sm transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-zinc-400">En caja hoy</p>
+                  <Target className="w-4 h-4 text-teal-600 opacity-60" />
+                </div>
+                <p className="text-2xl font-bold text-teal-600">{$$(enCaja)}</p>
+                <p className="text-xs text-zinc-400 mt-0.5">efectivo del día · <span className="text-teal-600 font-medium">ver desglose</span></p>
+              </button>
+            )}
           </div>
 
           {/* ── Ventas por óptica + Operación ── */}
@@ -516,6 +535,38 @@ function ReportesPage() {
           </div>
 
         </>
+      )}
+
+      {/* ── Desglose de "En caja hoy" (solo admin) ── */}
+      {cajaAbierto && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setCajaAbierto(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
+              <div>
+                <p className="text-sm font-bold text-zinc-800">Efectivo en caja hoy</p>
+                <p className="text-xs text-zinc-400">{cajaDetalle.length} {cajaDetalle.length === 1 ? 'pago' : 'pagos'} · {sucursal}</p>
+              </div>
+              <button onClick={() => setCajaAbierto(false)} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">✕</button>
+            </div>
+            <div className="overflow-y-auto divide-y divide-zinc-50">
+              {cajaDetalle.length === 0 ? (
+                <p className="text-sm text-zinc-400 text-center py-10">Sin efectivo registrado hoy</p>
+              ) : cajaDetalle.map((p, i) => (
+                <div key={i} className="flex items-center justify-between px-5 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-700">{p.cliente || 'Sin nombre'}</p>
+                    <p className="text-xs text-zinc-400">{p.folio} · {p.hora}</p>
+                  </div>
+                  <p className="text-sm font-bold text-teal-600">{$$(p.monto)}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-200">
+              <span className="text-sm font-semibold text-zinc-500">Total efectivo del día</span>
+              <span className="text-lg font-bold text-teal-700">{$$(enCaja)}</span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
