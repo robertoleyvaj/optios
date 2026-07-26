@@ -679,36 +679,56 @@ export default function VentasPage() {
 
   const cancelarVenta = async () => {
     if (!detalle) return
-    if (!confirm(
-      `¿BORRAR permanentemente la venta ${detalle.id} de ${detalle.cliente}?\n\n` +
-      `Se eliminará TODO: productos, pagos (sale de caja), orden de laboratorio ` +
-      `y comisiones. Esta acción NO se puede deshacer.`
-    )) return
-
     const supabase = createClient()
+    const esCotizacion = detalle.id.startsWith('COT-')
 
-    // Borra los hijos primero, luego la venta. Si algo falla, se detiene y avisa
-    // sin borrar la venta (así no quedan huérfanos).
-    // 1. Pagos → para que el dinero salga de la caja
+    // ── Cotizaciones: no son fiscales, se borran de verdad ──────────────
+    if (esCotizacion) {
+      if (!confirm(`¿Borrar la cotización ${detalle.id} de ${detalle.cliente}?`)) return
+      await supabase.from('ventas_items').delete().eq('venta_id', detalle.uuid)
+      const rc = await supabase.from('ventas').delete().eq('id', detalle.uuid)
+      if (rc.error) { alert(`Error al borrar la cotización: ${rc.error.message}`); return }
+      setVentas(prev => prev.filter(v => v.id !== detalle.id))
+      setDetalle(null)
+      return
+    }
+
+    // ── Ventas reales: NO se borran. Se CANCELAN para conservar el folio
+    //    y dejar rastro de auditoría (secuencia de folios sin huecos). ───
+    const motivo = prompt(
+      `Cancelar la venta ${detalle.id} de ${detalle.cliente}.\n\n` +
+      `El folio se conserva y queda registrado como CANCELADA (para auditoría).\n` +
+      `Se quitarán sus pagos de la caja y su orden de laboratorio.\n\n` +
+      `Escribe el MOTIVO de la cancelación:`
+    )
+    if (motivo === null) return                       // cerró el prompt
+    if (!motivo.trim()) { alert('Necesitas escribir un motivo para cancelar la venta.'); return }
+
+    let quien = ''
+    try { quien = JSON.parse(localStorage.getItem('optios_demo_user') || '{}').nombre || '' } catch {}
+
+    // 1. Quitar pagos → el dinero sale de la caja
     const r1 = await supabase.from('pagos_venta').delete().eq('venta_id', detalle.uuid)
-    if (r1.error) { alert(`Error al borrar pagos: ${r1.error.message}`); return }
+    if (r1.error) { alert(`Error al quitar pagos: ${r1.error.message}`); return }
 
-    // 2. Partidas/productos de la venta
-    const r2 = await supabase.from('ventas_items').delete().eq('venta_id', detalle.uuid)
-    if (r2.error) { alert(`Error al borrar productos: ${r2.error.message}`); return }
-
-    // 3. Orden(es) de laboratorio ligadas a la venta
+    // 2. Quitar orden(es) de laboratorio ligadas a la venta
     const r3 = await supabase.from('ordenes_lab').delete().eq('venta_id', detalle.uuid)
-    if (r3.error) { alert(`Error al borrar orden de lab: ${r3.error.message}`); return }
+    if (r3.error) { alert(`Error al quitar orden de lab: ${r3.error.message}`); return }
 
-    // 4. Comisión de terminal (gasto ligado por el folio en el concepto)
+    // 3. Quitar comisión de terminal (gasto ligado por el folio en el concepto)
     const r4 = await supabase.from('gastos').delete()
       .eq('categoria', 'comision_terminal').ilike('concepto', `%${detalle.id}%`)
-    if (r4.error) { alert(`Error al borrar comisión: ${r4.error.message}`); return }
+    if (r4.error) { alert(`Error al quitar comisión: ${r4.error.message}`); return }
 
-    // 5. Finalmente la venta
-    const r5 = await supabase.from('ventas').delete().eq('id', detalle.uuid)
-    if (r5.error) { alert(`Error al borrar la venta: ${r5.error.message}`); return }
+    // 4. Marcar la venta como CANCELADA. Conserva folio + productos (para poder
+    //    auditar qué contenía) y guarda motivo, quién y cuándo.
+    const r5 = await supabase.from('ventas').update({
+      estado: 'cancelada',
+      motivo_cancelacion: motivo.trim().toUpperCase(),
+      cancelada_por: quien,
+      cancelada_en: new Date().toISOString(),
+    }).eq('id', detalle.uuid)
+    if (r5.error) { alert(`Error al cancelar la venta: ${r5.error.message}`); return }
 
     setVentas(prev => prev.filter(v => v.id !== detalle.id))
     setDetalle(null)
@@ -1053,7 +1073,7 @@ export default function VentasPage() {
               {esAdmin && (
                 <button onClick={cancelarVenta}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-400 hover:text-red-600 transition-colors">
-                  {detalle.id.startsWith('COT-') ? 'Borrar cotización' : 'Borrar venta'}
+                  {detalle.id.startsWith('COT-') ? 'Borrar cotización' : 'Cancelar venta'}
                 </button>
               )}
             </div>
