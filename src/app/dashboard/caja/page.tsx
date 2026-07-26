@@ -127,6 +127,9 @@ export default function CajaPage() {
   const [gastosHoy, setGastosHoy] = useState<GastoHoy[]>([])
   const [historial, setHistorial] = useState<CorteGuardado[]>([])
   const [corteSel, setCorteSel]   = useState<CorteGuardado | null>(null)  // corte abierto en el desglose
+  const [corteIngresos, setCorteIngresos] = useState<{ folio: string; monto: number }[]>([])
+  const [corteEgresos, setCorteEgresos]   = useState<{ concepto: string; monto: number }[]>([])
+  const [corteUSD, setCorteUSD]           = useState(0)
   const [corteHoy, setCorteHoy]   = useState<CorteGuardado | null>(null)
   const [saldoAnterior, setSaldoAnterior] = useState<number | null>(null)
   const [saldoAnteriorUSD, setSaldoAnteriorUSD] = useState(0)  // remanente en dólares del último cierre
@@ -158,6 +161,28 @@ export default function CajaPage() {
   const [retiroUSD, setRetiroUSD] = useState('')
   const [notas, setNotas]     = useState('')
   const [guardando, setGuardando] = useState(false)
+
+  // ── Ingresos/egresos reales al abrir el desglose de un corte del historial ──
+  useEffect(() => {
+    if (!corteSel) return
+    const cargar = async () => {
+      const sb = createClient()
+      const r = rangoDiaLocal(corteSel.fecha)
+      const [{ data: pagos }, { data: gs }] = await Promise.all([
+        sb.from('pagos_venta').select('folio_venta, monto, moneda, monto_origen')
+          .eq('sucursal', corteSel.sucursal).eq('metodo_pago', 'efectivo')
+          .gte('created_at', r.start).lte('created_at', r.end),
+        sb.from('gastos').select('concepto, notas, monto')
+          .eq('sucursal', corteSel.sucursal).eq('es_caja', true).eq('fecha', corteSel.fecha),
+      ])
+      const p = (pagos ?? []) as { folio_venta: string; monto: number; moneda: string; monto_origen: number | null }[]
+      setCorteIngresos(p.filter(x => x.moneda !== 'USD').map(x => ({ folio: x.folio_venta ?? '', monto: Number(x.monto) })))
+      setCorteUSD(p.filter(x => x.moneda === 'USD').reduce((s, x) => s + Number(x.monto_origen ?? 0), 0))
+      setCorteEgresos(((gs ?? []) as { concepto: string; notas: string; monto: number }[])
+        .map(g => ({ concepto: g.notas || g.concepto || 'Egreso', monto: Number(g.monto) })))
+    }
+    cargar()
+  }, [corteSel])
 
   // ── Cálculos ──
   // Rango de HOY (Tijuana) para separar "ingresos/egresos del día" del acumulado previo.
@@ -1185,27 +1210,72 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
               <button onClick={() => setCorteSel(null)} className="text-zinc-400 hover:text-zinc-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
+              <div className="flex justify-between text-sm bg-zinc-50 rounded-lg px-4 py-3">
+                <span className="text-zinc-500">Saldo inicial (fondo)</span>
+                <span className="font-semibold text-zinc-800">{fmt$(corteSel.fondo)}</span>
+              </div>
+
+              {/* INGRESOS */}
+              <div className="border border-emerald-100 rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 bg-emerald-50">
+                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">Ingresos en efectivo</span>
+                  <span className="text-sm font-bold text-emerald-700">{fmt$(corteIngresos.reduce((s, p) => s + p.monto, 0))}</span>
+                </div>
+                <div className="divide-y divide-zinc-50 max-h-40 overflow-y-auto">
+                  {corteIngresos.length === 0 ? (
+                    <p className="text-xs text-zinc-400 text-center py-3">Sin ingresos en efectivo</p>
+                  ) : corteIngresos.map((p, i) => (
+                    <div key={i} className="flex justify-between px-4 py-1.5 text-sm">
+                      <span className="text-zinc-500 font-mono text-xs">{p.folio || '—'}</span>
+                      <span className="text-zinc-700 font-medium">{fmt$(p.monto)}</span>
+                    </div>
+                  ))}
+                </div>
+                {corteUSD > 0 && (
+                  <div className="flex justify-between px-4 py-2 border-t border-emerald-100 text-sm bg-blue-50">
+                    <span className="text-blue-600 font-medium">Dólares (USD)</span>
+                    <span className="text-blue-700 font-bold">${corteUSD.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* EGRESOS */}
+              <div className="border border-red-100 rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 bg-red-50">
+                  <span className="text-xs font-bold text-red-600 uppercase tracking-wide">Egresos del cajón</span>
+                  <span className="text-sm font-bold text-red-600">−{fmt$(corteEgresos.reduce((s, g) => s + g.monto, 0))}</span>
+                </div>
+                <div className="divide-y divide-zinc-50 max-h-40 overflow-y-auto">
+                  {corteEgresos.length === 0 ? (
+                    <p className="text-xs text-zinc-400 text-center py-3">Sin egresos</p>
+                  ) : corteEgresos.map((g, i) => (
+                    <div key={i} className="flex justify-between gap-3 px-4 py-1.5 text-sm">
+                      <span className="text-zinc-500 truncate">{g.concepto}</span>
+                      <span className="text-red-500 font-medium flex-shrink-0">−{fmt$(g.monto)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* RECONCILIACIÓN */}
               <div className="bg-zinc-50 rounded-lg p-4 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-zinc-500">Saldo inicial (fondo)</span><span className="font-semibold">{fmt$(corteSel.fondo)}</span></div>
-                <div className="flex justify-between"><span className="text-zinc-500">Ventas del día</span><span className="font-semibold">{fmt$(corteSel.total_ventas)}</span></div>
-                <div className="flex justify-between border-t border-zinc-200 pt-2"><span className="text-zinc-500">Efectivo esperado</span><span className="font-semibold">{fmt$(corteSel.efectivo_sistema)}</span></div>
+                <div className="flex justify-between"><span className="text-zinc-500">Efectivo esperado</span><span className="font-semibold">{fmt$(corteSel.efectivo_sistema)}</span></div>
                 <div className="flex justify-between"><span className="text-zinc-500">Efectivo contado</span><span className="font-semibold">{fmt$(corteSel.efectivo_contado)}</span></div>
-                <div className={`flex justify-between font-bold ${corteSel.diferencia === 0 ? 'text-emerald-700' : corteSel.diferencia > 0 ? 'text-blue-700' : 'text-red-600'}`}>
+                <div className={`flex justify-between font-bold border-t border-zinc-200 pt-2 ${corteSel.diferencia === 0 ? 'text-emerald-700' : corteSel.diferencia > 0 ? 'text-blue-700' : 'text-red-600'}`}>
                   <span>{corteSel.diferencia === 0 ? 'Cuadró perfecto' : corteSel.diferencia > 0 ? 'Sobrante' : 'Faltante'}</span>
                   <span>{corteSel.diferencia === 0 ? '✓' : `${corteSel.diferencia > 0 ? '+' : ''}${fmt$(corteSel.diferencia)}`}</span>
                 </div>
               </div>
+
+              {/* RETIRO / REMANENTE */}
               <div className="bg-zinc-50 rounded-lg p-4 space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-zinc-500">Retiro al sobre</span><span className="font-bold text-zinc-800">{fmt$(corteSel.entrega)}</span></div>
                 <div className="flex justify-between"><span className="text-zinc-500">Remanente (mañana)</span><span className="font-semibold">{fmt$(corteSel.efectivo_contado - corteSel.entrega)}</span></div>
+                {(corteSel.entrega_usd ?? 0) > 0 && (
+                  <div className="flex justify-between text-blue-600"><span>Retiro USD</span><span className="font-semibold text-blue-700">${(corteSel.entrega_usd ?? 0).toFixed(2)}</span></div>
+                )}
               </div>
-              {((corteSel.fondo_usd ?? 0) > 0 || (corteSel.entrega_usd ?? 0) > 0) && (
-                <div className="bg-blue-50 rounded-lg p-4 space-y-2 text-sm">
-                  <p className="text-xs font-bold text-blue-600">Dólares (USD)</p>
-                  <div className="flex justify-between"><span className="text-blue-500">Fondo USD</span><span className="font-semibold text-blue-700">${(corteSel.fondo_usd ?? 0).toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-blue-500">Retiro USD</span><span className="font-semibold text-blue-700">${(corteSel.entrega_usd ?? 0).toFixed(2)}</span></div>
-                </div>
-              )}
+
               {corteSel.notas && (
                 <div className="border border-zinc-200 rounded-lg p-3 text-sm">
                   <p className="text-xs font-semibold text-zinc-400 mb-1">Notas</p>
