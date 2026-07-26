@@ -272,7 +272,7 @@ export default function ResumenInternoPage() {
               )}
 
               {/* Agudeza visual + refracción */}
-              {(c.av_vl_od || c.av_vl_oi || c.av_sc_od || c.rx_od) && (
+              {(c.av_vl_od || c.av_vl_oi || c.av_sc_od || fmtRxEye(c.rx_od) || fmtRxEye(c.lens_od) || fmtRxEye(c.lens_oi) || fmtRxEye(c.auto_od) || fmtRxEye(c.auto_oi)) && (
                 <Card titulo="Agudeza visual y refracción">
                   {/* AV */}
                   {(c.av_vl_od || c.av_vl_oi) && (
@@ -311,6 +311,17 @@ export default function ResumenInternoPage() {
                       <div className="flex gap-4 text-xs">
                         {fmtRxEye(c.lens_od) && <span className="text-zinc-700"><span className="font-semibold">OD:</span> {fmtRxEye(c.lens_od)}</span>}
                         {fmtRxEye(c.lens_oi) && <span className="text-zinc-700"><span className="font-semibold">OI:</span> {fmtRxEye(c.lens_oi)}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Autorefractor / lensometría del equipo */}
+                  {(fmtRxEye(c.auto_od) || fmtRxEye(c.auto_oi)) && (
+                    <div className="mb-4">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Autorefractor</p>
+                      <div className="flex gap-4 text-xs">
+                        {fmtRxEye(c.auto_od) && <span className="text-zinc-700"><span className="font-semibold">OD:</span> {fmtRxEye(c.auto_od)}</span>}
+                        {fmtRxEye(c.auto_oi) && <span className="text-zinc-700"><span className="font-semibold">OI:</span> {fmtRxEye(c.auto_oi)}</span>}
                       </div>
                     </div>
                   )}
