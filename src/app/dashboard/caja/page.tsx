@@ -126,6 +126,7 @@ export default function CajaPage() {
   const [pagosTardios, setPagosTardios] = useState<PagoVenta[]>([])  // pagos que entraron después del cierre
   const [gastosHoy, setGastosHoy] = useState<GastoHoy[]>([])
   const [historial, setHistorial] = useState<CorteGuardado[]>([])
+  const [corteSel, setCorteSel]   = useState<CorteGuardado | null>(null)  // corte abierto en el desglose
   const [corteHoy, setCorteHoy]   = useState<CorteGuardado | null>(null)
   const [saldoAnterior, setSaldoAnterior] = useState<number | null>(null)
   const [saldoAnteriorUSD, setSaldoAnteriorUSD] = useState(0)  // remanente en dólares del último cierre
@@ -1136,7 +1137,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           return (
             <div className="divide-y divide-zinc-50">
               {filtrados.map(c => (
-                <div key={c.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-100 transition-colors">
+                <button key={c.id} onClick={() => setCorteSel(c)} className="w-full text-left flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-100 transition-colors">
                   <div className="w-10 h-10 rounded bg-zinc-50 border border-zinc-200 flex items-center justify-center flex-shrink-0">
                     {c.diferencia === 0
                       ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -1162,12 +1163,63 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                     <p className="text-xs font-semibold text-zinc-600">Cierre: {fmt$(c.efectivo_contado)}</p>
                     <p className="text-xs text-zinc-400">Ventas: {fmt$(c.total_ventas)}</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )
         })()}
       </div>
+
+      {/* ── Desglose de un corte del historial ── */}
+      {corteSel && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setCorteSel(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
+              <div>
+                <h2 className="text-base font-bold text-zinc-800">Corte de caja</h2>
+                <p className="text-xs text-zinc-400">
+                  {new Date(corteSel.fecha + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                  {' · '}{corteSel.sucursal} · {corteSel.usuario}
+                </p>
+              </div>
+              <button onClick={() => setCorteSel(null)} className="text-zinc-400 hover:text-zinc-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="bg-zinc-50 rounded-lg p-4 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-zinc-500">Saldo inicial (fondo)</span><span className="font-semibold">{fmt$(corteSel.fondo)}</span></div>
+                <div className="flex justify-between"><span className="text-zinc-500">Ventas del día</span><span className="font-semibold">{fmt$(corteSel.total_ventas)}</span></div>
+                <div className="flex justify-between border-t border-zinc-200 pt-2"><span className="text-zinc-500">Efectivo esperado</span><span className="font-semibold">{fmt$(corteSel.efectivo_sistema)}</span></div>
+                <div className="flex justify-between"><span className="text-zinc-500">Efectivo contado</span><span className="font-semibold">{fmt$(corteSel.efectivo_contado)}</span></div>
+                <div className={`flex justify-between font-bold ${corteSel.diferencia === 0 ? 'text-emerald-700' : corteSel.diferencia > 0 ? 'text-blue-700' : 'text-red-600'}`}>
+                  <span>{corteSel.diferencia === 0 ? 'Cuadró perfecto' : corteSel.diferencia > 0 ? 'Sobrante' : 'Faltante'}</span>
+                  <span>{corteSel.diferencia === 0 ? '✓' : `${corteSel.diferencia > 0 ? '+' : ''}${fmt$(corteSel.diferencia)}`}</span>
+                </div>
+              </div>
+              <div className="bg-zinc-50 rounded-lg p-4 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-zinc-500">Retiro al sobre</span><span className="font-bold text-zinc-800">{fmt$(corteSel.entrega)}</span></div>
+                <div className="flex justify-between"><span className="text-zinc-500">Remanente (mañana)</span><span className="font-semibold">{fmt$(corteSel.efectivo_contado - corteSel.entrega)}</span></div>
+              </div>
+              {((corteSel.fondo_usd ?? 0) > 0 || (corteSel.entrega_usd ?? 0) > 0) && (
+                <div className="bg-blue-50 rounded-lg p-4 space-y-2 text-sm">
+                  <p className="text-xs font-bold text-blue-600">Dólares (USD)</p>
+                  <div className="flex justify-between"><span className="text-blue-500">Fondo USD</span><span className="font-semibold text-blue-700">${(corteSel.fondo_usd ?? 0).toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-blue-500">Retiro USD</span><span className="font-semibold text-blue-700">${(corteSel.entrega_usd ?? 0).toFixed(2)}</span></div>
+                </div>
+              )}
+              {corteSel.notas && (
+                <div className="border border-zinc-200 rounded-lg p-3 text-sm">
+                  <p className="text-xs font-semibold text-zinc-400 mb-1">Notas</p>
+                  <p className="text-zinc-600">{corteSel.notas}</p>
+                </div>
+              )}
+              <p className="text-xs text-zinc-400 text-center">
+                {corteSel.cerrado ? 'Corte cerrado' : 'Corte abierto'}
+                {corteSel.cerrado_at ? ` · ${new Date(corteSel.cerrado_at).toLocaleString('es-MX', { timeZone: 'America/Tijuana' })}` : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Ventanita de cierre: retiro + remanente ── */}
       {showCierreModal && (
