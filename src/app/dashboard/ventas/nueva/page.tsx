@@ -1705,10 +1705,10 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                 const precioFinal = item.precio - descMonto
                 const subtotalItem = precioFinal * item.cantidad
                 const stockBajo = item.stock !== 999 && item.cantidad > item.stock
-                // Conversión USD: redondeo hacia abajo, sin decimales
+                // Conversión USD: redondeo al más cercano (igual que el pago), sin decimales
                 const esUSDVista = moneda === 'USD' && !!tipoCambio
-                const precioDisplay    = esUSDVista ? Math.floor(precioFinal / tipoCambio!) : precioFinal
-                const subtotalDisplay  = esUSDVista ? Math.floor(subtotalItem / tipoCambio!) : subtotalItem
+                const precioDisplay    = esUSDVista ? Math.round(precioFinal / tipoCambio!) : precioFinal
+                const subtotalDisplay  = esUSDVista ? Math.round(subtotalItem / tipoCambio!) : subtotalItem
                 const fmtPrecio = (n: number) => esUSDVista ? `USD $${n}` : `$${n.toLocaleString('es-MX')}`
 
                 return (
@@ -1780,7 +1780,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                 {moneda === 'USD' && tipoCambio ? (
                   <div className="flex items-baseline gap-1">
                     <span className="text-xs text-blue-400">USD $</span>
-                    <span className="text-2xl font-bold text-blue-700">{Math.floor(subtotal / tipoCambio)}</span>
+                    <span className="text-2xl font-bold text-blue-700">{Math.round(subtotal / tipoCambio)}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
