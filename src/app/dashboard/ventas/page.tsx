@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   Plus, Search, Filter,
   CreditCard, Banknote, Building2, X, Printer,
-  ChevronDown, Clock, CheckCircle2, AlertCircle,
+  ChevronDown, Clock, CheckCircle2, AlertCircle, Pencil, Trash2,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { registrarComisionTerminal } from '@/lib/comisiones'
@@ -17,7 +17,7 @@ import { getSucursalActual, getUsuarioLocal } from '@/lib/session'
 // Tipos
 // ─────────────────────────────────────────
 type Pago = { fecha: string; monto: number; metodo: string; pagos_venta_id?: string }
-type ItemVenta = { nombre: string; cantidad: number; precio: number; descuento: number }
+type ItemVenta = { nombre: string; cantidad: number; precio: number; descuento: number; sku?: string }
 type Venta = {
   id: string            // folio (V-0001)
   uuid: string          // Supabase id real
@@ -372,6 +372,12 @@ export default function VentasPage() {
   const [abonoMoneda, setAbonoMoneda] = useState<'MXN' | 'USD'>('MXN')
   const [abonoTC, setAbonoTC]         = useState<number | null>(null)
   const [abonoLoadingTC, setAbonoLoadingTC] = useState(false)
+  // ── Modificar venta (solo admin) ──
+  const [modificar, setModificar]     = useState(false)
+  const [itemsMod, setItemsMod]       = useState<ItemVenta[]>([])
+  const [catalogoMod, setCatalogoMod] = useState<{ nombre: string; sku: string; precio: number; categoria: string }[]>([])
+  const [buscarProd, setBuscarProd]   = useState('')
+  const [guardandoMod, setGuardandoMod] = useState(false)
   const [guardandoAbono, setGuardandoAbono] = useState(false)
 
   const fetchAbonoTC = async () => {
@@ -434,7 +440,7 @@ export default function VentasPage() {
           atendido_por,
           created_at,
           fecha_entrega,
-          ventas_items(nombre, cantidad, precio_unitario, descuento),
+          ventas_items(nombre, sku, cantidad, precio_unitario, descuento),
           pagos_venta(id, monto, metodo_pago, created_at, tipo)
         `)
         .neq('estado', 'cancelada')
@@ -479,6 +485,7 @@ export default function VentasPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const items: ItemVenta[] = (v.ventas_items ?? []).map((i: any) => ({
           nombre:    i.nombre,
+          sku:       i.sku ?? '',
           cantidad:  i.cantidad,
           precio:    i.precio_unitario,
           descuento: i.descuento ?? 0,
@@ -679,6 +686,118 @@ export default function VentasPage() {
     }
     setVentas(prev => prev.map(v => v.id === detalle.id ? ventaActualizada : v))
     setDetalle(ventaActualizada)
+  }
+
+  // ── Modificar venta: abrir el editor y cargar catálogo ──
+  const abrirModificar = async () => {
+    if (!detalle) return
+    setItemsMod(detalle.items.map(i => ({ ...i })))
+    setBuscarProd('')
+    setModificar(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('productos')
+      .select('nombre, sku, precio, categoria')
+      .eq('activo', true)
+      .order('nombre')
+    setCatalogoMod((data ?? []) as { nombre: string; sku: string; precio: number; categoria: string }[])
+  }
+
+  const totalItemsMod = (items: ItemVenta[]) =>
+    items.reduce((s, i) => s + i.precio * i.cantidad * (1 - (i.descuento || 0) / 100), 0)
+
+  const guardarModificacion = async () => {
+    if (!detalle || guardandoMod) return
+    const totalPagado = Math.round((detalle.total - detalle.saldo_db) * 100) / 100
+    const nuevoTotal  = Math.round(totalItemsMod(itemsMod) * 100) / 100
+    if (nuevoTotal < totalPagado - 0.01) {
+      alert(`El nuevo total ($${nuevoTotal.toLocaleString('es-MX')}) es menor a lo ya pagado ($${totalPagado.toLocaleString('es-MX')}). No se puede dejar la venta pagada de más.`)
+      return
+    }
+    setGuardandoMod(true)
+    const supabase = createClient()
+    try {
+      // 1. Reemplazar los productos de la venta
+      await supabase.from('ventas_items').delete().eq('venta_id', detalle.uuid)
+      const rows = itemsMod.map(i => ({
+        venta_id:        detalle.uuid,
+        nombre:          i.nombre,
+        sku:             i.sku ?? '',
+        precio_unitario: i.precio,
+        cantidad:        i.cantidad,
+        descuento:       i.descuento ?? 0,
+        subtotal:        Math.round(i.precio * i.cantidad * (1 - (i.descuento || 0) / 100) * 100) / 100,
+        par:             1,
+      }))
+      if (rows.length) {
+        const { error } = await supabase.from('ventas_items').insert(rows)
+        if (error) throw error
+      }
+
+      // 2. Actualizar total y saldo (el dinero nunca toca la caja: solo el saldo)
+      const nuevoSaldo = Math.max(0, Math.round((nuevoTotal - totalPagado) * 100) / 100)
+      const up = await supabase.from('ventas').update({ total: nuevoTotal, saldo: nuevoSaldo }).eq('id', detalle.uuid)
+      if (up.error) throw up.error
+
+      // 3. Sincronizar orden de laboratorio
+      const isMica   = (n: string) => ['mica','monofocal','progres','bifocal','transitions','rebisel'].some(k => n.toLowerCase().includes(k))
+      const isFiltro = (n: string) => ['filtro','antirreflej','blue','fotocrom','polariz','tinte','crizal'].some(k => n.toLowerCase().includes(k))
+      const micasFull   = itemsMod.filter(i => isMica(i.nombre)).map(i => i.nombre).join(', ')
+      const tratosFull  = itemsMod.filter(i => isFiltro(i.nombre)).map(i => i.nombre).join(', ')
+      const origNombres = new Set(detalle.items.map(i => i.nombre))
+      const micasNuevos  = itemsMod.filter(i => isMica(i.nombre)   && !origNombres.has(i.nombre)).map(i => i.nombre).join(', ')
+      const tratosNuevos = itemsMod.filter(i => isFiltro(i.nombre) && !origNombres.has(i.nombre)).map(i => i.nombre).join(', ')
+
+      const crearOrdenLab = async (mica: string, trato: string) => {
+        const { data: ultimoL } = await supabase.from('ordenes_lab').select('folio').ilike('folio', 'L-%').order('folio', { ascending: false }).limit(1)
+        const nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
+        const folioLab = `L-${String(nL).padStart(4, '0')}`
+        const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+        await supabase.from('ordenes_lab').insert({
+          folio: folioLab, folio_venta: detalle.id, venta_id: detalle.uuid,
+          paciente: detalle.cliente, telefono: detalle.telefono, sucursal: detalle.sucursal,
+          estado: 'recibido', fecha_ingreso: hoy, fecha_promesa: detalle.fechaEntrega || '',
+          precio_cliente: nuevoTotal, anticipo: 0, tipo_mica: mica, tratamiento: trato,
+          od: '', oi: '', add_graduacion: '', dp: '',
+        })
+        return folioLab
+      }
+
+      let avisoLab = ''
+      const { data: ordArr } = await supabase.from('ordenes_lab').select('id, folio, estado').eq('venta_id', detalle.uuid).order('folio').limit(1)
+      const orden = ordArr?.[0]
+      if (orden) {
+        if (orden.estado === 'recibido') {
+          // Todavía en la óptica (Sergio no la recogió): se actualiza la misma orden
+          await supabase.from('ordenes_lab').update({ tipo_mica: micasFull, tratamiento: tratosFull }).eq('id', orden.id)
+          avisoLab = `Orden de lab ${orden.folio} actualizada con los cambios.`
+        } else if (micasNuevos || tratosNuevos) {
+          // Ya está en proceso: el material añadido necesita orden NUEVA
+          const nueva = await crearOrdenLab(micasNuevos, tratosNuevos)
+          avisoLab = `La orden ${orden.folio} ya está en proceso, así que se creó una orden NUEVA (${nueva}) para el material añadido.`
+        }
+      } else if (micasFull || tratosFull) {
+        const nueva = await crearOrdenLab(micasFull, tratosFull)
+        avisoLab = `Se creó la orden de lab ${nueva} para el material de esta venta.`
+      }
+
+      // 4. Reflejar en pantalla
+      const ventaActualizada: Venta = {
+        ...detalle,
+        items:    itemsMod.map(i => ({ ...i })),
+        total:    nuevoTotal,
+        saldo_db: nuevoSaldo,
+        modoPago: nuevoSaldo > 0 ? 'diferida' : 'liquidada',
+      }
+      setVentas(prev => prev.map(v => v.id === detalle.id ? ventaActualizada : v))
+      setDetalle(ventaActualizada)
+      setModificar(false)
+      if (avisoLab) alert(avisoLab)
+    } catch (e) {
+      alert('Error al modificar la venta: ' + (e instanceof Error ? e.message : 'desconocido'))
+    } finally {
+      setGuardandoMod(false)
+    }
   }
 
   const cancelarVenta = async () => {
@@ -1076,6 +1195,12 @@ export default function VentasPage() {
                   </button>
                 </>
               )}
+              {esAdmin && !detalle.id.startsWith('COT-') && (
+                <button onClick={abrirModificar}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-300 text-zinc-700 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
+                  <Pencil className="w-4 h-4" /> Modificar venta
+                </button>
+              )}
               {esAdmin && (
                 <button onClick={cancelarVenta}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-400 hover:text-red-600 transition-colors">
@@ -1086,6 +1211,98 @@ export default function VentasPage() {
           </div>
         </div>
       )}
+
+      {/* ── Modal Modificar venta (solo admin) ── */}
+      {modificar && detalle && (() => {
+        const totalPagado = Math.round((detalle.total - detalle.saldo_db) * 100) / 100
+        const nuevoTotal  = Math.round(totalItemsMod(itemsMod) * 100) / 100
+        const nuevoSaldo  = Math.round((nuevoTotal - totalPagado) * 100) / 100
+        const q = buscarProd.trim().toLowerCase()
+        const sugerencias = q.length >= 2
+          ? catalogoMod.filter(p => p.nombre.toLowerCase().includes(q)).slice(0, 8)
+          : []
+        return (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !guardandoMod && setModificar(false)}>
+            <div className="bg-white rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900">Modificar venta {detalle.id}</h3>
+                  <p className="text-xs text-zinc-500">{detalle.cliente}</p>
+                </div>
+                <button onClick={() => !guardandoMod && setModificar(false)} className="text-zinc-400 hover:text-zinc-700"><X className="w-5 h-5" /></button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                <div>
+                  <p className="text-xs font-semibold text-zinc-500 mb-2">PRODUCTOS</p>
+                  <div className="space-y-1.5">
+                    {itemsMod.map((it, idx) => {
+                      const sub = it.precio * it.cantidad * (1 - (it.descuento || 0) / 100)
+                      const totalSinEste = totalItemsMod(itemsMod.filter((_, i) => i !== idx))
+                      const bloquear = totalSinEste < totalPagado - 0.01
+                      return (
+                        <div key={idx} className="flex items-center gap-2 bg-zinc-50 rounded px-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-zinc-800 truncate">{it.nombre}</p>
+                            <p className="text-xs text-zinc-400">{it.cantidad} × ${it.precio.toLocaleString('es-MX')}{it.descuento ? ` · -${it.descuento}%` : ''}</p>
+                          </div>
+                          <span className="text-sm font-semibold text-zinc-700">${Math.round(sub).toLocaleString('es-MX')}</span>
+                          <button
+                            onClick={() => {
+                              if (bloquear) { alert(`No se puede quitar: dejaría la venta pagada de más. El cliente ya pagó $${totalPagado.toLocaleString('es-MX')}.`); return }
+                              setItemsMod(prev => prev.filter((_, i) => i !== idx))
+                            }}
+                            className={`p-1 rounded ${bloquear ? 'text-zinc-300 cursor-not-allowed' : 'text-red-400 hover:text-red-600 hover:bg-red-50'}`}
+                            title={bloquear ? 'No se puede quitar (ya pagado)' : 'Quitar'}>
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )
+                    })}
+                    {itemsMod.length === 0 && <p className="text-xs text-zinc-400 italic">Sin productos</p>}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-zinc-500 mb-2">AÑADIR PRODUCTO</p>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                    <input value={buscarProd} onChange={e => setBuscarProd(e.target.value)}
+                      placeholder="Buscar producto para añadir..."
+                      className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                  </div>
+                  {sugerencias.length > 0 && (
+                    <div className="mt-1 border border-zinc-200 rounded divide-y divide-zinc-100 max-h-44 overflow-y-auto">
+                      {sugerencias.map(p => (
+                        <button key={p.sku} onClick={() => { setItemsMod(prev => [...prev, { nombre: p.nombre, sku: p.sku, precio: p.precio, cantidad: 1, descuento: 0 }]); setBuscarProd('') }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-zinc-50">
+                          <span className="text-sm text-zinc-700 truncate">{p.nombre}</span>
+                          <span className="text-xs font-semibold text-zinc-500 ml-2">${p.precio.toLocaleString('es-MX')}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-zinc-200 px-5 py-4 space-y-2">
+                <div className="flex justify-between text-sm"><span className="text-zinc-500">Nuevo total</span><span className="font-bold text-zinc-900">${nuevoTotal.toLocaleString('es-MX')}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-zinc-500">Ya pagado</span><span className="text-zinc-600">${totalPagado.toLocaleString('es-MX')}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-zinc-500">Saldo pendiente</span><span className={`font-bold ${nuevoSaldo > 0 ? 'text-red-600' : 'text-emerald-600'}`}>${Math.max(0, nuevoSaldo).toLocaleString('es-MX')}</span></div>
+                <p className="text-[11px] text-zinc-400 leading-snug">El cambio solo ajusta el saldo — no cobra nada. El pago se registra aparte con &quot;Registrar abono&quot;.</p>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setModificar(false)} disabled={guardandoMod}
+                    className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 disabled:opacity-50">Cancelar</button>
+                  <button onClick={guardarModificacion} disabled={guardandoMod}
+                    className="flex-1 py-2.5 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 disabled:opacity-50">
+                    {guardandoMod ? 'Guardando…' : 'Guardar cambios'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
