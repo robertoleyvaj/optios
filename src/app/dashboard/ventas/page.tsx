@@ -644,11 +644,13 @@ export default function VentasPage() {
 
     if (errDel) { alert(`Error: ${errDel.message}`); return }
 
-    // 2. Recalcular saldo desde cero: total - anticipo - SUM(pagos restantes)
-    //    Así el saldo siempre refleja la realidad, sin importar qué pasó antes.
+    // 2. Recalcular saldo desde cero: total - SUM(todos los pagos restantes).
+    //    El anticipo NO se resta aparte: ya está incluido como un registro en
+    //    pagos_venta (al crear la venta se inserta el anticipo ahí). Restarlo
+    //    otra vez lo contaba doble y descuadraba el saldo.
     const { data: ventaDB } = await supabase
       .from('ventas')
-      .select('total, anticipo')
+      .select('total')
       .eq('id', detalle.uuid)
       .single()
 
@@ -658,7 +660,7 @@ export default function VentasPage() {
       .eq('venta_id', detalle.uuid)
 
     const totalPagosVenta = (pagosRestantes ?? []).reduce((s, p) => s + Number(p.monto), 0)
-    const nuevoSaldo = Math.max(0, (ventaDB?.total ?? detalle.total) - (ventaDB?.anticipo ?? 0) - totalPagosVenta)
+    const nuevoSaldo = Math.max(0, (ventaDB?.total ?? detalle.total) - totalPagosVenta)
 
     const { error: errUpd } = await supabase
       .from('ventas')
@@ -966,11 +968,11 @@ export default function VentasPage() {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-xs font-semibold text-zinc-500">Monto</label>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1.5">
                         <button onClick={() => { setAbonoMoneda('MXN'); setAbonoMonto('') }}
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded border transition-all ${abonoMoneda === 'MXN' ? 'bg-zinc-800 text-white border-zinc-800' : 'border-zinc-200 text-zinc-400 hover:border-zinc-300'}`}>🇲🇽 MXN</button>
+                          className={`text-xs font-bold px-3 py-1 rounded-md border transition-all ${abonoMoneda === 'MXN' ? 'bg-zinc-800 text-white border-zinc-800 shadow-sm ring-2 ring-zinc-300' : 'bg-zinc-100 text-zinc-500 border-zinc-200 hover:bg-zinc-200'}`}>🇲🇽 MXN</button>
                         <button onClick={() => { setAbonoMoneda('USD'); setAbonoMonto(''); if (!abonoTC) fetchAbonoTC() }}
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded border transition-all ${abonoMoneda === 'USD' ? 'bg-blue-600 text-white border-blue-600' : 'border-zinc-200 text-zinc-400 hover:border-blue-300'}`}>🇺🇸 USD</button>
+                          className={`text-xs font-bold px-3 py-1 rounded-md border transition-all ${abonoMoneda === 'USD' ? 'bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200 hover:bg-blue-50 hover:text-blue-600'}`}>🇺🇸 USD</button>
                       </div>
                     </div>
                     <div className="relative">
