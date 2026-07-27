@@ -555,7 +555,9 @@ export default function VentasPage() {
     // Validación: no permitir pagar más de lo que se debe (con tolerancia por redondeo USD)
     const saldoActual = saldoPendiente(detalle)
     const tolerancia = esUSD ? Math.max(tc as number, 20) : 1
-    if (monto > saldoActual && monto - saldoActual <= tolerancia) monto = saldoActual  // snap a liquidación exacta
+    // Snap a liquidación exacta: si el pago cae dentro de la tolerancia del saldo
+    // —arriba O abajo— por el redondeo del tipo de cambio, se liquida limpio.
+    if (Math.abs(monto - saldoActual) <= tolerancia) monto = saldoActual
     if (monto > saldoActual) {
       alert(`El monto ($${monto.toLocaleString('es-MX')}) supera el saldo pendiente ($${saldoActual.toLocaleString('es-MX')}).`)
       return
@@ -987,9 +989,11 @@ export default function VentasPage() {
                         <p className="text-xs text-blue-600 mt-1">Obteniendo tipo de cambio…</p>
                       ) : abonoTC ? (
                         <div className="text-xs mt-1.5 space-y-1">
-                          <p className="text-blue-700 bg-blue-100/60 rounded px-2 py-1.5 font-semibold">
-                            💵 Para liquidar cóbrale ≈ <b>${Math.round(saldoPendiente(detalle) / abonoTC).toLocaleString('en-US')} USD</b>
-                          </p>
+                          <button type="button"
+                            onClick={() => setAbonoMonto(String(Math.round(saldoPendiente(detalle) / abonoTC)))}
+                            className="w-full text-left text-blue-700 bg-blue-100/60 hover:bg-blue-200/70 rounded px-2 py-1.5 font-semibold transition-colors">
+                            💵 Para liquidar cóbrale ≈ <b>${Math.round(saldoPendiente(detalle) / abonoTC).toLocaleString('en-US')} USD</b> <span className="font-normal text-blue-500">— toca para ponerlo</span>
+                          </button>
                           <p className="text-zinc-400">
                             TC ${abonoTC.toFixed(2)} · lo que escribiste ≈ ${Math.round((parseFloat(abonoMonto) || 0) * abonoTC).toLocaleString('es-MX')} MXN · saldo ${saldoPendiente(detalle).toLocaleString('es-MX')}
                           </p>
