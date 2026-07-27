@@ -163,7 +163,7 @@ function ReportesPage() {
   const [ordLab,     setOrdLab]     = useState<OrdenLab[]>([])
   const [prevTotal,  setPrevTotal]  = useState(0)   // ventas del periodo anterior (para ▲/▼)
   const [enCaja,     setEnCaja]     = useState(0)    // efectivo en caja hoy (las 3 sucursales)
-  const [cajaDetalle, setCajaDetalle] = useState<{ sucursal: string; tipo: 'ingreso' | 'egreso'; label: string; sub: string; monto: number }[]>([])
+  const [cajaSaldos, setCajaSaldos] = useState<{ sucursal: string; fondo: number; ingresos: number; egresos: number; saldo: number }[]>([])
   const [cajaAbierto, setCajaAbierto] = useState(false)
   const [deudaListos, setDeudaListos] = useState(0)  // saldo pendiente de ventas con lentes listos
   const [cargando,   setCargando]   = useState(true)
@@ -199,12 +199,10 @@ function ReportesPage() {
   const cargar = useCallback(async () => {
     setCargando(true)
     const { inicio, fin } = getDateRange(periodo, desde, hasta)
-    const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
     const sb = createClient()
     // Rango del periodo en hora Tijuana (mismo criterio que caja e inicio)
     const rangoInicio = rangoDiaLocal(inicio).start
     const rangoFin    = rangoDiaLocal(fin).end
-    const rangoHoy    = rangoDiaLocal(hoyStr)
 
     // Query builder helpers
     const baseVentas = () => sb.from('ventas')
@@ -232,58 +230,68 @@ function ReportesPage() {
       .gte('created_at', rangoDiaLocal(prev.inicio).start)
       .lte('created_at', rangoDiaLocal(prev.fin).end)
 
-    // Efectivo que entró HOY a caja (foto del día)
-    let qCaja = sb.from('pagos_venta')
-      .select('folio_venta, monto, created_at, sucursal, ventas(paciente_nombre)')
-      .eq('metodo_pago', 'efectivo')
-      .neq('moneda', 'USD')
-      .gte('created_at', rangoHoy.start)
-      .lte('created_at', rangoHoy.end)
-      .order('created_at', { ascending: false })
+    // ── Efectivo REAL en cada caja: mismo cálculo que el módulo Caja
+    //    (fondo del último corte + efectivo que entró desde entonces − egresos en efectivo).
+    const sucsCaja = sucursal !== 'Todas'
+      ? [sucursal]
+      : ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
-    // Egresos que SALIERON del cajón hoy (retiros/gastos es_caja). hoyStr ya está definido arriba.
-    let qEgresos = sb.from('gastos')
-      .select('concepto, notas, monto, sucursal')
+    // Último corte CERRADO por sucursal (define el fondo y el punto de arranque)
+    const { data: cortesData } = await sb
+      .from('cortes_caja')
+      .select('sucursal, fondo, cerrado_at')
+      .eq('cerrado', true)
+      .order('cerrado_at', { ascending: false })
+    const lastCorte: Record<string, { fondo: number; cerrado_at: string | null }> = {}
+    for (const c of (cortesData ?? []) as { sucursal: string; fondo: number; cerrado_at: string | null }[]) {
+      if (!lastCorte[c.sucursal]) lastCorte[c.sucursal] = { fondo: Number(c.fondo) || 0, cerrado_at: c.cerrado_at }
+    }
+    const cortesTs = sucsCaja.map(s => lastCorte[s]?.cerrado_at).filter(Boolean) as string[]
+    const minCerrado = cortesTs.length ? cortesTs.reduce((a, b) => (a < b ? a : b)) : '1970-01-01T00:00:00Z'
+
+    // Efectivo (pesos) y egresos en efectivo desde ese punto
+    let qEf = sb.from('pagos_venta')
+      .select('sucursal, monto, created_at')
+      .eq('metodo_pago', 'efectivo').neq('moneda', 'USD')
+      .gt('created_at', minCerrado)
+    let qEg = sb.from('gastos')
+      .select('sucursal, monto, created_at, metodo_pago')
       .eq('es_caja', true)
-      .eq('fecha', hoyStr)
+      .gt('created_at', minCerrado)
 
     if (sucursal !== 'Todas') {
       qVentas = qVentas.eq('sucursal', sucursal)
       qCot    = qCot.eq('sucursal', sucursal)
       qLab    = qLab.eq('sucursal', sucursal)
       qPrev   = qPrev.eq('sucursal', sucursal)
-      qCaja   = qCaja.eq('sucursal', sucursal)
-      qEgresos = qEgresos.eq('sucursal', sucursal)
+      qEf     = qEf.eq('sucursal', sucursal)
+      qEg     = qEg.eq('sucursal', sucursal)
     }
 
-    const [rV, rC, rL, rP, rCaja, rEgr] = await Promise.all([qVentas, qCot, qLab, qPrev, qCaja, qEgresos])
+    const [rV, rC, rL, rP, rEf, rEg] = await Promise.all([qVentas, qCot, qLab, qPrev, qEf, qEg])
 
     const ordLabData = rL.data || []
     setVentas(rV.data || [])
     setCotCount(rC.count ?? 0)
     setOrdLab(ordLabData)
     setPrevTotal((rP.data || []).reduce((s: number, v: { total: number }) => s + Number(v.total), 0))
-    const cajaRows = (rCaja.data || []) as unknown as { folio_venta: string; monto: number; created_at: string; sucursal: string; ventas: { paciente_nombre: string } | null }[]
-    const egrRows  = (rEgr.data || []) as unknown as { concepto: string; notas: string; monto: number; sucursal: string }[]
-    const totalIngresos = cajaRows.reduce((s, p) => s + Number(p.monto), 0)
-    const totalEgresos  = egrRows.reduce((s, e) => s + Number(e.monto), 0)
-    setEnCaja(totalIngresos - totalEgresos)   // neto: lo que entró menos lo que salió del cajón
-    setCajaDetalle([
-      ...cajaRows.map(p => ({
-        sucursal: p.sucursal ?? '',
-        tipo: 'ingreso' as const,
-        label: p.ventas?.paciente_nombre ?? 'Venta',
-        sub: `${p.folio_venta ?? ''} · ${new Date(p.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' })}`,
-        monto: Number(p.monto),
-      })),
-      ...egrRows.map(e => ({
-        sucursal: e.sucursal ?? '',
-        tipo: 'egreso' as const,
-        label: e.notas || e.concepto || 'Egreso',
-        sub: 'Salida de caja',
-        monto: Number(e.monto),
-      })),
-    ])
+
+    const efRows = (rEf.data ?? []) as { sucursal: string; monto: number; created_at: string }[]
+    const egRows = (rEg.data ?? []) as { sucursal: string; monto: number; created_at: string; metodo_pago: string | null }[]
+    const saldos = sucsCaja.map(suc => {
+      const corte = lastCorte[suc]
+      const desde = corte?.cerrado_at ?? null
+      const fondo = corte?.fondo ?? 0
+      const ingresos = efRows
+        .filter(p => p.sucursal === suc && (!desde || p.created_at > desde))
+        .reduce((s, p) => s + Number(p.monto), 0)
+      const egresos = egRows
+        .filter(g => g.sucursal === suc && (g.metodo_pago ?? 'efectivo') === 'efectivo' && (!desde || g.created_at > desde))
+        .reduce((s, g) => s + Number(g.monto), 0)
+      return { sucursal: suc, fondo, ingresos, egresos, saldo: fondo + ingresos - egresos }
+    })
+    setEnCaja(saldos.reduce((s, x) => s + x.saldo, 0))
+    setCajaSaldos(saldos)
 
     // Deuda: saldo pendiente de las ventas cuyos lentes YA están listos (sin duplicar por venta)
     const idsListos = [...new Set(
@@ -445,11 +453,11 @@ function ReportesPage() {
               <button onClick={() => setCajaAbierto(true)}
                 className="bg-white rounded-lg px-4 py-4 border border-zinc-200/80 text-left hover:border-teal-300 hover:shadow-sm transition-all">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium text-zinc-400">En caja hoy</p>
+                  <p className="text-xs font-medium text-zinc-400">En caja</p>
                   <Target className="w-4 h-4 text-teal-600 opacity-60" />
                 </div>
                 <p className="text-2xl font-bold text-teal-600">{$$(enCaja)}</p>
-                <p className="text-xs text-zinc-400 mt-0.5">efectivo del día · <span className="text-teal-600 font-medium">ver desglose</span></p>
+                <p className="text-xs text-zinc-400 mt-0.5">efectivo real · <span className="text-teal-600 font-medium">ver desglose</span></p>
               </button>
             )}
           </div>
@@ -557,51 +565,36 @@ function ReportesPage() {
         </>
       )}
 
-      {/* ── Desglose de "En caja hoy" (solo admin) ── */}
+      {/* ── Desglose de "En caja" — saldo real por sucursal (solo admin) ── */}
       {cajaAbierto && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setCajaAbierto(false)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
               <div>
-                <p className="text-sm font-bold text-zinc-800">Efectivo en caja hoy</p>
-                <p className="text-xs text-zinc-400">{cajaDetalle.length} {cajaDetalle.length === 1 ? 'movimiento' : 'movimientos'} · {sucursal}</p>
+                <p className="text-sm font-bold text-zinc-800">Efectivo real en caja</p>
+                <p className="text-xs text-zinc-400">Fondo + ingresos − egresos · {sucursal}</p>
               </div>
               <button onClick={() => setCajaAbierto(false)} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">✕</button>
             </div>
             <div className="overflow-y-auto">
-              {cajaDetalle.length === 0 ? (
-                <p className="text-sm text-zinc-400 text-center py-10">Sin movimientos de efectivo hoy</p>
-              ) : (() => {
-                const sucs = [...new Set(cajaDetalle.map(m => m.sucursal || 'Sin sucursal'))]
-                return sucs.map(suc => {
-                  const movs = cajaDetalle.filter(m => (m.sucursal || 'Sin sucursal') === suc)
-                  const neto = movs.reduce((s, m) => s + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0)
-                  return (
-                    <div key={suc}>
-                      <div className="flex items-center justify-between px-5 py-2 bg-zinc-50 border-b border-zinc-100">
-                        <span className="text-xs font-bold text-zinc-600 uppercase tracking-wide">{suc}</span>
-                        <span className="text-sm font-bold text-zinc-800">{$$(neto)}</span>
-                      </div>
-                      <div className="divide-y divide-zinc-50">
-                        {movs.map((m, i) => (
-                          <div key={i} className="flex items-center justify-between px-5 py-2.5">
-                            <div className="min-w-0 pr-3">
-                              <p className="text-sm font-medium text-zinc-700 truncate">{m.label || 'Sin nombre'}</p>
-                              <p className="text-xs text-zinc-400">{m.sub}</p>
-                            </div>
-                            <p className={`text-sm font-bold whitespace-nowrap ${m.tipo === 'ingreso' ? 'text-teal-600' : 'text-red-500'}`}>
-                              {m.tipo === 'ingreso' ? '+' : '−'}{$$(m.monto)}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })
-              })()}
+              {cajaSaldos.length === 0 ? (
+                <p className="text-sm text-zinc-400 text-center py-10">Sin datos de caja</p>
+              ) : cajaSaldos.map(c => (
+                <div key={c.sucursal} className="border-b border-zinc-100">
+                  <div className="flex items-center justify-between px-5 py-2.5 bg-zinc-50">
+                    <span className="text-xs font-bold text-zinc-600 uppercase tracking-wide">{c.sucursal}</span>
+                    <span className={`text-base font-bold ${c.saldo < 0 ? 'text-red-600' : 'text-teal-700'}`}>{$$(c.saldo)}</span>
+                  </div>
+                  <div className="px-5 py-2.5 space-y-1 text-xs">
+                    <div className="flex justify-between text-zinc-500"><span>Fondo (último corte)</span><span>{$$(c.fondo)}</span></div>
+                    <div className="flex justify-between text-teal-600"><span>+ Ingresos en efectivo</span><span>+{$$(c.ingresos)}</span></div>
+                    <div className="flex justify-between text-red-500"><span>− Egresos en efectivo</span><span>−{$$(c.egresos)}</span></div>
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-200">
-              <span className="text-sm font-semibold text-zinc-500">Efectivo neto del día</span>
+              <span className="text-sm font-semibold text-zinc-500">Total en caja</span>
               <span className="text-lg font-bold text-teal-700">{$$(enCaja)}</span>
             </div>
           </div>
