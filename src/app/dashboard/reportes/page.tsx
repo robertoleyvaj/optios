@@ -163,7 +163,7 @@ function ReportesPage() {
   const [ordLab,     setOrdLab]     = useState<OrdenLab[]>([])
   const [prevTotal,  setPrevTotal]  = useState(0)   // ventas del periodo anterior (para ▲/▼)
   const [enCaja,     setEnCaja]     = useState(0)    // efectivo en caja hoy (las 3 sucursales)
-  const [cajaDetalle, setCajaDetalle] = useState<{ folio: string; cliente: string; monto: number; hora: string }[]>([])
+  const [cajaDetalle, setCajaDetalle] = useState<{ sucursal: string; tipo: 'ingreso' | 'egreso'; label: string; sub: string; monto: number }[]>([])
   const [cajaAbierto, setCajaAbierto] = useState(false)
   const [deudaListos, setDeudaListos] = useState(0)  // saldo pendiente de ventas con lentes listos
   const [cargando,   setCargando]   = useState(true)
@@ -234,12 +234,19 @@ function ReportesPage() {
 
     // Efectivo que entró HOY a caja (foto del día)
     let qCaja = sb.from('pagos_venta')
-      .select('folio_venta, monto, created_at, ventas(paciente_nombre)')
+      .select('folio_venta, monto, created_at, sucursal, ventas(paciente_nombre)')
       .eq('metodo_pago', 'efectivo')
       .neq('moneda', 'USD')
       .gte('created_at', rangoHoy.start)
       .lte('created_at', rangoHoy.end)
       .order('created_at', { ascending: false })
+
+    // Egresos que SALIERON del cajón hoy (retiros/gastos es_caja)
+    const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+    let qEgresos = sb.from('gastos')
+      .select('concepto, notas, monto, sucursal')
+      .eq('es_caja', true)
+      .eq('fecha', hoyStr)
 
     if (sucursal !== 'Todas') {
       qVentas = qVentas.eq('sucursal', sucursal)
@@ -247,23 +254,37 @@ function ReportesPage() {
       qLab    = qLab.eq('sucursal', sucursal)
       qPrev   = qPrev.eq('sucursal', sucursal)
       qCaja   = qCaja.eq('sucursal', sucursal)
+      qEgresos = qEgresos.eq('sucursal', sucursal)
     }
 
-    const [rV, rC, rL, rP, rCaja] = await Promise.all([qVentas, qCot, qLab, qPrev, qCaja])
+    const [rV, rC, rL, rP, rCaja, rEgr] = await Promise.all([qVentas, qCot, qLab, qPrev, qCaja, qEgresos])
 
     const ordLabData = rL.data || []
     setVentas(rV.data || [])
     setCotCount(rC.count ?? 0)
     setOrdLab(ordLabData)
     setPrevTotal((rP.data || []).reduce((s: number, v: { total: number }) => s + Number(v.total), 0))
-    const cajaRows = (rCaja.data || []) as unknown as { folio_venta: string; monto: number; created_at: string; ventas: { paciente_nombre: string } | null }[]
-    setEnCaja(cajaRows.reduce((s, p) => s + Number(p.monto), 0))
-    setCajaDetalle(cajaRows.map(p => ({
-      folio: p.folio_venta ?? '',
-      cliente: p.ventas?.paciente_nombre ?? '',
-      monto: Number(p.monto),
-      hora: new Date(p.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' }),
-    })))
+    const cajaRows = (rCaja.data || []) as unknown as { folio_venta: string; monto: number; created_at: string; sucursal: string; ventas: { paciente_nombre: string } | null }[]
+    const egrRows  = (rEgr.data || []) as unknown as { concepto: string; notas: string; monto: number; sucursal: string }[]
+    const totalIngresos = cajaRows.reduce((s, p) => s + Number(p.monto), 0)
+    const totalEgresos  = egrRows.reduce((s, e) => s + Number(e.monto), 0)
+    setEnCaja(totalIngresos - totalEgresos)   // neto: lo que entró menos lo que salió del cajón
+    setCajaDetalle([
+      ...cajaRows.map(p => ({
+        sucursal: p.sucursal ?? '',
+        tipo: 'ingreso' as const,
+        label: p.ventas?.paciente_nombre ?? 'Venta',
+        sub: `${p.folio_venta ?? ''} · ${new Date(p.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' })}`,
+        monto: Number(p.monto),
+      })),
+      ...egrRows.map(e => ({
+        sucursal: e.sucursal ?? '',
+        tipo: 'egreso' as const,
+        label: e.notas || e.concepto || 'Egreso',
+        sub: 'Salida de caja',
+        monto: Number(e.monto),
+      })),
+    ])
 
     // Deuda: saldo pendiente de las ventas cuyos lentes YA están listos (sin duplicar por venta)
     const idsListos = [...new Set(
@@ -544,25 +565,44 @@ function ReportesPage() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
               <div>
                 <p className="text-sm font-bold text-zinc-800">Efectivo en caja hoy</p>
-                <p className="text-xs text-zinc-400">{cajaDetalle.length} {cajaDetalle.length === 1 ? 'pago' : 'pagos'} · {sucursal}</p>
+                <p className="text-xs text-zinc-400">{cajaDetalle.length} {cajaDetalle.length === 1 ? 'movimiento' : 'movimientos'} · {sucursal}</p>
               </div>
               <button onClick={() => setCajaAbierto(false)} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">✕</button>
             </div>
-            <div className="overflow-y-auto divide-y divide-zinc-50">
+            <div className="overflow-y-auto">
               {cajaDetalle.length === 0 ? (
-                <p className="text-sm text-zinc-400 text-center py-10">Sin efectivo registrado hoy</p>
-              ) : cajaDetalle.map((p, i) => (
-                <div key={i} className="flex items-center justify-between px-5 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-zinc-700">{p.cliente || 'Sin nombre'}</p>
-                    <p className="text-xs text-zinc-400">{p.folio} · {p.hora}</p>
-                  </div>
-                  <p className="text-sm font-bold text-teal-600">{$$(p.monto)}</p>
-                </div>
-              ))}
+                <p className="text-sm text-zinc-400 text-center py-10">Sin movimientos de efectivo hoy</p>
+              ) : (() => {
+                const sucs = [...new Set(cajaDetalle.map(m => m.sucursal || 'Sin sucursal'))]
+                return sucs.map(suc => {
+                  const movs = cajaDetalle.filter(m => (m.sucursal || 'Sin sucursal') === suc)
+                  const neto = movs.reduce((s, m) => s + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0)
+                  return (
+                    <div key={suc}>
+                      <div className="flex items-center justify-between px-5 py-2 bg-zinc-50 border-b border-zinc-100">
+                        <span className="text-xs font-bold text-zinc-600 uppercase tracking-wide">{suc}</span>
+                        <span className="text-sm font-bold text-zinc-800">{$$(neto)}</span>
+                      </div>
+                      <div className="divide-y divide-zinc-50">
+                        {movs.map((m, i) => (
+                          <div key={i} className="flex items-center justify-between px-5 py-2.5">
+                            <div className="min-w-0 pr-3">
+                              <p className="text-sm font-medium text-zinc-700 truncate">{m.label || 'Sin nombre'}</p>
+                              <p className="text-xs text-zinc-400">{m.sub}</p>
+                            </div>
+                            <p className={`text-sm font-bold whitespace-nowrap ${m.tipo === 'ingreso' ? 'text-teal-600' : 'text-red-500'}`}>
+                              {m.tipo === 'ingreso' ? '+' : '−'}{$$(m.monto)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })
+              })()}
             </div>
             <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-200">
-              <span className="text-sm font-semibold text-zinc-500">Total efectivo del día</span>
+              <span className="text-sm font-semibold text-zinc-500">Efectivo neto del día</span>
               <span className="text-lg font-bold text-teal-700">{$$(enCaja)}</span>
             </div>
           </div>
