@@ -241,8 +241,7 @@ function ReportesPage() {
       .lte('created_at', rangoHoy.end)
       .order('created_at', { ascending: false })
 
-    // Egresos que SALIERON del cajón hoy (retiros/gastos es_caja)
-    const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+    // Egresos que SALIERON del cajón hoy (retiros/gastos es_caja). hoyStr ya está definido arriba.
     let qEgresos = sb.from('gastos')
       .select('concepto, notas, monto, sucursal')
       .eq('es_caja', true)
