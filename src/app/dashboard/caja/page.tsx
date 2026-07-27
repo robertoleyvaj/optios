@@ -212,8 +212,10 @@ export default function CajaPage() {
   const contadoUSD    = parseFloat(efectivoUSDContado) || 0
   const retiroNum     = parseFloat(retiro) || 0
   const retiroUSDNum  = parseFloat(retiroUSD) || 0
-  const diferencia    = contado - esperado
-  const diferenciaUSD = contadoUSD - esperadoUSD
+  // Redondeamos a centavos para evitar que una fracción flotante invisible
+  // (ej. 434.0000001) marque "faltante -$0.00" cuando en realidad cuadra.
+  const diferencia    = Math.round((contado - esperado) * 100) / 100
+  const diferenciaUSD = Math.round((contadoUSD - esperadoUSD) * 100) / 100
   const remanente     = Math.max(0, contado - retiroNum)        // pesos que quedan para mañana
   const remanenteUSD  = Math.max(0, contadoUSD - retiroUSDNum)  // dólares que quedan para mañana
   const totalMXN      = Object.values(ventas).reduce((s, v) => s + v.monto, 0)
