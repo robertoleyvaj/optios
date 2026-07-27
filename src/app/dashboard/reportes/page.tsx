@@ -241,7 +241,8 @@ function ReportesPage() {
       .from('cortes_caja')
       .select('sucursal, fondo, cerrado_at')
       .eq('cerrado', true)
-      .order('cerrado_at', { ascending: false })
+      .not('cerrado_at', 'is', null)
+      .order('cerrado_at', { ascending: false, nullsFirst: false })
     const lastCorte: Record<string, { fondo: number; cerrado_at: string | null }> = {}
     for (const c of (cortesData ?? []) as { sucursal: string; fondo: number; cerrado_at: string | null }[]) {
       if (!lastCorte[c.sucursal]) lastCorte[c.sucursal] = { fondo: Number(c.fondo) || 0, cerrado_at: c.cerrado_at }
