@@ -55,7 +55,9 @@ type ArmazonRaw = {
   medidas: string | null; material: string | null; precio: number | null; precio_gon: number | null
   costo: number | null; stock_baja: number | null; stock_mayo: number | null; stock_plaza: number | null
   stock_online: number | null; publicar_gon: boolean | null; publicar_verly: boolean | null
-  descuento_gon: number | null; descuento_verly: number | null; activo: boolean | null; imagen_url: string | null
+  descuento_gon: number | null; descuento_verly: number | null; activo: boolean | null
+  imagen_url: string | null; imagen2_url?: string | null; imagen3_url?: string | null
+  imagen4_url?: string | null; imagen5_url?: string | null
 }
 const TC_USD = 17
 const nEd = (v: unknown) => Number(v ?? 0)
@@ -450,6 +452,26 @@ function InventarioPage() {
   }
 
   const setArm = (campo: keyof ArmazonRaw, val: unknown) => setEditArm(prev => prev ? { ...prev, [campo]: val } : prev)
+
+  const [subiendoFoto, setSubiendoFoto] = useState('')
+  const subirFoto = async (campo: string, file: File) => {
+    if (!editArm) return
+    setSubiendoFoto(campo)
+    try {
+      const fd = new FormData()
+      fd.append('file', file); fd.append('campo', campo); fd.append('id', String(editArm.id))
+      const res = await fetch('/api/ecomm/upload-foto', { method: 'POST', body: fd })
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error || 'Error')
+      setArm(campo as keyof ArmazonRaw, j.url)
+      setArmazonesRaw(prev => prev.map(a => a.id === editArm.id ? { ...a, [campo]: j.url } : a))
+      setProductos(prev => prev.map(p => p._ecommId === editArm.id ? { ...p } : p))
+    } catch (e) {
+      alert('No se pudo subir la foto: ' + (e instanceof Error ? e.message : ''))
+    } finally {
+      setSubiendoFoto('')
+    }
+  }
 
   const guardarArm = async () => {
     if (!editArm || guardandoArm) return
@@ -1292,11 +1314,30 @@ function InventarioPage() {
                   </div>
                 </div>
               </div>
+              <div>
+                <p className="text-xs font-semibold text-zinc-500 mb-2">FOTOS</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {(['imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url', 'imagen5_url'] as const).map((campo, i) => {
+                    const url = editArm[campo]
+                    return (
+                      <label key={campo} className="relative aspect-square rounded border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center cursor-pointer hover:border-teal-400 overflow-hidden">
+                        {url ? (
+                          <img src={url as string} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] text-zinc-400 text-center px-1">{subiendoFoto === campo ? '...' : (i === 0 ? 'Principal' : `+ Foto ${i + 1}`)}</span>
+                        )}
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(campo, f); e.target.value = '' }} />
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-1">La primera es la principal. Toca para subir/cambiar.</p>
+              </div>
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={editArm.activo !== false} onChange={e => setArm('activo', e.target.checked)} />
                 <span className="text-sm text-zinc-600">Activo (visible en las páginas)</span>
               </label>
-              <p className="text-[11px] text-zinc-400">Las fotos se agregan en la siguiente actualización.</p>
             </div>
             <div className="border-t border-zinc-200 px-5 py-4 flex gap-2">
               <button onClick={() => setEditArm(null)} disabled={guardandoArm} className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 disabled:opacity-50">Cancelar</button>
