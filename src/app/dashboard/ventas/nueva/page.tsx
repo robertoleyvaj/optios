@@ -266,7 +266,32 @@ export default function NuevaVentaPage() {
       })
   }, [])
 
-  // Catálogo efectivo: base fija + lo que llega de la tabla `productos`.
+  // Armazones (base de e-commerce), SOLO los que tienen stock en la sucursal del vendedor
+  const [catalogoArmz, setCatalogoArmz] = useState<CatItem[]>([])
+  useEffect(() => {
+    const stockKey = sucursal === 'Baja Visión' ? 'stock_baja'
+      : sucursal === '5 de Mayo' ? 'stock_mayo'
+      : 'stock_plaza'
+    fetch('/api/ecomm/armazones', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => {
+        if (!j.ok) { setCatalogoArmz([]); return }
+        const items: CatItem[] = (j.armazones as Record<string, unknown>[])
+          .filter(a => Number(a[stockKey] ?? 0) > 0)   // solo los que están en ESTA óptica
+          .map((a, i) => ({
+            id: 30000 + i,
+            nombre: `${a.marca ?? ''} ${a.nombre ?? a.modelo ?? ''}`.trim(),
+            categoria: 'Armazones',
+            precio: Number(a.precio_gon ?? 0),
+            sku: (a.sku as string) || `ARMZ-${a.id}`,
+            stock: Number(a[stockKey] ?? 0),
+          }))
+        setCatalogoArmz(items)
+      })
+      .catch(() => setCatalogoArmz([]))
+  }, [sucursal])
+
+  // Catálogo efectivo: base fija + lo que llega de la tabla `productos` + armazones de la sucursal.
   // La base de datos SOBRESCRIBE nombre/precio por SKU y AGREGA los nuevos.
   // Nunca se pierde nada del fijo (servicios, paquetes) aunque la BD falle.
   const catalogo: CatItem[] = (() => {
@@ -276,6 +301,7 @@ export default function NuevaVentaPage() {
       if (ex) bySku.set(dp.sku, { ...ex, nombre: dp.nombre, precio: dp.precio, categoria: dp.categoria })
       else    bySku.set(dp.sku, dp)
     }
+    for (const a of catalogoArmz) bySku.set(a.sku, a)
     return Array.from(bySku.values())
   })()
 
