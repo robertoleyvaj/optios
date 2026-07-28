@@ -278,14 +278,18 @@ export default function NuevaVentaPage() {
         if (!j.ok) { setCatalogoArmz([]); return }
         const items: CatItem[] = (j.armazones as Record<string, unknown>[])
           .filter(a => Number(a[stockKey] ?? 0) > 0)   // solo los que están en ESTA óptica
-          .map((a, i) => ({
-            id: 30000 + i,
-            nombre: `${a.marca ?? ''} ${a.nombre ?? a.modelo ?? ''}`.trim(),
-            categoria: 'Armazones',
-            precio: Number(a.precio_gon ?? 0),
-            sku: (a.sku as string) || `ARMZ-${a.id}`,
-            stock: Number(a[stockKey] ?? 0),
-          }))
+          .map((a, i) => {
+            const base = `${a.marca ?? ''} ${a.nombre ?? a.modelo ?? ''}`.trim()
+            const viejo = a.sku_viejo ? ` · #${a.sku_viejo}` : ''
+            return {
+              id: 30000 + i,
+              nombre: base + viejo,   // incluye el SKU viejo para reconocer/buscar en la transición
+              categoria: 'Armazones',
+              precio: Number(a.precio_gon ?? 0),
+              sku: (a.sku as string) || `ARMZ-${a.id}`,
+              stock: Number(a[stockKey] ?? 0),
+            }
+          })
         setCatalogoArmz(items)
       })
       .catch(() => setCatalogoArmz([]))

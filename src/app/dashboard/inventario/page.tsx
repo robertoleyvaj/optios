@@ -218,7 +218,7 @@ const armazonToProducto = (a: SupabaseRow): Producto => {
     _ecomm:     true,
     _ecommId:   Number(a.id),
     sku:        (a.sku as string) ?? '',
-    nombre:     `${a.marca ?? ''} ${a.nombre ?? a.modelo ?? ''}`.trim(),
+    nombre:     `${a.marca ?? ''} ${a.nombre ?? a.modelo ?? ''}`.trim() + (a.sku_viejo ? ` · #${a.sku_viejo}` : ''),
     tipo:       'armazon',
     categoria:  'Armazones',
     marca:      (a.marca as string) ?? '',
