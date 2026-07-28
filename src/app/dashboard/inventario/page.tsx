@@ -49,6 +49,17 @@ type Producto = {
   _ecommId?: number      // id real del armazón en esa base
 }
 
+// Armazón crudo tal cual viene de la base de e-commerce (para su editor propio)
+type ArmazonRaw = {
+  id: number; nombre: string; marca: string; modelo: string | null; color1: string | null
+  medidas: string | null; material: string | null; precio: number | null; precio_gon: number | null
+  costo: number | null; stock_baja: number | null; stock_mayo: number | null; stock_plaza: number | null
+  stock_online: number | null; publicar_gon: boolean | null; publicar_verly: boolean | null
+  descuento_gon: number | null; descuento_verly: number | null; activo: boolean | null; imagen_url: string | null
+}
+const TC_USD = 17
+const nEd = (v: unknown) => Number(v ?? 0)
+
 const TIPOS: Record<TipoProducto, { label: string; color: string }> = {
   armazon:    { label: 'Armazón',    color: 'bg-indigo-50 text-indigo-600' },
   consumible: { label: 'Consumible', color: 'bg-teal-50 text-[#0D9488]' },
@@ -243,6 +254,10 @@ function InventarioPage() {
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Producto | null>(null)
   const [form, setForm] = useState<Omit<Producto, 'id'>>(formVacio())
+  // Editor propio de armazones (base de e-commerce)
+  const [armazonesRaw, setArmazonesRaw] = useState<ArmazonRaw[]>([])
+  const [editArm, setEditArm] = useState<ArmazonRaw | null>(null)
+  const [guardandoArm, setGuardandoArm] = useState(false)
   const [esAdmin, setEsAdmin] = useState(false)
   const [sucursalActual, setSucursalActual] = useState('Baja Visión')
   const { usuario: sessionUser } = useSession()
@@ -278,9 +293,9 @@ function InventarioPage() {
     const servicios: Producto[] = (prodRes.data && !prodRes.error)
       ? prodRes.data.map(r => rowToProducto(r as SupabaseRow))
       : inicial
-    const armazones: Producto[] = (armzRes && armzRes.ok)
-      ? (armzRes.armazones as SupabaseRow[]).map(armazonToProducto)
-      : []
+    const armzList: ArmazonRaw[] = (armzRes && armzRes.ok) ? (armzRes.armazones as ArmazonRaw[]) : []
+    setArmazonesRaw(armzList)
+    const armazones: Producto[] = armzList.map(a => armazonToProducto(a as unknown as SupabaseRow))
     setProductos([...armazones, ...servicios])
     setCargando(false)
   }, [])
@@ -362,6 +377,12 @@ function InventarioPage() {
 
   const abrirNuevo = () => { setEditando(null); setForm(formVacio()); setModal(true) }
   const abrirEditar = (p: Producto) => {
+    // Armazón (base de e-commerce) → su editor propio (stock por sucursal, publicar, etc.)
+    if (p._ecomm && p._ecommId) {
+      const a = armazonesRaw.find(x => x.id === p._ecommId)
+      if (a) setEditArm({ ...a })
+      return
+    }
     setEditando(p)
     setForm({
       sku: p.sku, nombre: p.nombre, tipo: p.tipo, categoria: p.categoria, marca: p.marca,
@@ -426,6 +447,45 @@ function InventarioPage() {
     }
     setGuardando(false)
     setModal(false)
+  }
+
+  const setArm = (campo: keyof ArmazonRaw, val: unknown) => setEditArm(prev => prev ? { ...prev, [campo]: val } : prev)
+
+  const guardarArm = async () => {
+    if (!editArm || guardandoArm) return
+    setGuardandoArm(true)
+    const pg = nEd(editArm.precio_gon)
+    const total = nEd(editArm.stock_baja) + nEd(editArm.stock_mayo) + nEd(editArm.stock_plaza) + nEd(editArm.stock_online)
+    const payload = {
+      id: editArm.id,
+      precio_gon: pg,
+      precio: Math.round(pg / TC_USD),
+      costo: nEd(editArm.costo),
+      stock_baja: nEd(editArm.stock_baja),
+      stock_mayo: nEd(editArm.stock_mayo),
+      stock_plaza: nEd(editArm.stock_plaza),
+      stock_online: nEd(editArm.stock_online),
+      stock: total,
+      publicar_gon: !!editArm.publicar_gon,
+      publicar_verly: !!editArm.publicar_verly,
+      descuento_gon: nEd(editArm.descuento_gon),
+      descuento_verly: nEd(editArm.descuento_verly),
+      color1: editArm.color1 ?? '',
+      activo: editArm.activo !== false,
+    }
+    try {
+      const res = await fetch('/api/ecomm/armazones', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error || 'Error')
+      const upd = j.armazon as ArmazonRaw
+      setArmazonesRaw(prev => prev.map(a => a.id === editArm.id ? upd : a))
+      setProductos(prev => prev.map(p => p._ecommId === editArm.id ? armazonToProducto(upd as unknown as SupabaseRow) : p))
+      setEditArm(null)
+    } catch (e) {
+      alert('No se pudo guardar: ' + (e instanceof Error ? e.message : ''))
+    } finally {
+      setGuardandoArm(false)
+    }
   }
 
   const toggleCanal = (key: string) => {
@@ -1171,6 +1231,81 @@ function InventarioPage() {
           </div>
         </div>
       )}
+
+      {/* ── Editor de ARMAZÓN (base de e-commerce) ── */}
+      {editArm && (() => {
+        const total = nEd(editArm.stock_baja) + nEd(editArm.stock_mayo) + nEd(editArm.stock_plaza) + nEd(editArm.stock_online)
+        return (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !guardandoArm && setEditArm(null)}>
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
+              <div>
+                <h3 className="text-base font-bold text-zinc-900">{editArm.marca} {editArm.nombre}</h3>
+                <p className="text-xs text-zinc-500">{editArm.modelo || '—'}{editArm.medidas ? ` · ${editArm.medidas}` : ''}{editArm.color1 ? ` · ${editArm.color1}` : ''}</p>
+              </div>
+              <button onClick={() => !guardandoArm && setEditArm(null)} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-sm">
+              <div>
+                <p className="text-xs font-semibold text-zinc-500 mb-2">PRECIO</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Precio (MXN)</label>
+                    <input type="number" value={nEd(editArm.precio_gon)} onChange={e => setArm('precio_gon', e.target.value)} className="w-full border border-zinc-200 rounded px-2.5 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Verly (USD, auto)</label>
+                    <div className="w-full border border-zinc-100 bg-zinc-50 rounded px-2.5 py-2 text-zinc-500">USD ${Math.round(nEd(editArm.precio_gon) / TC_USD)}</div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Costo</label>
+                    <input type="number" value={nEd(editArm.costo)} onChange={e => setArm('costo', e.target.value)} className="w-full border border-zinc-200 rounded px-2.5 py-2" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-zinc-500 mb-2">EXISTENCIAS POR SUCURSAL</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {([['stock_baja', 'Baja'], ['stock_mayo', '5 Mayo'], ['stock_plaza', 'Laureles'], ['stock_online', 'Online']] as const).map(([c, l]) => (
+                    <div key={c}>
+                      <label className="block text-xs text-zinc-500 mb-1">{l}</label>
+                      <input type="number" value={nEd(editArm[c])} onChange={e => setArm(c, e.target.value)} className="w-full border border-zinc-200 rounded px-2 py-2 text-center" />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-zinc-400 mt-1">Total: {total}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-zinc-500 mb-2">PUBLICAR EN LÍNEA</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setArm('publicar_gon', !editArm.publicar_gon)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded border text-sm font-semibold ${editArm.publicar_gon ? 'bg-blue-600 text-white border-blue-600' : 'bg-zinc-50 text-zinc-500 border-zinc-200'}`}><Globe className="w-4 h-4" /> GON</button>
+                  <button onClick={() => setArm('publicar_verly', !editArm.publicar_verly)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded border text-sm font-semibold ${editArm.publicar_verly ? 'bg-violet-600 text-white border-violet-600' : 'bg-zinc-50 text-zinc-500 border-zinc-200'}`}><Globe className="w-4 h-4" /> Verly</button>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Descuento GON (%)</label>
+                    <input type="number" value={nEd(editArm.descuento_gon)} onChange={e => setArm('descuento_gon', e.target.value)} className="w-full border border-zinc-200 rounded px-2.5 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Descuento Verly (%)</label>
+                    <input type="number" value={nEd(editArm.descuento_verly)} onChange={e => setArm('descuento_verly', e.target.value)} className="w-full border border-zinc-200 rounded px-2.5 py-2" />
+                  </div>
+                </div>
+              </div>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={editArm.activo !== false} onChange={e => setArm('activo', e.target.checked)} />
+                <span className="text-sm text-zinc-600">Activo (visible en las páginas)</span>
+              </label>
+              <p className="text-[11px] text-zinc-400">Las fotos se agregan en la siguiente actualización.</p>
+            </div>
+            <div className="border-t border-zinc-200 px-5 py-4 flex gap-2">
+              <button onClick={() => setEditArm(null)} disabled={guardandoArm} className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 disabled:opacity-50">Cancelar</button>
+              <button onClick={guardarArm} disabled={guardandoArm} className="flex-1 py-2.5 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 disabled:opacity-50">{guardandoArm ? 'Guardando…' : 'Guardar cambios'}</button>
+            </div>
+          </div>
+        </div>
+        )
+      })()}
     </div>
   )
 }
