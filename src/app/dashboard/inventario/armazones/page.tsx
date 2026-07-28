@@ -42,6 +42,7 @@ function ArmazonesPage() {
   const [edit, setEdit] = useState<Armazon | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [filtroPub, setFiltroPub] = useState<'todos' | 'publicados' | 'sin'>('todos')
+  const [filtroSuc, setFiltroSuc] = useState<'Todas' | 'baja' | 'mayo' | 'plaza'>('Todas')
 
   const cargar = async () => {
     setCargando(true); setError('')
@@ -96,13 +97,20 @@ function ArmazonesPage() {
 
   const q = busqueda.trim().toLowerCase()
   const esPub = (a: Armazon) => !!a.publicar_gon || !!a.publicar_verly
+  const stockSuc = (a: Armazon) =>
+    filtroSuc === 'baja' ? num(a.stock_baja)
+    : filtroSuc === 'mayo' ? num(a.stock_mayo)
+    : filtroSuc === 'plaza' ? num(a.stock_plaza)
+    : stockTotal(a)
   const filtrada = lista.filter(a => {
     if (q && !`${a.marca} ${a.nombre} ${a.modelo ?? ''}`.toLowerCase().includes(q)) return false
     if (filtroPub === 'publicados' && !esPub(a)) return false
     if (filtroPub === 'sin' && esPub(a)) return false
+    if (filtroSuc !== 'Todas' && stockSuc(a) <= 0) return false   // solo los que están en esa óptica
     return true
   })
   const nPub = lista.filter(esPub).length
+  const SUC_LBL: Record<string, string> = { Todas: 'Todas', baja: 'Baja Visión', mayo: '5 de Mayo', plaza: 'Plaza Laureles' }
 
   const set = (campo: keyof Armazon, valor: unknown) =>
     setEdit(prev => prev ? { ...prev, [campo]: valor } : prev)
@@ -135,6 +143,13 @@ function ArmazonesPage() {
               </button>
             ))}
           </div>
+          <select value={filtroSuc} onChange={e => setFiltroSuc(e.target.value as typeof filtroSuc)}
+            className="ml-auto text-sm bg-zinc-50 border border-zinc-200 rounded px-3 py-2 text-zinc-600 focus:outline-none">
+            <option value="Todas">Todas las ópticas</option>
+            <option value="baja">Baja Visión</option>
+            <option value="mayo">5 de Mayo</option>
+            <option value="plaza">Plaza Laureles</option>
+          </select>
         </div>
 
         {error && <div className="px-5 py-3 text-sm text-red-600 bg-red-50">{error}</div>}
