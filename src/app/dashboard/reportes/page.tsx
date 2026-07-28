@@ -397,7 +397,7 @@ function ReportesPage() {
 
         <div className="flex flex-wrap gap-2 items-center">
           {/* Período (gerente: hasta mensual · admin: todo) */}
-          <div className="flex bg-zinc-100 rounded-lg p-1 gap-0.5 max-w-full overflow-x-auto">
+          <div className="flex flex-wrap bg-zinc-100 rounded-lg p-1 gap-0.5 max-w-full">
             {periodosDisponibles.map(p => (
               <button key={p.key} onClick={() => setPeriodo(p.key)}
                 className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
