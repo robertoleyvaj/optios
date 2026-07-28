@@ -1018,7 +1018,7 @@ function ExpedientesContent() {
 
           {/* ─── CARD DE ENCABEZADO ─── */}
           <div className="bg-white rounded-lg border border-zinc-200/80 p-4 flex-shrink-0">
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 flex-wrap">
               {/* Avatar */}
               <div className="w-12 h-12 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-base font-bold flex-shrink-0">
                 {seleccionado.nombre[0]}{seleccionado.apellido[0]}
@@ -1050,7 +1050,7 @@ function ExpedientesContent() {
               </div>
 
               {/* Acciones */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto justify-end">
                 <button onClick={abrirEditar}
                   className="flex items-center gap-1 px-2.5 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-100 transition-colors">
                   <Edit2 className="w-3 h-3" /> Editar
@@ -1084,7 +1084,7 @@ function ExpedientesContent() {
             </div>
 
             {/* Stats — 5 columnas */}
-            <div className="grid grid-cols-5 divide-x divide-zinc-100 mt-3 pt-3 border-t border-zinc-200">
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-y-3 md:gap-y-0 md:divide-x divide-zinc-100 mt-3 pt-3 border-t border-zinc-200">
               <div className="text-center px-2">
                 <p className="text-base font-bold text-zinc-800">{seleccionado.recetas.length}</p>
                 <p className="text-xs text-zinc-400">Recetas</p>
@@ -1125,10 +1125,10 @@ function ExpedientesContent() {
           </div>
 
           {/* CONTENIDO PRINCIPAL: receta primero, historial segundo */}
-          <div className="flex-1 flex gap-3 min-h-0">
+          <div className="flex-1 flex flex-col md:flex-row gap-3 min-h-0 overflow-y-auto md:overflow-visible">
 
             {/* Centro: receta vigente (PRIMERO) → historial */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
+            <div className="flex-1 md:overflow-y-auto space-y-3 pr-0.5">
 
               {/* ── Receta vigente — primero y más prominente ── */}
               {rv ? (
@@ -1271,7 +1271,7 @@ function ExpedientesContent() {
             </div>
 
             {/* ─── SIDEBAR DERECHO ─── */}
-            <div className="w-56 flex flex-col gap-3 overflow-y-auto flex-shrink-0">
+            <div className="w-full md:w-56 flex flex-col gap-3 md:overflow-y-auto md:flex-shrink-0">
 
               {/* Acciones rápidas — grid 2x2 */}
               <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
