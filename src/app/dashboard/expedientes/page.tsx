@@ -909,7 +909,7 @@ function ExpedientesContent() {
     <div className="flex gap-3 h-[calc(100vh-140px)]">
 
       {/* ── PANEL IZQUIERDO: lista de pacientes (colapsable) ── */}
-      <div className={`flex-shrink-0 bg-white rounded-lg border border-zinc-200/80 flex flex-col overflow-hidden transition-all duration-200 ${panelAbierto ? 'w-60' : 'w-12'}`}>
+      <div className={`bg-white rounded-lg border border-zinc-200/80 flex-col overflow-hidden transition-all duration-200 w-full md:flex-shrink-0 ${seleccionado ? 'hidden md:flex' : 'flex'} ${panelAbierto ? 'md:w-60' : 'md:w-12'}`}>
         {panelAbierto ? (
           <>
             <div className="p-3 border-b border-zinc-200 flex-shrink-0">
@@ -1008,7 +1008,13 @@ function ExpedientesContent() {
 
       {/* ── PANEL DERECHO: detalle ── */}
       {seleccionado ? (
-        <div className="flex-1 flex flex-col gap-3 min-h-0">
+        <div className="flex-1 min-w-0 w-full flex flex-col gap-3 min-h-0">
+
+          {/* Volver a la lista (solo móvil) */}
+          <button onClick={() => { setSeleccionado(null); router.replace('/dashboard/expedientes', { scroll: false }) }}
+            className="md:hidden flex items-center gap-1 text-sm text-teal-600 font-semibold">
+            <ChevronLeft className="w-4 h-4" /> Expedientes
+          </button>
 
           {/* ─── CARD DE ENCABEZADO ─── */}
           <div className="bg-white rounded-lg border border-zinc-200/80 p-4 flex-shrink-0">
@@ -1369,7 +1375,7 @@ function ExpedientesContent() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-zinc-400 text-sm">
+        <div className="flex-1 hidden md:flex items-center justify-center text-zinc-400 text-sm">
           Selecciona un paciente para ver su expediente
         </div>
       )}
