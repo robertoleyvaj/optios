@@ -400,10 +400,10 @@ export default function AgendaPage() {
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex -mx-6 -mb-6 bg-zinc-50" style={{ height: 'calc(100vh - 80px)' }}>
+    <div className="flex -mx-4 -mb-4 md:-mx-6 md:-mb-6 bg-zinc-50" style={{ height: 'calc(100vh - 80px)' }}>
 
       {/* ── SIDEBAR IZQUIERDO ─────────────────────────────────────────────── */}
-      <aside className="w-56 flex-shrink-0 bg-white border-r border-zinc-200 flex flex-col overflow-hidden">
+      <aside className="w-56 flex-shrink-0 bg-white border-r border-zinc-200 hidden md:flex flex-col overflow-hidden">
         <MiniCalendar selected={fecha} onSelect={d => { setFecha(d); setVista('dia') }} fechasConCitas={fechasSets}/>
 
         <div className="h-px bg-zinc-100 mx-4"/>
@@ -453,7 +453,7 @@ export default function AgendaPage() {
       <main className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header */}
-        <div className="bg-white border-b border-zinc-200 px-5 py-3 flex items-center gap-2.5 flex-shrink-0">
+        <div className="bg-white border-b border-zinc-200 px-3 md:px-5 py-3 flex flex-wrap items-center gap-2 md:gap-2.5 flex-shrink-0">
           <button onClick={() => { const d = new Date(fecha); d.setDate(d.getDate()-(vista==='dia'?1:7)); setFecha(d) }}
             className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 hover:bg-zinc-100">
             <ChevronLeft className="w-4 h-4 text-zinc-500"/>
