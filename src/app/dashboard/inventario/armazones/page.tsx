@@ -41,6 +41,7 @@ function ArmazonesPage() {
   const [busqueda, setBusqueda] = useState('')
   const [edit, setEdit] = useState<Armazon | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [filtroPub, setFiltroPub] = useState<'todos' | 'publicados' | 'sin'>('todos')
 
   const cargar = async () => {
     setCargando(true); setError('')
@@ -94,9 +95,14 @@ function ArmazonesPage() {
   }
 
   const q = busqueda.trim().toLowerCase()
-  const filtrada = q
-    ? lista.filter(a => `${a.marca} ${a.nombre} ${a.modelo ?? ''}`.toLowerCase().includes(q))
-    : lista
+  const esPub = (a: Armazon) => !!a.publicar_gon || !!a.publicar_verly
+  const filtrada = lista.filter(a => {
+    if (q && !`${a.marca} ${a.nombre} ${a.modelo ?? ''}`.toLowerCase().includes(q)) return false
+    if (filtroPub === 'publicados' && !esPub(a)) return false
+    if (filtroPub === 'sin' && esPub(a)) return false
+    return true
+  })
+  const nPub = lista.filter(esPub).length
 
   const set = (campo: keyof Armazon, valor: unknown) =>
     setEdit(prev => prev ? { ...prev, [campo]: valor } : prev)
@@ -120,6 +126,14 @@ function ArmazonesPage() {
             <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar por marca, nombre o modelo..."
               className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+          </div>
+          <div className="flex bg-zinc-100 rounded p-0.5 gap-0.5 text-xs">
+            {([['todos', `Todos (${lista.length})`], ['publicados', `En línea (${nPub})`], ['sin', 'Sin publicar']] as const).map(([val, lbl]) => (
+              <button key={val} onClick={() => setFiltroPub(val)}
+                className={`px-3 py-1.5 rounded font-semibold transition-colors ${filtroPub === val ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}>
+                {lbl}
+              </button>
+            ))}
           </div>
         </div>
 
