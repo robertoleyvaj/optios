@@ -874,8 +874,8 @@ export default function VentasPage() {
 
       {/* Tabla */}
       <div className="bg-white rounded-lg border border-zinc-200/80">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-200">
-          <div className="relative flex-1 max-w-xs">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 px-4 md:px-5 py-3 md:py-4 border-b border-zinc-200">
+          <div className="relative w-full sm:w-auto sm:flex-1 sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar por cliente, folio o producto..."
@@ -888,7 +888,7 @@ export default function VentasPage() {
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
           </div>
-          <div className="flex bg-zinc-100 rounded p-0.5 gap-0.5 text-xs">
+          <div className="flex flex-wrap bg-zinc-100 rounded p-0.5 gap-0.5 text-xs">
             {(['todas', 'pendientes', 'liquidadas', 'cotizaciones'] as const).map(f => (
               <button key={f} onClick={() => setFiltroPago(f)}
                 className={`px-2.5 py-1 rounded font-medium transition-all ${
@@ -904,12 +904,48 @@ export default function VentasPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div>
           {cargando ? (
             <div className="flex items-center justify-center py-16">
               <div className="w-6 h-6 border-2 border-[#0D9488] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
+          <>
+            {/* ── MÓVIL: tarjetas (todo apilado, sin scroll horizontal) ── */}
+            <div className="md:hidden divide-y divide-zinc-100">
+              {ventasFiltradas.map(v => {
+                const m = metodoBadge[v.metodo] ?? metodoBadge.otros
+                const MIcon = m.icon
+                const saldo = saldoPendiente(v)
+                const prods = v.items.length > 0 ? v.items.map(i => i.nombre + (i.cantidad > 1 ? ` x${i.cantidad}` : '')).join(' + ') : '—'
+                return (
+                  <button key={v.uuid} onClick={() => { setDetalle(v); setShowAbono(false); setAbonoMonto('') }}
+                    className="w-full text-left px-4 py-3 active:bg-zinc-50">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-mono font-semibold text-zinc-500">{v.id}</span>
+                      <span className="text-base font-bold text-zinc-900">${v.total.toLocaleString('es-MX')}</span>
+                    </div>
+                    <p className="text-sm font-semibold text-zinc-800 mt-0.5">{v.cliente || '—'}</p>
+                    <p className="text-xs text-zinc-400 truncate">{prods}</p>
+                    <div className="flex items-center justify-between mt-2 gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {v.id.startsWith('COT-') ? (
+                          <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Cotización</span>
+                        ) : saldo > 0 ? (
+                          <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">${saldo.toLocaleString('es-MX')} pendiente</span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${m.cls}`}><MIcon className="w-3 h-3" />{m.label}</span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-zinc-400 whitespace-nowrap">{v.sucursal} · {v.fecha}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* ── ESCRITORIO: tabla ── */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200">
@@ -965,6 +1001,8 @@ export default function VentasPage() {
                 })}
               </tbody>
             </table>
+            </div>
+          </>
           )}
           {!cargando && ventasFiltradas.length === 0 && (
             <div className="text-center py-16 text-zinc-400 text-sm">No se encontraron ventas.</div>
