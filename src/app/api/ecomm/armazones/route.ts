@@ -32,7 +32,7 @@ export async function PATCH(req: Request) {
     // Solo permitimos actualizar campos conocidos (evita escribir columnas raras)
     const permitidos = new Set([
       'nombre', 'marca', 'modelo', 'color1', 'medidas', 'material', 'precio', 'precio_gon',
-      'costo', 'stock_baja', 'stock_mayo', 'stock_plaza', 'stock_online',
+      'costo', 'stock', 'stock_baja', 'stock_mayo', 'stock_plaza', 'stock_online',
       'publicar_gon', 'publicar_verly', 'descuento_gon', 'descuento_verly', 'activo',
     ])
     const update: Record<string, unknown> = {}

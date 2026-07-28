@@ -45,6 +45,8 @@ type Producto = {
   descripcion?: string
   color?: string
   medidas?: { ojo?: string; puente?: string; varilla?: string; alto?: string }
+  _ecomm?: boolean       // true = armazón que vive en la base de e-commerce (webs)
+  _ecommId?: number      // id real del armazón en esa base
 }
 
 const TIPOS: Record<TipoProducto, { label: string; color: string }> = {
@@ -189,6 +191,38 @@ const productoToRow = (p: Omit<Producto, 'id'>) => ({
   updated_at:  new Date().toISOString(),
 })
 
+// Armazón (base de e-commerce) → Producto, para mostrarlo en esta pantalla
+const armazonToProducto = (a: SupabaseRow): Producto => {
+  const baja = Number(a.stock_baja ?? 0), mayo = Number(a.stock_mayo ?? 0), plaza = Number(a.stock_plaza ?? 0)
+  const canales: string[] = []
+  if (baja > 0)  canales.push('baja')
+  if (mayo > 0)  canales.push('mayo')
+  if (plaza > 0) canales.push('plaza')
+  if (a.publicar_gon)   canales.push('gon')
+  if (a.publicar_verly) canales.push('verly')
+  return {
+    id:         -Number(a.id),        // negativo: no choca con ids de productos
+    _ecomm:     true,
+    _ecommId:   Number(a.id),
+    sku:        (a.sku as string) ?? '',
+    nombre:     `${a.marca ?? ''} ${a.nombre ?? a.modelo ?? ''}`.trim(),
+    tipo:       'armazon',
+    categoria:  'Armazones',
+    marca:      (a.marca as string) ?? '',
+    precio:     Number(a.precio_gon ?? 0),
+    costo:      Number(a.costo ?? 0),
+    ubicacion:  [baja > 0 && 'Baja Visión', mayo > 0 && '5 de Mayo', plaza > 0 && 'Plaza Laureles'].filter(Boolean).join(', ') || 'Sin stock',
+    canales,
+    estado:     'disponible',
+    stock:      baja + mayo + plaza,
+    stockBaja:  baja, stockMayo: mayo, stockPlaza: plaza,
+    stockMin:   0,
+    descripcion: '',
+    color:      (a.color1 as string) ?? '',
+    medidas:    {},
+  }
+}
+
 // ─────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────
@@ -237,19 +271,17 @@ function InventarioPage() {
   // ── Cargar productos desde Supabase ──
   const cargarProductos = useCallback(async () => {
     setCargando(true)
-    const { data, error } = await createClient()
-      .from('productos')
-      .select('*')
-      .eq('activo', true)
-      .order('tipo')
-      .order('categoria')
-      .order('nombre')
-    if (data && !error) {
-      setProductos(data.map(r => rowToProducto(r as SupabaseRow)))
-    } else {
-      // Fallback al catálogo hardcodeado si la tabla no existe aún
-      setProductos(inicial)
-    }
+    const [prodRes, armzRes] = await Promise.all([
+      createClient().from('productos').select('*').eq('activo', true).order('tipo').order('categoria').order('nombre'),
+      fetch('/api/ecomm/armazones', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ ok: false })),
+    ])
+    const servicios: Producto[] = (prodRes.data && !prodRes.error)
+      ? prodRes.data.map(r => rowToProducto(r as SupabaseRow))
+      : inicial
+    const armazones: Producto[] = (armzRes && armzRes.ok)
+      ? (armzRes.armazones as SupabaseRow[]).map(armazonToProducto)
+      : []
+    setProductos([...armazones, ...servicios])
     setCargando(false)
   }, [])
 
@@ -350,6 +382,35 @@ function InventarioPage() {
     const row = productoToRow({ ...form, canales: canalesFinal })
     const sb = createClient()
 
+    if (editando && editando._ecomm && editando._ecommId) {
+      // Armazón: se guarda en la base de e-commerce vía API (no en productos)
+      const cf = canalesFinal ?? []
+      const sb2 = (form.stockBaja ?? 0) + (form.stockMayo ?? 0) + (form.stockPlaza ?? 0)
+      const payload = {
+        id:             editando._ecommId,
+        precio_gon:     form.precio,
+        precio:         Math.round((form.precio || 0) / 17),
+        costo:          form.costo,
+        stock_baja:     form.stockBaja ?? 0,
+        stock_mayo:     form.stockMayo ?? 0,
+        stock_plaza:    form.stockPlaza ?? 0,
+        stock:          sb2,
+        publicar_gon:   cf.includes('gon'),
+        publicar_verly: cf.includes('verly'),
+      }
+      const res = await fetch('/api/ecomm/armazones', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      })
+      const j = await res.json()
+      if (j.ok) {
+        setProductos(prev => prev.map(p => p.id === editando.id ? { ...p, ...form, canales: canalesFinal } : p))
+      } else {
+        alert('Error al guardar armazón: ' + (j.error || ''))
+      }
+      setGuardando(false); setModal(false)
+      return
+    }
+
     if (editando) {
       const { error } = await sb.from('productos').update(row).eq('id', editando.id)
       if (!error) {
@@ -406,9 +467,12 @@ function InventarioPage() {
       <div className="grid grid-cols-3 gap-4">
         {SUCURSALES_FISICAS.map(suc => {
           const cap     = CAPACIDAD_EXHIBICION[suc]
-          const armSuc  = productos.filter(p => p.tipo === 'armazon' && p.ubicacion === suc)
-          const enPiso  = armSuc.filter(p => p.estado === 'disponible' || p.estado === 'apartado').length
-          const reserva = armSuc.filter(p => p.estado === 'disponible').length
+          // En piso = suma del stock real de armazones en esa óptica (por sucursal)
+          const enPiso  = productos.filter(p => p.tipo === 'armazon').reduce((s, p) =>
+            s + (suc === 'Baja Visión' ? (p.stockBaja ?? 0)
+               : suc === '5 de Mayo'   ? (p.stockMayo ?? 0)
+               : (p.stockPlaza ?? 0)), 0)
+          const reserva = enPiso
           const vacios  = Math.max(0, cap - enPiso)
           const pct     = Math.min(100, Math.round((enPiso / cap) * 100))
           const critico = reserva <= RESERVA_ALERTA

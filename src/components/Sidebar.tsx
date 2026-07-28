@@ -68,13 +68,7 @@ const MENU_CORE: MenuItem[] = [
 // Módulos de gestión — gerente y admin
 const MENU_GESTION: MenuItem[] = [
   { type: 'sep', label: 'Gestión', key: '_sep_gestion' },
-  {
-    href: '/dashboard/inventario',  label: 'Inventario',       icon: Package,    key: 'inventario',
-    subItems: [
-      { href: '/dashboard/inventario',          label: 'Servicios e interno', icon: Package },
-      { href: '/dashboard/inventario/armazones', label: 'Armazones',           icon: Package },
-    ],
-  },
+  { href: '/dashboard/inventario',  label: 'Inventario',       icon: Package,    key: 'inventario' },
   { href: '/dashboard/reportes',    label: 'Reportes',         icon: BarChart3,  key: 'reportes' },
   // Ocultos temporalmente para enfocar el flujo hasta el corte (reactivar después):
   // { href: '/dashboard/analitica',   label: 'Analítica',        icon: Microscope, key: 'analitica', pronto: true },
