@@ -106,7 +106,7 @@ function ArmazonesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Armazones</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Catálogo conectado a GON y Verly · {lista.length} armazones</p>
+          <p className="text-sm text-zinc-500 mt-0.5">Inventario de las 3 ópticas · {lista.length} armazones · publica en línea los que quieras</p>
         </div>
         <button onClick={cargar} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-800 border border-zinc-200 rounded px-3 py-2">
           <RefreshCw className="w-4 h-4" /> Actualizar

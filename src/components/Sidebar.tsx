@@ -72,7 +72,7 @@ const MENU_GESTION: MenuItem[] = [
     href: '/dashboard/inventario',  label: 'Inventario',       icon: Package,    key: 'inventario',
     subItems: [
       { href: '/dashboard/inventario',          label: 'Servicios e interno', icon: Package },
-      { href: '/dashboard/inventario/armazones', label: 'Armazones (web)',     icon: Package },
+      { href: '/dashboard/inventario/armazones', label: 'Armazones',           icon: Package },
     ],
   },
   { href: '/dashboard/reportes',    label: 'Reportes',         icon: BarChart3,  key: 'reportes' },
