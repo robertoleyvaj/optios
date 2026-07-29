@@ -588,8 +588,44 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
     const sb  = createClient()
     const hoy = hoyLocal()
 
-    const notasConUSD = efectivoUSD.transacciones > 0
-      ? `[USD] Sistema: $${esperadoUSD.toFixed(2)} · Contado: $${contadoUSD.toFixed(2)} · Dif: ${diferenciaUSD >= 0 ? '+' : ''}$${diferenciaUSD.toFixed(2)} | ${notas}`
+    // ── RECALCULAR con datos FRESCOS de la base (evita cerrar con pagos viejos
+    //    del navegador y que se salten ventas del día). Esto es la fuente de verdad. ──
+    const { data: uCorte } = await sb.from('cortes_caja')
+      .select('fondo, fondo_usd, cerrado_at')
+      .eq('sucursal', usuario.sucursal).eq('cerrado', true).lt('fecha', hoy)
+      .order('fecha', { ascending: false }).limit(1).maybeSingle()
+    const pStart = uCorte?.cerrado_at ?? '2000-01-01T00:00:00Z'
+    const rango  = rangoDiaLocal(hoy)
+    const esHoyF = (ts: string) => ts >= rango.start && ts <= rango.end
+    const [{ data: pg }, { data: eg }] = await Promise.all([
+      sb.from('pagos_venta').select('metodo_pago, monto, moneda, monto_origen').eq('sucursal', usuario.sucursal).gt('created_at', pStart),
+      sb.from('gastos').select('monto, metodo_pago, created_at').eq('sucursal', usuario.sucursal).eq('es_caja', true).gt('created_at', pStart),
+    ])
+    let efHoy = 0, efPrev = 0, usdHoy = 0, usdPrev = 0
+    for (const p of (pg ?? []) as { metodo_pago: string; monto: number; moneda: string; monto_origen: number | null; created_at?: string }[]) {
+      const es = esHoyF((p as { created_at?: string }).created_at ?? '')
+      if (p.metodo_pago === 'efectivo' && p.moneda === 'USD') { if (es) usdHoy += Number(p.monto_origen ?? 0); else usdPrev += Number(p.monto_origen ?? 0) }
+      else if (p.metodo_pago === 'efectivo') { if (es) efHoy += Number(p.monto); else efPrev += Number(p.monto) }
+    }
+    let egHoy = 0, egPrev = 0, egUsdHoy = 0, egUsdPrev = 0
+    for (const g of (eg ?? []) as { monto: number; metodo_pago: string | null; created_at: string }[]) {
+      const es = esHoyF(g.created_at)
+      if (g.metodo_pago === 'efectivo_usd') { if (es) egUsdHoy += Number(g.monto); else egUsdPrev += Number(g.monto) }
+      else if ((g.metodo_pago ?? 'efectivo') === 'efectivo') { if (es) egHoy += Number(g.monto); else egPrev += Number(g.monto) }
+    }
+    const esperadoF    = Math.round(((Number(uCorte?.fondo ?? 0) + efPrev - egPrev) + efHoy - egHoy) * 100) / 100
+    const esperadoUSDF = Math.round(((Number(uCorte?.fondo_usd ?? 0) + usdPrev - egUsdPrev) + usdHoy - egUsdHoy) * 100) / 100
+    const contadoF     = parseFloat(efectivoContado) || 0
+    const contadoUSDF  = parseFloat(efectivoUSDContado) || 0
+    const difF         = Math.round((contadoF - esperadoF) * 100) / 100
+    const difUSDF      = Math.round((contadoUSDF - esperadoUSDF) * 100) / 100
+    const retiroF      = parseFloat(retiro) || 0
+    const retiroUSDF   = parseFloat(retiroUSD) || 0
+    const remF         = Math.max(0, contadoF - retiroF)
+    const remUSDF      = Math.max(0, contadoUSDF - retiroUSDF)
+
+    const notasConUSD = (usdHoy > 0 || contadoUSDF > 0 || esperadoUSDF > 0)
+      ? `[USD] Sistema: $${esperadoUSDF.toFixed(2)} · Contado: $${contadoUSDF.toFixed(2)} · Dif: ${difUSDF >= 0 ? '+' : ''}$${difUSDF.toFixed(2)} | ${notas}`
       : notas
 
     const payload = {
@@ -597,13 +633,13 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
       sucursal:         usuario.sucursal,
       usuario:          usuario.nombre,
       total_ventas:     total,
-      efectivo_sistema: esperado,
-      efectivo_contado: contado,
-      diferencia,
-      fondo:            remanente,     // remanente en pesos que queda para mañana
-      entrega:          retiroNum,     // retiro en pesos que va al sobre
-      fondo_usd:        remanenteUSD,  // remanente en dólares que queda para mañana
-      entrega_usd:      retiroUSDNum,  // retiro en dólares que va al sobre
+      efectivo_sistema: esperadoF,
+      efectivo_contado: contadoF,
+      diferencia:       difF,
+      fondo:            remF,          // remanente en pesos que queda para mañana
+      entrega:          retiroF,       // retiro en pesos que va al sobre
+      fondo_usd:        remUSDF,       // remanente en dólares que queda para mañana
+      entrega_usd:      retiroUSDF,    // retiro en dólares que va al sobre
       notas:            notasConUSD,
       cerrado:          true,
       cerrado_at:       new Date().toISOString(),  // momento exacto del cierre
@@ -1126,7 +1162,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
             )}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowCierreModal(true)}
+                onClick={() => { cargarDatos(usuario.sucursal, usuario.rol); setShowCierreModal(true) }}
                 disabled={!efectivoContado || guardando}
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#0B0E14] text-white rounded text-sm font-bold hover:bg-[#1A1D27] disabled:opacity-40 transition-all"
               >
