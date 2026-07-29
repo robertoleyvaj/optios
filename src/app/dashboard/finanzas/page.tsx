@@ -42,6 +42,13 @@ const CATEGORIAS_MANUAL = ['renta', 'nomina', 'bonos_comisiones', 'proveedores',
 const CATEGORIAS_GASTO = [...CATEGORIAS_MANUAL, 'comision_terminal', 'bono_diario', 'adelanto', 'comisiones', 'compras']
 // Movimientos del dueño (no son costos del negocio, se muestran aparte)
 const CATEGORIAS_RETIRO = ['retiro_admin']
+
+// Color por sucursal (para el P&L por óptica)
+const COLOR_SUC: Record<string, string> = {
+  'Baja Visión':    '#0D9488',
+  '5 de Mayo':      '#0B0E14',
+  'Plaza Laureles': '#6366F1',
+}
 const CATEGORIAS_LABEL: Record<string, string> = {
   renta:              'Renta',
   nomina:             'Nómina / Sueldos',
@@ -119,6 +126,8 @@ function FinanzasPage() {
   const [ingresos,   setIngresos]   = useState(0)
   const [costoLab,   setCostoLab]   = useState(0)
   const [gastos,     setGastos]     = useState<Gasto[]>([])
+  const [ingresosPorSuc, setIngresosPorSuc] = useState<Record<string, number>>({})
+  const [costoLabPorSuc, setCostoLabPorSuc] = useState<Record<string, number>>({})
   const [porLab,     setPorLab]     = useState<{ nombre: string; total: number; count: number }[]>([])
   const [cargando,   setCargando]   = useState(true)
 
@@ -160,7 +169,7 @@ function FinanzasPage() {
     // Cobrado: lo que efectivamente entró de ventas del período (total - saldo)
     let qVentas = supabase
       .from('ventas')
-      .select('folio, total, saldo, created_at, atendido_por')
+      .select('folio, total, saldo, created_at, atendido_por, sucursal')
       .eq('es_cotizacion', false)
       .gte('created_at', rangoInicio)
       .lte('created_at', rangoFin)
@@ -171,6 +180,14 @@ function FinanzasPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setTotalVentas(ventasRows.reduce((s: number, v: any) => s + (parseFloat(v.total) || 0), 0))
     setIngresos(ventasRows.reduce((s, v) => s + (v.total - v.saldo), 0))
+    // Ingresos (cobrado) por sucursal — para el P&L por óptica
+    const ingSuc: Record<string, number> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const v of ventasRows as any[]) {
+      const s = v.sucursal || '—'
+      ingSuc[s] = (ingSuc[s] || 0) + ((parseFloat(v.total) || 0) - (parseFloat(v.saldo) || 0))
+    }
+    setIngresosPorSuc(ingSuc)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setVentasDetalle(ventasRows.map((v: any) => ({
       folio:       v.folio ?? '',
@@ -185,7 +202,7 @@ function FinanzasPage() {
     // Costo lab: órdenes pagadas — usa fecha_pago_lab para reflejar cuándo salió el dinero
     let qLab = supabase
       .from('ordenes_lab')
-      .select('folio, costo_lab, laboratorio, fecha_pago_lab, paciente')
+      .select('folio, costo_lab, laboratorio, fecha_pago_lab, paciente, sucursal')
       .eq('pagado_lab', true)
       .gt('costo_lab', 0)
       .gte('fecha_pago_lab', inicio)
@@ -195,6 +212,14 @@ function FinanzasPage() {
     const { data: labData } = await qLab
     const labRows = labData || []
     setCostoLab(labRows.reduce((s, r) => s + (r.costo_lab || 0), 0))
+    // Costo de laboratorio por sucursal — para el P&L por óptica
+    const labSuc: Record<string, number> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const r of labRows as any[]) {
+      const s = r.sucursal || '—'
+      labSuc[s] = (labSuc[s] || 0) + (parseFloat(r.costo_lab) || 0)
+    }
+    setCostoLabPorSuc(labSuc)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setLabDetalle(labRows.map((r: any) => ({
       folio:       r.folio ?? '',
@@ -243,6 +268,25 @@ function FinanzasPage() {
   const utilidadNeta     = utilidadBruta - totalGastos
   const flujoNeto        = utilidadNeta - totalRetiros
   const margen           = ingresos > 0 ? Math.round((utilidadNeta / ingresos) * 100) : 0
+
+  // ── Egresos por categoría (para el desglose visible al picar "Egresos") ──
+  const egresosPorCat = Object.entries(
+    gastosOperativos.reduce((m, g) => { m[g.categoria] = (m[g.categoria] || 0) + g.monto; return m }, {} as Record<string, number>),
+  ).map(([cat, monto]) => ({ cat, monto })).sort((a, b) => b.monto - a.monto)
+
+  // ── Rentabilidad por sucursal (P&L por óptica) ──
+  // Gastos "generales" = los que no son de una sucursal específica (ej. 'General').
+  // Se reparten en partes iguales entre las 3 ópticas (overhead ÷ 3).
+  const SUCS_FIN = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
+  const overheadGeneral = gastosOperativos.filter(g => !SUCS_FIN.includes(g.sucursal)).reduce((s, g) => s + g.monto, 0)
+  const overheadPorSuc  = overheadGeneral / 3
+  const finPorSucursal = SUCS_FIN.map(s => {
+    const ing      = ingresosPorSuc[s] || 0
+    const lab      = costoLabPorSuc[s] || 0
+    const directos = gastosOperativos.filter(g => g.sucursal === s).reduce((a, g) => a + g.monto, 0)
+    const util     = ing - lab - directos - overheadPorSuc
+    return { nombre: s, ing, lab, directos, overhead: overheadPorSuc, util, margen: ing > 0 ? Math.round((util / ing) * 100) : 0 }
+  }).sort((a, b) => b.util - a.util)
 
   // ── Guardar / editar gasto ──
   const guardarGasto = async () => {
@@ -372,6 +416,51 @@ function FinanzasPage() {
             })}
           </div>
 
+          {/* ── Rentabilidad por sucursal (solo en vista "Todas") ── */}
+          {sucursal === 'Todas' && (
+            <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
+              <div className="flex items-baseline justify-between mb-1">
+                <h3 className="text-sm font-bold text-zinc-700">Rentabilidad por sucursal</h3>
+                {overheadGeneral > 0 && (
+                  <span className="text-[11px] text-zinc-400">Overhead general {$$(overheadGeneral)} repartido ÷3</span>
+                )}
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">Cada óptica como su propio negocio · utilidad real con su parte de gastos generales</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {finPorSucursal.map((s, i) => {
+                  const lider = i === 0 && s.util > 0
+                  const perdida = s.util < 0
+                  return (
+                    <div key={s.nombre} className={`rounded-lg border p-4 ${lider ? 'border-emerald-300' : perdida ? 'border-red-300' : 'border-zinc-200'}`}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: COLOR_SUC[s.nombre] }} />
+                          <span className="text-sm font-bold text-zinc-800">{s.nombre}</span>
+                        </div>
+                        {lider && <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full">MÁS RENTABLE</span>}
+                        {perdida && <span className="text-[9px] font-bold bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full">EN PÉRDIDA</span>}
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        <div className="flex justify-between text-xs"><span className="text-zinc-500">Ingresos</span><span className="font-semibold text-zinc-700">{$$(s.ing)}</span></div>
+                        <div className="flex justify-between text-xs"><span className="text-zinc-500">− Costo laboratorio</span><span className="text-violet-600">−{$$(s.lab)}</span></div>
+                        <div className="flex justify-between text-xs"><span className="text-zinc-500">− Gastos directos</span><span className="text-red-500">−{$$(s.directos)}</span></div>
+                        <div className="flex justify-between text-xs"><span className="text-zinc-500">− Overhead (÷3)</span><span className="text-amber-600">−{$$(s.overhead)}</span></div>
+                        <div className="flex justify-between text-sm pt-2 mt-1 border-t border-zinc-100">
+                          <span className="font-bold text-zinc-700">Utilidad neta</span>
+                          <span className={`font-bold ${s.util >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{$$(s.util)}</span>
+                        </div>
+                      </div>
+                      <div className={`text-center mt-3 rounded-lg py-2 ${s.util >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                        <span className={`text-lg font-bold ${s.util >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{s.margen}%</span>
+                        <span className="text-[10px] text-zinc-400 block -mt-0.5">margen neto</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* ── Panel de desglose (aparece al picar una card) ── */}
           {cardActiva && (
             <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
@@ -478,6 +567,25 @@ function FinanzasPage() {
                     </h3>
                     {gastos.length > 0 && <span className="text-sm font-bold text-red-500">{$$(totalGastos)}</span>}
                   </div>
+                  {/* Desglose por categoría — en qué se va el dinero */}
+                  {egresosPorCat.length > 0 && (
+                    <div className="px-5 py-4 border-b border-zinc-200 space-y-2.5">
+                      {egresosPorCat.map(({ cat, monto }) => {
+                        const pct = totalGastos > 0 ? Math.round((monto / totalGastos) * 100) : 0
+                        return (
+                          <div key={cat}>
+                            <div className="flex justify-between items-baseline mb-1">
+                              <span className="text-sm text-zinc-700 font-medium">{CATEGORIAS_LABEL[cat] || cat}</span>
+                              <span className="text-xs text-zinc-400">{$$(monto)} · {pct}%</span>
+                            </div>
+                            <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${Math.max(pct, 2)}%` }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                   {gastos.length === 0 ? (
                     <div className="text-center py-12 text-zinc-400">
                       <p className="text-sm">Sin gastos registrados en este período</p>
