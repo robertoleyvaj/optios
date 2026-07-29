@@ -522,7 +522,7 @@ function InventarioPage() {
     <div className="space-y-5">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Inventario</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Estado de exhibición y stock por sucursal</p>
@@ -531,22 +531,22 @@ function InventarioPage() {
           {esAdmin && (
             <button
               onClick={abrirNuevo}
-              className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-zinc-800 active:scale-[0.98] transition-all"
+              className="flex-1 sm:flex-none justify-center flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-zinc-800 active:scale-[0.98] transition-all"
             >
-              <Plus className="w-4 h-4" /> Nuevo producto
+              <Plus className="w-4 h-4" /> <span className="whitespace-nowrap">Nuevo producto</span>
             </button>
           )}
           <button
             onClick={() => { setVerifSucursal(sucursalActual); iniciarVerificacion() }}
-            className="flex items-center gap-2 bg-[#0D9488] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-teal-600 active:scale-[0.98] transition-all"
+            className="flex-1 sm:flex-none justify-center flex items-center gap-2 bg-[#0D9488] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-teal-600 active:scale-[0.98] transition-all"
           >
-            <ClipboardCheck className="w-4 h-4" /> Verificar inventario
+            <ClipboardCheck className="w-4 h-4" /> <span className="whitespace-nowrap">Verificar inventario</span>
           </button>
         </div>
       </div>
 
       {/* Tableros por sucursal */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {SUCURSALES_FISICAS.map(suc => {
           const cap     = CAPACIDAD_EXHIBICION[suc]
           // En piso = suma del stock real de armazones en esa óptica (por sucursal)
@@ -613,7 +613,7 @@ function InventarioPage() {
       </div>
 
       {/* KPIs compactos */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-white rounded-lg px-4 py-3 border border-zinc-200/80 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
             <Layers className="w-4 h-4 text-indigo-500" />
@@ -729,7 +729,59 @@ function InventarioPage() {
             )}
           </div>
         ) : (
-        <div className="overflow-x-auto">
+        <>
+        {/* Móvil: tarjetas */}
+        <div className="md:hidden divide-y divide-zinc-100">
+          {filtrados.map(p => {
+            const margen = p.costo > 0 ? Math.round(((p.precio - p.costo) / p.precio) * 100) : 0
+            const stockBajo = p.tipo === 'consumible' && (p.stock ?? 0) <= (p.stockMin ?? 0)
+            const estadoConfig = p.estado ? ESTADO[p.estado] : null
+            const opaco = p.estado === 'vendido'
+            return (
+              <button key={p.id} onClick={() => esAdmin && abrirEditar(p)}
+                className={`w-full text-left px-4 py-3.5 active:bg-zinc-50 transition-colors ${opaco ? 'opacity-50' : ''}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-zinc-800 text-[15px] leading-snug">{p.nombre}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      {p.marca ? `${p.marca} · ` : ''}<span className="font-mono">{p.sku}</span>
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold text-zinc-800">${p.precio.toLocaleString('es-MX')}</p>
+                    {margen > 0 && <p className="text-xs text-emerald-500">{margen}%</p>}
+                  </div>
+                </div>
+                <div className="flex items-center flex-wrap gap-1.5 mt-2">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${TIPOS[p.tipo].color}`}>{TIPOS[p.tipo].label}</span>
+                  <span className="text-xs text-zinc-500 flex items-center gap-1">
+                    <Store className="w-3 h-3 text-zinc-400" /> {p.ubicacion}
+                  </span>
+                  {estadoConfig && (
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded ${estadoConfig.bg} ${estadoConfig.text}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${estadoConfig.dot}`} />{estadoConfig.label}
+                    </span>
+                  )}
+                  {p.tipo === 'consumible' && (
+                    <span className={`text-xs font-bold ${stockBajo ? 'text-red-500' : 'text-zinc-600'}`}>
+                      {p.stock} uds. <span className="font-normal text-zinc-400">(mín. {p.stockMin})</span>
+                    </span>
+                  )}
+                </div>
+                {p.tipo === 'armazon' && (p.canales?.length ?? 0) > 0 && (
+                  <div className="mt-2"><CanalBadges canales={p.canales ?? []} /></div>
+                )}
+              </button>
+            )
+          })}
+          {!cargando && filtrados.length === 0 && (
+            <div className="text-center py-16 text-zinc-400 text-sm">No se encontraron productos.</div>
+          )}
+          {cargando && <div className="text-center py-16 text-zinc-400 text-sm">Cargando inventario...</div>}
+        </div>
+
+        {/* Escritorio: tabla */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50/50">
@@ -814,6 +866,7 @@ function InventarioPage() {
             <div className="text-center py-16 text-zinc-400 text-sm">No se encontraron productos.</div>
           )}
         </div>
+        </>
         )}
       </div>
 
