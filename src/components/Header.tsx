@@ -185,9 +185,9 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       {/* ── Right ── */}
       <div className="flex items-center gap-2">
 
-        {/* Date + Sucursal — hidden on mobile */}
-        <div className="text-right mr-2 hidden md:block">
-          <p className="text-[11px] text-zinc-400">{todayStr}</p>
+        {/* Date + Sucursal — fecha solo en desktop, selector de sucursal también en móvil */}
+        <div className="text-right mr-2">
+          <p className="text-[11px] text-zinc-400 hidden md:block">{todayStr}</p>
           <div className="flex items-center justify-end gap-1 mt-0.5">
             <Store className="w-3 h-3 text-teal-500" />
             {(usuario.rol === 'administrador' || usuario.rol === 'gerente') ? (
