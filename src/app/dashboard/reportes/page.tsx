@@ -163,7 +163,8 @@ function ReportesPage() {
   const [ordLab,     setOrdLab]     = useState<OrdenLab[]>([])
   const [prevTotal,  setPrevTotal]  = useState(0)   // ventas del periodo anterior (para ▲/▼)
   const [enCaja,     setEnCaja]     = useState(0)    // efectivo en caja hoy (las 3 sucursales)
-  const [cajaSaldos, setCajaSaldos] = useState<{ sucursal: string; fondo: number; ingresos: number; egresos: number; saldo: number }[]>([])
+  const [enCajaUSD,  setEnCajaUSD]  = useState(0)    // dólares en caja (las 3 sucursales)
+  const [cajaSaldos, setCajaSaldos] = useState<{ sucursal: string; fondo: number; ingresos: number; egresos: number; saldo: number; saldoUsd: number }[]>([])
   const [cajaAbierto, setCajaAbierto] = useState(false)
   const [deudaListos, setDeudaListos] = useState(0)  // saldo pendiente de ventas con lentes listos
   const [cargando,   setCargando]   = useState(true)
@@ -239,13 +240,13 @@ function ReportesPage() {
     // Último corte CERRADO por sucursal (define el fondo y el punto de arranque)
     const { data: cortesData } = await sb
       .from('cortes_caja')
-      .select('sucursal, fondo, cerrado_at')
+      .select('sucursal, fondo, fondo_usd, cerrado_at')
       .eq('cerrado', true)
       .not('cerrado_at', 'is', null)
       .order('cerrado_at', { ascending: false, nullsFirst: false })
-    const lastCorte: Record<string, { fondo: number; cerrado_at: string | null }> = {}
-    for (const c of (cortesData ?? []) as { sucursal: string; fondo: number; cerrado_at: string | null }[]) {
-      if (!lastCorte[c.sucursal]) lastCorte[c.sucursal] = { fondo: Number(c.fondo) || 0, cerrado_at: c.cerrado_at }
+    const lastCorte: Record<string, { fondo: number; fondoUsd: number; cerrado_at: string | null }> = {}
+    for (const c of (cortesData ?? []) as { sucursal: string; fondo: number; fondo_usd: number | null; cerrado_at: string | null }[]) {
+      if (!lastCorte[c.sucursal]) lastCorte[c.sucursal] = { fondo: Number(c.fondo) || 0, fondoUsd: Number(c.fondo_usd) || 0, cerrado_at: c.cerrado_at }
     }
     const cortesTs = sucsCaja.map(s => lastCorte[s]?.cerrado_at).filter(Boolean) as string[]
     const minCerrado = cortesTs.length ? cortesTs.reduce((a, b) => (a < b ? a : b)) : '1970-01-01T00:00:00Z'
@@ -254,6 +255,10 @@ function ReportesPage() {
     let qEf = sb.from('pagos_venta')
       .select('sucursal, monto, created_at')
       .eq('metodo_pago', 'efectivo').neq('moneda', 'USD')
+      .gt('created_at', minCerrado)
+    let qEfUsd = sb.from('pagos_venta')
+      .select('sucursal, monto_origen, created_at')
+      .eq('metodo_pago', 'efectivo').eq('moneda', 'USD')
       .gt('created_at', minCerrado)
     let qEg = sb.from('gastos')
       .select('sucursal, monto, created_at, metodo_pago')
@@ -266,10 +271,11 @@ function ReportesPage() {
       qLab    = qLab.eq('sucursal', sucursal)
       qPrev   = qPrev.eq('sucursal', sucursal)
       qEf     = qEf.eq('sucursal', sucursal)
+      qEfUsd  = qEfUsd.eq('sucursal', sucursal)
       qEg     = qEg.eq('sucursal', sucursal)
     }
 
-    const [rV, rC, rL, rP, rEf, rEg] = await Promise.all([qVentas, qCot, qLab, qPrev, qEf, qEg])
+    const [rV, rC, rL, rP, rEf, rEfUsd, rEg] = await Promise.all([qVentas, qCot, qLab, qPrev, qEf, qEfUsd, qEg])
 
     const ordLabData = rL.data || []
     setVentas(rV.data || [])
@@ -277,21 +283,31 @@ function ReportesPage() {
     setOrdLab(ordLabData)
     setPrevTotal((rP.data || []).reduce((s: number, v: { total: number }) => s + Number(v.total), 0))
 
-    const efRows = (rEf.data ?? []) as { sucursal: string; monto: number; created_at: string }[]
-    const egRows = (rEg.data ?? []) as { sucursal: string; monto: number; created_at: string; metodo_pago: string | null }[]
+    const efRows    = (rEf.data ?? []) as { sucursal: string; monto: number; created_at: string }[]
+    const efUsdRows = (rEfUsd.data ?? []) as { sucursal: string; monto_origen: number | null; created_at: string }[]
+    const egRows    = (rEg.data ?? []) as { sucursal: string; monto: number; created_at: string; metodo_pago: string | null }[]
     const saldos = sucsCaja.map(suc => {
       const corte = lastCorte[suc]
       const desde = corte?.cerrado_at ?? null
       const fondo = corte?.fondo ?? 0
+      const fondoUsd = corte?.fondoUsd ?? 0
+      const enRango = (ts: string) => !desde || ts > desde
       const ingresos = efRows
-        .filter(p => p.sucursal === suc && (!desde || p.created_at > desde))
+        .filter(p => p.sucursal === suc && enRango(p.created_at))
         .reduce((s, p) => s + Number(p.monto), 0)
       const egresos = egRows
-        .filter(g => g.sucursal === suc && (g.metodo_pago ?? 'efectivo') === 'efectivo' && (!desde || g.created_at > desde))
+        .filter(g => g.sucursal === suc && (g.metodo_pago ?? 'efectivo') === 'efectivo' && enRango(g.created_at))
         .reduce((s, g) => s + Number(g.monto), 0)
-      return { sucursal: suc, fondo, ingresos, egresos, saldo: fondo + ingresos - egresos }
+      const ingresosUsd = efUsdRows
+        .filter(p => p.sucursal === suc && enRango(p.created_at))
+        .reduce((s, p) => s + Number(p.monto_origen ?? 0), 0)
+      const egresosUsd = egRows
+        .filter(g => g.sucursal === suc && g.metodo_pago === 'efectivo_usd' && enRango(g.created_at))
+        .reduce((s, g) => s + Number(g.monto), 0)
+      return { sucursal: suc, fondo, ingresos, egresos, saldo: fondo + ingresos - egresos, saldoUsd: fondoUsd + ingresosUsd - egresosUsd }
     })
     setEnCaja(saldos.reduce((s, x) => s + x.saldo, 0))
+    setEnCajaUSD(saldos.reduce((s, x) => s + x.saldoUsd, 0))
     setCajaSaldos(saldos)
 
     // Deuda: saldo pendiente de las ventas cuyos lentes YA están listos (sin duplicar por venta)
@@ -458,6 +474,7 @@ function ReportesPage() {
                   <Target className="w-4 h-4 text-teal-600 opacity-60" />
                 </div>
                 <p className="text-2xl font-bold text-teal-600">{$$(enCaja)}</p>
+                {enCajaUSD !== 0 && <p className="text-sm font-bold text-blue-600 -mt-0.5">+ USD ${enCajaUSD.toFixed(2)}</p>}
                 <p className="text-xs text-zinc-400 mt-0.5">efectivo real · <span className="text-teal-600 font-medium">ver desglose</span></p>
               </button>
             )}
@@ -584,7 +601,10 @@ function ReportesPage() {
                 <div key={c.sucursal} className="border-b border-zinc-100">
                   <div className="flex items-center justify-between px-5 py-2.5 bg-zinc-50">
                     <span className="text-xs font-bold text-zinc-600 uppercase tracking-wide">{c.sucursal}</span>
-                    <span className={`text-base font-bold ${c.saldo < 0 ? 'text-red-600' : 'text-teal-700'}`}>{$$(c.saldo)}</span>
+                    <span className="text-right">
+                      <span className={`text-base font-bold ${c.saldo < 0 ? 'text-red-600' : 'text-teal-700'}`}>{$$(c.saldo)}</span>
+                      {c.saldoUsd !== 0 && <span className="block text-xs font-bold text-blue-600">USD ${c.saldoUsd.toFixed(2)}</span>}
+                    </span>
                   </div>
                   <div className="px-5 py-2.5 space-y-1 text-xs">
                     <div className="flex justify-between text-zinc-500"><span>Fondo (último corte)</span><span>{$$(c.fondo)}</span></div>
@@ -596,7 +616,10 @@ function ReportesPage() {
             </div>
             <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-200">
               <span className="text-sm font-semibold text-zinc-500">Total en caja</span>
-              <span className="text-lg font-bold text-teal-700">{$$(enCaja)}</span>
+              <span className="text-right">
+                <span className="text-lg font-bold text-teal-700">{$$(enCaja)}</span>
+                {enCajaUSD !== 0 && <span className="block text-sm font-bold text-blue-600">USD ${enCajaUSD.toFixed(2)}</span>}
+              </span>
             </div>
           </div>
         </div>
