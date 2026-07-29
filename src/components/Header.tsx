@@ -135,14 +135,14 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       </button>
 
       {/* ── Search ── */}
-      <div ref={searchRef} className="relative flex-1 lg:flex-none lg:w-80">
+      <div ref={searchRef} className="relative hidden md:block flex-1 lg:flex-none lg:w-80">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
         <input
           type="text"
           value={search}
           onChange={e => { setSearch(e.target.value); setSearchOpen(true) }}
           onFocus={() => setSearchOpen(true)}
-          placeholder="Buscar clientes, ventas, productos..."
+          placeholder="Buscar cliente y abrir su expediente..."
           className="w-full pl-8 pr-8 py-1.5 text-[13px] bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 placeholder:text-zinc-400 transition-shadow"
         />
         {search && (
