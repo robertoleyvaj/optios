@@ -51,14 +51,14 @@ export async function registrarComisionTerminal({
   const supabase = createClient()
   const fecha    = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
 
-  await supabase.from('gastos').insert({
+  const { error } = await supabase.from('gastos').insert({
     fecha,
-    categoria:      'comision_terminal',
-    concepto:       `Comisión ${metodoPago === 'debito' ? 'débito' : 'crédito'} · ${folio}`,
-    monto:          comision,
-    metodo_pago:    'banco',
+    categoria:   'comision_terminal',
+    concepto:    `Comisión ${metodoPago === 'debito' ? 'débito' : 'crédito'} · ${folio}`,
+    monto:       comision,
+    metodo_pago: 'banco',
     sucursal,
-    registrado_por: 'sistema',
-    es_caja:        false,   // comisión bancaria: no sale del cajón, es gasto de empresa
+    es_caja:     false,   // comisión bancaria: no sale del cajón, es gasto de empresa
   })
+  if (error) console.error('registrarComisionTerminal: no se pudo guardar la comisión:', error.message)
 }
