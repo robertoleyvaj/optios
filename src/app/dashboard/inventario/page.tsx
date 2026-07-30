@@ -121,9 +121,6 @@ const RESERVA_OBJETIVO = 12   // mínimo de reserva en bodega
 const RESERVA_ALERTA   = 5    // umbral crítico — alert de compra
 const SUCURSALES_FISICAS = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
-const generarSku = (_tipo?: TipoProducto) =>
-  Math.random().toString(36).slice(2, 9).toUpperCase()
-
 const formVacio = (): Omit<Producto, 'id'> => ({
   sku: '', nombre: '', tipo: 'armazon', categoria: 'Armazones', marca: '',
   precio: 0, costo: 0, ubicacion: 'Baja Visión',
@@ -377,7 +374,18 @@ function InventarioPage() {
   const totalCanales   = productos.filter(p => p.tipo === 'armazon' && p.estado === 'disponible')
                                   .reduce((s, p) => s + (p.canales?.length ?? 0), 0)
 
-  const abrirNuevo = () => { setEditando(null); setForm(formVacio()); setModal(true) }
+  // Siguiente SKU en la secuencia VRL-#### (el mayor + 1), igual para cualquier tipo de producto.
+  // Revisa tanto armazones (base ecomm) como productos de OptiOS ya cargados.
+  const nextSku = () => {
+    let max = 0
+    for (const p of productos) {
+      const m = /^VRL-0*(\d+)$/i.exec((p.sku || '').trim())
+      if (m) max = Math.max(max, parseInt(m[1], 10))
+    }
+    return `VRL-${String(max + 1).padStart(4, '0')}`
+  }
+
+  const abrirNuevo = () => { setEditando(null); setForm({ ...formVacio(), sku: nextSku() }); setModal(true) }
   const abrirEditar = (p: Producto) => {
     // Armazón (base de e-commerce) → su editor propio (stock por sucursal, publicar, etc.)
     if (p._ecomm && p._ecommId) {
@@ -1141,9 +1149,9 @@ function InventarioPage() {
                   <div className="flex gap-1.5">
                     <input value={form.sku} onChange={e => f('sku', e.target.value)}
                       className="flex-1 border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                      placeholder={form.tipo === 'armazon' ? 'ej. ARZ-007' : form.tipo === 'consumible' ? 'ej. CON-ABC' : 'ej. SRV-001'} />
-                    <button type="button" onClick={() => f('sku', generarSku())}
-                      title="Generar SKU aleatorio"
+                      placeholder="VRL-0000 (automático)" />
+                    <button type="button" onClick={() => f('sku', nextSku())}
+                      title="Usar el siguiente SKU de la secuencia"
                       className="px-2.5 border border-zinc-200 rounded bg-zinc-50 hover:bg-zinc-100 text-zinc-400 hover:text-[#0D9488] transition-colors">
                       <RefreshCw className="w-4 h-4" />
                     </button>
