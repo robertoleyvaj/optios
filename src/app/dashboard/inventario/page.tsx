@@ -117,8 +117,6 @@ const CAPACIDAD_EXHIBICION: Record<string, number> = {
   '5 de Mayo':      282,
   'Plaza Laureles': 225,
 }
-const RESERVA_OBJETIVO = 12   // mínimo de reserva en bodega
-const RESERVA_ALERTA   = 5    // umbral crítico — alert de compra
 const SUCURSALES_FISICAS = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
 const formVacio = (): Omit<Producto, 'id'> => ({
@@ -605,19 +603,20 @@ function InventarioPage() {
             s + (suc === 'Baja Visión' ? (p.stockBaja ?? 0)
                : suc === '5 de Mayo'   ? (p.stockMayo ?? 0)
                : (p.stockPlaza ?? 0)), 0)
-          const reserva = enPiso
-          const vacios  = Math.max(0, cap - enPiso)
+          const reserva = Math.max(0, enPiso - cap)   // excedente sobre la capacidad = bodega/reserva
+          const vacios  = Math.max(0, cap - enPiso)   // espacios por llenar en exhibición
           const pct     = Math.min(100, Math.round((enPiso / cap) * 100))
-          const critico = reserva <= RESERVA_ALERTA
+          const lleno   = enPiso >= cap
+          const surtir  = pct < 60                    // exhibidor con muchos espacios libres
 
           return (
-            <div key={suc} className={`bg-white rounded-lg p-5 border ${critico ? 'border-red-200' : 'border-zinc-200/80'}`}>
+            <div key={suc} className={`bg-white rounded-lg p-5 border ${surtir ? 'border-amber-200' : 'border-zinc-200/80'}`}>
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <p className="text-sm font-bold text-zinc-800">{suc}</p>
                   <p className="text-xs text-zinc-400 mt-0.5">Capacidad exhibición: {cap.toLocaleString()}</p>
                 </div>
-                {critico && <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />}
+                {surtir && <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />}
               </div>
 
               {/* Barra de llenado */}
@@ -638,20 +637,20 @@ function InventarioPage() {
                   <p className="text-xs text-zinc-400">Espacios vacíos</p>
                 </div>
                 <div>
-                  <p className={`text-xl font-bold ${critico ? 'text-red-500' : 'text-zinc-800'}`}>{reserva}</p>
+                  <p className={`text-xl font-bold ${reserva > 0 ? 'text-teal-600' : 'text-zinc-800'}`}>{reserva}</p>
                   <p className="text-xs text-zinc-400">Reserva</p>
                 </div>
               </div>
 
-              {critico ? (
-                <div className="bg-red-50 border border-red-100 text-red-600 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-2">
-                  <ShoppingCart className="w-3.5 h-3.5 flex-shrink-0" />
-                  Reserva crítica — ordenar stock ya
-                </div>
-              ) : reserva <= RESERVA_OBJETIVO ? (
-                <div className="bg-amber-50 border border-amber-100 text-amber-600 text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-2">
+              {lleno ? (
+                <div className="bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-2">
                   <Package className="w-3.5 h-3.5 flex-shrink-0" />
-                  Reserva baja — considerar reorder
+                  Exhibidor lleno{reserva > 0 ? ` · ${reserva} en reserva` : ''}
+                </div>
+              ) : surtir ? (
+                <div className="bg-amber-50 border border-amber-100 text-amber-600 text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-2">
+                  <ShoppingCart className="w-3.5 h-3.5 flex-shrink-0" />
+                  {vacios} espacios por surtir
                 </div>
               ) : (
                 <div className="bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-medium px-3 py-2 rounded-lg">
