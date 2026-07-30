@@ -752,6 +752,31 @@ export default function NuevaVentaPage() {
         }
       }
 
+      // ── 3c. Descontar stock de consumibles vendidos (base OptiOS) ──
+      if (!cotizacion) {
+        const colSuc = sucursal === 'Baja Visión' ? 'stock_baja'
+          : sucursal === '5 de Mayo' ? 'stock_mayo'
+          : sucursal === 'Plaza Laureles' ? 'stock_plaza' : null
+        if (colSuc) {
+          try {
+            const skusCarrito = [...new Set(carrito.map(i => i.sku).filter(Boolean))]
+            const { data: consumibles } = await supabase
+              .from('productos')
+              .select('id, sku, stock, stock_baja, stock_mayo, stock_plaza')
+              .in('sku', skusCarrito)
+              .eq('tipo', 'consumible')
+            for (const p of (consumibles ?? []) as Record<string, number | string>[]) {
+              const enCarrito = carrito.filter(i => i.sku === p.sku).reduce((s, i) => s + i.cantidad, 0)
+              if (enCarrito <= 0) continue
+              const nuevo = Math.max(0, Number(p[colSuc] ?? 0) - enCarrito)
+              const total = (['stock_baja', 'stock_mayo', 'stock_plaza'] as const)
+                .reduce((s, c) => s + (c === colSuc ? nuevo : Number(p[c] ?? 0)), 0)
+              await supabase.from('productos').update({ [colSuc]: nuevo, stock: total }).eq('id', p.id)
+            }
+          } catch { /* no bloquear la venta si falla el descuento de consumibles */ }
+        }
+      }
+
       // ── 4. Registrar pagos por línea (método + moneda) ─────────
       if (!cotizacion && anticoDB > 0) {
         const nombrePac = `${clienteNombre} ${clienteApellido}`.trim()

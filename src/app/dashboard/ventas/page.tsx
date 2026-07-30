@@ -864,6 +864,29 @@ export default function VentasPage() {
       }).catch(() => { /* no bloquear la cancelación si falla el regreso de stock */ })
     }
 
+    // 6. Regresar al stock los consumibles de la venta cancelada (base OptiOS)
+    const colSuc = detalle.sucursal === 'Baja Visión' ? 'stock_baja'
+      : detalle.sucursal === '5 de Mayo' ? 'stock_mayo'
+      : detalle.sucursal === 'Plaza Laureles' ? 'stock_plaza' : null
+    if (colSuc) {
+      try {
+        const skus = [...new Set((detalle.items || []).map(i => i.sku).filter(Boolean))]
+        const { data: consumibles } = await supabase
+          .from('productos')
+          .select('id, sku, stock, stock_baja, stock_mayo, stock_plaza')
+          .in('sku', skus)
+          .eq('tipo', 'consumible')
+        for (const p of (consumibles ?? []) as Record<string, number | string>[]) {
+          const qty = (detalle.items || []).filter(i => i.sku === p.sku).reduce((s, i) => s + i.cantidad, 0)
+          if (qty <= 0) continue
+          const nuevo = Number(p[colSuc] ?? 0) + qty
+          const total = (['stock_baja', 'stock_mayo', 'stock_plaza'] as const)
+            .reduce((s, c) => s + (c === colSuc ? nuevo : Number(p[c] ?? 0)), 0)
+          await supabase.from('productos').update({ [colSuc]: nuevo, stock: total }).eq('id', p.id)
+        }
+      } catch { /* no bloquear la cancelación */ }
+    }
+
     setVentas(prev => prev.filter(v => v.id !== detalle.id))
     setDetalle(null)
   }
