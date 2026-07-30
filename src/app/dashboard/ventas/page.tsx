@@ -853,6 +853,17 @@ export default function VentasPage() {
     }).eq('id', detalle.uuid)
     if (r5.error) { alert(`Error al cancelar la venta: ${r5.error.message}`); return }
 
+    // 5. Regresar al stock los armazones de la venta cancelada (catálogo e-commerce)
+    const armzItems = (detalle.items || [])
+      .filter(i => /^(VRL|ARMZ)-/i.test(i.sku || ''))
+      .map(i => ({ sku: i.sku as string, cantidad: i.cantidad }))
+    if (armzItems.length > 0) {
+      fetch('/api/ecomm/armazones/movimiento', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sucursal: detalle.sucursal, signo: 1, items: armzItems }),
+      }).catch(() => { /* no bloquear la cancelación si falla el regreso de stock */ })
+    }
+
     setVentas(prev => prev.filter(v => v.id !== detalle.id))
     setDetalle(null)
   }

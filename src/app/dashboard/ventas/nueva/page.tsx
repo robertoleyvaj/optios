@@ -738,6 +738,20 @@ export default function NuevaVentaPage() {
       })
       await supabase.from('ventas_items').insert(items)
 
+      // ── 3b. Descontar stock de armazones vendidos (catálogo e-commerce) ──
+      //     Solo en ventas reales (no cotizaciones). Se descuenta al momento de vender.
+      if (!cotizacion) {
+        const armzItems = carrito
+          .filter(i => /^(VRL|ARMZ)-/i.test(i.sku || ''))
+          .map(i => ({ sku: i.sku, cantidad: i.cantidad }))
+        if (armzItems.length > 0) {
+          fetch('/api/ecomm/armazones/movimiento', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sucursal, signo: -1, items: armzItems }),
+          }).catch(() => { /* no bloquear la venta si falla el descuento */ })
+        }
+      }
+
       // ── 4. Registrar pagos por línea (método + moneda) ─────────
       if (!cotizacion && anticoDB > 0) {
         const nombrePac = `${clienteNombre} ${clienteApellido}`.trim()
