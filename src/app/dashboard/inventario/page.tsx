@@ -408,7 +408,11 @@ function InventarioPage() {
   const guardar = async () => {
     setGuardando(true)
     const canalesFinal = form.estado === 'vendido' ? [] : form.canales
-    const row = productoToRow({ ...form, canales: canalesFinal })
+    // Consumible: el stock total es la suma de las cantidades por sucursal.
+    const stockTotal = form.tipo === 'consumible'
+      ? (form.stockBaja ?? 0) + (form.stockMayo ?? 0) + (form.stockPlaza ?? 0)
+      : (form.stock ?? 0)
+    const row = productoToRow({ ...form, stock: stockTotal, canales: canalesFinal })
     const sb = createClient()
 
     if (editando && editando._ecomm && editando._ecommId) {
