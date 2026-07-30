@@ -22,6 +22,28 @@ export async function GET() {
   }
 }
 
+// Crear un armazón nuevo en el catálogo (base de e-commerce). Body: { ...campos }
+export async function POST(req: Request) {
+  try {
+    const body = await req.json()
+    const permitidos = new Set([
+      'sku', 'sku_viejo', 'nombre', 'marca', 'modelo', 'color1', 'medidas', 'material',
+      'precio', 'precio_gon', 'costo', 'stock', 'stock_baja', 'stock_mayo', 'stock_plaza', 'stock_online',
+      'publicar_gon', 'publicar_verly', 'descuento_gon', 'descuento_verly', 'activo',
+    ])
+    const row: Record<string, unknown> = {}
+    for (const k of Object.keys(body ?? {})) if (permitidos.has(k)) row[k] = body[k]
+    if (!row.sku) return NextResponse.json({ ok: false, error: 'Falta SKU' }, { status: 400 })
+
+    const sb = createEcommClient()
+    const { data, error } = await sb.from('armazones').insert(row).select(CAMPOS).single()
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, armazon: data })
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 })
+  }
+}
+
 // Actualizar un armazón. Body: { id, ...campos a cambiar }
 export async function PATCH(req: Request) {
   try {

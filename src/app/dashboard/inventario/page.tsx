@@ -434,6 +434,49 @@ function InventarioPage() {
       return
     }
 
+    // ARMAZÓN NUEVO → se crea en la base de e-commerce (catálogo real de las webs),
+    // NO en la tabla productos de OptiOS. Se coloca 1 pieza en la sucursal elegida.
+    if (!editando && form.tipo === 'armazon') {
+      const ub = form.ubicacion
+      const medidasStr = [form.medidas?.ojo, form.medidas?.puente, form.medidas?.varilla, form.medidas?.alto]
+        .filter(Boolean).join('-') || null
+      const cf = canalesFinal ?? []
+      const payload = {
+        sku:            form.sku,
+        marca:          form.marca,
+        nombre:         form.nombre,
+        modelo:         form.nombre,
+        color1:         form.color ?? '',
+        medidas:        medidasStr,
+        precio_gon:     form.precio,
+        precio:         Math.round((form.precio || 0) / TC_USD),
+        costo:          form.costo,
+        stock_baja:     ub === 'Baja Visión'    ? 1 : 0,
+        stock_mayo:     ub === '5 de Mayo'       ? 1 : 0,
+        stock_plaza:    ub === 'Plaza Laureles'  ? 1 : 0,
+        stock_online:   0,
+        stock:          1,
+        publicar_gon:   cf.includes('gon'),
+        publicar_verly: cf.includes('verly'),
+        activo:         true,
+      }
+      const res = await fetch('/api/ecomm/armazones', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      })
+      const j = await res.json()
+      if (j.ok) {
+        setArmazonesRaw(prev => [j.armazon as ArmazonRaw, ...prev])
+        setProductos(prev => [armazonToProducto(j.armazon as unknown as SupabaseRow), ...prev])
+      } else {
+        alert('No se pudo crear el armazón: ' + (j.error || ''))
+        setGuardando(false)
+        return
+      }
+      setGuardando(false)
+      setModal(false)
+      return
+    }
+
     if (editando) {
       const { error } = await sb.from('productos').update(row).eq('id', editando.id)
       if (!error) {
