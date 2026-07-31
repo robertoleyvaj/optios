@@ -229,7 +229,6 @@ export default function NuevaVentaPage() {
   // Graduaciones de Ultra en stock (para el selector al vender Ultra)
   const [gradsUltra, setGradsUltra] = useState<{ sku: string; nombre: string; grad: string; precio: number; stockBaja: number; stockMayo: number; stockPlaza: number }[]>([])
   const [pendingUltra, setPendingUltra] = useState(false)
-  const [pedirGrad, setPedirGrad] = useState('')   // graduación a pedir a laboratorio
   useEffect(() => {
     createClient()
       .from('productos_catalogo')
@@ -503,7 +502,6 @@ export default function NuevaVentaPage() {
   const agregar = (p: CatItem) => {
     // Ultra (lente de contacto): abre selector de graduación
     if (p.sku === 'ULTRA-LC') {
-      setPedirGrad('')
       setPendingUltra(true)
       setBusquedaProducto('')
       setShowBuscadorProducto(false)
@@ -2260,51 +2258,40 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
           sucursal === 'Baja Visión' ? g.stockBaja : sucursal === '5 de Mayo' ? g.stockMayo : g.stockPlaza
         const enStock = gradsUltra.filter(g => stockDe(g) > 0).sort((a, b) => a.grad.localeCompare(b.grad, undefined, { numeric: true }))
         const precioUltra = gradsUltra[0]?.precio ?? 0
-        const cerrar = () => { setPendingUltra(false); setPedirGrad('') }
+        const cerrar = () => setPendingUltra(false)
         const venderStock = (g: typeof gradsUltra[number], idx: number) => {
           agregarDirecto({ id: 8500 + idx, nombre: g.nombre, categoria: 'Lentes de Contacto', precio: g.precio, sku: g.sku, stock: 999 })
           cerrar()
         }
         const pedirLab = () => {
-          const grad = pedirGrad.trim()
-          if (!grad) return
-          agregarDirecto({ id: 8700, nombre: `ULTRA ${grad} (PEDIDO)`, categoria: 'Lentes de Contacto', precio: precioUltra, sku: 'LC', stock: 999 })
+          agregarDirecto({ id: 8700, nombre: 'ULTRA (PEDIDO)', categoria: 'Lentes de Contacto', precio: precioUltra, sku: 'LC', stock: 999 })
           cerrar()
         }
         return (
           <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={cerrar}>
             <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="px-5 py-4 border-b border-zinc-100">
-                <h3 className="text-sm font-bold text-zinc-800">Ultra — elige graduación</h3>
-                <p className="text-xs text-zinc-400 mt-0.5">Sucursal: {sucursal} · toca la que vas a vender</p>
+                <h3 className="text-sm font-bold text-zinc-800">Ultra</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">{sucursal}</p>
               </div>
               <div className="px-5 py-4">
-                <p className="text-[11px] font-bold text-zinc-500 mb-2">✓ EN STOCK — se descuenta al vender (sin laboratorio)</p>
                 {enStock.length === 0 ? (
-                  <p className="text-xs text-zinc-400 py-3 text-center">No hay graduaciones de Ultra en stock en esta sucursal.</p>
+                  <p className="text-xs text-zinc-400 py-2 text-center">Sin stock en esta sucursal</p>
                 ) : (
                   <div className="grid grid-cols-4 gap-2">
                     {enStock.map((g, idx) => (
                       <button key={g.sku} onClick={() => venderStock(g, idx)}
                         className="border border-zinc-200 rounded-lg py-2 text-center hover:border-[#0D9488] hover:bg-teal-50 transition-colors">
                         <div className="text-sm font-bold text-zinc-800">{g.grad}</div>
-                        <div className="text-[10px] text-emerald-600 font-semibold">{stockDe(g)} pza{stockDe(g) > 1 ? 's' : ''}</div>
+                        <div className="text-[10px] text-emerald-600 font-semibold">{stockDe(g)}</div>
                       </button>
                     ))}
                   </div>
                 )}
-
-                <p className="text-[11px] font-bold text-zinc-500 mt-5 mb-2">⚙ ¿NO ESTÁ LA QUE NECESITAS? — pídela a laboratorio</p>
-                <div className="flex gap-2">
-                  <input value={pedirGrad} onChange={e => setPedirGrad(e.target.value)}
-                    placeholder="ej. -2.00"
-                    className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-violet-300" />
-                  <button onClick={pedirLab} disabled={!pedirGrad.trim()}
-                    className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-40">
-                    Pedir a lab
-                  </button>
-                </div>
-                <p className="text-[10px] text-zinc-400 mt-2">En el ticket sale “Ultra {'{'}graduación{'}'}”. Si es de stock no se hace receta; si se pide, sí genera orden de laboratorio.</p>
+                <button onClick={pedirLab}
+                  className="w-full mt-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700">
+                  Pedir a laboratorio
+                </button>
               </div>
               <div className="px-5 py-3 border-t border-zinc-100">
                 <button onClick={cerrar} className="w-full py-2 text-sm text-zinc-500 hover:text-zinc-700">Cancelar</button>
