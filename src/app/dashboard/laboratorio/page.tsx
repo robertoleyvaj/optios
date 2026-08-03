@@ -282,27 +282,25 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
     const oi = parseGrad(orden.oi)
 
     // Filas opcionales de la tabla de graduación
-    const addRow    = orden.add    ? `<tr><td class="lbl">ADD</td><td class="val" colspan="3">${orden.add}</td><td></td></tr>` : ''
     const alturaRow = orden.altura ? `<tr><td class="lbl">Alt.</td><td class="val" colspan="3">${orden.altura} mm</td><td></td></tr>` : ''
     const dpRow     = `<tr><td class="lbl">D.P.</td><td class="val" colspan="3">${orden.dp} mm</td><td></td></tr>`
-    const tratRow   = tratFull     ? `<tr><td class="lbl">Trat.</td><td class="val" colspan="3" style="font-weight:700">${tratFull}</td><td></td></tr>` : ''
 
     const armazonStr = orden.descripcionArmazon
       ? `${orden.descripcionArmazon} · ${orden.armazon === 'propio' ? 'del cliente' : 'comprado'}`
       : (orden.armazon === 'propio' ? 'Armazón del cliente' : '—')
 
     const notasHtml = orden.notas
-      ? `<div style="border-top:1px dashed #ccc;padding:6px 0;font-size:9px;color:#555"><b>Obs:</b> ${orden.notas}</div>`
+      ? `<div style="border-top:1px dashed #ccc;padding:8px 0;font-size:13px;color:#333"><b>Obs:</b> ${orden.notas}</div>`
       : ''
 
     const garantiaHtml = orden.esGarantia
-      ? `<div style="background:#7C3AED;color:#fff;text-align:center;font-size:13px;font-weight:900;letter-spacing:2px;padding:6px 0;margin-bottom:8px;border-radius:3px;">🔄 GARANTÍA</div>`
+      ? `<div style="background:#7C3AED;color:#fff;text-align:center;font-size:18px;font-weight:900;letter-spacing:3px;padding:8px 0;margin-bottom:10px;border-radius:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">🔄 GARANTÍA</div>`
       : ''
 
     const motivoHtml = orden.esGarantia && orden.motivoProblema
-      ? `<div style="border-top:1px dashed #ccc;margin-top:8px;padding-top:6px;font-size:9px;color:#555">
+      ? `<div style="border-top:1px dashed #ccc;margin-top:10px;padding-top:8px;font-size:13px;color:#333">
            <b>Motivo de reposición:</b> ${orden.motivoProblema}
-           ${orden.folioOrigen ? `<br/><span style="color:#aaa">Orden original: ${orden.folioOrigen}</span>` : ''}
+           ${orden.folioOrigen ? `<br/><span style="color:#888">Orden original: ${orden.folioOrigen}</span>` : ''}
          </div>`
       : ''
 
@@ -311,31 +309,32 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${orden.folio}</title>
 <style>
-  @page { size: 4in 6in; margin: 5mm; }
+  @page { size: 4in 6in; margin: 6mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Arial', sans-serif; font-size: 11px; color: #000; width: 100%; }
-  .hdr { display: flex; justify-content: space-between; align-items: center; background: #111; color: #fff; padding: 8px 10px; border-radius: 4px; margin-bottom: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .hdr-left h1 { font-size: 14px; font-weight: 900; letter-spacing: -0.3px; color: #fff; }
-  .hdr-left p { font-size: 9px; color: #aaa; }
+  html, body { height: 100%; }
+  body { font-family: 'Arial', sans-serif; font-size: 15px; color: #000; width: 100%; min-height: calc(6in - 12mm); display: flex; flex-direction: column; }
+  .hdr { display: flex; justify-content: space-between; align-items: center; background: #111; color: #fff; padding: 12px 14px; border-radius: 5px; margin-bottom: 14px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hdr-left h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.3px; color: #fff; }
+  .hdr-left p { font-size: 12px; color: #ccc; }
   .hdr-right { text-align: right; }
-  .folio { font-size: 15px; font-weight: 900; font-family: monospace; color: #4DB6AC; }
-  .fecha { font-size: 9px; color: #aaa; }
-  .paciente { font-size: 14px; font-weight: 900; margin-bottom: 1px; }
-  .sucursal { font-size: 9px; color: #777; margin-bottom: 8px; }
-  .sep { border: none; border-top: 1px dashed #bbb; margin: 7px 0; }
-  .grad-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
-  .grad-table th { background: #f0f0f0; font-size: 9px; font-weight: 700; text-align: center; padding: 4px 3px; border: 1px solid #ccc; }
+  .folio { font-size: 24px; font-weight: 900; font-family: monospace; color: #4DB6AC; }
+  .fecha { font-size: 12px; color: #ccc; }
+  .paciente { font-size: 26px; font-weight: 900; margin-bottom: 2px; }
+  .sucursal { font-size: 13px; color: #777; margin-bottom: 12px; }
+  .sep { border: none; border-top: 1px dashed #999; margin: 12px 0; }
+  .grad-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  .grad-table th { background: #eee; font-size: 13px; font-weight: 700; text-align: center; padding: 8px 5px; border: 1px solid #bbb; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .grad-table th:first-child { text-align: left; }
-  .grad-table td { border: 1px solid #ddd; padding: 4px 3px; font-family: monospace; font-size: 10px; }
-  .lbl { font-weight: 700; font-family: sans-serif; font-size: 9px; background: #f8f8f8; }
+  .grad-table td { border: 1px solid #bbb; padding: 8px 5px; font-family: monospace; font-size: 17px; text-align: center; }
+  .lbl { font-weight: 700; font-family: sans-serif; font-size: 13px; background: #f4f4f4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .val { text-align: center; }
-  .mica-box { background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; padding: 5px 7px; margin-bottom: 6px; }
-  .mica-tipo { font-size: 12px; font-weight: 900; }
-  .mica-sub  { font-size: 9px; color: #444; margin-top: 1px; }
-  .armazon   { font-size: 10px; color: #333; margin-bottom: 6px; }
-  .meta { display: flex; justify-content: space-between; font-size: 9px; color: #555; margin-bottom: 6px; }
-  .firma-area { border-top: 1px solid #000; margin-top: 10px; padding-top: 4px; text-align: right; font-size: 9px; color: #777; }
-  .folio-ref { font-size: 9px; font-family: monospace; color: #555; }
+  .mica-box { background: #eee; border: 1px solid #bbb; border-radius: 4px; padding: 10px 12px; margin-bottom: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .mica-tipo { font-size: 20px; font-weight: 900; }
+  .mica-sub  { font-size: 13px; color: #333; margin-top: 3px; }
+  .armazon   { font-size: 15px; color: #222; margin-bottom: 10px; }
+  .meta { display: flex; justify-content: space-between; font-size: 14px; color: #444; margin-bottom: 8px; }
+  .firma-area { border-top: 1px solid #000; margin-top: auto; padding-top: 10px; text-align: right; font-size: 14px; color: #555; }
+  .folio-ref { font-size: 12px; font-family: monospace; color: #555; }
 </style></head><body>
   ${garantiaHtml}
   ${esUrgente(orden) ? `<div style="border:2px solid #000;text-align:center;font-size:17px;font-weight:900;letter-spacing:4px;padding:6px 0;margin-bottom:8px;">URGENTE</div>` : ''}
@@ -362,7 +361,7 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
     <tbody>
       <tr><td class="lbl">OD</td><td class="val">${od.esf}</td><td class="val">${od.cil}</td><td class="val">${od.eje !== '—' ? od.eje+'°' : '—'}</td><td class="val">${orden.add || '—'}</td></tr>
       <tr><td class="lbl">OI</td><td class="val">${oi.esf}</td><td class="val">${oi.cil}</td><td class="val">${oi.eje !== '—' ? oi.eje+'°' : '—'}</td><td class="val">${orden.add || '—'}</td></tr>
-      ${dpRow}${alturaRow}${tratRow}
+      ${dpRow}${alturaRow}
     </tbody>
   </table>
 
@@ -378,12 +377,10 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
   ${notasHtml}
   ${motivoHtml}
 
-  <div class="meta">
+  <div class="meta" style="margin-top:auto">
     <span>Ingreso: <b>${orden.fechaIngreso}</b></span>
-    <span>Entrega: <b>${orden.fechaPromesa}</b></span>
+    <span>Laboratorio: ______________________</span>
   </div>
-
-  <div class="firma-area">Recibido por: _________________________</div>
 </body></html>`)
     win.document.close()
     setTimeout(() => { win.print() }, 300)

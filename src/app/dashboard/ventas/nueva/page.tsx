@@ -910,6 +910,8 @@ export default function NuevaVentaPage() {
 
         for (const par of parsConMicas) {
           const itemsPar = carrito.filter(i => i.par === par)
+          // Armazón del par (si compró uno con nosotros): se toma del catálogo de armazones
+          const armazonPar = itemsPar.find(i => catalogoArmz.some(a => a.sku === i.sku))
 
           // Para paquetes: usar el desglose explícito; para micas sueltas: usar el nombre
           const micasPar = itemsPar
@@ -947,6 +949,8 @@ export default function NuevaVentaPage() {
             dp:               recetaPaciente ? `${recetaPaciente.dp_od}/${recetaPaciente.dp_oi}` : '',
             tipo_mica:        micasPar,
             tratamiento:      filtrosPar,
+            armazon:             armazonPar ? 'comprado' : 'propio',
+            descripcion_armazon: armazonPar ? armazonPar.nombre.replace(/\s*·\s*#.*$/, '') : '',
           })
           foliosLab.push(folioLab)
         }
