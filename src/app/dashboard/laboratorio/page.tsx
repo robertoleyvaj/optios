@@ -277,16 +277,40 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
     ? (orden.colorTratamiento ? `${tratLabel} ${orden.colorTratamiento}` : tratLabel)
     : ''
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const od = parseGrad(orden.od)
     const oi = parseGrad(orden.oi)
+
+    // ── Adición y armazón: si la orden no los guardó, se leen EN VIVO de la
+    //    venta (armazón) y del expediente del paciente (adición). Así funciona
+    //    igual para órdenes viejas y nuevas.
+    let addLive = orden.add
+    let armazonLive = orden.descripcionArmazon
+    if ((!addLive || !armazonLive) && orden.ventaId) {
+      const sb = createClient()
+      const { data: v } = await sb.from('ventas').select('paciente_id').eq('id', orden.ventaId).maybeSingle()
+      if (!addLive && v?.paciente_id) {
+        const { data: r } = await sb.from('recetas').select('od_add')
+          .eq('paciente_id', v.paciente_id as string).order('fecha', { ascending: false }).limit(1).maybeSingle()
+        if (r?.od_add) addLive = r.od_add as string
+      }
+      if (!armazonLive) {
+        const { data: items } = await sb.from('ventas_items').select('nombre, sku').eq('venta_id', orden.ventaId)
+        try {
+          const j = await fetch('/api/ecomm/armazones', { cache: 'no-store' }).then(x => x.json())
+          const armzSkus = new Set((j.armazones ?? []).map((a: { sku: string }) => a.sku))
+          const it = (items ?? []).find((i: { sku: string }) => armzSkus.has(i.sku))
+          if (it) armazonLive = (it.nombre as string).replace(/\s*·\s*#.*$/, '')
+        } catch { /* si falla, se queda como estaba */ }
+      }
+    }
 
     // Filas opcionales de la tabla de graduación
     const alturaRow = orden.altura ? `<tr><td class="lbl">Alt.</td><td class="val" colspan="3">${orden.altura} mm</td><td></td></tr>` : ''
     const dpRow     = `<tr><td class="lbl">D.P.</td><td class="val" colspan="3">${orden.dp} mm</td><td></td></tr>`
 
-    const armazonStr = orden.descripcionArmazon
-      ? `${orden.descripcionArmazon} · ${orden.armazon === 'propio' ? 'del cliente' : 'comprado'}`
+    const armazonStr = armazonLive
+      ? `${armazonLive} · ${orden.armazon === 'propio' ? 'del cliente' : 'comprado'}`
       : (orden.armazon === 'propio' ? 'Armazón del cliente' : '—')
 
     const notasHtml = orden.notas
@@ -359,8 +383,8 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
       <th></th><th>Esfera</th><th>Cilindro</th><th>Eje</th><th>ADD</th>
     </tr></thead>
     <tbody>
-      <tr><td class="lbl">OD</td><td class="val">${od.esf}</td><td class="val">${od.cil}</td><td class="val">${od.eje !== '—' ? od.eje+'°' : '—'}</td><td class="val">${orden.add || '—'}</td></tr>
-      <tr><td class="lbl">OI</td><td class="val">${oi.esf}</td><td class="val">${oi.cil}</td><td class="val">${oi.eje !== '—' ? oi.eje+'°' : '—'}</td><td class="val">${orden.add || '—'}</td></tr>
+      <tr><td class="lbl">OD</td><td class="val">${od.esf}</td><td class="val">${od.cil}</td><td class="val">${od.eje !== '—' ? od.eje+'°' : '—'}</td><td class="val">${addLive || '—'}</td></tr>
+      <tr><td class="lbl">OI</td><td class="val">${oi.esf}</td><td class="val">${oi.cil}</td><td class="val">${oi.eje !== '—' ? oi.eje+'°' : '—'}</td><td class="val">${addLive || '—'}</td></tr>
       ${dpRow}${alturaRow}
     </tbody>
   </table>
