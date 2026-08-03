@@ -290,9 +290,10 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
       const sb = createClient()
       const { data: v } = await sb.from('ventas').select('paciente_id').eq('id', orden.ventaId).maybeSingle()
       if (!addLive && v?.paciente_id) {
-        const { data: r } = await sb.from('recetas').select('od_add')
+        const { data: r } = await sb.from('recetas').select('od_add, oi_add')
           .eq('paciente_id', v.paciente_id as string).order('fecha', { ascending: false }).limit(1).maybeSingle()
-        if (r?.od_add) addLive = r.od_add as string
+        const addRec = (r?.od_add as string) || (r?.oi_add as string) || ''
+        if (addRec) addLive = addRec
       }
       if (!armazonLive) {
         const { data: items } = await sb.from('ventas_items').select('nombre, sku').eq('venta_id', orden.ventaId)

@@ -945,7 +945,7 @@ export default function NuevaVentaPage() {
             anticipo:         parsConMicas.length === 1 ? anticoNum : 0,
             od:               odTexto,
             oi:               oiTexto,
-            add_graduacion:   recetaPaciente?.od_add || '',
+            add_graduacion:   recetaPaciente?.od_add || recetaPaciente?.oi_add || '',
             dp:               recetaPaciente ? `${recetaPaciente.dp_od}/${recetaPaciente.dp_oi}` : '',
             tipo_mica:        micasPar,
             tratamiento:      filtrosPar,
