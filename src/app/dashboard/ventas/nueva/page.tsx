@@ -141,11 +141,12 @@ const TRANSITION_TIPOS: { tipo: string; extra: number; colores: string[] }[] = [
   { tipo: 'Extra-Active', extra: 847, colores: ['Gris'] },
 ]
 
-// Precio del fotocromático según color + SKU de mica
-const precioFC = (color: string, micaSku: string): number => {
-  if (color === 'Gris') return 949
-  if (micaSku === 'MON-PPL') return 949 + 900  // $1,849
-  return 949 + 400                              // $1,349
+// Precio del fotocromático: parte del precio base del catálogo (Gris) + sobreprecio
+// del tratamiento para los demás colores. El base viene del catálogo (tabla productos).
+const precioFC = (color: string, micaSku: string, base: number): number => {
+  if (color === 'Gris') return base
+  if (micaSku === 'MON-PPL') return base + 900
+  return base + 400
 }
 
 // Comisión es interna (para finanzas), no se traslada al cliente
@@ -2341,7 +2342,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                     key={color}
                     onClick={() => {
                       if (esFc) {
-                        const precio = precioFC(color, micaSku)
+                        const precio = precioFC(color, micaSku, productoBase.precio)
                         if (color === 'Gris') {
                           agregarDirecto(productoBase, color, precio)
                           setPendingFiltro(null)
