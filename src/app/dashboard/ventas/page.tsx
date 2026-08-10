@@ -335,6 +335,87 @@ ${logo ? `<img src="${logo}" class="logo" alt="" />` : ''}
 }
 
 // ─────────────────────────────────────────
+// Descargar PDF en formato de hoja carta (legible, para guardar/compartir)
+// ─────────────────────────────────────────
+function descargarPDFDoc(v: Venta, logo = '', atendioReceta = '') {
+  const esCot = v.id.startsWith('COT-')
+  const titulo = esCot ? 'COTIZACIÓN' : 'NOTA DE VENTA'
+  const _vp = (v.vendedor || '').trim().split(/\s+/)
+  const vendedorCorto = atendioReceta.trim() || (_vp.length >= 2 ? `${_vp[0]} ${_vp[1][0].toUpperCase()}.` : _vp[0] || '')
+  const cfg = SUCURSAL_CONFIG[v.sucursal]
+  const filas = v.items.map(item => {
+    const sub = item.precio * (1 - item.descuento / 100) * item.cantidad
+    const d = item.descuento > 0 ? ` <small style="color:#888">(−${item.descuento}%)</small>` : ''
+    return `<tr><td class="c">${item.cantidad}</td><td>${item.nombre}${d}</td><td class="r">$${sub.toLocaleString('es-MX')}</td></tr>`
+  }).join('')
+  const pagado = (v.total || 0) - (v.saldo || 0)
+  const pagosHTML = (!esCot && (v.saldo || 0) > 0)
+    ? `<div class="pay"><span>Pagado</span><b>$${pagado.toLocaleString('es-MX')}</b></div>
+       <div class="pay saldo"><span>Saldo pendiente</span><b>$${(v.saldo || 0).toLocaleString('es-MX')}</b></div>`
+    : ''
+  const win = window.open('', '_blank', 'width=800,height=1000')
+  if (!win) return
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${titulo} ${v.id}</title>
+<style>
+  @page { size: letter; margin: 16mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; font-size: 13px; line-height: 1.5; }
+  .wrap { max-width: 700px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 14px; margin-bottom: 20px; }
+  .brand img { max-height: 44px; margin-bottom: 6px; display: block; }
+  .brand h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; }
+  .brand p { font-size: 11px; color: #666; }
+  .fb { text-align: right; }
+  .fb .lbl { font-size: 10px; letter-spacing: 1.5px; color: #888; text-transform: uppercase; }
+  .fb .num { font-size: 22px; font-weight: 800; }
+  .fb .fec { font-size: 11px; color: #666; margin-top: 2px; }
+  .cli { background: #f6f6f6; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; gap: 34px; }
+  .cli span { display: block; font-size: 9.5px; color: #999; text-transform: uppercase; letter-spacing: .6px; }
+  .cli b { font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+  thead th { text-align: left; font-size: 9.5px; letter-spacing: .6px; text-transform: uppercase; color: #999; border-bottom: 1.5px solid #ddd; padding: 9px 6px; }
+  th.r, td.r { text-align: right; } th.c, td.c { text-align: center; width: 46px; }
+  tbody td { padding: 10px 6px; border-bottom: 1px solid #eee; }
+  .total { display: flex; justify-content: flex-end; gap: 44px; align-items: baseline; border-top: 2px solid #111; padding-top: 14px; }
+  .total .l { font-size: 13px; font-weight: 700; } .total .v { font-size: 24px; font-weight: 800; }
+  .pay { display: flex; justify-content: flex-end; gap: 44px; font-size: 13px; margin-top: 8px; color: #444; }
+  .pay.saldo b { color: #dc2626; }
+  .vig { background: #fff8e1; border: 1px solid #f0d894; border-radius: 8px; padding: 11px 15px; font-size: 12px; margin: 22px 0; }
+  .foot { border-top: 1px solid #ddd; margin-top: 26px; padding-top: 14px; font-size: 11px; color: #666; line-height: 1.8; }
+</style></head><body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      ${logo ? `<img src="${logo}" alt="" />` : ''}
+      <h1>${(cfg?.nombreLinea1 ?? v.sucursal).toUpperCase()}</h1>
+      ${cfg?.nombreLinea2 ? `<p>${cfg.nombreLinea2}</p>` : ''}
+    </div>
+    <div class="fb"><div class="lbl">${titulo}</div><div class="num">${v.id}</div><div class="fec">${v.fecha} · ${v.hora}</div></div>
+  </div>
+  <div class="cli">
+    ${v.cliente ? `<div><span>Cliente</span><b>${v.cliente}</b></div>` : ''}
+    ${v.telefono ? `<div><span>Teléfono</span><b>${v.telefono}</b></div>` : ''}
+    ${vendedorCorto ? `<div><span>Atendió</span><b>${vendedorCorto}</b></div>` : ''}
+  </div>
+  <table>
+    <thead><tr><th class="c">Cant</th><th>Descripción</th><th class="r">Precio</th></tr></thead>
+    <tbody>${filas}</tbody>
+  </table>
+  <div class="total"><span class="l">TOTAL${esCot ? ' ESTIMADO' : ''}</span><span class="v">$${(v.total || 0).toLocaleString('es-MX')}</span></div>
+  ${pagosHTML}
+  ${esCot ? '<div class="vig"><b>Cotización válida por 15 días.</b> Precios sujetos a cambio sin previo aviso. No es un comprobante de pago.</div>' : ''}
+  <div class="foot">
+    ${cfg?.direccion ? `<div>${cfg.direccion}</div>` : ''}
+    <div>Tel. ${cfg?.telefono ?? '661 612 0316'} · WhatsApp ${cfg?.whatsapp ?? '664 834 3018'} · ${cfg?.horario ?? 'Lun-Sáb 10:00-18:00'}</div>
+    <div>${cfg?.web ?? 'gonmx.com'}</div>
+  </div>
+</div>
+</body></html>`)
+  win.document.close()
+  setTimeout(() => { win.print() }, 400)
+}
+
+// ─────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────
 export default function VentasPage() {
@@ -1267,6 +1348,10 @@ export default function VentasPage() {
                   </button>
                 </>
               )}
+              <button onClick={() => descargarPDFDoc(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
+                <Printer className="w-4 h-4" /> Descargar PDF (hoja)
+              </button>
               {esAdmin && !detalle.id.startsWith('COT-') && (
                 <button onClick={abrirModificar}
                   className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-300 text-zinc-700 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
