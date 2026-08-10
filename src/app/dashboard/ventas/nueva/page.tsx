@@ -1269,6 +1269,87 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
       setTimeout(() => { win.print() }, 400)
     }
 
+    // ── Descargar PDF en formato de hoja (legible, para compartir) ──
+    const handleDescargarPDF = () => {
+      let u: { nombre?: string; nombre_receta?: string } = {}
+      try { u = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch {}
+      const recetaNombre = (u.nombre_receta || '').trim()
+      const _ap = (u.nombre || '').trim().split(/\s+/)
+      const atendioPor = recetaNombre || (_ap.length >= 2 ? `${_ap[0]} ${_ap[1][0].toUpperCase()}.` : _ap[0] || '')
+      const fechaFmt = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      const paresC = [...new Set(carrito.map(i => i.par))].sort()
+      const filas = paresC.map(par => {
+        const itemsPar = carrito.filter(i => i.par === par)
+        const headerRow = paresC.length > 1 ? `<tr class="par"><td colspan="3">— PAR ${par} —</td></tr>` : ''
+        const rows = itemsPar.map(item => {
+          const sub = item.precio * (1 - item.descuento / 100) * item.cantidad
+          const d = item.descuento > 0 ? ` <small style="color:#888">(−${item.descuento}%)</small>` : ''
+          return `<tr><td class="c">${item.cantidad}</td><td>${item.nombre}${d}</td><td class="r">$${sub.toLocaleString('es-MX')}</td></tr>`
+        }).join('')
+        return headerRow + rows
+      }).join('')
+      const titulo = esCotizacion ? 'COTIZACIÓN' : 'NOTA DE VENTA'
+      const cfg = SUCURSAL_CONFIG[sucursal]
+      const win = window.open('', '_blank', 'width=800,height=1000')
+      if (!win) return
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${titulo} ${folio}</title>
+<style>
+  @page { size: letter; margin: 16mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; font-size: 13px; line-height: 1.5; }
+  .wrap { max-width: 700px; margin: 0 auto; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 14px; margin-bottom: 20px; }
+  .brand img { max-height: 44px; margin-bottom: 6px; display: block; }
+  .brand h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; }
+  .brand p { font-size: 11px; color: #666; }
+  .fb { text-align: right; }
+  .fb .lbl { font-size: 10px; letter-spacing: 1.5px; color: #888; text-transform: uppercase; }
+  .fb .num { font-size: 22px; font-weight: 800; }
+  .fb .fec { font-size: 11px; color: #666; margin-top: 2px; }
+  .cli { background: #f6f6f6; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; gap: 34px; }
+  .cli span { display: block; font-size: 9.5px; color: #999; text-transform: uppercase; letter-spacing: .6px; }
+  .cli b { font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+  thead th { text-align: left; font-size: 9.5px; letter-spacing: .6px; text-transform: uppercase; color: #999; border-bottom: 1.5px solid #ddd; padding: 9px 6px; }
+  th.r, td.r { text-align: right; } th.c, td.c { text-align: center; width: 46px; }
+  tbody td { padding: 10px 6px; border-bottom: 1px solid #eee; }
+  tr.par td { font-weight: 800; font-size: 11px; color: #666; padding-top: 14px; border-bottom: none; }
+  .total { display: flex; justify-content: flex-end; gap: 44px; align-items: baseline; border-top: 2px solid #111; padding-top: 14px; }
+  .total .l { font-size: 13px; font-weight: 700; } .total .v { font-size: 24px; font-weight: 800; }
+  .vig { background: #fff8e1; border: 1px solid #f0d894; border-radius: 8px; padding: 11px 15px; font-size: 12px; margin: 22px 0; }
+  .foot { border-top: 1px solid #ddd; margin-top: 26px; padding-top: 14px; font-size: 11px; color: #666; line-height: 1.8; }
+</style></head><body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      ${ticketLogo ? `<img src="${ticketLogo}" alt="" />` : ''}
+      <h1>${(cfg?.nombreLinea1 ?? sucursal).toUpperCase()}</h1>
+      ${cfg?.nombreLinea2 ? `<p>${cfg.nombreLinea2}</p>` : ''}
+    </div>
+    <div class="fb"><div class="lbl">${titulo}</div><div class="num">${folio}</div><div class="fec">${fechaFmt} · ${horaHoy}</div></div>
+  </div>
+  <div class="cli">
+    ${(clienteNombre || clienteApellido) ? `<div><span>Cliente</span><b>${clienteNombre} ${clienteApellido}</b></div>` : ''}
+    ${clienteTelefono ? `<div><span>Teléfono</span><b>${clienteTelefono}</b></div>` : ''}
+    ${atendioPor ? `<div><span>Atendió</span><b>${atendioPor}</b></div>` : ''}
+  </div>
+  <table>
+    <thead><tr><th class="c">Cant</th><th>Descripción</th><th class="r">Precio</th></tr></thead>
+    <tbody>${filas}</tbody>
+  </table>
+  <div class="total"><span class="l">TOTAL${esCotizacion ? ' ESTIMADO' : ''}</span><span class="v">$${total.toLocaleString('es-MX')}</span></div>
+  ${esCotizacion ? '<div class="vig"><b>Cotización válida por 15 días.</b> Precios sujetos a cambio sin previo aviso. No es un comprobante de pago.</div>' : ''}
+  <div class="foot">
+    ${cfg?.direccion ? `<div>${cfg.direccion}</div>` : ''}
+    <div>Tel. ${cfg?.telefono ?? '661 612 0316'} · WhatsApp ${cfg?.whatsapp ?? '664 834 3018'} · ${cfg?.horario ?? 'Lun-Sáb 10:00-18:00'}</div>
+    <div>${cfg?.web ?? 'gonmx.com'}</div>
+  </div>
+</div>
+</body></html>`)
+      win.document.close()
+      setTimeout(() => { win.print() }, 400)
+    }
+
     // ── Imprimir órdenes de laboratorio (una página por par con micas) ──
     const isMicaFn = (nombre: string) =>
       ['mica','monofocal','progres','bifocal','transitions'].some(k => nombre.toLowerCase().includes(k))
@@ -1516,6 +1597,14 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
           <Printer className="w-[18px] h-[18px]" /> {esCotizacion
             ? (notaImpresa ? 'Cotización impresa' : 'Imprimir cotización')
             : (notaImpresa ? 'Nota de venta impresa' : 'Imprimir nota de venta')}
+        </button>
+
+        {/* Descargar PDF en formato de hoja (para guardar/compartir) */}
+        <button
+          onClick={handleDescargarPDF}
+          className="w-full flex items-center gap-2.5 px-4 py-3 rounded-lg text-sm font-semibold transition-colors bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+        >
+          <FileText className="w-[18px] h-[18px]" /> Descargar PDF (hoja)
         </button>
 
         {/* Acción secundaria: orden de laboratorio */}

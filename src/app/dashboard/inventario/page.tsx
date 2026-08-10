@@ -533,6 +533,9 @@ function InventarioPage() {
     const total = nEd(editArm.stock_baja) + nEd(editArm.stock_mayo) + nEd(editArm.stock_plaza) + nEd(editArm.stock_online)
     const payload = {
       id: editArm.id,
+      nombre: (editArm.nombre ?? '').trim(),
+      marca:  (editArm.marca ?? '').trim(),
+      modelo: (editArm.modelo ?? '').trim(),
       precio_gon: pg,
       precio: Math.round(pg / TC_USD),
       costo: nEd(editArm.costo),
@@ -1375,6 +1378,31 @@ function InventarioPage() {
               <button onClick={() => !guardandoArm && setEditArm(null)} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-sm">
+              <div>
+                <p className="text-xs font-semibold text-zinc-500 mb-2">IDENTIFICACIÓN</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Nombre / apodo <span className="text-zinc-400">(sale en la web)</span></label>
+                    <input value={editArm.nombre ?? ''} onChange={e => setArm('nombre', e.target.value.toUpperCase())}
+                      placeholder="EJ. DARK-RIM" className="w-full border border-zinc-200 rounded px-2.5 py-2 uppercase placeholder:normal-case" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Marca</label>
+                    <input value={editArm.marca ?? ''} onChange={e => setArm('marca', e.target.value.toUpperCase())}
+                      placeholder="EJ. SEIMA" className="w-full border border-zinc-200 rounded px-2.5 py-2 uppercase placeholder:normal-case" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Modelo</label>
+                    <input value={editArm.modelo ?? ''} onChange={e => setArm('modelo', e.target.value)}
+                      placeholder="EJ. SM2308" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Color</label>
+                    <input value={editArm.color1 ?? ''} onChange={e => setArm('color1', e.target.value.toUpperCase())}
+                      placeholder="EJ. NEGRO" className="w-full border border-zinc-200 rounded px-2.5 py-2 uppercase placeholder:normal-case" />
+                  </div>
+                </div>
+              </div>
               <div>
                 <p className="text-xs font-semibold text-zinc-500 mb-2">PRECIO</p>
                 <div className="grid grid-cols-3 gap-3">
