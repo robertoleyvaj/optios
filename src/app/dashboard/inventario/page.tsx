@@ -1408,7 +1408,7 @@ function InventarioPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-zinc-500 mb-1">Precio (MXN)</label>
-                    <input type="number" value={nEd(editArm.precio_gon)} onChange={e => setArm('precio_gon', e.target.value)} className="w-full border border-zinc-200 rounded px-2.5 py-2" />
+                    <input type="number" value={editArm.precio_gon || ''} onChange={e => setArm('precio_gon', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
                   </div>
                   <div>
                     <label className="block text-xs text-zinc-500 mb-1">Verly (USD, auto)</label>
@@ -1416,7 +1416,7 @@ function InventarioPage() {
                   </div>
                   <div>
                     <label className="block text-xs text-zinc-500 mb-1">Costo</label>
-                    <input type="number" value={nEd(editArm.costo)} onChange={e => setArm('costo', e.target.value)} className="w-full border border-zinc-200 rounded px-2.5 py-2" />
+                    <input type="number" value={editArm.costo || ''} onChange={e => setArm('costo', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
                   </div>
                 </div>
               </div>
@@ -1441,11 +1441,11 @@ function InventarioPage() {
                 <div className="grid grid-cols-2 gap-3 mt-3">
                   <div>
                     <label className="block text-xs text-zinc-500 mb-1">Descuento GON (%)</label>
-                    <input type="number" value={nEd(editArm.descuento_gon)} onChange={e => setArm('descuento_gon', e.target.value)} className="w-full border border-zinc-200 rounded px-2.5 py-2" />
+                    <input type="number" value={editArm.descuento_gon || ''} onChange={e => setArm('descuento_gon', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
                   </div>
                   <div>
                     <label className="block text-xs text-zinc-500 mb-1">Descuento Verly (%)</label>
-                    <input type="number" value={nEd(editArm.descuento_verly)} onChange={e => setArm('descuento_verly', e.target.value)} className="w-full border border-zinc-200 rounded px-2.5 py-2" />
+                    <input type="number" value={editArm.descuento_verly || ''} onChange={e => setArm('descuento_verly', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
                   </div>
                 </div>
               </div>
