@@ -348,10 +348,10 @@ function descargarPDFDoc(v: Venta, logo = '', atendioReceta = '') {
     const d = item.descuento > 0 ? ` <small style="color:#888">(−${item.descuento}%)</small>` : ''
     return `<tr><td class="c">${item.cantidad}</td><td>${item.nombre}${d}</td><td class="r">$${sub.toLocaleString('es-MX')}</td></tr>`
   }).join('')
-  const pagado = (v.total || 0) - (v.saldo || 0)
-  const pagosHTML = (!esCot && (v.saldo || 0) > 0)
+  const pagado = (v.total || 0) - (v.saldo_db || 0)
+  const pagosHTML = (!esCot && (v.saldo_db || 0) > 0)
     ? `<div class="pay"><span>Pagado</span><b>$${pagado.toLocaleString('es-MX')}</b></div>
-       <div class="pay saldo"><span>Saldo pendiente</span><b>$${(v.saldo || 0).toLocaleString('es-MX')}</b></div>`
+       <div class="pay saldo"><span>Saldo pendiente</span><b>$${(v.saldo_db || 0).toLocaleString('es-MX')}</b></div>`
     : ''
   const win = window.open('', '_blank', 'width=800,height=1000')
   if (!win) return
