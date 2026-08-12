@@ -56,6 +56,7 @@ export async function PATCH(req: Request) {
       'nombre', 'marca', 'modelo', 'color1', 'medidas', 'material', 'precio', 'precio_gon',
       'costo', 'stock', 'stock_baja', 'stock_mayo', 'stock_plaza', 'stock_online',
       'publicar_gon', 'publicar_verly', 'descuento_gon', 'descuento_verly', 'activo',
+      'imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url', 'imagen5_url',
     ])
     const update: Record<string, unknown> = {}
     for (const k of Object.keys(cambios)) if (permitidos.has(k)) update[k] = cambios[k]

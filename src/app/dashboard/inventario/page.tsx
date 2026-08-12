@@ -526,6 +526,24 @@ function InventarioPage() {
     }
   }
 
+  // Borrar una foto: limpia la columna en la base (queda el cuadro vacío para volver a subir)
+  const borrarFoto = async (campo: string) => {
+    if (!editArm) return
+    setArm(campo as keyof ArmazonRaw, null)
+    try {
+      const res = await fetch('/api/ecomm/armazones', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editArm.id, [campo]: null }),
+      })
+      const j = await res.json()
+      if (j.ok) {
+        setArmazonesRaw(prev => prev.map(a => a.id === editArm.id ? { ...a, [campo]: null } : a))
+      } else {
+        alert('No se pudo borrar la foto: ' + (j.error || ''))
+      }
+    } catch { /* noop */ }
+  }
+
   const guardarArm = async () => {
     if (!editArm || guardandoArm) return
     setGuardandoArm(true)
@@ -1455,15 +1473,23 @@ function InventarioPage() {
                   {(['imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url', 'imagen5_url'] as const).map((campo, i) => {
                     const url = editArm[campo]
                     return (
-                      <label key={campo} className="relative aspect-square rounded border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center cursor-pointer hover:border-teal-400 overflow-hidden">
-                        {url ? (
-                          <img src={url as string} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-[10px] text-zinc-400 text-center px-1">{subiendoFoto === campo ? '...' : (i === 0 ? 'Principal' : `+ Foto ${i + 1}`)}</span>
+                      <div key={campo} className="relative aspect-square">
+                        <label className="absolute inset-0 rounded border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center cursor-pointer hover:border-teal-400 overflow-hidden">
+                          {url ? (
+                            <img src={url as string} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-[10px] text-zinc-400 text-center px-1">{subiendoFoto === campo ? '...' : (i === 0 ? 'Principal' : `+ Foto ${i + 1}`)}</span>
+                          )}
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(campo, f); e.target.value = '' }} />
+                        </label>
+                        {url && (
+                          <button type="button"
+                            onClick={e => { e.preventDefault(); e.stopPropagation(); borrarFoto(campo) }}
+                            title="Borrar foto"
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-zinc-800 text-white rounded-full flex items-center justify-center text-sm leading-none hover:bg-red-600 shadow z-10">×</button>
                         )}
-                        <input type="file" accept="image/*" className="hidden"
-                          onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(campo, f); e.target.value = '' }} />
-                      </label>
+                      </div>
                     )
                   })}
                 </div>
