@@ -526,14 +526,16 @@ function InventarioPage() {
     }
   }
 
-  // Borrar una foto: limpia la columna en la base (queda el cuadro vacío para volver a subir)
+  // Borrar una foto por completo: elimina el archivo del Storage y limpia la columna
+  // (desaparece del inventario y de las dos webs; queda el cuadro vacío para volver a subir).
   const borrarFoto = async (campo: string) => {
     if (!editArm) return
+    const url = editArm[campo as keyof ArmazonRaw] as string | null
     setArm(campo as keyof ArmazonRaw, null)
     try {
-      const res = await fetch('/api/ecomm/armazones', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editArm.id, [campo]: null }),
+      const res = await fetch('/api/ecomm/upload-foto', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editArm.id, campo, url }),
       })
       const j = await res.json()
       if (j.ok) {

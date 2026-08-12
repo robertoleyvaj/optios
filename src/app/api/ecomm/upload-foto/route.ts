@@ -39,3 +39,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 })
   }
 }
+
+// Borra una foto por completo: elimina el archivo del Storage y limpia la columna.
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id, campo, url } = await req.json() as { id?: string; campo?: string; url?: string }
+    if (!id || !campo) return NextResponse.json({ ok: false, error: 'Faltan datos (id, campo)' }, { status: 400 })
+    if (!CAMPOS_FOTO.includes(campo)) return NextResponse.json({ ok: false, error: 'Campo de foto inválido' }, { status: 400 })
+
+    const sb = createEcommClient()
+    // Borrar el archivo físico del Storage (extrae el nombre del public URL)
+    if (typeof url === 'string' && url.includes('/armazones/')) {
+      const path = url.split('/armazones/').pop()?.split('?')[0]
+      if (path) await sb.storage.from('armazones').remove([decodeURIComponent(path)])
+    }
+    const upd = await sb.from('armazones').update({ [campo]: null }).eq('id', id)
+    if (upd.error) return NextResponse.json({ ok: false, error: upd.error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 })
+  }
+}
