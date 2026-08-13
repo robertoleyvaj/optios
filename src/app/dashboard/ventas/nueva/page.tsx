@@ -28,6 +28,7 @@ import {
   Phone,
   AlertCircle,
   Printer,
+  Store,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 
@@ -290,12 +291,17 @@ export default function NuevaVentaPage() {
   // Armazones (base de e-commerce), SOLO los que tienen stock en la sucursal del vendedor
   const [catalogoArmz, setCatalogoArmz] = useState<CatItem[]>([])
   useEffect(() => {
+    // Guardia contra respuestas fuera de orden: si la sucursal cambia (ej. de
+    // "Baja Visión" por default a la real), se ignora la respuesta vieja para que
+    // el vendedor nunca vea los armazones de otra óptica.
+    let cancelled = false
     const stockKey = sucursal === 'Baja Visión' ? 'stock_baja'
       : sucursal === '5 de Mayo' ? 'stock_mayo'
       : 'stock_plaza'
     fetch('/api/ecomm/armazones', { cache: 'no-store' })
       .then(r => r.json())
       .then(j => {
+        if (cancelled) return
         if (!j.ok) { setCatalogoArmz([]); return }
         const items: CatItem[] = (j.armazones as Record<string, unknown>[])
           .filter(a => Number(a[stockKey] ?? 0) > 0)   // solo los que están en ESTA óptica
@@ -313,7 +319,8 @@ export default function NuevaVentaPage() {
           })
         setCatalogoArmz(items)
       })
-      .catch(() => setCatalogoArmz([]))
+      .catch(() => { if (!cancelled) setCatalogoArmz([]) })
+    return () => { cancelled = true }
   }, [sucursal])
 
   // Catálogo efectivo: base fija + lo que llega de la tabla `productos` + armazones de la sucursal.
@@ -1819,6 +1826,13 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
               Eliminar par {parActivo}
             </button>
           )}
+        </div>
+
+        {/* Indicador de sucursal: para que el vendedor confirme de qué óptica es el inventario */}
+        <div className="px-6 pt-2">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 rounded-full px-2.5 py-1">
+            <Store className="w-3 h-3" /> Vendiendo en: {sucursal}
+          </span>
         </div>
 
         {/* Buscador de productos — fuera del overflow-x-auto para que el dropdown no se corte */}
