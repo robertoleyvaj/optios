@@ -353,7 +353,7 @@ function ReportesPage() {
     const vs = ventas.filter(v => v.sucursal === s)
     const total = vs.reduce((sum, v) => sum + Number(v.total), 0)
     const metaSuc = metaPeriodo(periodo, metasPorSuc[s] ?? 0)
-    return { nombre: s, total, count: vs.length,
+    return { nombre: s, total, count: vs.length, metaSuc,
       ticket: vs.length > 0 ? Math.round(total / vs.length) : 0,
       metaPct: metaSuc > 0 ? Math.round((total / metaSuc) * 100) : 0 }
   }).sort((a, b) => b.total - a.total)
@@ -536,6 +536,14 @@ function ReportesPage() {
               <div className="space-y-3">
                 {porSucursal.map((s, i) => {
                   const lider = i === 0 && s.total > 0
+                  const conMeta = s.metaSuc > 0
+                  const fillPct = conMeta
+                    ? Math.min(100, Math.round((s.total / s.metaSuc) * 100))
+                    : Math.max(2, Math.round((s.total / maxSuc) * 100))
+                  const pacePct = mostrarProy ? Math.min(100, Math.round((diasTransc / diasTotales) * 100)) : 0
+                  const esperado = conMeta ? s.metaSuc * (diasTransc / diasTotales) : 0
+                  const enRitmo = conMeta && s.total >= esperado
+                  const abajo = Math.max(0, Math.round(esperado - s.total))
                   return (
                     <div key={s.nombre} className="flex items-center gap-3">
                       <span className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0 ${lider ? 'bg-teal-600 text-white' : 'bg-zinc-100 text-zinc-400'}`}>{i + 1}</span>
@@ -545,22 +553,37 @@ function ReportesPage() {
                             {s.nombre}
                             {lider && <span className="ml-1.5 text-[9px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full align-middle">LÍDER</span>}
                           </span>
-                          <span className={`text-xs font-bold ${s.total > 0 ? 'text-zinc-800' : 'text-zinc-400'}`}>{$$(s.total)}</span>
+                          <span className={`text-xs font-bold ${s.total > 0 ? 'text-zinc-800' : 'text-zinc-400'}`}>
+                            {$$(s.total)}{conMeta && <span className="text-zinc-400 font-normal"> / {$$(s.metaSuc)}</span>}
+                          </span>
                         </div>
-                        <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${Math.max(Math.round((s.total / maxSuc) * 100), 2)}%`, background: COLOR_SUC[s.nombre] }} />
+                        <div className="relative h-2.5">
+                          <div className="absolute inset-0 bg-zinc-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${fillPct}%`, background: (conMeta && !enRitmo) ? '#F59E0B' : COLOR_SUC[s.nombre] }} />
+                          </div>
+                          {mostrarProy && conMeta && (
+                            <div className="absolute -top-0.5 -bottom-0.5 w-[2px] bg-zinc-700 rounded" style={{ left: `${pacePct}%` }} title="Dónde deberías ir hoy" />
+                          )}
                         </div>
-                        <div className="flex gap-2 mt-1 text-[11px] text-zinc-400">
+                        <div className="flex flex-wrap gap-x-2 mt-1 text-[11px] text-zinc-400">
                           <span>{s.count} {s.count === 1 ? 'venta' : 'ventas'}</span>
                           {s.ticket > 0 && <><span>·</span><span>ticket {$$(s.ticket)}</span></>}
                           {s.metaPct > 0 && <><span>·</span><span className={s.metaPct >= 100 ? 'text-emerald-600 font-semibold' : ''}>{s.metaPct}% meta</span></>}
+                          {mostrarProy && conMeta && (enRitmo
+                            ? <><span>·</span><span className="text-emerald-600 font-semibold">en ritmo</span></>
+                            : <><span>·</span><span className="text-amber-600 font-semibold">{$$(abajo)} abajo del ritmo</span></>)}
                         </div>
                       </div>
                     </div>
                   )
                 })}
               </div>
+              {mostrarProy && (
+                <p className="text-[10px] text-zinc-400 mt-3 flex items-center gap-1.5">
+                  <span className="inline-block w-[2px] h-3 bg-zinc-700" /> = dónde deberías ir hoy · barra = lo real
+                </p>
+              )}
             </Card>
 
             <Card title="Servicio y calidad">
