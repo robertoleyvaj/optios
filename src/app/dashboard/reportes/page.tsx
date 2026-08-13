@@ -79,16 +79,6 @@ function getDateRange(periodo: Periodo, desde = '', hasta = '') {
   return { inicio: `${hoy.getFullYear()}-01-01`, fin }
 }
 
-// Rango del periodo INMEDIATAMENTE anterior (mismo tamaño), para comparar ▲/▼.
-function getPrevRange(periodo: Periodo, inicio: string, fin: string) {
-  const dIni = new Date(inicio + 'T12:00:00')
-  const dFin = new Date(fin + 'T12:00:00')
-  const dias = Math.round((dFin.getTime() - dIni.getTime()) / 86400000) + 1
-  const prevFin = new Date(dIni.getTime() - 86400000)
-  const prevIni = new Date(prevFin.getTime() - (dias - 1) * 86400000)
-  const f = (d: Date) => d.toLocaleDateString('en-CA')
-  return { inicio: f(prevIni), fin: f(prevFin) }
-}
 
 function metaPeriodo(periodo: Periodo, mensual: number): number {
   if (periodo === 'hoy')       return Math.round(mensual / 30)
@@ -161,7 +151,6 @@ function ReportesPage() {
   const [ventas,     setVentas]     = useState<Venta[]>([])
   const [cotCount,   setCotCount]   = useState(0)
   const [ordLab,     setOrdLab]     = useState<OrdenLab[]>([])
-  const [prevTotal,  setPrevTotal]  = useState(0)   // ventas del periodo anterior (para ▲/▼)
   const [enCaja,     setEnCaja]     = useState(0)    // efectivo en caja hoy (las 3 sucursales)
   const [enCajaUSD,  setEnCajaUSD]  = useState(0)    // dólares en caja (las 3 sucursales)
   const [cajaSaldos, setCajaSaldos] = useState<{ sucursal: string; fondo: number; ingresos: number; egresos: number; saldo: number; saldoUsd: number }[]>([])
@@ -239,14 +228,6 @@ function ReportesPage() {
       .neq('estado', 'cancelada')
       .gt('saldo', 0)
 
-    // Periodo anterior (mismo tamaño) para comparación ▲/▼
-    const prev = getPrevRange(periodo, inicio, fin)
-    let qPrev = sb.from('ventas')
-      .select('total')
-      .eq('es_cotizacion', false)
-      .neq('estado', 'cancelada')
-      .gte('created_at', rangoDiaLocal(prev.inicio).start)
-      .lte('created_at', rangoDiaLocal(prev.fin).end)
 
     // ── Efectivo REAL en cada caja: mismo cálculo que el módulo Caja
     //    (fondo del último corte + efectivo que entró desde entonces − egresos en efectivo).
@@ -288,20 +269,18 @@ function ReportesPage() {
       qLab    = qLab.eq('sucursal', sucursal)
       qGar    = qGar.eq('sucursal', sucursal)
       qDeuda  = qDeuda.eq('sucursal', sucursal)
-      qPrev   = qPrev.eq('sucursal', sucursal)
       qEf     = qEf.eq('sucursal', sucursal)
       qEfUsd  = qEfUsd.eq('sucursal', sucursal)
       qEg     = qEg.eq('sucursal', sucursal)
     }
 
-    const [rV, rC, rL, rGar, rDeuda, rP, rEf, rEfUsd, rEg] = await Promise.all([qVentas, qCot, qLab, qGar, qDeuda, qPrev, qEf, qEfUsd, qEg])
+    const [rV, rC, rL, rGar, rDeuda, rEf, rEfUsd, rEg] = await Promise.all([qVentas, qCot, qLab, qGar, qDeuda, qEf, qEfUsd, qEg])
 
     const ordLabData = rL.data || []
     setVentas(rV.data || [])
     setCotCount(rC.count ?? 0)
     setOrdLab(ordLabData)
     setGarantias(rGar.count ?? 0)
-    setPrevTotal((rP.data || []).reduce((s: number, v: { total: number }) => s + Number(v.total), 0))
 
     const efRows    = (rEf.data ?? []) as { sucursal: string; monto: number; created_at: string }[]
     const efUsdRows = (rEfUsd.data ?? []) as { sucursal: string; monto_origen: number | null; created_at: string }[]
@@ -359,10 +338,6 @@ function ReportesPage() {
   const metaPct = metaP > 0 ? Math.min(Math.round((totalFacturado / metaP) * 100), 100) : 0
   const metaFaltante = Math.max(0, metaP - totalFacturado)
 
-  // Variación vs periodo anterior
-  const deltaPct = prevTotal > 0
-    ? Math.round(((totalFacturado - prevTotal) / prevTotal) * 100)
-    : (totalFacturado > 0 ? 100 : 0)
 
   // Lentes: listos por entregar (esperando pickup) vs total pendientes
   const lentesSinEntregar = ordLab.length
@@ -488,12 +463,7 @@ function ReportesPage() {
                 <TrendingUp className="w-4 h-4 text-teal-600 opacity-60" />
               </div>
               <p className="text-2xl font-bold text-teal-600">{$$(totalFacturado)}</p>
-              <p className="text-xs mt-1">
-                <span className="text-zinc-400">{metaPct}% meta · </span>
-                <span className={deltaPct >= 0 ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>
-                  {deltaPct >= 0 ? '▲' : '▼'}{Math.abs(deltaPct)}% vs ant.
-                </span>
-              </p>
+              <p className="text-xs mt-1 text-zinc-400">{metaPct}% de la meta</p>
             </div>
             <KPI label="# Ventas" value={String(ventas.length)}
               sub={ventas.length > 0 ? `ticket prom. ${$$(ticketProm)}` : 'transacciones'}
