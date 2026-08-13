@@ -170,10 +170,10 @@ export default function MiDesempenoPage() {
         if (esGerente) {
           // Gerente ve ventas GLOBALES de las 3 sucursales
           const [rMes, rHoy, rMetas] = await Promise.all([
-            sb.from('ventas').select('total').eq('es_cotizacion', false)
+            sb.from('ventas').select('total').eq('es_cotizacion', false).neq('estado', 'cancelada')
               .gte('created_at', inicio).lte('created_at', fin),
             esMesActualFetch
-              ? sb.from('ventas').select('total').eq('es_cotizacion', false)
+              ? sb.from('ventas').select('total').eq('es_cotizacion', false).neq('estado', 'cancelada')
                   .gte('created_at', rangoHoy.start).lte('created_at', rangoHoy.end)
               : Promise.resolve({ data: [] }),
             sb.from('metas').select('meta').eq('mes', mesStr),
@@ -190,7 +190,7 @@ export default function MiDesempenoPage() {
           // Se atribuye por `atendido_por` (nombre) porque `usuario_id` se guarda en null
           // en las ventas. Cuenta la venta completa sin importar liquidación ni sucursal.
           const qBase = (start: string, end: string) =>
-            sb.from('ventas').select('total').eq('es_cotizacion', false)
+            sb.from('ventas').select('total').eq('es_cotizacion', false).neq('estado', 'cancelada')
               .gte('created_at', start).lte('created_at', end)
               .eq('atendido_por', nombre)
           const [rMes, rHoy] = await Promise.all([

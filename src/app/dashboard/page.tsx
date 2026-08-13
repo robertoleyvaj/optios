@@ -228,6 +228,8 @@ export default function DashboardPage() {
           // Actividad reciente (ventas de hoy)
           sb.from('ventas').select('id,folio,paciente_nombre,created_at,total')
             .eq('sucursal', sucursalEfectiva)
+            .eq('es_cotizacion', false)
+            .neq('estado', 'cancelada')
             .gte('created_at', startHoy)
             .order('created_at', { ascending: false })
             .limit(8),

@@ -212,6 +212,7 @@ function ReportesPage() {
     const baseVentas = () => sb.from('ventas')
       .select('id, total, anticipo, saldo, sucursal, metodo_pago, atendido_por, created_at')
       .eq('es_cotizacion', false)
+      .neq('estado', 'cancelada')
       .gte('created_at', rangoInicio)
       .lte('created_at', rangoFin)
 
@@ -235,6 +236,7 @@ function ReportesPage() {
     let qDeuda  = sb.from('ventas')
       .select('id, saldo, sucursal')
       .eq('es_cotizacion', false)
+      .neq('estado', 'cancelada')
       .gt('saldo', 0)
 
     // Periodo anterior (mismo tamaño) para comparación ▲/▼
@@ -242,6 +244,7 @@ function ReportesPage() {
     let qPrev = sb.from('ventas')
       .select('total')
       .eq('es_cotizacion', false)
+      .neq('estado', 'cancelada')
       .gte('created_at', rangoDiaLocal(prev.inicio).start)
       .lte('created_at', rangoDiaLocal(prev.fin).end)
 

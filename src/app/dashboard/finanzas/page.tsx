@@ -171,6 +171,7 @@ function FinanzasPage() {
       .from('ventas')
       .select('folio, total, saldo, created_at, atendido_por, sucursal')
       .eq('es_cotizacion', false)
+      .neq('estado', 'cancelada')
       .gte('created_at', rangoInicio)
       .lte('created_at', rangoFin)
       .order('created_at', { ascending: false })

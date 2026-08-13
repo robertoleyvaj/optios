@@ -928,6 +928,7 @@ export default function VentasPage() {
     //    auditar qué contenía) y guarda motivo, quién y cuándo.
     const r5 = await supabase.from('ventas').update({
       estado: 'cancelada',
+      saldo: 0,   // cancelada = no se debe nada
       motivo_cancelacion: motivo.trim().toUpperCase(),
       cancelada_por: quien,
       cancelada_en: new Date().toISOString(),
