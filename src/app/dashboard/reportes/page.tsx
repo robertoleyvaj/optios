@@ -369,17 +369,26 @@ function ReportesPage() {
   let accSerie = 0
   const serie = diasOrden.map(d => { accSerie += porDia[d]; return accSerie })
 
-  // ── Proyección al cierre del periodo (¿vas adelantado o atrasado?) ──
+  // ── Proyección al cierre del periodo (con el fin REAL del periodo, no "hoy") ──
   const rng = getDateRange(periodo, desde, hasta)
   const dIni = new Date(rng.inicio + 'T12:00:00')
-  const dFinP = new Date(rng.fin + 'T12:00:00')
   const dHoy = new Date(hoyStr + 'T12:00:00')
-  const diasTotales = Math.max(1, Math.round((dFinP.getTime() - dIni.getTime()) / 86400000) + 1)
-  const finTransc = dHoy < dFinP ? dHoy : dFinP
+  // Fin real del periodo (último día del mes/trimestre/etc.), NO la fecha de hoy
+  let dFinReal: Date
+  if (periodo === 'semana')         { dFinReal = new Date(dIni); dFinReal.setDate(dIni.getDate() + 6) }
+  else if (periodo === 'mes')       dFinReal = new Date(dIni.getFullYear(), dIni.getMonth() + 1, 0, 12)
+  else if (periodo === 'trimestre') dFinReal = new Date(dIni.getFullYear(), dIni.getMonth() + 3, 0, 12)
+  else if (periodo === 'semestre')  dFinReal = new Date(dIni.getFullYear(), dIni.getMonth() + 6, 0, 12)
+  else if (periodo === 'anio')      dFinReal = new Date(dIni.getFullYear(), 11, 31, 12)
+  else                              dFinReal = new Date(rng.fin + 'T12:00:00')   // hoy / personalizado
+  const diasTotales = Math.max(1, Math.round((dFinReal.getTime() - dIni.getTime()) / 86400000) + 1)
+  const finTransc = dHoy < dFinReal ? dHoy : dFinReal
   const diasTransc = Math.max(1, Math.round((finTransc.getTime() - dIni.getTime()) / 86400000) + 1)
-  const proyeccion = Math.round((totalFacturado / diasTransc) * diasTotales)
-  const metaEsperada = metaP * (diasTransc / diasTotales)
+  const promedioDiario = Math.round(totalFacturado / diasTransc)
+  const proyeccion = Math.round(promedioDiario * diasTotales)
+  const metaEsperada = Math.round(metaP * (diasTransc / diasTotales))   // lo que DEBERÍAS llevar hoy
   const vaAdelantado = metaP > 0 && totalFacturado >= metaEsperada
+  const faltaEsperado = Math.max(0, metaEsperada - totalFacturado)      // cuánto abajo de lo esperado
   const proyVsMeta = proyeccion - metaP
   const mostrarProy = periodo !== 'hoy' && diasTotales > 1 && serie.length > 0
 
@@ -581,19 +590,26 @@ function ReportesPage() {
                 <p className="text-sm text-zinc-400 py-10 text-center">Sin ventas en el periodo</p>
               ) : (
                 <>
-                  {/* Fila de indicadores: acumulado · meta · proyección · adelantado/atrasado */}
-                  <div className="flex flex-wrap items-end gap-x-5 gap-y-2 mb-3">
-                    <div><p className="text-lg font-bold text-teal-600 leading-none">{$$(totalFacturado)}</p><p className="text-[10px] text-zinc-400 mt-1">acumulado · {metaPct}%</p></div>
+                  {/* Fila de indicadores: acumulado · meta · promedio diario · proyección */}
+                  <div className="flex flex-wrap items-end gap-x-6 gap-y-2 mb-3">
+                    <div><p className="text-lg font-bold text-teal-600 leading-none">{$$(totalFacturado)}</p><p className="text-[10px] text-zinc-400 mt-1">acumulado · {metaPct}% de la meta</p></div>
                     <div><p className="text-lg font-bold text-zinc-700 leading-none">{$$(metaP)}</p><p className="text-[10px] text-zinc-400 mt-1">meta</p></div>
                     {mostrarProy && (
                       <>
+                        <div><p className="text-lg font-bold text-zinc-700 leading-none">{$$(promedioDiario)}</p><p className="text-[10px] text-zinc-400 mt-1">promedio/día ({diasTransc}d)</p></div>
                         <div><p className="text-lg font-bold text-blue-600 leading-none">{$$(proyeccion)}</p><p className="text-[10px] text-zinc-400 mt-1">proyección al cierre</p></div>
-                        <div className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-full ${vaAdelantado ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                          {vaAdelantado ? '▲ Vas adelantado' : '▼ Vas atrasado'}
-                        </div>
                       </>
                     )}
                   </div>
+
+                  {/* Anuncio: ¿vas bien o vas abajo de lo que deberías? */}
+                  {mostrarProy && metaP > 0 && (
+                    <div className={`mb-3 rounded-lg px-3 py-2 text-xs font-semibold ${vaAdelantado ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                      {vaAdelantado
+                        ? <>✓ Vas bien — para el día {diasTransc} deberías llevar {$$(metaEsperada)} y llevas {$$(totalFacturado)}.</>
+                        : <>▼ Vas atrasado — para hoy deberías llevar {$$(metaEsperada)}, vas <b>{$$(faltaEsperado)} abajo</b>.</>}
+                    </div>
+                  )}
 
                   <div className="relative" style={{ height: 120 }} onMouseLeave={() => setHoverIdx(null)}>
                     <svg viewBox="0 0 400 120" className="w-full h-full" preserveAspectRatio="none">
@@ -641,7 +657,7 @@ function ReportesPage() {
                     {metaPct >= 100
                       ? <span className="text-emerald-600 font-semibold">¡Meta alcanzada! 🎉</span>
                       : mostrarProy
-                        ? <span className="text-zinc-500">Al ritmo actual cierras en <b className={proyVsMeta >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{$$(proyeccion)}</b> — {proyVsMeta >= 0 ? <span className="text-emerald-600 font-semibold">{$$(proyVsMeta)} arriba</span> : <span className="text-rose-600 font-semibold">{$$(Math.abs(proyVsMeta))} abajo</span>} de la meta</span>
+                        ? <span className="text-zinc-500">Al ritmo actual (~{$$(promedioDiario)}/día) cierras en <b className={proyVsMeta >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{$$(proyeccion)}</b> — {proyVsMeta >= 0 ? <span className="text-emerald-600 font-semibold">{$$(proyVsMeta)} arriba</span> : <span className="text-rose-600 font-semibold">{$$(Math.abs(proyVsMeta))} abajo</span>} de la meta</span>
                         : <span className="text-zinc-400">Van {metaPct}% · faltan {$$(metaFaltante)}</span>}
                   </p>
                 </>
