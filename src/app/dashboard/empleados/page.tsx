@@ -34,6 +34,7 @@ type Empleado = {
 }
 
 type Documento = { id: string; nombre: string; categoria: string | null; url: string; path: string | null; tamano: number | null; subido_at: string }
+type Asistencia = { id: string; sucursal: string | null; fecha: string; entrada: string | null; salida: string | null }
 
 const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles', 'Todas']
 const CATEGORIAS_DOC = ['Contrato', 'INE', 'Comprobante domicilio', 'CURP', 'Otro']
@@ -54,6 +55,13 @@ const antiguedad = (f: string | null) => {
   return [a > 0 ? `${a} año${a > 1 ? 's' : ''}` : '', mm > 0 ? `${mm} mes${mm > 1 ? 'es' : ''}` : ''].filter(Boolean).join(' ') || 'recién ingresado'
 }
 const fmtTam = (n: number | null) => n ? (n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`) : ''
+const horaAsis = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString('es-MX', { timeZone: 'America/Tijuana', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
+const durAsis = (e: string | null, s: string | null) => {
+  if (!e || !s) return '—'
+  const min = Math.round((new Date(s).getTime() - new Date(e).getTime()) / 60000)
+  if (min <= 0) return '—'
+  return `${Math.floor(min / 60)}h ${min % 60}m`
+}
 const $$ = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 }).format(n)
 // Horas del turno a partir de entrada/salida (default 8 si no hay horario)
 function horasTurno(e: string | null, s: string | null): number {
@@ -73,7 +81,7 @@ function EmpleadosPage() {
   const [empleados, setEmpleados] = useState<Empleado[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [selId, setSelId] = useState<string | null>(null)
-  const [tab, setTab] = useState<'datos' | 'docs' | 'comp'>('datos')
+  const [tab, setTab] = useState<'datos' | 'docs' | 'comp' | 'asist'>('datos')
   const [editando, setEditando] = useState(false)
   const [form, setForm] = useState<Partial<Empleado>>({})
   const [guardando, setGuardando] = useState(false)
@@ -81,6 +89,7 @@ function EmpleadosPage() {
   const [subiendo, setSubiendo] = useState(false)
   const [catDoc, setCatDoc] = useState('Contrato')
   const [costos, setCostos] = useState<{ id: string; fecha: string; concepto: string; categoria: string; monto: number }[]>([])
+  const [asistencias, setAsistencias] = useState<Asistencia[]>([])
 
   const cargar = useCallback(async () => {
     const { data } = await createClient().from('usuarios').select('*').order('nombre')
@@ -105,7 +114,17 @@ function EmpleadosPage() {
     setCostos((data ?? []) as { id: string; fecha: string; concepto: string; categoria: string; monto: number }[])
   }, [])
 
-  const abrir = (e: Empleado) => { setSelId(e.id); setTab('datos'); setEditando(false); cargarDocs(e.id); cargarCostos(e.id) }
+  const cargarAsistencias = useCallback(async (id: string) => {
+    try {
+      const desde = new Date(); desde.setDate(desde.getDate() - 30)
+      const d = desde.toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+      const res = await fetch(`/api/empleados/asistencia?usuario_id=${id}&desde=${d}`)
+      const j = await res.json()
+      setAsistencias((j.ok ? j.asistencias : []) as Asistencia[])
+    } catch { setAsistencias([]) }
+  }, [])
+
+  const abrir = (e: Empleado) => { setSelId(e.id); setTab('datos'); setEditando(false); cargarDocs(e.id); cargarCostos(e.id); cargarAsistencias(e.id) }
 
   const editar = () => { if (sel) { setForm({ ...sel }); setEditando(true) } }
   const f = (k: keyof Empleado, v: unknown) => setForm(prev => ({ ...prev, [k]: v }))
@@ -231,6 +250,7 @@ function EmpleadosPage() {
                 <button onClick={() => { setTab('datos') }} className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${tab === 'datos' ? 'text-[#0D9488] border-[#0D9488]' : 'text-zinc-400 border-transparent hover:text-zinc-600'}`}>Datos</button>
                 <button onClick={() => { setTab('docs'); setEditando(false) }} className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${tab === 'docs' ? 'text-[#0D9488] border-[#0D9488]' : 'text-zinc-400 border-transparent hover:text-zinc-600'}`}>Documentos {docs.length > 0 && <span className="text-[9px] bg-zinc-100 text-zinc-500 rounded-full px-1.5">{docs.length}</span>}</button>
                 <button onClick={() => { setTab('comp'); setEditando(false) }} className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${tab === 'comp' ? 'text-[#0D9488] border-[#0D9488]' : 'text-zinc-400 border-transparent hover:text-zinc-600'}`}>Compensación</button>
+                <button onClick={() => { setTab('asist'); setEditando(false) }} className={`text-xs font-semibold px-3 py-2 border-b-2 transition-colors ${tab === 'asist' ? 'text-[#0D9488] border-[#0D9488]' : 'text-zinc-400 border-transparent hover:text-zinc-600'}`}>Asistencia</button>
                 <span className="text-xs font-semibold px-3 py-2 text-zinc-300 cursor-not-allowed">Asistencia <span className="text-[9px]">(Fase 3)</span></span>
               </div>
 
@@ -389,6 +409,31 @@ function EmpleadosPage() {
                       </>
                     )
                   })()}
+                </div>
+              )}
+
+              {/* Asistencia (Fase 3 · checador) */}
+              {tab === 'asist' && (
+                <div className="px-5 py-4">
+                  {asistencias.length === 0 ? (
+                    <p className="text-sm text-zinc-400 text-center py-10">Sin registros de checador en los últimos 30 días.</p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-4 gap-2 px-2 pb-1.5 text-[10px] uppercase font-semibold text-zinc-400">
+                        <span>Fecha</span><span className="text-center">Entrada</span><span className="text-center">Salida</span><span className="text-right">Horas</span>
+                      </div>
+                      <div className="space-y-0.5">
+                        {asistencias.map(a => (
+                          <div key={a.id} className="grid grid-cols-4 gap-2 items-center px-2 py-2 border-b border-zinc-50 text-sm">
+                            <span className="text-zinc-600">{fmtFecha(a.fecha)}</span>
+                            <span className="text-center font-semibold text-teal-700">{horaAsis(a.entrada)}</span>
+                            <span className="text-center font-semibold text-zinc-700">{horaAsis(a.salida)}</span>
+                            <span className="text-right font-bold text-zinc-800">{durAsis(a.entrada, a.salida)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
