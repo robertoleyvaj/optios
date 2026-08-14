@@ -22,7 +22,9 @@ type Gasto = {
   monto: number
   sucursal: string
   notas: string
+  empleado_id: string | null
 }
+type EmpleadoLite = { id: string; nombre: string }
 
 // ─────────────────────────────────────────────
 // Constantes
@@ -143,18 +145,20 @@ function FinanzasPage() {
   const [guardando,   setGuardando]   = useState(false)
   const [formGasto,   setFormGasto]   = useState({
     fecha: hoy(), concepto: '', categoria: 'renta',
-    monto: '', sucursal: 'General', notas: '',
+    monto: '', sucursal: 'General', notas: '', empleado_id: '',
   })
+  const [empleadosLista, setEmpleadosLista] = useState<EmpleadoLite[]>([])
 
   const abrirEditar = (g: Gasto) => {
     setEditandoId(g.id)
     setFormGasto({
-      fecha:     g.fecha,
-      concepto:  g.concepto,
-      categoria: g.categoria,
-      monto:     String(g.monto),
-      sucursal:  g.sucursal,
-      notas:     g.notas ?? '',
+      fecha:       g.fecha,
+      concepto:    g.concepto,
+      categoria:   g.categoria,
+      monto:       String(g.monto),
+      sucursal:    g.sucursal,
+      notas:       g.notas ?? '',
+      empleado_id: g.empleado_id ?? '',
     })
     setModal(true)
   }
@@ -260,6 +264,12 @@ function FinanzasPage() {
 
   useEffect(() => { cargar() }, [cargar])
 
+  // Lista de empleados para ligar egresos (nómina, bonos, gasolina, etc.)
+  useEffect(() => {
+    createClient().from('usuarios').select('id, nombre').eq('activo', true).order('nombre')
+      .then(({ data }) => setEmpleadosLista((data ?? []) as EmpleadoLite[]))
+  }, [])
+
   // ── Cálculos ──────────────────────────────
   const gastosOperativos = gastos.filter(g => !CATEGORIAS_RETIRO.includes(g.categoria))
   const retirosAdmin     = gastos.filter(g => CATEGORIAS_RETIRO.includes(g.categoria))
@@ -295,13 +305,14 @@ function FinanzasPage() {
     setGuardando(true)
     const supabase = createClient()
     const payload = {
-      fecha:     formGasto.fecha,
-      concepto:  formGasto.concepto,
-      categoria: formGasto.categoria,
-      monto:     parseFloat(formGasto.monto),
-      sucursal:  formGasto.sucursal,
-      notas:     formGasto.notas || null,
-      es_caja:   false,   // egreso de empresa: nunca toca el corte de caja
+      fecha:       formGasto.fecha,
+      concepto:    formGasto.concepto,
+      categoria:   formGasto.categoria,
+      monto:       parseFloat(formGasto.monto),
+      sucursal:    formGasto.sucursal,
+      notas:       formGasto.notas || null,
+      empleado_id: formGasto.empleado_id || null,
+      es_caja:     false,   // egreso de empresa: nunca toca el corte de caja
     }
 
     if (editandoId) {
@@ -316,7 +327,7 @@ function FinanzasPage() {
 
     setModal(false)
     setEditandoId(null)
-    setFormGasto({ fecha: hoy(), concepto: '', categoria: 'renta', monto: '', sucursal: 'General', notas: '' })
+    setFormGasto({ fecha: hoy(), concepto: '', categoria: 'renta', monto: '', sucursal: 'General', notas: '', empleado_id: '' })
     setGuardando(false)
   }
 
@@ -755,6 +766,16 @@ function FinanzasPage() {
                     onChange={e => setFormGasto(f => ({ ...f, fecha: e.target.value }))}
                     className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none" />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Empleado <span className="font-normal text-zinc-400">(opcional · si es de alguien: nómina, bono, gasolina…)</span></label>
+                <select value={formGasto.empleado_id}
+                  onChange={e => setFormGasto(f => ({ ...f, empleado_id: e.target.value }))}
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none">
+                  <option value="">— Ninguno (gasto general) —</option>
+                  {empleadosLista.map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+                </select>
               </div>
 
               <div>

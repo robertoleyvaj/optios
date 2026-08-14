@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign, Briefcase,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -28,7 +28,7 @@ const CORE = ['dashboard','ventas','agenda','expedientes','laboratorio','caja','
 
 // Módulos de gestión: solo gerente y admin
 const GESTION_GERENTE = ['inventario','reportes']
-const GESTION_ADMIN   = [...GESTION_GERENTE, 'analitica','finanzas','usuarios','ajustes']
+const GESTION_ADMIN   = [...GESTION_GERENTE, 'analitica','finanzas','empleados','usuarios','ajustes']
 
 const CORE_ADMIN = CORE.filter(k => k !== 'mi-desempeno')
 
@@ -73,6 +73,7 @@ const MENU_GESTION: MenuItem[] = [
   // Ocultos temporalmente para enfocar el flujo hasta el corte (reactivar después):
   // { href: '/dashboard/analitica',   label: 'Analítica',        icon: Microscope, key: 'analitica', pronto: true },
   { href: '/dashboard/finanzas',    label: 'Finanzas',         icon: DollarSign, key: 'finanzas' },
+  { href: '/dashboard/empleados',   label: 'Empleados',        icon: Briefcase,  key: 'empleados' },
   { href: '/dashboard/usuarios',    label: 'Usuarios',         icon: Users,      key: 'usuarios' },
   { href: '/dashboard/ajustes',     label: 'Ajustes',          icon: Settings,   key: 'ajustes' },
 ]
