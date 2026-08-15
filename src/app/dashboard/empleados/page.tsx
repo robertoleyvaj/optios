@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import RequireRol from '@/components/RequireRol'
 import { createClient } from '@/lib/supabase/client'
+import { OPCIONES_DESCANSO } from '@/lib/vacaciones'
 import {
   Search, Edit2, Save, FileText, Upload, Trash2,
 } from 'lucide-react'
@@ -31,6 +32,7 @@ type Empleado = {
   fecha_ingreso: string | null
   sueldo_diario: number | null
   dias_semana: number | null
+  dia_descanso: string | null
 }
 
 type Documento = { id: string; nombre: string; categoria: string | null; url: string; path: string | null; tamano: number | null; subido_at: string }
@@ -282,6 +284,16 @@ function EmpleadosPage() {
                     {campo('Tipo de contrato', 'tipo_contrato')}
                     {campo('Horario entrada', 'horario_entrada', 'time')}
                     {campo('Horario salida', 'horario_salida', 'time')}
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wide text-zinc-400 mb-1">Día de descanso</label>
+                      {editando ? (
+                        <select value={(form.dia_descanso as string) ?? ''} onChange={e => f('dia_descanso', e.target.value)}
+                          className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 capitalize">
+                          <option value="">—</option>
+                          {OPCIONES_DESCANSO.map(d => <option key={d} value={d} className="capitalize">{d}</option>)}
+                        </select>
+                      ) : <div className="text-sm font-medium text-zinc-700 capitalize">{sel?.dia_descanso || '—'}</div>}
+                    </div>
                   </div>
 
                   {editando && (

@@ -44,3 +44,53 @@ export function diasEntre(inicio: string, fin: string): number {
   if (b < a) return 0
   return Math.round((b - a) / 86400000) + 1
 }
+
+// ── Día de descanso ──
+const DIAS_SEMANA: Record<string, number> = {
+  domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6,
+}
+export const OPCIONES_DESCANSO = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'variable']
+function descansoNum(t: string | null): number {
+  return t && t in DIAS_SEMANA ? DIAS_SEMANA[t] : -1  // 'variable' o null → no excluye ninguno
+}
+
+// ── Festivos oficiales (LFT Art. 74) ──
+function nthMonday(year: number, month0: number, n: number): number {
+  const d = new Date(year, month0, 1)
+  let count = 0
+  while (d.getMonth() === month0) {
+    if (d.getDay() === 1) { count++; if (count === n) return d.getDate() }
+    d.setDate(d.getDate() + 1)
+  }
+  return -1
+}
+/** ¿La fecha (YYYY-MM-DD) es festivo oficial de descanso obligatorio? */
+export function esFestivo(fecha: string): boolean {
+  const [y, m, dd] = fecha.split('-').map(Number)
+  if (m === 1 && dd === 1) return true                    // Año nuevo
+  if (m === 5 && dd === 1) return true                    // Día del trabajo
+  if (m === 9 && dd === 16) return true                   // Independencia
+  if (m === 12 && dd === 25) return true                  // Navidad
+  if (m === 2 && dd === nthMonday(y, 1, 1)) return true   // 1er lunes de febrero
+  if (m === 3 && dd === nthMonday(y, 2, 3)) return true   // 3er lunes de marzo
+  if (m === 11 && dd === nthMonday(y, 10, 3)) return true // 3er lunes de noviembre
+  return false
+}
+
+/**
+ * Días de vacaciones que consume un rango: días laborables, excluyendo el
+ * día de descanso semanal del empleado y los festivos oficiales.
+ */
+export function diasVacaciones(inicio: string, fin: string, diaDescanso: string | null): number {
+  const rest = descansoNum(diaDescanso)
+  const d = new Date(inicio + 'T12:00:00')
+  const end = new Date(fin + 'T12:00:00')
+  if (end < d) return 0
+  let n = 0
+  while (d <= end) {
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (d.getDay() !== rest && !esFestivo(iso)) n++
+    d.setDate(d.getDate() + 1)
+  }
+  return n
+}
