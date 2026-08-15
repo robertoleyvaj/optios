@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign, Briefcase,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign, Briefcase, Palmtree,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -24,7 +24,7 @@ const ROL_LABEL: Record<Rol, string> = {
 }
 
 // Módulos core: todos los roles de tienda los ven
-const CORE = ['dashboard','ventas','agenda','expedientes','laboratorio','caja','inbox','mi-desempeno','checador']
+const CORE = ['dashboard','ventas','agenda','expedientes','laboratorio','caja','inbox','mi-desempeno','checador','vacaciones']
 
 // Módulos de gestión: solo gerente y admin
 const GESTION_GERENTE = ['inventario','reportes']
@@ -36,7 +36,7 @@ const PERMISOS: Record<Rol, string[]> = {
   administrador: [...CORE_ADMIN, ...GESTION_ADMIN],
   gerente:       [...CORE, ...GESTION_GERENTE],
   vendedor:      [...CORE],
-  repartidor:    ['laboratorio','inbox','checador'],
+  repartidor:    ['laboratorio','inbox','checador','vacaciones'],
 }
 
 // ─────────────────────────────────────────
@@ -64,6 +64,7 @@ const MENU_CORE: MenuItem[] = [
   { href: '/dashboard/inbox',         label: 'Inbox',         icon: Mail,            key: 'inbox' },
   { href: '/dashboard/mi-desempeno',  label: 'Mi Desempeño',  icon: Star,            key: 'mi-desempeno' },
   { href: '/dashboard/checador',      label: 'Checador',      icon: Clock,           key: 'checador' },
+  { href: '/dashboard/vacaciones',    label: 'Vacaciones',    icon: Palmtree,        key: 'vacaciones' },
 ]
 
 // Módulos de gestión — gerente y admin
@@ -83,6 +84,7 @@ const MENU_REPARTIDOR: MenuItem[] = [
   { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical, key: 'laboratorio' },
   { href: '/dashboard/inbox',       label: 'Inbox',       icon: Mail,         key: 'inbox' },
   { href: '/dashboard/checador',    label: 'Checador',    icon: Clock,        key: 'checador' },
+  { href: '/dashboard/vacaciones',  label: 'Vacaciones',  icon: Palmtree,     key: 'vacaciones' },
 ]
 
 const USUARIO_DEFAULT = { nombre: 'Usuario', apodo: 'Usuario', iniciales: 'U', rol: 'vendedor' as Rol, sucursal: '' }
