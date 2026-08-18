@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { diasPorLey, inicioAnioServicio, diasVacaciones } from '@/lib/vacaciones'
+import { bloqueAnual, diasDesbloqueados, diasParaSiguiente, inicioAnioServicio, diasVacaciones } from '@/lib/vacaciones'
 import { Palmtree, CalendarDays, Check, X, AlertTriangle, Clock3 } from 'lucide-react'
 
 type Solicitud = {
@@ -67,12 +67,14 @@ export default function VacacionesPage() {
     } catch { /* noop */ }
   }, [cargarMias, cargarAdmin])
 
-  // Saldo propio
-  const diasTotales = diasPorLey(miIngreso)
+  // Saldo propio — el bloque del año se desbloquea poco a poco
+  const diasTotales = bloqueAnual(miIngreso)
+  const desbloqueados = diasDesbloqueados(miIngreso)
+  const faltanParaSig = diasParaSiguiente(miIngreso)
   const inicioAnio = miIngreso ? inicioAnioServicio(miIngreso) : null
   const tomados = mias.filter(s => s.tipo === 'vacaciones' && s.estado === 'aprobada' && (!inicioAnio || s.fecha_inicio >= inicioAnio))
     .reduce((n, s) => n + s.dias, 0)
-  const disponibles = Math.max(0, diasTotales - tomados)
+  const disponibles = Math.max(0, desbloqueados - tomados)
 
   const diasSolicitud = form.fecha_inicio && form.fecha_fin ? diasVacaciones(form.fecha_inicio, form.fecha_fin, miDescanso, miNacimiento) : 0
 
@@ -126,11 +128,16 @@ export default function VacacionesPage() {
       </div>
 
       {/* Mi saldo */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
         <div className="bg-teal-50 rounded-xl p-4">
-          <p className="text-[10px] text-zinc-500 uppercase font-semibold">Me tocan (por ley)</p>
+          <p className="text-[10px] text-zinc-500 uppercase font-semibold">Me tocan este año</p>
           <p className="text-2xl font-bold text-teal-700">{diasTotales}</p>
-          <p className="text-[10px] text-zinc-400">días este año de servicio</p>
+          <p className="text-[10px] text-zinc-400">por tu antigüedad</p>
+        </div>
+        <div className="bg-zinc-50 rounded-xl p-4">
+          <p className="text-[10px] text-zinc-500 uppercase font-semibold">Desbloqueados</p>
+          <p className="text-2xl font-bold text-zinc-800">{desbloqueados}</p>
+          <p className="text-[10px] text-zinc-400">liberados a hoy</p>
         </div>
         <div className="bg-zinc-50 rounded-xl p-4">
           <p className="text-[10px] text-zinc-500 uppercase font-semibold">Tomados</p>
@@ -141,6 +148,10 @@ export default function VacacionesPage() {
           <p className="text-2xl font-bold text-zinc-900">{disponibles}</p>
         </div>
       </div>
+      {diasTotales > 0 && desbloqueados < diasTotales && (
+        <p className="text-xs text-zinc-400 mb-5">Se desbloquea 1 día cada ~{Math.round(365 / diasTotales)} días · el siguiente en {faltanParaSig} día{faltanParaSig === 1 ? '' : 's'}.</p>
+      )}
+      {desbloqueados >= diasTotales && diasTotales > 0 && <div className="mb-5" />}
 
       {/* Solicitar */}
       <div className="bg-white rounded-xl ring-1 ring-zinc-200 p-4 mb-6">
@@ -243,18 +254,20 @@ export default function VacacionesPage() {
           <div>
             <p className="text-sm font-bold text-zinc-700 mb-2">Saldos del equipo</p>
             <div className="bg-white ring-1 ring-zinc-200 rounded-lg overflow-hidden">
-              <div className="grid grid-cols-5 gap-2 px-4 py-2 bg-zinc-50 text-[10px] uppercase font-semibold text-zinc-400">
-                <span className="col-span-2">Empleado</span><span className="text-center">Le tocan</span><span className="text-center">Tomados</span><span className="text-center">Disponibles</span>
+              <div className="grid grid-cols-6 gap-2 px-4 py-2 bg-zinc-50 text-[10px] uppercase font-semibold text-zinc-400">
+                <span className="col-span-2">Empleado</span><span className="text-center">Le tocan</span><span className="text-center">Desbloq.</span><span className="text-center">Tomados</span><span className="text-center">Disponibles</span>
               </div>
               {empleados.map(e => {
-                const total = diasPorLey(e.fecha_ingreso)
+                const total = bloqueAnual(e.fecha_ingreso)
+                const desbloq = diasDesbloqueados(e.fecha_ingreso)
                 const ini = e.fecha_ingreso ? inicioAnioServicio(e.fecha_ingreso) : null
                 const tom = todas.filter(s => s.usuario_id === e.id && s.tipo === 'vacaciones' && s.estado === 'aprobada' && (!ini || s.fecha_inicio >= ini)).reduce((n, s) => n + s.dias, 0)
-                const disp = Math.max(0, total - tom)
+                const disp = Math.max(0, desbloq - tom)
                 return (
-                  <div key={e.id} className="grid grid-cols-5 gap-2 px-4 py-2.5 border-t border-zinc-50 text-sm items-center">
+                  <div key={e.id} className="grid grid-cols-6 gap-2 px-4 py-2.5 border-t border-zinc-50 text-sm items-center">
                     <span className="col-span-2 text-zinc-700">{e.nombre} <span className="text-zinc-400 text-xs">· {e.sucursal}</span></span>
                     <span className="text-center text-zinc-600">{total}</span>
+                    <span className="text-center text-zinc-600">{desbloq}</span>
                     <span className="text-center text-zinc-600">{tom}</span>
                     <span className="text-center font-bold text-zinc-900">{disp}</span>
                   </div>

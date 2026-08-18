@@ -28,6 +28,46 @@ export function diasPorLey(fechaIngreso: string | null): number {
   return 20 + Math.ceil((a - 5) / 5) * 2        // 6-10→22, 11-15→24, 16-20→26…
 }
 
+/**
+ * Bloque completo de días que le corresponden en el año de servicio actual
+ * (sin proporcional). Primer año = 12; de ahí la tabla de ley.
+ */
+export function bloqueAnual(fechaIngreso: string | null): number {
+  if (!fechaIngreso) return 0
+  const a = aniosCumplidos(fechaIngreso)
+  if (a < 1) return 12
+  if (a <= 5) return 10 + a * 2
+  return 20 + Math.ceil((a - 5) / 5) * 2
+}
+
+/**
+ * Días ya "desbloqueados" a la fecha: el bloque anual se libera poco a poco
+ * a lo largo del año de servicio (1 día cada ~365/bloque días).
+ */
+export function diasDesbloqueados(fechaIngreso: string | null): number {
+  if (!fechaIngreso) return 0
+  const total = bloqueAnual(fechaIngreso)
+  if (total <= 0) return 0
+  const inicio = new Date(inicioAnioServicio(fechaIngreso) + 'T12:00:00').getTime()
+  const hoy = new Date().getTime()
+  const dias = Math.max(0, Math.min(365, Math.floor((hoy - inicio) / 86400000)))
+  return Math.min(total, Math.floor((total * dias) / 365))
+}
+
+/** Días que faltan para que se desbloquee el siguiente día de vacaciones. */
+export function diasParaSiguiente(fechaIngreso: string | null): number {
+  if (!fechaIngreso) return 0
+  const total = bloqueAnual(fechaIngreso)
+  if (total <= 0) return 0
+  const inicio = new Date(inicioAnioServicio(fechaIngreso) + 'T12:00:00').getTime()
+  const hoy = new Date().getTime()
+  const dias = Math.max(0, Math.floor((hoy - inicio) / 86400000))
+  const desbloq = Math.min(total, Math.floor((total * dias) / 365))
+  if (desbloq >= total) return 0
+  const diaObjetivo = Math.ceil(((desbloq + 1) * 365) / total)
+  return Math.max(0, diaObjetivo - dias)
+}
+
 /** Fecha (YYYY-MM-DD) del inicio del año de servicio actual (último aniversario). */
 export function inicioAnioServicio(fechaIngreso: string): string {
   const ini = new Date(fechaIngreso + 'T12:00:00')
