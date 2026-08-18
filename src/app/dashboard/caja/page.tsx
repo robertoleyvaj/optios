@@ -96,12 +96,15 @@ const CATEGORIAS_EGRESO = [
   { value: 'otros',              label: 'Otro' },
 ]
 
+// finanzas: true = es ingreso real de la óptica y suma a Finanzas.
+// finanzas: false = solo dinero para cuadrar el cajón, NO entra a Finanzas.
 const CATEGORIAS_INGRESO = [
-  { value: 'ajuste',        label: 'Ajuste de caja' },
-  { value: 'fondo',         label: 'Fondo / entrada de efectivo' },
-  { value: 'cobro_externo', label: 'Cobro externo' },
-  { value: 'devolucion',    label: 'Devolución / reembolso' },
-  { value: 'otros',         label: 'Otro' },
+  { value: 'ajuste',       label: 'Ajuste de caja',              finanzas: false },
+  { value: 'fondo',        label: 'Fondo / entrada de efectivo', finanzas: false },
+  { value: 'entrada_pago', label: 'Entrada para pago (renta…)',  finanzas: false },
+  { value: 'cambio',       label: 'Cambio / feria',              finanzas: false },
+  { value: 'pago_previo',  label: 'Pago de paciente (venta previa)', finanzas: true },
+  { value: 'otros',        label: 'Otro (solo caja)',            finanzas: false },
 ]
 
 const TIPO_LABEL: Record<string, string> = {
@@ -503,16 +506,17 @@ export default function CajaPage() {
     setErrorGuardado('')
     const sb  = createClient()
     const hoy = hoyLocal()
-    const catLabel = CATEGORIAS_INGRESO.find(c => c.value === ingresoCategoria)?.label ?? ingresoCategoria
+    const cat = CATEGORIAS_INGRESO.find(c => c.value === ingresoCategoria)
     const { error } = await sb.from('ingresos_caja').insert({
       fecha:       hoy,
       categoria:   ingresoCategoria,
-      concepto:    catLabel,
+      concepto:    cat?.label ?? ingresoCategoria,
       notas:       ingresoDescripcion || null,
       monto,
       metodo_pago: ingresoMetodoPago,
       sucursal:    usuario.sucursal,
       es_caja:     true,
+      cuenta_finanzas: cat?.finanzas ?? false,   // solo 'pago_previo' entra a Finanzas
     })
     if (error) {
       setErrorGuardado(`Error al guardar ingreso: ${error.message}`)
@@ -1011,9 +1015,12 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1">Descripción (opcional)</label>
                 <input type="text" value={ingresoDescripcion} onChange={e => setIngresoDescripcion(e.target.value)}
-                  placeholder="ej. Ajuste por sobrante de ayer"
+                  placeholder={ingresoCategoria === 'pago_previo' ? 'Paciente y folio de la venta' : 'ej. Ajuste por sobrante de ayer'}
                   className="w-full border border-zinc-200 rounded px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
               </div>
+              {ingresoCategoria === 'pago_previo'
+                ? <p className="text-[11px] text-emerald-700 bg-emerald-50 rounded px-2.5 py-1.5">Este ingreso SÍ cuenta en Finanzas (es dinero real de la óptica). Pon el paciente y el folio en la descripción.</p>
+                : <p className="text-[11px] text-zinc-400">Solo suma al efectivo de la caja. No cuenta como ingreso en Finanzas.</p>}
               <div className="flex gap-3 items-end">
                 <div className="flex-1">
                   <label className="block text-xs font-semibold text-zinc-500 mb-1">Monto</label>

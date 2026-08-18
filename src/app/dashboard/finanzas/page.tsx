@@ -184,7 +184,21 @@ function FinanzasPage() {
     const ventasRows = ventasData || []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setTotalVentas(ventasRows.reduce((s: number, v: any) => s + (parseFloat(v.total) || 0), 0))
-    setIngresos(ventasRows.reduce((s, v) => s + (v.total - v.saldo), 0))
+    const cobradoVentas = ventasRows.reduce((s, v) => s + (v.total - v.saldo), 0)
+    // Ingresos manuales de caja marcados como ingreso real (ej. pago de venta previa).
+    // Si la tabla no existe aún, data llega null y no rompe nada.
+    let qIngCaja = supabase
+      .from('ingresos_caja')
+      .select('monto, sucursal, fecha, concepto, notas')
+      .eq('cuenta_finanzas', true)
+      .gte('fecha', inicio)
+      .lte('fecha', fin)
+    if (sucursal !== 'Todas') qIngCaja = qIngCaja.eq('sucursal', sucursal)
+    const { data: ingCajaData } = await qIngCaja
+    const ingCajaRows = ingCajaData || []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const totalIngCaja = ingCajaRows.reduce((s: number, r: any) => s + (parseFloat(r.monto) || 0), 0)
+    setIngresos(cobradoVentas + totalIngCaja)
     // Ingresos (cobrado) por sucursal — para el P&L por óptica
     const ingSuc: Record<string, number> = {}
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -192,17 +206,32 @@ function FinanzasPage() {
       const s = v.sucursal || '—'
       ingSuc[s] = (ingSuc[s] || 0) + ((parseFloat(v.total) || 0) - (parseFloat(v.saldo) || 0))
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const r of ingCajaRows as any[]) {
+      const s = r.sucursal || '—'
+      ingSuc[s] = (ingSuc[s] || 0) + (parseFloat(r.monto) || 0)
+    }
     setIngresosPorSuc(ingSuc)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setVentasDetalle(ventasRows.map((v: any) => ({
-      folio:       v.folio ?? '',
-      // Fecha en hora de Tijuana (no UTC): si no, una venta de la tarde/noche
-      // se ve como del día siguiente.
-      fecha:       v.created_at ? new Date(v.created_at as string).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' }) : '',
-      atendidoPor: v.atendido_por ?? '',
-      total:       parseFloat(v.total) || 0,
-      saldo:       parseFloat(v.saldo) || 0,
-    })))
+    setVentasDetalle([
+      ...ventasRows.map((v: any) => ({
+        folio:       v.folio ?? '',
+        // Fecha en hora de Tijuana (no UTC): si no, una venta de la tarde/noche
+        // se ve como del día siguiente.
+        fecha:       v.created_at ? new Date(v.created_at as string).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' }) : '',
+        atendidoPor: v.atendido_por ?? '',
+        total:       parseFloat(v.total) || 0,
+        saldo:       parseFloat(v.saldo) || 0,
+      })),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...ingCajaRows.map((r: any) => ({
+        folio:       `Caja · ${r.notas || r.concepto || 'pago previo'}`,
+        fecha:       r.fecha ?? '',
+        atendidoPor: '',
+        total:       parseFloat(r.monto) || 0,
+        saldo:       0,
+      })),
+    ])
 
     // Costo lab: órdenes pagadas — usa fecha_pago_lab para reflejar cuándo salió el dinero
     let qLab = supabase
