@@ -104,6 +104,7 @@ type VentaRef = {
   add: string
   dp: string
   armazon: string
+  esPaciente?: boolean   // true = resultado de paciente (venta vieja no en el sistema)
 }
 
 // Clasificación de productos para auto-llenar la orden desde una venta
@@ -125,17 +126,6 @@ const ESTADO_CONFIG: Record<EstadoOrden, { label: string; bg: string; text: stri
 
 const FLUJO: EstadoOrden[] = ['recibido', 'en_laboratorio', 'en_camino', 'en_sucursal', 'listo', 'entregado']
 
-const TIPOS_MICA = [
-  'Monofocal blanca',
-  'Monofocal antirreflejante',
-  'Monofocal transitions',
-  'Progresiva estándar',
-  'Progresiva antirreflejante',
-  'Progresiva transitions',
-  'Bifocal',
-  'Lentes de contacto blandos',
-  'Lentes de contacto rígidos',
-]
 
 const LABORATORIOS = ['Karen', 'Indigo', 'Tecnolab', 'Richardson', 'Exce Lentes', 'El Nuevo']
 const SUCURSALES   = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
@@ -185,27 +175,53 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
     if (!query.trim()) { setResultados([]); return }
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
-      const { data } = await createClient()
+      const q = query.trim()
+      const sb = createClient()
+
+      // 1. Ventas por folio
+      const { data: ventasData } = await sb
         .from('ventas')
         .select('id, folio, sucursal, paciente_id, pacientes(nombre, apellido, telefono)')
-        .ilike('folio', `%${query.trim()}%`)
+        .ilike('folio', `%${q}%`)
         .eq('estado', 'activa')
         .order('folio', { ascending: false })
-        .limit(8)
-      if (data) {
-        setResultados(data.map((v: Record<string, unknown>) => {
-          const p = v.pacientes as { nombre?: string; apellido?: string; telefono?: string } | null
-          return {
-            id:         v.id as string,
-            folio:      v.folio as string,
-            sucursal:   v.sucursal as string,
-            pacienteId: (v.paciente_id as string) ?? '',
-            paciente:   p ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim() : '',
-            telefono:   p?.telefono ?? '',
-            od: '', oi: '', add: '', dp: '', armazon: '',
-          }
+        .limit(6)
+
+      const resVentas: VentaRef[] = (ventasData ?? []).map((v: Record<string, unknown>) => {
+        const p = v.pacientes as { nombre?: string; apellido?: string; telefono?: string } | null
+        return {
+          id:         v.id as string,
+          folio:      v.folio as string,
+          sucursal:   v.sucursal as string,
+          pacienteId: (v.paciente_id as string) ?? '',
+          paciente:   p ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim() : '',
+          telefono:   p?.telefono ?? '',
+          od: '', oi: '', add: '', dp: '', armazon: '',
+        }
+      })
+
+      // 2. Pacientes por nombre (para ventas viejas que no están en el sistema)
+      const first = q.split(/\s+/)[0]
+      const { data: pacData } = await sb
+        .from('pacientes')
+        .select('id, nombre, apellido, telefono, sucursal_principal')
+        .or(`nombre.ilike.%${first}%,apellido.ilike.%${first}%`)
+        .limit(20)
+      const full = q.toLowerCase()
+      const resPacientes: VentaRef[] = (pacData ?? [])
+        .filter((p: Record<string, unknown>) => `${p.nombre ?? ''} ${p.apellido ?? ''}`.toLowerCase().includes(full))
+        .slice(0, 6)
+        .map((p: Record<string, unknown>) => ({
+          id: '', folio: '',
+          pacienteId: p.id as string,
+          paciente:   `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim(),
+          telefono:   (p.telefono as string) ?? '',
+          sucursal:   (p.sucursal_principal as string) ?? '',
+          od: '', oi: '', add: '', dp: '', armazon: '',
+          esPaciente: true,
         }))
-      }
+
+      setResultados([...resVentas, ...resPacientes])
     }, 200)
     return () => { if (timer.current) clearTimeout(timer.current) }
   }, [query])
@@ -231,18 +247,22 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
       {open && query.length > 0 && resultados.length > 0 && (
         <div className="absolute z-50 top-full mt-1 w-full bg-white border border-zinc-200 rounded-lg shadow-xl overflow-hidden">
           {resultados.map(v => (
-            <button key={v.folio}
+            <button key={v.esPaciente ? `p-${v.pacienteId}` : `v-${v.id}`}
               onClick={() => { onSelect(v); setQuery(''); setOpen(false) }}
               className="w-full text-left px-4 py-3 hover:bg-zinc-100 transition-colors flex items-center gap-3 border-b border-zinc-50 last:border-0">
               <div className="w-8 h-8 rounded bg-[#0B0E14] flex items-center justify-center flex-shrink-0">
-                <Link2 className="w-3.5 h-3.5 text-[#0D9488]" />
+                {v.esPaciente
+                  ? <User className="w-3.5 h-3.5 text-[#0D9488]" />
+                  : <Link2 className="w-3.5 h-3.5 text-[#0D9488]" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-zinc-500">{v.folio}</span>
+                  {v.esPaciente
+                    ? <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Paciente</span>
+                    : <span className="font-mono text-xs font-bold text-zinc-500">{v.folio}</span>}
                   <span className="text-sm font-semibold text-zinc-700">{v.paciente}</span>
                 </div>
-                <p className="text-xs text-zinc-400 truncate">{v.sucursal} · {v.telefono}</p>
+                <p className="text-xs text-zinc-400 truncate">{[v.sucursal, v.telefono].filter(Boolean).join(' · ')}</p>
               </div>
             </button>
           ))}
@@ -1662,15 +1682,17 @@ export default function LaboratorioPage() {
   const nextFolio = `LAB-${String(ordenes.length + 42).padStart(4, '0')}`
 
   const vincularVenta = async (v: VentaRef) => {
-    setVentaVinculada(v)
+    // Si es un paciente (venta vieja no en el sistema) NO se marca como venta vinculada:
+    // solo autocompletamos su info y su graduación, y los campos siguen editables.
+    if (!v.esPaciente) setVentaVinculada(v)
     setForm(prev => ({
       ...prev,
-      folioVenta: v.folio,
-      ventaId: v.id,
+      folioVenta: v.esPaciente ? prev.folioVenta : v.folio,
+      ventaId: v.esPaciente ? prev.ventaId : v.id,
       pacienteId: v.pacienteId,
       paciente: v.paciente,
       telefono: v.telefono,
-      sucursal: v.sucursal,
+      sucursal: v.sucursal || prev.sucursal,
     }))
 
     const supabase = createClient()
@@ -2030,12 +2052,8 @@ export default function LaboratorioPage() {
               <div>
                 <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo de mica * <span className="font-normal text-zinc-400">(lo que compró)</span></label>
                 <input value={form.tipoMica} onChange={e => f('tipoMica', e.target.value.toUpperCase())}
-                  list="tipos-mica-list"
                   className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase placeholder:normal-case"
                   placeholder="Ej: MICA PROGRESIVA POLY PLUS 1.58" />
-                <datalist id="tipos-mica-list">
-                  {TIPOS_MICA.map(t => <option key={t} value={t} />)}
-                </datalist>
               </div>
 
               {/* Armazón */}
