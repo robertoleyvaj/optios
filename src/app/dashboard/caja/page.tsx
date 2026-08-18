@@ -96,6 +96,14 @@ const CATEGORIAS_EGRESO = [
   { value: 'otros',              label: 'Otro' },
 ]
 
+const CATEGORIAS_INGRESO = [
+  { value: 'ajuste',        label: 'Ajuste de caja' },
+  { value: 'fondo',         label: 'Fondo / entrada de efectivo' },
+  { value: 'cobro_externo', label: 'Cobro externo' },
+  { value: 'devolucion',    label: 'Devolución / reembolso' },
+  { value: 'otros',         label: 'Otro' },
+]
+
 const TIPO_LABEL: Record<string, string> = {
   anticipo:    'Anticipo',
   abono:       'Abono',
@@ -149,6 +157,14 @@ export default function CajaPage() {
   const [egresoMonto, setEgresoMonto]   = useState('')
   const [egresoMetodoPago, setEgresoMetodoPago] = useState('efectivo')
   const [guardandoEgreso, setGuardandoEgreso] = useState(false)
+  // Ingresos manuales (para cuadrar caja)
+  const [ingresosCaja, setIngresosCaja] = useState<GastoHoy[]>([])
+  const [showIngresoForm, setShowIngresoForm] = useState(false)
+  const [ingresoCategoria, setIngresoCategoria]   = useState('ajuste')
+  const [ingresoDescripcion, setIngresoDescripcion] = useState('')
+  const [ingresoMonto, setIngresoMonto]   = useState('')
+  const [ingresoMetodoPago, setIngresoMetodoPago] = useState('efectivo')
+  const [guardandoIngreso, setGuardandoIngreso] = useState(false)
 
   // ── Filtros historial ──
   const [filtroSucursal, setFiltroSucursal] = useState('')
@@ -209,14 +225,31 @@ export default function CajaPage() {
     .filter(g => !esHoyTS(g.created_at) && g.metodo_pago === 'efectivo_usd')
     .reduce((s, g) => s + Number(g.monto), 0)
 
-  // Saldo inicial = remanente del último corte + efectivo acumulado antes de hoy − egresos
-  // en efectivo previos. En operación diaria (corte cada día) esto = remanente de ayer.
-  const saldoInicialNum = (saldoAnterior ?? 0) + efectivoPrevio - egresosEfectivoPrevio
-  const saldoInicialUSD = saldoAnteriorUSD + efectivoUSDPrevio - egresosEfectivoUSDPrevio
-  // Esperado en caja = saldo inicial + ingresos en efectivo de HOY − egresos en efectivo de HOY.
-  // El total es idéntico al acumulado; solo se reagrupa para que "ingresos del día" sea solo hoy.
-  const esperado      = saldoInicialNum + ventas.efectivo.monto - egresosEfectivo
-  const esperadoUSD   = saldoInicialUSD + efectivoUSD.monto - egresosEfectivoUSD
+  // ── Ingresos manuales (mismo esquema que egresos, pero suman al cajón) ──
+  const ingresosHoyList = ingresosCaja.filter(g => esHoyTS(g.created_at))
+  const totalIngresos    = ingresosHoyList.filter(g => g.metodo_pago !== 'efectivo_usd').reduce((s, g) => s + Number(g.monto), 0)
+  const totalIngresosUSD = ingresosHoyList.filter(g => g.metodo_pago === 'efectivo_usd').reduce((s, g) => s + Number(g.monto), 0)
+  const ingresosEfectivo = ingresosHoyList
+    .filter(g => (g.metodo_pago ?? 'efectivo') === 'efectivo')
+    .reduce((s, g) => s + Number(g.monto), 0)
+  const ingresosEfectivoUSD = ingresosHoyList
+    .filter(g => g.metodo_pago === 'efectivo_usd')
+    .reduce((s, g) => s + Number(g.monto), 0)
+  const ingresosEfectivoPrevio = ingresosCaja
+    .filter(g => !esHoyTS(g.created_at) && (g.metodo_pago ?? 'efectivo') === 'efectivo')
+    .reduce((s, g) => s + Number(g.monto), 0)
+  const ingresosEfectivoUSDPrevio = ingresosCaja
+    .filter(g => !esHoyTS(g.created_at) && g.metodo_pago === 'efectivo_usd')
+    .reduce((s, g) => s + Number(g.monto), 0)
+
+  // Saldo inicial = remanente del último corte + efectivo acumulado antes de hoy
+  // + ingresos manuales previos − egresos en efectivo previos. En operación diaria
+  // (corte cada día) esto = remanente de ayer.
+  const saldoInicialNum = (saldoAnterior ?? 0) + efectivoPrevio + ingresosEfectivoPrevio - egresosEfectivoPrevio
+  const saldoInicialUSD = saldoAnteriorUSD + efectivoUSDPrevio + ingresosEfectivoUSDPrevio - egresosEfectivoUSDPrevio
+  // Esperado en caja = saldo inicial + ingresos en efectivo de HOY (ventas + manuales) − egresos de HOY.
+  const esperado      = saldoInicialNum + ventas.efectivo.monto + ingresosEfectivo - egresosEfectivo
+  const esperadoUSD   = saldoInicialUSD + efectivoUSD.monto + ingresosEfectivoUSD - egresosEfectivoUSD
   const contado       = parseFloat(efectivoContado) || 0
   const contadoUSD    = parseFloat(efectivoUSDContado) || 0
   const retiroNum     = parseFloat(retiro) || 0
@@ -366,6 +399,17 @@ export default function CajaPage() {
       .order('created_at', { ascending: true })
     setGastosHoy(gastosData ?? [])
 
+    // 3b. Ingresos manuales del periodo (para cuadrar). Si la tabla aún no existe,
+    //     data llega null y no rompe nada.
+    const { data: ingresosData } = await sb
+      .from('ingresos_caja')
+      .select('id, fecha, categoria, concepto, notas, monto, metodo_pago, created_at')
+      .eq('sucursal', sucursal)
+      .eq('es_caja', true)
+      .gt('created_at', periodStart)
+      .order('created_at', { ascending: true })
+    setIngresosCaja(ingresosData ?? [])
+
     // 4. Corte hoy
     const { data: corteData } = await sb
       .from('cortes_caja')
@@ -451,6 +495,37 @@ export default function CajaPage() {
     await cargarDatos(usuario.sucursal, usuario.rol)  // refresca respetando periodo + es_caja
   }
 
+  // ── Guardar ingreso manual (para cuadrar caja) ──
+  const guardarIngreso = async () => {
+    const monto = parseFloat(ingresoMonto)
+    if (!monto || monto <= 0) return
+    setGuardandoIngreso(true)
+    setErrorGuardado('')
+    const sb  = createClient()
+    const hoy = hoyLocal()
+    const catLabel = CATEGORIAS_INGRESO.find(c => c.value === ingresoCategoria)?.label ?? ingresoCategoria
+    const { error } = await sb.from('ingresos_caja').insert({
+      fecha:       hoy,
+      categoria:   ingresoCategoria,
+      concepto:    catLabel,
+      notas:       ingresoDescripcion || null,
+      monto,
+      metodo_pago: ingresoMetodoPago,
+      sucursal:    usuario.sucursal,
+      es_caja:     true,
+    })
+    if (error) {
+      setErrorGuardado(`Error al guardar ingreso: ${error.message}`)
+      setGuardandoIngreso(false)
+      return
+    }
+    setIngresoMonto('')
+    setIngresoDescripcion('')
+    setShowIngresoForm(false)
+    setGuardandoIngreso(false)
+    await cargarDatos(usuario.sucursal, usuario.rol)
+  }
+
   // ── Imprimir corte ──
   const imprimirCorte = () => {
     const fechaFmt = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
@@ -533,6 +608,17 @@ ${saldoInicialUSD > 0 ? `<div class="row"><span>Dólares</span><span>USD $${sald
 <div class="titulo">Ingresos del día</div>
 <table><tbody>${metodosRows}</tbody></table>
 <div class="row big"><span>TOTAL INGRESOS DEL DÍA</span><span>${fmt$(total)}</span></div>
+${ingresosHoyList.length > 0 ? `
+<div class="sep"></div>
+<div class="titulo">Ingresos manuales</div>
+<table><tbody>${ingresosHoyList.map(g => {
+  const esUSD = g.metodo_pago === 'efectivo_usd'
+  const m = esUSD ? `USD $${Number(g.monto).toFixed(2)}` : fmt$(Number(g.monto))
+  return `<tr><td>${g.notas || g.concepto}${esUSD ? ' (USD)' : ''}</td><td class="r">${m}</td></tr>`
+}).join('')}</tbody></table>
+<div class="row big"><span>TOTAL INGRESOS MANUALES</span><span>${fmt$(totalIngresos)}</span></div>
+${totalIngresosUSD > 0 ? `<div class="row"><span>Ingresos en dólares</span><span>USD $${totalIngresosUSD.toFixed(2)}</span></div>` : ''}
+` : ''}
 ${gastosHoyList.length > 0 ? `
 <div class="sep"></div>
 <div class="titulo">Egresos del día</div>
@@ -888,6 +974,111 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
           )}
         </div>
 
+        {/* ── INGRESOS MANUALES (cuadrar) ── */}
+        <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-zinc-200 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-zinc-700">Ingresos manuales del día</h3>
+            <button
+              onClick={() => setShowIngresoForm(!showIngresoForm)}
+              className="flex items-center gap-1.5 text-xs text-[#0D9488] font-semibold hover:opacity-80"
+            >
+              <Plus className="w-3.5 h-3.5" /> Agregar
+            </button>
+          </div>
+
+          {showIngresoForm && (
+            <div className="px-5 py-4 border-b border-zinc-200 bg-zinc-50 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1">Categoría</label>
+                  <select value={ingresoCategoria} onChange={e => setIngresoCategoria(e.target.value)}
+                    className="w-full border border-zinc-200 rounded px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30">
+                    {CATEGORIAS_INGRESO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1">Método</label>
+                  <select value={ingresoMetodoPago} onChange={e => setIngresoMetodoPago(e.target.value)}
+                    className="w-full border border-zinc-200 rounded px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30">
+                    <option value="efectivo">Efectivo (pesos)</option>
+                    <option value="efectivo_usd">Efectivo (dólares)</option>
+                    <option value="debito">Tarjeta débito</option>
+                    <option value="credito">Tarjeta crédito</option>
+                    <option value="transferencia">Transferencia</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-500 mb-1">Descripción (opcional)</label>
+                <input type="text" value={ingresoDescripcion} onChange={e => setIngresoDescripcion(e.target.value)}
+                  placeholder="ej. Ajuste por sobrante de ayer"
+                  className="w-full border border-zinc-200 rounded px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+              </div>
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1">Monto</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-bold">$</span>
+                    <input type="number" value={ingresoMonto} onChange={e => setIngresoMonto(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full border border-zinc-200 rounded pl-7 pr-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                  </div>
+                </div>
+                <button onClick={guardarIngreso} disabled={!ingresoMonto || guardandoIngreso}
+                  className="px-4 py-2 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-600 disabled:opacity-40 transition-colors">
+                  {guardandoIngreso ? '...' : 'Guardar'}
+                </button>
+                <button onClick={() => { setShowIngresoForm(false); setErrorGuardado('') }}
+                  className="px-4 py-2 border border-zinc-200 text-zinc-500 rounded text-sm hover:bg-zinc-100">
+                  Cancelar
+                </button>
+              </div>
+              {errorGuardado && errorGuardado.includes('ingreso') && (
+                <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700 font-medium">
+                  {errorGuardado}
+                </div>
+              )}
+            </div>
+          )}
+
+          {cargando ? (
+            <div className="px-5 py-8 text-center text-sm text-zinc-400">Cargando...</div>
+          ) : ingresosHoyList.length === 0 ? (
+            <div className="px-5 py-6 text-center text-sm text-zinc-400">Sin ingresos manuales hoy</div>
+          ) : (
+            <div className="divide-y divide-zinc-50">
+              {ingresosHoyList.map(g => {
+                const catLabel = CATEGORIAS_INGRESO.find(c => c.value === g.categoria)?.label ?? g.categoria
+                const esUSD = g.metodo_pago === 'efectivo_usd'
+                return (
+                  <div key={g.id} className="flex items-center gap-3 px-5 py-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-zinc-700">{g.notas || g.concepto}</p>
+                      <p className="text-xs text-zinc-400">{catLabel}{esUSD ? ' · USD' : ' · MXN'}</p>
+                    </div>
+                    <p className="text-sm font-bold text-emerald-600">+{esUSD ? `USD $${Number(g.monto).toFixed(2)}` : fmt$(Number(g.monto))}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {(totalIngresos > 0 || totalIngresosUSD > 0) && (
+            <div className="px-5 py-3.5 bg-emerald-50 border-t border-emerald-100 space-y-1">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-emerald-700">Total ingresos manuales</span>
+                <span className="text-base font-bold text-emerald-700">{fmt$(totalIngresos)}</span>
+              </div>
+              {totalIngresosUSD > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-emerald-700">Total ingresos (dólares)</span>
+                  <span className="text-base font-bold text-emerald-700">USD ${totalIngresosUSD.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* ── EGRESOS ── */}
         <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
           <div className="px-5 py-3.5 border-b border-zinc-200 flex items-center justify-between">
@@ -1032,6 +1223,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
               <p>Saldo inicial: {fmt$(saldoInicialNum)}</p>
               {saldoAnterior === null && <p className="text-amber-500">Sin corte previo registrado</p>}
               <p>+ Efectivo del día: {fmt$(ventas.efectivo.monto)}</p>
+              {ingresosEfectivo > 0 && <p>+ Ingresos manuales: {fmt$(ingresosEfectivo)}</p>}
               {egresosEfectivo > 0 && <p>− Egresos del día: {fmt$(egresosEfectivo)}</p>}
             </div>
           </div>
