@@ -870,7 +870,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
       )}
 
       {/* ── Ingresos + Egresos (dos columnas) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
         {/* ── INGRESOS ── */}
         <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
@@ -977,6 +977,9 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
             </>
           )}
         </div>
+
+        {/* Columna derecha: ingresos manuales + egresos, apilados */}
+        <div className="space-y-5">
 
         {/* ── INGRESOS MANUALES (cuadrar) ── */}
         <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
@@ -1214,6 +1217,7 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
 
