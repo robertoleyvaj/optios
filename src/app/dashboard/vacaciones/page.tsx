@@ -31,6 +31,7 @@ export default function VacacionesPage() {
   const [user, setUser] = useState<{ id: string; nombre: string; apodo: string; sucursal: string; rol: string } | null>(null)
   const [miIngreso, setMiIngreso] = useState<string | null>(null)
   const [miDescanso, setMiDescanso] = useState<string | null>(null)
+  const [miNacimiento, setMiNacimiento] = useState<string | null>(null)
   const [mias, setMias] = useState<Solicitud[]>([])
   const [empleados, setEmpleados] = useState<Emp[]>([])
   const [todas, setTodas] = useState<Solicitud[]>([])
@@ -60,8 +61,8 @@ export default function VacacionesPage() {
       if (!u.id) return
       setUser({ id: u.id, nombre: u.nombre ?? '', apodo: u.apodo ?? (u.nombre?.split(' ')[0] ?? ''), sucursal: u.sucursal ?? '', rol: u.rol ?? 'vendedor' })
       cargarMias(u.id)
-      createClient().from('usuarios').select('fecha_ingreso, dia_descanso').eq('id', u.id).single()
-        .then(({ data }) => { setMiIngreso(data?.fecha_ingreso ?? null); setMiDescanso(data?.dia_descanso ?? null) })
+      createClient().from('usuarios').select('fecha_ingreso, dia_descanso, fecha_nacimiento').eq('id', u.id).single()
+        .then(({ data }) => { setMiIngreso(data?.fecha_ingreso ?? null); setMiDescanso(data?.dia_descanso ?? null); setMiNacimiento(data?.fecha_nacimiento ?? null) })
       if (u.rol === 'administrador' || u.rol === 'gerente') cargarAdmin()
     } catch { /* noop */ }
   }, [cargarMias, cargarAdmin])
@@ -73,7 +74,7 @@ export default function VacacionesPage() {
     .reduce((n, s) => n + s.dias, 0)
   const disponibles = Math.max(0, diasTotales - tomados)
 
-  const diasSolicitud = form.fecha_inicio && form.fecha_fin ? diasVacaciones(form.fecha_inicio, form.fecha_fin, miDescanso) : 0
+  const diasSolicitud = form.fecha_inicio && form.fecha_fin ? diasVacaciones(form.fecha_inicio, form.fecha_fin, miDescanso, miNacimiento) : 0
 
   const enviar = async () => {
     if (!user || !form.fecha_inicio || !form.fecha_fin) return
@@ -172,7 +173,7 @@ export default function VacacionesPage() {
         <div className="flex items-center justify-between mt-3">
           <p className="text-xs text-zinc-500">
             {diasSolicitud > 0 ? `${diasSolicitud} día${diasSolicitud > 1 ? 's' : ''} hábiles` : 'Elige las fechas'}
-            {diasSolicitud > 0 && <span className="text-zinc-400"> · no cuenta tu descanso ni festivos</span>}
+            {diasSolicitud > 0 && <span className="text-zinc-400"> · no cuenta tu descanso, festivos ni tu cumpleaños</span>}
             {form.tipo === 'vacaciones' && diasSolicitud > disponibles && diasSolicitud > 0 &&
               <span className="text-amber-600 font-semibold"> · excede tu saldo ({disponibles})</span>}
           </p>

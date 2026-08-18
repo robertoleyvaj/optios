@@ -64,9 +64,10 @@ function nthMonday(year: number, month0: number, n: number): number {
   }
   return -1
 }
-/** ¿La fecha (YYYY-MM-DD) es festivo oficial de descanso obligatorio? */
+/** ¿La fecha (YYYY-MM-DD) es festivo (de ley o cierre de la óptica)? */
 export function esFestivo(fecha: string): boolean {
   const [y, m, dd] = fecha.split('-').map(Number)
+  // Descanso obligatorio de ley (LFT Art. 74)
   if (m === 1 && dd === 1) return true                    // Año nuevo
   if (m === 5 && dd === 1) return true                    // Día del trabajo
   if (m === 9 && dd === 16) return true                   // Independencia
@@ -74,22 +75,36 @@ export function esFestivo(fecha: string): boolean {
   if (m === 2 && dd === nthMonday(y, 1, 1)) return true   // 1er lunes de febrero
   if (m === 3 && dd === nthMonday(y, 2, 3)) return true   // 3er lunes de marzo
   if (m === 11 && dd === nthMonday(y, 10, 3)) return true // 3er lunes de noviembre
+  // Cierres de la óptica (GON)
+  if (m === 12 && dd === 24) return true                  // Nochebuena — óptica cierra
+  if (m === 12 && dd === 31) return true                  // Fin de año — óptica cierra
   return false
 }
 
+/** 'MM-DD' de una fecha YYYY-MM-DD, o null. */
+function mmdd(fecha: string | null): string | null {
+  if (!fecha) return null
+  const p = fecha.split('-')
+  return p.length >= 3 ? `${p[1]}-${p[2].slice(0, 2)}` : null
+}
+
 /**
- * Días de vacaciones que consume un rango: días laborables, excluyendo el
- * día de descanso semanal del empleado y los festivos oficiales.
+ * Días de vacaciones que consume un rango: días laborables, excluyendo el día
+ * de descanso semanal del empleado, los festivos (ley + cierres) y su cumpleaños
+ * (descanso pagado de la óptica).
  */
-export function diasVacaciones(inicio: string, fin: string, diaDescanso: string | null): number {
+export function diasVacaciones(inicio: string, fin: string, diaDescanso: string | null, fechaNacimiento?: string | null): number {
   const rest = descansoNum(diaDescanso)
+  const cumple = mmdd(fechaNacimiento ?? null)
   const d = new Date(inicio + 'T12:00:00')
   const end = new Date(fin + 'T12:00:00')
   if (end < d) return 0
   let n = 0
   while (d <= end) {
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    if (d.getDay() !== rest && !esFestivo(iso)) n++
+    const md = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const iso = `${d.getFullYear()}-${md}`
+    const esCumple = cumple != null && md === cumple
+    if (d.getDay() !== rest && !esFestivo(iso) && !esCumple) n++
     d.setDate(d.getDate() + 1)
   }
   return n
