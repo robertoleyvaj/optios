@@ -9,7 +9,7 @@ import {
   Search, Plus, X, Save, ChevronRight, ChevronLeft,
   User, Phone, FileText, Calendar, MessageCircle,
   Eye, ShoppingBag, ChevronDown,
-  Printer, Edit2, AlertCircle, MoreHorizontal,
+  Printer, Edit2, AlertCircle, MoreHorizontal, Trash2,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -903,6 +903,27 @@ function ExpedientesContent() {
     setModalEditar(false)
   }
 
+  // ── Eliminar expediente (solo admin) ──
+  const eliminarExpediente = async () => {
+    if (!seleccionado) return
+    setMenuAbierto(false)
+    const nombre = `${seleccionado.nombre} ${seleccionado.apellido}`
+    if (!confirm(`¿Borrar el expediente de ${nombre}? Esta acción no se puede deshacer.`)) return
+    try {
+      const res = await fetch('/api/pacientes', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: seleccionado.id }),
+      })
+      const j = await res.json()
+      if (!j.ok) { alert(j.error || 'No se pudo borrar.'); return }
+      setPacientes(prev => prev.filter(p => p.id !== seleccionado.id))
+      setSeleccionado(null)
+      router.replace('/dashboard/expedientes', { scroll: false })
+    } catch (e) {
+      alert('No se pudo borrar: ' + (e instanceof Error ? e.message : ''))
+    }
+  }
+
   const rv = recetaVigente(seleccionado ?? { recetas: [] } as unknown as Paciente)
 
   return (
@@ -1072,6 +1093,15 @@ function ExpedientesContent() {
                           className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-100 transition-colors">
                           <Printer className="w-3.5 h-3.5 text-zinc-400" /> Hoja del paciente
                         </button>
+                        {esAdmin && (
+                          <>
+                            <div className="my-1 border-t border-zinc-100" />
+                            <button onClick={eliminarExpediente}
+                              className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5 text-red-500" /> Borrar expediente
+                            </button>
+                          </>
+                        )}
                       </div>
                     </>
                   )}
