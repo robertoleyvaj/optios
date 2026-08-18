@@ -58,9 +58,30 @@ const antiguedad = (f: string | null) => {
 }
 const fmtTam = (n: number | null) => n ? (n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`) : ''
 const horaAsis = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString('es-MX', { timeZone: 'America/Tijuana', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
-const durAsis = (e: string | null, s: string | null) => {
+// Minutos desde medianoche (hora Tijuana) de un timestamp.
+const minutosDelDia = (iso: string) => {
+  const s = new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'America/Tijuana', hour12: false, hour: '2-digit', minute: '2-digit' })
+  const [h, m] = s.split(':').map(Number)
+  return h * 60 + m
+}
+const minutosHorario = (t: string | null) => {
+  if (!t) return null
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+const TOLERANCIA_MIN = 10
+// Horas trabajadas con tolerancia de ±10 min contra el horario:
+// dentro de la ventana cuenta como la hora exacta; fuera, cuenta lo real
+// (antes = extra, después = descuento).
+const durAsis = (e: string | null, s: string | null, hEnt?: string | null, hSal?: string | null) => {
   if (!e || !s) return '—'
-  const min = Math.round((new Date(s).getTime() - new Date(e).getTime()) / 60000)
+  let ent = minutosDelDia(e)
+  let sal = minutosDelDia(s)
+  const se = minutosHorario(hEnt ?? null)
+  const ss = minutosHorario(hSal ?? null)
+  if (se != null && Math.abs(ent - se) <= TOLERANCIA_MIN) ent = se
+  if (ss != null && Math.abs(sal - ss) <= TOLERANCIA_MIN) sal = ss
+  const min = sal - ent
   if (min <= 0) return '—'
   return `${Math.floor(min / 60)}h ${min % 60}m`
 }
@@ -440,7 +461,7 @@ function EmpleadosPage() {
                             <span className="text-zinc-600">{fmtFecha(a.fecha)}</span>
                             <span className="text-center font-semibold text-teal-700">{horaAsis(a.entrada)}</span>
                             <span className="text-center font-semibold text-zinc-700">{horaAsis(a.salida)}</span>
-                            <span className="text-right font-bold text-zinc-800">{durAsis(a.entrada, a.salida)}</span>
+                            <span className="text-right font-bold text-zinc-800">{durAsis(a.entrada, a.salida, sel?.horario_entrada, sel?.horario_salida)}</span>
                           </div>
                         ))}
                       </div>
