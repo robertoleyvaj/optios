@@ -1784,6 +1784,10 @@ export default function LaboratorioPage() {
   }
 
   const guardar = async () => {
+    // Validación clara (antes fallaba en silencio)
+    if (!form.paciente?.trim()) { alert('Falta el nombre del paciente.'); return }
+    if (!form.tipoMica?.trim()) { alert('Falta el tipo de mica (lo que compró).'); return }
+
     const supabase = createClient()
     const { data: ultimoL } = await supabase
       .from('ordenes_lab')
@@ -1795,7 +1799,7 @@ export default function LaboratorioPage() {
     const folio: string = `L-${String(nL).padStart(4, '0')}`
 
     // Insertar en Supabase
-    const { data: inserted } = await supabase.from('ordenes_lab').insert({
+    const { data: inserted, error: errorInsert } = await supabase.from('ordenes_lab').insert({
       folio,
       folio_venta:         form.folioVenta,
       venta_id:            form.ventaId || null,
@@ -1822,6 +1826,12 @@ export default function LaboratorioPage() {
       es_garantia:         form.esGarantia,
       motivo_problema:     form.esGarantia ? form.motivoProblema : '',
     }).select('id').single()
+
+    // Si el insert falló, avisar el motivo real en vez de quedarse callado
+    if (errorInsert || !inserted?.id) {
+      alert('No se pudo crear la orden: ' + (errorInsert?.message ?? 'error desconocido') + '\n\nToma captura de este mensaje y compártelo.')
+      return
+    }
 
     // Registrar evento de creación en el historial
     if (inserted?.id) {
