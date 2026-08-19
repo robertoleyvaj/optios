@@ -42,7 +42,7 @@ const PERMISOS: Record<Rol, string[]> = {
 // ─────────────────────────────────────────
 // Definición del menú completo
 // ─────────────────────────────────────────
-type SubItem = { href: string; label: string; icon: React.ElementType }
+type SubItem = { href: string; label: string; icon: React.ElementType; key?: string }
 type MenuItem =
   | { type?: 'item'; href: string; label: string; icon: React.ElementType; key: string; pronto?: boolean; subItems?: SubItem[] }
   | { type: 'sep'; label: string; key: string }
@@ -62,7 +62,8 @@ const MENU_CORE: MenuItem[] = [
   { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical,    key: 'laboratorio' },
   { href: '/dashboard/caja',          label: 'Caja',          icon: Wallet,          key: 'caja' },
   { href: '/dashboard/inbox',         label: 'Inbox',         icon: Mail,            key: 'inbox' },
-  { href: '/dashboard/mi-desempeno',  label: 'Mi Desempeño',  icon: Star,            key: 'mi-desempeno' },
+  { type: 'sep', label: 'Mi espacio', key: '_sep_mi' },
+  { href: '/dashboard/mi-desempeno',  label: 'Mi desempeño',  icon: Star,            key: 'mi-desempeno' },
   { href: '/dashboard/checador',      label: 'Checador',      icon: Clock,           key: 'checador' },
   { href: '/dashboard/vacaciones',    label: 'Vacaciones',    icon: Palmtree,        key: 'vacaciones' },
 ]
@@ -70,14 +71,22 @@ const MENU_CORE: MenuItem[] = [
 // Módulos de gestión — gerente y admin
 const MENU_GESTION: MenuItem[] = [
   { type: 'sep', label: 'Gestión', key: '_sep_gestion' },
+  {
+    href: '/dashboard/reportes', label: 'Finanzas y reportes', icon: BarChart3, key: 'finrep',
+    subItems: [
+      { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3,  key: 'reportes' },
+      { href: '/dashboard/finanzas', label: 'Finanzas', icon: DollarSign, key: 'finanzas' },
+    ],
+  },
   { href: '/dashboard/inventario',  label: 'Inventario',       icon: Package,    key: 'inventario' },
-  { href: '/dashboard/reportes',    label: 'Reportes',         icon: BarChart3,  key: 'reportes' },
-  // Ocultos temporalmente para enfocar el flujo hasta el corte (reactivar después):
-  // { href: '/dashboard/analitica',   label: 'Analítica',        icon: Microscope, key: 'analitica', pronto: true },
-  { href: '/dashboard/finanzas',    label: 'Finanzas',         icon: DollarSign, key: 'finanzas' },
   { href: '/dashboard/tienda',      label: 'Tienda en línea',  icon: Store,      key: 'tienda' },
-  { href: '/dashboard/empleados',   label: 'Empleados',        icon: Briefcase,  key: 'empleados' },
-  { href: '/dashboard/usuarios',    label: 'Usuarios',         icon: Users,      key: 'usuarios' },
+  {
+    href: '/dashboard/empleados', label: 'Equipo', icon: Users, key: 'equipo',
+    subItems: [
+      { href: '/dashboard/empleados', label: 'Empleados', icon: Briefcase, key: 'empleados' },
+      { href: '/dashboard/usuarios',  label: 'Usuarios',  icon: Users,     key: 'usuarios' },
+    ],
+  },
   { href: '/dashboard/ajustes',     label: 'Ajustes',          icon: Settings,   key: 'ajustes' },
 ]
 
@@ -146,12 +155,24 @@ export default function Sidebar({
     router.push('/login')
   }
 
+  // Subitems visibles según permiso (los sin key se muestran siempre)
+  const subsVisibles = (item: MenuItem): SubItem[] =>
+    item.type !== 'sep' && item.subItems ? item.subItems.filter(s => !s.key || puedeVer(s.key)) : []
+
   // Construir menú según rol
   const menuBase = usuario.rol === 'repartidor' ? MENU_REPARTIDOR : MENU_CORE
   const menuExtra = usuario.rol === 'administrador' || usuario.rol === 'gerente' ? MENU_GESTION : []
-  const itemsVisibles = [...menuBase, ...menuExtra].filter(item =>
-    item.type === 'sep' || puedeVer(item.key)
-  )
+  const itemsBase = [...menuBase, ...menuExtra].filter(item => {
+    if (item.type === 'sep') return true
+    if (item.subItems && item.subItems.length) return subsVisibles(item).length > 0
+    return puedeVer(item.key)
+  })
+  // Quitar separadores que quedaron sin ningún item debajo
+  const itemsVisibles = itemsBase.filter((item, i) => {
+    if (item.type !== 'sep') return true
+    const sig = itemsBase[i + 1]
+    return !!sig && sig.type !== 'sep'
+  })
 
   return (
     <aside className={`
@@ -191,8 +212,12 @@ export default function Sidebar({
           }
 
           const Icon = item.icon
-          const isParentActive = pathname === item.href || pathname.startsWith(item.href + '/')
-          const hasSubItems = !!item.subItems
+          const subs = subsVisibles(item)
+          const isParentActive =
+            pathname === item.href ||
+            pathname.startsWith(item.href + '/') ||
+            subs.some(s => pathname === s.href || pathname.startsWith(s.href + '/'))
+          const hasSubItems = subs.length > 0
           const showSub = hasSubItems && isParentActive
           const pronto = item.pronto
 
@@ -224,9 +249,9 @@ export default function Sidebar({
                 )}
               </Link>
 
-              {showSub && item.subItems && (
+              {showSub && (
                 <div className="ml-[18px] mt-0.5 pl-3.5 border-l border-zinc-200 space-y-0.5">
-                  {item.subItems.map((sub) => {
+                  {subs.map((sub) => {
                     const SubIcon = sub.icon
                     const isSubActive = pathname === sub.href
                     return (
