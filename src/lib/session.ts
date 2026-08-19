@@ -28,6 +28,21 @@ function leerStorage(): DemoUser {
   }
 }
 
+// Corrige variantes mal escritas de sucursal (ej. sesiones viejas con 'Bajavision')
+// para que siempre coincida con el nombre canónico que usa el resto del sistema.
+const SUCURSAL_CANONICA: Record<string, string> = {
+  'bajavision': 'Baja Visión',
+  'baja vision': 'Baja Visión',
+  'baja visión': 'Baja Visión',
+  '5 de mayo': '5 de Mayo',
+  'plaza laureles': 'Plaza Laureles',
+}
+function normalizarSucursal(s: string | undefined): string | undefined {
+  if (!s) return s
+  const key = s.trim().toLowerCase()
+  return SUCURSAL_CANONICA[key] ?? s
+}
+
 /**
  * Devuelve la sucursal real donde está trabajando el usuario hoy.
  * Prioridad: localStorage (check-in) → fallback 'Baja Visión'
@@ -35,7 +50,7 @@ function leerStorage(): DemoUser {
  */
 export function getSucursalActual(): string {
   const u = leerStorage()
-  if (u.sucursal && u.sucursal !== 'Todas') return u.sucursal
+  if (u.sucursal && u.sucursal !== 'Todas') return normalizarSucursal(u.sucursal) as string
   return 'Baja Visión'
 }
 
@@ -45,7 +60,7 @@ export function getSucursalActual(): string {
  */
 export function getSucursalFiltro(): string {
   const u = leerStorage()
-  return u.sucursal || 'Todas'
+  return normalizarSucursal(u.sucursal) || 'Todas'
 }
 
 /**
