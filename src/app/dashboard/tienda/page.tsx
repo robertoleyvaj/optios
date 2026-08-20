@@ -21,6 +21,9 @@ type Pedido = {
   armazones: Armazon | null
 }
 
+type PedidoLite = { id: number; precio_venta: number | null; estado: string; plataforma: string | null; created_at: string }
+type ClienteRow = { id: number; nombre?: string; email?: string; telefono?: string; ciudad?: string; estado?: string; created_at?: string; pedidos?: PedidoLite[] }
+
 const ESTADOS = ['pendiente', 'en proceso', 'enviado', 'entregado']
 const ESTADO_STYLE: Record<string, string> = {
   'pendiente': 'bg-amber-50 text-amber-700',
@@ -37,8 +40,10 @@ function TiendaPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [cargando, setCargando] = useState(true)
   const [sel, setSel] = useState<Pedido | null>(null)
-  const [tab] = useState<'pedidos'>('pedidos')
+  const [tab, setTab] = useState<'pedidos' | 'clientes'>('pedidos')
   const [tienda, setTienda] = useState<'verly' | 'gon'>('verly')
+  const [clientes, setClientes] = useState<ClienteRow[]>([])
+  const [cargandoCli, setCargandoCli] = useState(false)
 
   const cargar = useCallback(async (t: 'verly' | 'gon') => {
     setCargando(true)
@@ -49,6 +54,24 @@ function TiendaPage() {
     } catch { setPedidos([]) } finally { setCargando(false) }
   }, [])
   useEffect(() => { cargar(tienda) }, [cargar, tienda])
+
+  const cargarClientes = useCallback(async () => {
+    setCargandoCli(true)
+    try {
+      const res = await fetch('/api/ecomm/clientes')
+      const j = await res.json()
+      setClientes((j.ok ? j.clientes : []) as ClienteRow[])
+    } catch { setClientes([]) } finally { setCargandoCli(false) }
+  }, [])
+  useEffect(() => { if (tab === 'clientes' && clientes.length === 0) cargarClientes() }, [tab, clientes.length, cargarClientes])
+
+  const esDeTienda = (plat: string | null) => tienda === 'gon' ? plat === 'gon' : plat !== 'gon'
+  const clientesTienda = clientes
+    .map(c => {
+      const peds = (c.pedidos ?? []).filter(p => esDeTienda(p.plataforma))
+      return { ...c, nPedidos: peds.length, gastado: peds.reduce((s, p) => s + Number(p.precio_venta || 0), 0) }
+    })
+    .filter(c => c.nPedidos > 0)
 
   const porAtender = pedidos.filter(p => p.estado === 'pendiente' || p.estado === 'en proceso').length
   const enviados = pedidos.filter(p => p.estado === 'enviado').length
@@ -75,21 +98,22 @@ function TiendaPage() {
       <div className="flex gap-1 flex-wrap border-b border-zinc-200 mb-5">
         {[
           { k: 'pedidos', label: 'Pedidos', icon: Package, activo: true },
+          { k: 'clientes', label: 'Clientes', icon: Users, activo: true },
           { k: 'inventario', label: 'Inventario web', icon: Box, activo: false },
-          { k: 'clientes', label: 'Clientes', icon: Users, activo: false },
           { k: 'promos', label: 'Promociones', icon: Tag, activo: false },
           { k: 'finanzas', label: 'Finanzas', icon: BarChart3, activo: false },
         ].map(t => {
           const Icon = t.icon
           return (
-            <span key={t.k}
-              className={`text-xs font-semibold px-3 py-2 border-b-2 flex items-center gap-1.5 ${tab === t.k ? 'text-[#0D9488] border-[#0D9488]' : t.activo ? 'text-zinc-500 border-transparent' : 'text-zinc-300 border-transparent'}`}>
+            <button key={t.k} disabled={!t.activo} onClick={() => t.activo && setTab(t.k as 'pedidos' | 'clientes')}
+              className={`text-xs font-semibold px-3 py-2 border-b-2 flex items-center gap-1.5 ${tab === t.k ? 'text-[#0D9488] border-[#0D9488]' : t.activo ? 'text-zinc-500 border-transparent hover:text-zinc-700' : 'text-zinc-300 border-transparent cursor-default'}`}>
               <Icon className="w-3.5 h-3.5" /> {t.label}{!t.activo && <span className="text-[9px] text-zinc-300">pronto</span>}
-            </span>
+            </button>
           )
         })}
       </div>
 
+      {tab === 'pedidos' && <>
       {/* Métricas */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="bg-amber-50 rounded-xl p-4"><p className="text-[10px] text-zinc-500 uppercase font-semibold">Por atender</p><p className="text-2xl font-bold text-amber-700">{porAtender}</p></div>
@@ -117,6 +141,27 @@ function TiendaPage() {
           </button>
         ))}
       </div>
+      </>}
+
+      {tab === 'clientes' && (
+        <div className="bg-white ring-1 ring-zinc-200 rounded-xl overflow-hidden">
+          <div className="grid grid-cols-[1.6fr_1.6fr_0.7fr_0.9fr] gap-2 px-4 py-2.5 bg-zinc-50 text-[10px] uppercase font-semibold text-zinc-400">
+            <span>Cliente</span><span>Contacto</span><span className="text-center">Pedidos</span><span className="text-right">Gastado</span>
+          </div>
+          {cargandoCli ? (
+            <p className="text-center text-sm text-zinc-400 py-10">Cargando clientes…</p>
+          ) : clientesTienda.length === 0 ? (
+            <p className="text-center text-sm text-zinc-400 py-10">Sin clientes en esta tienda todavía.</p>
+          ) : clientesTienda.map(c => (
+            <div key={c.id} className="grid grid-cols-[1.6fr_1.6fr_0.7fr_0.9fr] gap-2 px-4 py-3 border-t border-zinc-50 text-sm items-center">
+              <span className="text-zinc-700 truncate">{c.nombre || '—'}<span className="block text-[11px] text-zinc-400">{[c.ciudad, c.estado].filter(Boolean).join(', ')}</span></span>
+              <span className="text-zinc-500 text-xs truncate">{c.email || ''}{c.telefono ? <span className="block">{c.telefono}</span> : null}</span>
+              <span className="text-center text-zinc-600">{c.nPedidos}</span>
+              <span className="text-right font-semibold text-zinc-800">{$$(c.gastado)}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {sel && <DetallePedido pedido={sel} tienda={tienda} onClose={() => setSel(null)} onSaved={(pp) => { setPedidos(prev => prev.map(x => x.id === pp.id ? pp : x)); setSel(pp) }} />}
     </div>
