@@ -115,7 +115,7 @@ function EmpleadosPage() {
   const [asistencias, setAsistencias] = useState<Asistencia[]>([])
 
   const cargar = useCallback(async () => {
-    const { data } = await createClient().from('usuarios').select('*').order('nombre')
+    const { data } = await createClient().from('usuarios').select('*').neq('rol', 'administrador').order('nombre')
     setEmpleados((data ?? []) as Empleado[])
   }, [])
   useEffect(() => { cargar() }, [cargar])

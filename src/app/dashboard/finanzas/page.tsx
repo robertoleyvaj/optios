@@ -295,7 +295,7 @@ function FinanzasPage() {
 
   // Lista de empleados para ligar egresos (nómina, bonos, gasolina, etc.)
   useEffect(() => {
-    createClient().from('usuarios').select('id, nombre').eq('activo', true).order('nombre')
+    createClient().from('usuarios').select('id, nombre').eq('activo', true).neq('rol', 'administrador').order('nombre')
       .then(({ data }) => setEmpleadosLista((data ?? []) as EmpleadoLite[]))
   }, [])
 

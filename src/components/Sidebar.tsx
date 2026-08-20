@@ -30,7 +30,8 @@ const CORE = ['dashboard','ventas','agenda','expedientes','laboratorio','caja','
 const GESTION_GERENTE = ['inventario','reportes']
 const GESTION_ADMIN   = [...GESTION_GERENTE, 'analitica','finanzas','tienda','empleados','usuarios','ajustes']
 
-const CORE_ADMIN = CORE.filter(k => k !== 'mi-desempeno')
+// El admin (dueño) no checa asistencia ni pide vacaciones: no es empleado operativo.
+const CORE_ADMIN = CORE.filter(k => !['mi-desempeno', 'checador', 'vacaciones'].includes(k))
 
 const PERMISOS: Record<Rol, string[]> = {
   administrador: [...CORE_ADMIN, ...GESTION_ADMIN],

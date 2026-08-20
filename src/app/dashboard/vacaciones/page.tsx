@@ -48,7 +48,7 @@ export default function VacacionesPage() {
 
   const cargarAdmin = useCallback(async () => {
     const { data } = await createClient().from('usuarios')
-      .select('id, nombre, apodo, sucursal, fecha_ingreso, rol').eq('activo', true).order('nombre')
+      .select('id, nombre, apodo, sucursal, fecha_ingreso, rol').eq('activo', true).neq('rol', 'administrador').order('nombre')
     setEmpleados((data ?? []) as Emp[])
     const res = await fetch('/api/empleados/vacaciones')
     const j = await res.json()
