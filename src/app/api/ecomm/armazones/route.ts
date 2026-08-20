@@ -3,7 +3,7 @@ import { createEcommClient } from '@/lib/supabase/ecomm'
 
 export const dynamic = 'force-dynamic'
 
-const CAMPOS = 'id, sku, sku_viejo, nombre, marca, modelo, color1, medidas, material, forma, genero, precio, precio_gon, costo, ' +
+const CAMPOS = 'id, sku, sku_viejo, nombre, marca, modelo, color1, medidas, material, forma, genero, badge, categoria, precio, precio_gon, costo, ' +
   'stock_baja, stock_mayo, stock_plaza, stock_online, publicar_gon, publicar_verly, ' +
   'descuento_gon, descuento_verly, activo, imagen_url, imagen2_url, imagen3_url, imagen4_url, imagen5_url'
 
@@ -53,7 +53,7 @@ export async function PATCH(req: Request) {
 
     // Solo permitimos actualizar campos conocidos (evita escribir columnas raras)
     const permitidos = new Set([
-      'nombre', 'marca', 'modelo', 'color1', 'medidas', 'material', 'forma', 'genero', 'precio', 'precio_gon',
+      'nombre', 'marca', 'modelo', 'color1', 'medidas', 'material', 'forma', 'genero', 'badge', 'categoria', 'precio', 'precio_gon',
       'costo', 'stock', 'stock_baja', 'stock_mayo', 'stock_plaza', 'stock_online',
       'publicar_gon', 'publicar_verly', 'descuento_gon', 'descuento_verly', 'activo',
       'imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url', 'imagen5_url',

@@ -25,6 +25,7 @@ type Promo = { id: number; codigo: string; tipo: string; valor: number; minimo_c
 type Armz = {
   id: number; sku: string; nombre: string | null; marca: string | null; modelo: string | null
   color1: string | null; medidas: string | null; material: string | null; forma: string | null; genero: string | null
+  badge: string | null; categoria: string | null
   precio: number | null; precio_gon: number | null; descuento_gon: number | null; descuento_verly: number | null
   publicar_gon: boolean | null; publicar_verly: boolean | null
   imagen_url: string | null; imagen2_url: string | null; imagen3_url: string | null; imagen4_url: string | null; imagen5_url: string | null
@@ -333,11 +334,14 @@ function TiendaPage() {
 const FORMAS_OPC = ['redonda', 'cuadrada', 'rectangular', 'ovalada', 'aviador']
 const GENEROS_OPC = ['hombre', 'mujer', 'unisex']
 const MATERIALES_OPC = ['Acetato', 'Metálico', 'TR-90', 'Titanio', 'Mixto']
+const BADGE_OPC = ['Nuevo', 'Popular', 'Más vendido', 'Oferta']
+const CATEGORIA_OPC = ['Eyeglasses', 'Sunglasses', 'Lenses', 'Graduables']
 
 function ArmzEditor({ armz, tienda, onClose, onSaved }: { armz: Armz; tienda: 'verly' | 'gon'; onClose: () => void; onSaved: (a: Armz) => void }) {
   const [f, setF] = useState({
     nombre: armz.nombre ?? '', marca: armz.marca ?? '', modelo: armz.modelo ?? '',
     forma: armz.forma ?? '', genero: armz.genero ?? '', color1: armz.color1 ?? '', material: armz.material ?? '', medidas: armz.medidas ?? '',
+    badge: armz.badge ?? '', categoria: armz.categoria ?? '',
     precio: String((tienda === 'gon' ? armz.precio_gon : armz.precio) ?? ''),
     descuento: String((tienda === 'gon' ? armz.descuento_gon : armz.descuento_verly) ?? ''),
     publicar: tienda === 'gon' ? !!armz.publicar_gon : !!armz.publicar_verly,
@@ -368,6 +372,7 @@ function ArmzEditor({ armz, tienda, onClose, onSaved }: { armz: Armz; tienda: 'v
       const cambios: Record<string, unknown> = {
         id: armz.id, nombre: f.nombre, marca: f.marca, modelo: f.modelo,
         forma: f.forma, genero: f.genero, color1: f.color1, material: f.material, medidas: f.medidas,
+        badge: f.badge, categoria: f.categoria,
       }
       if (tienda === 'gon') { cambios.precio_gon = Number(f.precio) || 0; cambios.descuento_gon = Number(f.descuento) || 0; cambios.publicar_gon = f.publicar }
       else { cambios.precio = Number(f.precio) || 0; cambios.descuento_verly = Number(f.descuento) || 0; cambios.publicar_verly = f.publicar }
@@ -400,6 +405,8 @@ function ArmzEditor({ armz, tienda, onClose, onSaved }: { armz: Armz; tienda: 'v
             {campo('Color', 'color1')}
             {menu('Material', 'material', MATERIALES_OPC)}
             {campo('Medidas', 'medidas')}
+            {menu('Categoría (sección web)', 'categoria', CATEGORIA_OPC)}
+            {menu('Etiqueta / badge', 'badge', BADGE_OPC)}
           </div>
           <div className="border-t border-zinc-100 pt-3 grid grid-cols-2 gap-3">
             {campo(`Precio (${tienda === 'gon' ? 'MXN' : 'USD'})`, 'precio')}
