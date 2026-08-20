@@ -22,6 +22,13 @@ type Pedido = {
 }
 
 type Promo = { id: number; codigo: string; tipo: string; valor: number; minimo_compra: number | null; usos_maximos: number | null; usos: number | null; expires_at: string | null; descripcion: string | null; activo: boolean }
+type Armz = {
+  id: number; sku: string; nombre: string | null; marca: string | null; modelo: string | null
+  color1: string | null; medidas: string | null; material: string | null; forma: string | null; genero: string | null
+  precio: number | null; precio_gon: number | null; descuento_gon: number | null; descuento_verly: number | null
+  publicar_gon: boolean | null; publicar_verly: boolean | null
+  imagen_url: string | null; imagen2_url: string | null; imagen3_url: string | null; imagen4_url: string | null; imagen5_url: string | null
+}
 type PedidoLite = { id: number; precio_venta: number | null; estado: string; plataforma: string | null; created_at: string }
 type ClienteRow = { id: number; nombre?: string; email?: string; telefono?: string; ciudad?: string; estado?: string; created_at?: string; pedidos?: PedidoLite[] }
 
@@ -41,7 +48,7 @@ function TiendaPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [cargando, setCargando] = useState(true)
   const [sel, setSel] = useState<Pedido | null>(null)
-  const [tab, setTab] = useState<'pedidos' | 'clientes' | 'promos'>('pedidos')
+  const [tab, setTab] = useState<'pedidos' | 'clientes' | 'promos' | 'inventario'>('pedidos')
   const [tienda, setTienda] = useState<'verly' | 'gon'>('verly')
   const [clientes, setClientes] = useState<ClienteRow[]>([])
   const [cargandoCli, setCargandoCli] = useState(false)
@@ -50,6 +57,10 @@ function TiendaPage() {
   const [formPromo, setFormPromo] = useState({ codigo: '', tipo: 'porcentaje', valor: '', minimo_compra: '', usos_maximos: '', expires_at: '', descripcion: '' })
   const [guardandoPromo, setGuardandoPromo] = useState(false)
   const [mostrarFormPromo, setMostrarFormPromo] = useState(false)
+  const [armazones, setArmazones] = useState<Armz[]>([])
+  const [cargandoArm, setCargandoArm] = useState(false)
+  const [buscarArm, setBuscarArm] = useState('')
+  const [selArm, setSelArm] = useState<Armz | null>(null)
 
   const cargar = useCallback(async (t: 'verly' | 'gon') => {
     setCargando(true)
@@ -112,6 +123,25 @@ function TiendaPage() {
     await fetch('/api/ecomm/promociones', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.id }) }).catch(() => {})
   }
 
+  const cargarArmazones = useCallback(async () => {
+    setCargandoArm(true)
+    try {
+      const res = await fetch('/api/ecomm/armazones')
+      const j = await res.json()
+      setArmazones((j.ok ? j.armazones : []) as Armz[])
+    } catch { setArmazones([]) } finally { setCargandoArm(false) }
+  }, [])
+  useEffect(() => { if (tab === 'inventario' && armazones.length === 0) cargarArmazones() }, [tab, armazones.length, cargarArmazones])
+
+  const publicadoEn = (a: Armz) => tienda === 'gon' ? !!a.publicar_gon : !!a.publicar_verly
+  const precioTienda = (a: Armz) => tienda === 'gon' ? Number(a.precio_gon || 0) : Number(a.precio || 0)
+  const monedaTienda = tienda === 'gon' ? 'MXN' : 'USD'
+  const armazonesFiltrados = armazones.filter(a => {
+    const q = buscarArm.trim().toLowerCase()
+    if (!q) return true
+    return [a.sku, a.nombre, a.marca, a.modelo].some(v => (v ?? '').toLowerCase().includes(q))
+  })
+
   const esDeTienda = (plat: string | null) => tienda === 'gon' ? plat === 'gon' : plat !== 'gon'
   const clientesTienda = clientes
     .map(c => {
@@ -147,12 +177,12 @@ function TiendaPage() {
           { k: 'pedidos', label: 'Pedidos', icon: Package, activo: true },
           { k: 'clientes', label: 'Clientes', icon: Users, activo: true },
           { k: 'promos', label: 'Promociones', icon: Tag, activo: true },
-          { k: 'inventario', label: 'Inventario web', icon: Box, activo: false },
+          { k: 'inventario', label: 'Inventario web', icon: Box, activo: true },
           { k: 'finanzas', label: 'Finanzas', icon: BarChart3, activo: false },
         ].map(t => {
           const Icon = t.icon
           return (
-            <button key={t.k} disabled={!t.activo} onClick={() => t.activo && setTab(t.k as 'pedidos' | 'clientes' | 'promos')}
+            <button key={t.k} disabled={!t.activo} onClick={() => t.activo && setTab(t.k as 'pedidos' | 'clientes' | 'promos' | 'inventario')}
               className={`text-xs font-semibold px-3 py-2 border-b-2 flex items-center gap-1.5 ${tab === t.k ? 'text-[#0D9488] border-[#0D9488]' : t.activo ? 'text-zinc-500 border-transparent hover:text-zinc-700' : 'text-zinc-300 border-transparent cursor-default'}`}>
               <Icon className="w-3.5 h-3.5" /> {t.label}{!t.activo && <span className="text-[9px] text-zinc-300">pronto</span>}
             </button>
@@ -258,7 +288,108 @@ function TiendaPage() {
         </div>
       )}
 
+      {tab === 'inventario' && (
+        <div>
+          <input value={buscarArm} onChange={e => setBuscarArm(e.target.value)} placeholder="Buscar por SKU, nombre, marca…"
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 mb-4" />
+          <div className="bg-white ring-1 ring-zinc-200 rounded-xl overflow-hidden">
+            <div className="grid grid-cols-[1fr_1.8fr_0.9fr_0.8fr] gap-2 px-4 py-2.5 bg-zinc-50 text-[10px] uppercase font-semibold text-zinc-400">
+              <span>SKU</span><span>Armazón</span><span className="text-right">Precio {monedaTienda}</span><span className="text-center">En {tienda === 'gon' ? 'GON' : 'Verly'}</span>
+            </div>
+            {cargandoArm ? (
+              <p className="text-center text-sm text-zinc-400 py-10">Cargando catálogo…</p>
+            ) : armazonesFiltrados.length === 0 ? (
+              <p className="text-center text-sm text-zinc-400 py-10">Sin armazones.</p>
+            ) : armazonesFiltrados.slice(0, 100).map(a => (
+              <button key={a.id} onClick={() => setSelArm(a)}
+                className="w-full text-left grid grid-cols-[1fr_1.8fr_0.9fr_0.8fr] gap-2 px-4 py-3 border-t border-zinc-50 text-sm items-center hover:bg-zinc-50 transition-colors">
+                <span className="font-mono text-xs text-zinc-500">{a.sku}</span>
+                <span className="text-zinc-700 truncate">{a.nombre || a.modelo || '—'}<span className="block text-[11px] text-zinc-400">{[a.marca, a.forma, a.genero].filter(Boolean).join(' · ')}</span></span>
+                <span className="text-right font-semibold text-zinc-800">{$$(precioTienda(a))}</span>
+                <span className="text-center">{publicadoEn(a) ? <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 rounded-full px-2 py-0.5">sí</span> : <span className="text-[11px] text-zinc-400">no</span>}</span>
+              </button>
+            ))}
+          </div>
+          {armazonesFiltrados.length > 100 && <p className="text-[11px] text-zinc-400 mt-2 text-center">Mostrando 100 de {armazonesFiltrados.length}. Busca para acotar.</p>}
+        </div>
+      )}
+
+      {selArm && <ArmzEditor armz={selArm} tienda={tienda} onClose={() => setSelArm(null)} onSaved={(aa) => { setArmazones(prev => prev.map(x => x.id === aa.id ? aa : x)); setSelArm(null) }} />}
+
       {sel && <DetallePedido pedido={sel} tienda={tienda} onClose={() => setSel(null)} onSaved={(pp) => { setPedidos(prev => prev.map(x => x.id === pp.id ? pp : x)); setSel(pp) }} />}
+    </div>
+  )
+}
+
+function ArmzEditor({ armz, tienda, onClose, onSaved }: { armz: Armz; tienda: 'verly' | 'gon'; onClose: () => void; onSaved: (a: Armz) => void }) {
+  const [f, setF] = useState({
+    nombre: armz.nombre ?? '', marca: armz.marca ?? '', modelo: armz.modelo ?? '',
+    forma: armz.forma ?? '', genero: armz.genero ?? '', color1: armz.color1 ?? '', material: armz.material ?? '', medidas: armz.medidas ?? '',
+    precio: String((tienda === 'gon' ? armz.precio_gon : armz.precio) ?? ''),
+    descuento: String((tienda === 'gon' ? armz.descuento_gon : armz.descuento_verly) ?? ''),
+    publicar: tienda === 'gon' ? !!armz.publicar_gon : !!armz.publicar_verly,
+  })
+  const [guardando, setGuardando] = useState(false)
+  const set = (k: keyof typeof f, v: string | boolean) => setF(p => ({ ...p, [k]: v }))
+  const campo = (label: string, k: keyof typeof f, ph = '') => (
+    <div><label className="block text-[10px] uppercase font-semibold text-zinc-500 mb-1">{label}</label>
+      <input value={f[k] as string} onChange={e => set(k, e.target.value)} placeholder={ph}
+        className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" /></div>
+  )
+
+  const guardar = async () => {
+    setGuardando(true)
+    try {
+      const cambios: Record<string, unknown> = {
+        id: armz.id, nombre: f.nombre, marca: f.marca, modelo: f.modelo,
+        forma: f.forma, genero: f.genero, color1: f.color1, material: f.material, medidas: f.medidas,
+      }
+      if (tienda === 'gon') { cambios.precio_gon = Number(f.precio) || 0; cambios.descuento_gon = Number(f.descuento) || 0; cambios.publicar_gon = f.publicar }
+      else { cambios.precio = Number(f.precio) || 0; cambios.descuento_verly = Number(f.descuento) || 0; cambios.publicar_verly = f.publicar }
+      const res = await fetch('/api/ecomm/armazones', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cambios) })
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error || 'Error')
+      onSaved(j.armazon as Armz)
+    } catch (e) { alert('No se pudo guardar: ' + (e instanceof Error ? e.message : '')) } finally { setGuardando(false) }
+  }
+
+  const fotos = [armz.imagen_url, armz.imagen2_url, armz.imagen3_url, armz.imagen4_url, armz.imagen5_url].filter(Boolean) as string[]
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 sticky top-0 bg-white">
+          <div><p className="font-mono text-xs text-zinc-400">{armz.sku}</p><p className="text-base font-bold text-zinc-800">Editar para {tienda === 'gon' ? 'GON.mx' : 'Verly'}</p></div>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="px-5 py-4 space-y-4">
+          {fotos.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto">{fotos.map((src, i) => <img key={i} src={src} alt="" className="w-16 h-16 rounded object-cover flex-shrink-0 ring-1 ring-zinc-100" />)}</div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            {campo('Nombre / apodo', 'nombre')}
+            {campo('Marca', 'marca')}
+            {campo('Modelo', 'modelo')}
+            {campo('Forma', 'forma', 'redondo, cuadrado…')}
+            {campo('Género', 'genero', 'hombre, mujer, unisex')}
+            {campo('Color', 'color1')}
+            {campo('Material', 'material')}
+            {campo('Medidas', 'medidas')}
+          </div>
+          <div className="border-t border-zinc-100 pt-3 grid grid-cols-2 gap-3">
+            {campo(`Precio (${tienda === 'gon' ? 'MXN' : 'USD'})`, 'precio')}
+            {campo('Descuento (%)', 'descuento')}
+          </div>
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
+            <input type="checkbox" checked={f.publicar} onChange={e => set('publicar', e.target.checked)} className="w-4 h-4" />
+            Publicar en {tienda === 'gon' ? 'GON.mx' : 'Verly'}
+          </label>
+        </div>
+        <div className="px-5 py-4 border-t border-zinc-100 flex gap-2 sticky bottom-0 bg-white">
+          <button onClick={onClose} className="flex-1 py-2 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100">Cancelar</button>
+          <button onClick={guardar} disabled={guardando} className="flex-1 flex items-center justify-center gap-2 py-2 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-600 disabled:opacity-50"><Save className="w-4 h-4" /> {guardando ? 'Guardando…' : 'Guardar'}</button>
+        </div>
+      </div>
     </div>
   )
 }
