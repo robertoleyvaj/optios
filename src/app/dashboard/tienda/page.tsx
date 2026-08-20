@@ -61,6 +61,7 @@ function TiendaPage() {
   const [cargandoArm, setCargandoArm] = useState(false)
   const [buscarArm, setBuscarArm] = useState('')
   const [selArm, setSelArm] = useState<Armz | null>(null)
+  const [soloPublicados, setSoloPublicados] = useState(true)
 
   const cargar = useCallback(async (t: 'verly' | 'gon') => {
     setCargando(true)
@@ -137,6 +138,7 @@ function TiendaPage() {
   const precioTienda = (a: Armz) => tienda === 'gon' ? Number(a.precio_gon || 0) : Number(a.precio || 0)
   const monedaTienda = tienda === 'gon' ? 'MXN' : 'USD'
   const armazonesFiltrados = armazones.filter(a => {
+    if (soloPublicados && !publicadoEn(a)) return false
     const q = buscarArm.trim().toLowerCase()
     if (!q) return true
     return [a.sku, a.nombre, a.marca, a.modelo].some(v => (v ?? '').toLowerCase().includes(q))
@@ -290,8 +292,15 @@ function TiendaPage() {
 
       {tab === 'inventario' && (
         <div>
-          <input value={buscarArm} onChange={e => setBuscarArm(e.target.value)} placeholder="Buscar por SKU, nombre, marca…"
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 mb-4" />
+          <div className="flex items-center gap-3 mb-2">
+            <input value={buscarArm} onChange={e => setBuscarArm(e.target.value)} placeholder="Buscar por SKU, nombre, marca…"
+              className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+            <label className="flex items-center gap-1.5 text-xs text-zinc-500 whitespace-nowrap cursor-pointer">
+              <input type="checkbox" checked={!soloPublicados} onChange={e => setSoloPublicados(!e.target.checked)} className="w-3.5 h-3.5" />
+              Ver no publicados
+            </label>
+          </div>
+          <p className="text-[11px] text-zinc-400 mb-3">{soloPublicados ? `Solo los armazones en línea de ${tienda === 'gon' ? 'GON.mx' : 'Verly'}.` : 'Mostrando todo el catálogo. Publica uno para que aparezca en la tienda.'}</p>
           <div className="bg-white ring-1 ring-zinc-200 rounded-xl overflow-hidden">
             <div className="grid grid-cols-[1fr_1.8fr_0.9fr_0.8fr] gap-2 px-4 py-2.5 bg-zinc-50 text-[10px] uppercase font-semibold text-zinc-400">
               <span>SKU</span><span>Armazón</span><span className="text-right">Precio {monedaTienda}</span><span className="text-center">En {tienda === 'gon' ? 'GON' : 'Verly'}</span>
