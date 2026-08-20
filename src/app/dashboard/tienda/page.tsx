@@ -321,6 +321,10 @@ function TiendaPage() {
   )
 }
 
+const FORMAS_OPC = ['redonda', 'cuadrada', 'rectangular', 'ovalada', 'aviador']
+const GENEROS_OPC = ['hombre', 'mujer', 'unisex']
+const MATERIALES_OPC = ['Acetato', 'Metálico', 'TR-90', 'Titanio', 'Mixto']
+
 function ArmzEditor({ armz, tienda, onClose, onSaved }: { armz: Armz; tienda: 'verly' | 'gon'; onClose: () => void; onSaved: (a: Armz) => void }) {
   const [f, setF] = useState({
     nombre: armz.nombre ?? '', marca: armz.marca ?? '', modelo: armz.modelo ?? '',
@@ -336,6 +340,18 @@ function ArmzEditor({ armz, tienda, onClose, onSaved }: { armz: Armz; tienda: 'v
       <input value={f[k] as string} onChange={e => set(k, e.target.value)} placeholder={ph}
         className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" /></div>
   )
+  const menu = (label: string, k: keyof typeof f, opciones: string[]) => {
+    const actual = String(f[k] ?? '')
+    const opts = actual && !opciones.includes(actual) ? [actual, ...opciones] : opciones
+    return (
+      <div><label className="block text-[10px] uppercase font-semibold text-zinc-500 mb-1">{label}</label>
+        <select value={actual} onChange={e => set(k, e.target.value)}
+          className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 capitalize">
+          <option value="">— sin definir —</option>
+          {opts.map(o => <option key={o} value={o} className="capitalize">{o}</option>)}
+        </select></div>
+    )
+  }
 
   const guardar = async () => {
     setGuardando(true)
@@ -370,10 +386,10 @@ function ArmzEditor({ armz, tienda, onClose, onSaved }: { armz: Armz; tienda: 'v
             {campo('Nombre / apodo', 'nombre')}
             {campo('Marca', 'marca')}
             {campo('Modelo', 'modelo')}
-            {campo('Forma', 'forma', 'redondo, cuadrado…')}
-            {campo('Género', 'genero', 'hombre, mujer, unisex')}
+            {menu('Forma', 'forma', FORMAS_OPC)}
+            {menu('Género', 'genero', GENEROS_OPC)}
             {campo('Color', 'color1')}
-            {campo('Material', 'material')}
+            {menu('Material', 'material', MATERIALES_OPC)}
             {campo('Medidas', 'medidas')}
           </div>
           <div className="border-t border-zinc-100 pt-3 grid grid-cols-2 gap-3">
