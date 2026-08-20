@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import RequireRol from '@/components/RequireRol'
-import { Store, Package, Box, Users, Tag, BarChart3, Truck, X, Save } from 'lucide-react'
+import { Store, Package, Box, Users, Tag, BarChart3, Truck, X, Save, Plus, Trash2 } from 'lucide-react'
 
 type Cliente = { nombre?: string; email?: string; telefono?: string; direccion?: string; ciudad?: string; estado?: string }
 type Armazon = { nombre?: string; modelo?: string; marca?: string; color?: string }
@@ -21,6 +21,7 @@ type Pedido = {
   armazones: Armazon | null
 }
 
+type Promo = { id: number; codigo: string; tipo: string; valor: number; minimo_compra: number | null; usos_maximos: number | null; usos: number | null; expires_at: string | null; descripcion: string | null; activo: boolean }
 type PedidoLite = { id: number; precio_venta: number | null; estado: string; plataforma: string | null; created_at: string }
 type ClienteRow = { id: number; nombre?: string; email?: string; telefono?: string; ciudad?: string; estado?: string; created_at?: string; pedidos?: PedidoLite[] }
 
@@ -40,10 +41,15 @@ function TiendaPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [cargando, setCargando] = useState(true)
   const [sel, setSel] = useState<Pedido | null>(null)
-  const [tab, setTab] = useState<'pedidos' | 'clientes'>('pedidos')
+  const [tab, setTab] = useState<'pedidos' | 'clientes' | 'promos'>('pedidos')
   const [tienda, setTienda] = useState<'verly' | 'gon'>('verly')
   const [clientes, setClientes] = useState<ClienteRow[]>([])
   const [cargandoCli, setCargandoCli] = useState(false)
+  const [promos, setPromos] = useState<Promo[]>([])
+  const [cargandoPromo, setCargandoPromo] = useState(false)
+  const [formPromo, setFormPromo] = useState({ codigo: '', tipo: 'porcentaje', valor: '', minimo_compra: '', usos_maximos: '', expires_at: '', descripcion: '' })
+  const [guardandoPromo, setGuardandoPromo] = useState(false)
+  const [mostrarFormPromo, setMostrarFormPromo] = useState(false)
 
   const cargar = useCallback(async (t: 'verly' | 'gon') => {
     setCargando(true)
@@ -64,6 +70,47 @@ function TiendaPage() {
     } catch { setClientes([]) } finally { setCargandoCli(false) }
   }, [])
   useEffect(() => { if (tab === 'clientes' && clientes.length === 0) cargarClientes() }, [tab, clientes.length, cargarClientes])
+
+  const cargarPromos = useCallback(async () => {
+    setCargandoPromo(true)
+    try {
+      const res = await fetch('/api/ecomm/promociones')
+      const j = await res.json()
+      setPromos((j.ok ? j.promos : []) as Promo[])
+    } catch { setPromos([]) } finally { setCargandoPromo(false) }
+  }, [])
+  useEffect(() => { if (tab === 'promos' && promos.length === 0) cargarPromos() }, [tab, promos.length, cargarPromos])
+
+  const crearPromo = async () => {
+    if (!formPromo.codigo.trim() || !formPromo.valor) { alert('Falta código o valor.'); return }
+    setGuardandoPromo(true)
+    try {
+      const res = await fetch('/api/ecomm/promociones', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formPromo, activo: true }),
+      })
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error || 'Error')
+      setPromos(prev => [j.promo as Promo, ...prev])
+      setFormPromo({ codigo: '', tipo: 'porcentaje', valor: '', minimo_compra: '', usos_maximos: '', expires_at: '', descripcion: '' })
+      setMostrarFormPromo(false)
+    } catch (e) { alert('No se pudo crear: ' + (e instanceof Error ? e.message : '')) } finally { setGuardandoPromo(false) }
+  }
+
+  const togglePromo = async (p: Promo) => {
+    const res = await fetch('/api/ecomm/promociones', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: p.id, activo: !p.activo }),
+    })
+    const j = await res.json()
+    if (j.ok) setPromos(prev => prev.map(x => x.id === p.id ? { ...x, activo: !p.activo } : x))
+  }
+
+  const borrarPromo = async (p: Promo) => {
+    if (!confirm(`¿Borrar el código ${p.codigo}?`)) return
+    setPromos(prev => prev.filter(x => x.id !== p.id))
+    await fetch('/api/ecomm/promociones', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.id }) }).catch(() => {})
+  }
 
   const esDeTienda = (plat: string | null) => tienda === 'gon' ? plat === 'gon' : plat !== 'gon'
   const clientesTienda = clientes
@@ -99,13 +146,13 @@ function TiendaPage() {
         {[
           { k: 'pedidos', label: 'Pedidos', icon: Package, activo: true },
           { k: 'clientes', label: 'Clientes', icon: Users, activo: true },
+          { k: 'promos', label: 'Promociones', icon: Tag, activo: true },
           { k: 'inventario', label: 'Inventario web', icon: Box, activo: false },
-          { k: 'promos', label: 'Promociones', icon: Tag, activo: false },
           { k: 'finanzas', label: 'Finanzas', icon: BarChart3, activo: false },
         ].map(t => {
           const Icon = t.icon
           return (
-            <button key={t.k} disabled={!t.activo} onClick={() => t.activo && setTab(t.k as 'pedidos' | 'clientes')}
+            <button key={t.k} disabled={!t.activo} onClick={() => t.activo && setTab(t.k as 'pedidos' | 'clientes' | 'promos')}
               className={`text-xs font-semibold px-3 py-2 border-b-2 flex items-center gap-1.5 ${tab === t.k ? 'text-[#0D9488] border-[#0D9488]' : t.activo ? 'text-zinc-500 border-transparent hover:text-zinc-700' : 'text-zinc-300 border-transparent cursor-default'}`}>
               <Icon className="w-3.5 h-3.5" /> {t.label}{!t.activo && <span className="text-[9px] text-zinc-300">pronto</span>}
             </button>
@@ -160,6 +207,54 @@ function TiendaPage() {
               <span className="text-right font-semibold text-zinc-800">{$$(c.gastado)}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === 'promos' && (
+        <div>
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-xs text-zinc-400">Cupones de descuento para la tienda en línea.</p>
+            <button onClick={() => setMostrarFormPromo(v => !v)} className="flex items-center gap-1.5 text-xs font-semibold text-[#0D9488] hover:opacity-80"><Plus className="w-3.5 h-3.5" /> Nuevo código</button>
+          </div>
+
+          {mostrarFormPromo && (
+            <div className="bg-zinc-50 rounded-xl p-4 mb-4 space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div><label className="block text-[10px] uppercase font-semibold text-zinc-500 mb-1">Código</label>
+                  <input value={formPromo.codigo} onChange={e => setFormPromo(f => ({ ...f, codigo: e.target.value.toUpperCase() }))} placeholder="BIENVENIDO20" className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 uppercase" /></div>
+                <div><label className="block text-[10px] uppercase font-semibold text-zinc-500 mb-1">Tipo</label>
+                  <select value={formPromo.tipo} onChange={e => setFormPromo(f => ({ ...f, tipo: e.target.value }))} className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white focus:outline-none"><option value="porcentaje">Porcentaje (%)</option><option value="fijo">Monto fijo</option></select></div>
+                <div><label className="block text-[10px] uppercase font-semibold text-zinc-500 mb-1">Valor {formPromo.tipo === 'porcentaje' ? '(%)' : '(MXN)'}</label>
+                  <input type="number" value={formPromo.valor} onChange={e => setFormPromo(f => ({ ...f, valor: e.target.value }))} placeholder={formPromo.tipo === 'porcentaje' ? '20' : '200'} className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" /></div>
+                <div><label className="block text-[10px] uppercase font-semibold text-zinc-500 mb-1">Compra mínima</label>
+                  <input type="number" value={formPromo.minimo_compra} onChange={e => setFormPromo(f => ({ ...f, minimo_compra: e.target.value }))} placeholder="0 = sin mínimo" className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" /></div>
+                <div><label className="block text-[10px] uppercase font-semibold text-zinc-500 mb-1">Usos máximos</label>
+                  <input type="number" value={formPromo.usos_maximos} onChange={e => setFormPromo(f => ({ ...f, usos_maximos: e.target.value }))} placeholder="vacío = ilimitado" className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" /></div>
+                <div><label className="block text-[10px] uppercase font-semibold text-zinc-500 mb-1">Expira</label>
+                  <input type="date" value={formPromo.expires_at} onChange={e => setFormPromo(f => ({ ...f, expires_at: e.target.value }))} className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" /></div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setMostrarFormPromo(false)} className="px-3 py-1.5 border border-zinc-200 text-zinc-500 rounded text-sm hover:bg-zinc-100">Cancelar</button>
+                <button onClick={crearPromo} disabled={guardandoPromo} className="px-4 py-1.5 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-600 disabled:opacity-50">{guardandoPromo ? 'Guardando…' : 'Crear'}</button>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white ring-1 ring-zinc-200 rounded-xl overflow-hidden">
+            {cargandoPromo ? (
+              <p className="text-center text-sm text-zinc-400 py-10">Cargando…</p>
+            ) : promos.length === 0 ? (
+              <p className="text-center text-sm text-zinc-400 py-10">Sin códigos todavía.</p>
+            ) : promos.map(p => (
+              <div key={p.id} className="flex items-center gap-3 px-4 py-3 border-t border-zinc-50 first:border-t-0 text-sm">
+                <span className="font-mono font-bold text-zinc-800">{p.codigo}</span>
+                <span className="text-zinc-500 text-xs">{p.tipo === 'porcentaje' ? `${p.valor}%` : $$(p.valor)}{p.minimo_compra ? ` · mín ${$$(p.minimo_compra)}` : ''}{p.usos_maximos ? ` · ${p.usos ?? 0}/${p.usos_maximos} usos` : ''}</span>
+                <span className="flex-1" />
+                <button onClick={() => togglePromo(p)} className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${p.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-400'}`}>{p.activo ? 'activo' : 'inactivo'}</button>
+                <button onClick={() => borrarPromo(p)} className="text-zinc-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
