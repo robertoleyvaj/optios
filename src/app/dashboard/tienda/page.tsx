@@ -538,7 +538,7 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
         </div>
 
         <div className="px-5 py-4 border-t border-zinc-100 flex items-center gap-2 sticky bottom-0 bg-white">
-          <button onClick={borrar} title="Borrar pedido (pruebas)" className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+          <button onClick={borrar} className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-red-600 border border-red-200 rounded hover:bg-red-50 transition-colors"><Trash2 className="w-4 h-4" /> Borrar</button>
           <button onClick={onClose} className="flex-1 py-2 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100">Cancelar</button>
           <button onClick={guardar} disabled={guardando} className="flex-1 flex items-center justify-center gap-2 py-2 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-600 disabled:opacity-50">
             <Save className="w-4 h-4" /> {guardando ? 'Guardando…' : 'Guardar'}
