@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import RequireRol from '@/components/RequireRol'
-import { Store, Package, Box, Users, Tag, BarChart3, Truck, X, Save, Plus, Trash2 } from 'lucide-react'
+import { Store, Package, Box, Users, Tag, BarChart3, Truck, X, Save, Plus, Trash2, Mail } from 'lucide-react'
 
 type Cliente = { nombre?: string; email?: string; telefono?: string; direccion?: string; ciudad?: string; estado?: string }
 type Armazon = { nombre?: string; modelo?: string; marca?: string; color?: string }
@@ -443,7 +443,15 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
   const c = pedido.clientes
   const a = pedido.armazones
 
+  const ESTADOS_CORREO = ['en proceso', 'enviado', 'entregado']
+  const cambioEstado = estado !== pedido.estado
+  const notificara = cambioEstado && ESTADOS_CORREO.includes(estado)
+
   const guardar = async () => {
+    if (notificara && estado === 'enviado' && !tracking.trim()) {
+      alert('Para avisar al cliente que se envió, pon el número de guía.')
+      return
+    }
     setGuardando(true)
     try {
       const res = await fetch('/api/ecomm/pedidos', {
@@ -452,6 +460,17 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
       })
       const j = await res.json()
       if (!j.ok) throw new Error(j.error || 'Error')
+
+      // Avisar al cliente por correo si el estado cambió a uno notificable
+      if (notificara) {
+        const rn = await fetch('/api/ecomm/pedido-notificar', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: pedido.id, estado, tienda, tracking, paqueteria }),
+        })
+        const jn = await rn.json().catch(() => ({ ok: false }))
+        if (!jn.ok) alert('El pedido se guardó, pero el correo al cliente no salió: ' + (jn.error || 'error') + '\nRevisa e inténtalo de nuevo.')
+      }
+
       onSaved(j.pedido as Pedido)
       onClose()
     } catch (e) {
@@ -492,6 +511,9 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
                 </button>
               ))}
             </div>
+            {notificara && (
+              <p className="text-[11px] text-teal-700 bg-teal-50 rounded px-2.5 py-1.5 mt-2 flex items-center gap-1"><Mail className="w-3 h-3" /> Al guardar se le avisará al cliente por correo ({estado}).</p>
+            )}
           </div>
 
           {/* Envío */}
