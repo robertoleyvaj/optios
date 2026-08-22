@@ -172,6 +172,7 @@ export default function CajaPage() {
   // ── Filtros historial ──
   const [filtroSucursal, setFiltroSucursal] = useState('')
   const [filtroFecha, setFiltroFecha]       = useState('')
+  const [verTodosCortes, setVerTodosCortes] = useState(false)
 
   // ── Formulario de corte ──
   const [efectivoContado, setEfectivoContado]       = useState('')
@@ -1423,9 +1424,12 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
               {cargando ? 'Cargando...' : 'Sin cortes anteriores'}
             </div>
           )
+          const hayFiltro = !!(filtroSucursal || filtroFecha)
+          const visibles = (hayFiltro || verTodosCortes) ? filtrados : filtrados.slice(0, 12)
           return (
+            <>
             <div className="divide-y divide-zinc-50">
-              {filtrados.map(c => (
+              {visibles.map(c => (
                 <button key={c.id} onClick={() => setCorteSel(c)} className="w-full text-left flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-100 transition-colors">
                   <div className="w-10 h-10 rounded bg-zinc-50 border border-zinc-200 flex items-center justify-center flex-shrink-0">
                     {c.diferencia === 0
@@ -1455,6 +1459,13 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
                 </button>
               ))}
             </div>
+            {!hayFiltro && filtrados.length > 12 && (
+              <button onClick={() => setVerTodosCortes(v => !v)}
+                className="w-full py-2.5 text-xs font-semibold text-[#0D9488] hover:bg-zinc-50 border-t border-zinc-100 transition-colors">
+                {verTodosCortes ? 'Ver menos' : `Ver todos (${filtrados.length})`}
+              </button>
+            )}
+            </>
           )
         })()}
       </div>
