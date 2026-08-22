@@ -983,13 +983,13 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 
         {/* ── INGRESOS MANUALES (cuadrar) ── */}
         <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-zinc-200 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-zinc-700">Ingresos manuales del día</h3>
+          <div className="px-5 py-3.5 border-b border-emerald-100 bg-emerald-50 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-emerald-800">Ingresos <span className="font-normal text-emerald-600">· entra dinero al cajón</span></h3>
             <button
               onClick={() => setShowIngresoForm(!showIngresoForm)}
-              className="flex items-center gap-1.5 text-xs text-[#0D9488] font-semibold hover:opacity-80"
+              className="flex items-center gap-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 font-semibold px-3 py-1.5 rounded transition-colors"
             >
-              <Plus className="w-3.5 h-3.5" /> Agregar
+              <Plus className="w-3.5 h-3.5" /> Agregar ingreso
             </button>
           </div>
 
@@ -1091,13 +1091,13 @@ ${notas ? `<div class="notas"><b>Notas:</b> ${notas}</div>` : ''}
 
         {/* ── EGRESOS ── */}
         <div className="bg-white rounded-lg border border-zinc-200/80 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-zinc-200 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-zinc-700">Egresos del día</h3>
+          <div className="px-5 py-3.5 border-b border-red-100 bg-red-50 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-red-800">Egresos <span className="font-normal text-red-500">· sale dinero del cajón</span></h3>
             <button
               onClick={() => setShowEgresoForm(!showEgresoForm)}
-              className="flex items-center gap-1.5 text-xs text-[#0D9488] font-semibold hover:opacity-80"
+              className="flex items-center gap-1.5 text-xs text-white bg-red-600 hover:bg-red-700 font-semibold px-3 py-1.5 rounded transition-colors"
             >
-              <Plus className="w-3.5 h-3.5" /> Agregar
+              <Plus className="w-3.5 h-3.5" /> Agregar egreso
             </button>
           </div>
 
