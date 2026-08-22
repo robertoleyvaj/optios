@@ -22,6 +22,24 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Borrar un pedido (solo para pruebas). Body: { id }
+// Quita primero las filas ligadas para no dejar basura ni romper llaves.
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id } = await req.json() as { id?: number }
+    if (id == null) return NextResponse.json({ ok: false, error: 'Falta id' }, { status: 400 })
+    const sb = createEcommClient()
+    await sb.from('pedido_items').delete().eq('pedido_id', id).then(() => {}, () => {})
+    await sb.from('recetas').delete().eq('pedido_id', id).then(() => {}, () => {})
+    await sb.from('finanzas').delete().eq('pedido_id', id).then(() => {}, () => {})
+    const { error } = await sb.from('pedidos').delete().eq('id', id)
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 })
+  }
+}
+
 // Actualizar un pedido (estado, guía, paquetería, notas del admin).
 export async function PATCH(req: NextRequest) {
   try {

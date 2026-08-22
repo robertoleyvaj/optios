@@ -326,7 +326,9 @@ function TiendaPage() {
 
       {selArm && <ArmzEditor armz={selArm} tienda={tienda} onClose={() => setSelArm(null)} onSaved={(aa) => { setArmazones(prev => prev.map(x => x.id === aa.id ? aa : x)); setSelArm(null) }} />}
 
-      {sel && <DetallePedido pedido={sel} tienda={tienda} onClose={() => setSel(null)} onSaved={(pp) => { setPedidos(prev => prev.map(x => x.id === pp.id ? pp : x)); setSel(pp) }} />}
+      {sel && <DetallePedido pedido={sel} tienda={tienda} onClose={() => setSel(null)}
+        onSaved={(pp) => { setPedidos(prev => prev.map(x => x.id === pp.id ? pp : x)); setSel(pp) }}
+        onDeleted={(idp) => { setPedidos(prev => prev.filter(x => x.id !== idp)); setSel(null) }} />}
     </div>
   )
 }
@@ -424,12 +426,20 @@ function ArmzEditor({ armz, tienda, onClose, onSaved }: { armz: Armz; tienda: 'v
   )
 }
 
-function DetallePedido({ pedido, tienda, onClose, onSaved }: { pedido: Pedido; tienda: string; onClose: () => void; onSaved: (p: Pedido) => void }) {
+function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido: Pedido; tienda: string; onClose: () => void; onSaved: (p: Pedido) => void; onDeleted: (id: number) => void }) {
   const [estado, setEstado] = useState(pedido.estado)
   const [paqueteria, setPaqueteria] = useState(pedido.paqueteria ?? '')
   const [tracking, setTracking] = useState(pedido.tracking ?? '')
   const [notas, setNotas] = useState(pedido.notas_admin ?? '')
   const [guardando, setGuardando] = useState(false)
+
+  const borrar = async () => {
+    if (!confirm(`¿Borrar el pedido ${folioDe(pedido.id, tienda)}? Es permanente (úsalo solo para pruebas).`)) return
+    const res = await fetch('/api/ecomm/pedidos', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pedido.id }) })
+    const j = await res.json()
+    if (!j.ok) { alert('No se pudo borrar: ' + j.error); return }
+    onDeleted(pedido.id)
+  }
   const c = pedido.clientes
   const a = pedido.armazones
 
@@ -505,7 +515,8 @@ function DetallePedido({ pedido, tienda, onClose, onSaved }: { pedido: Pedido; t
           </div>
         </div>
 
-        <div className="px-5 py-4 border-t border-zinc-100 flex gap-2 sticky bottom-0 bg-white">
+        <div className="px-5 py-4 border-t border-zinc-100 flex items-center gap-2 sticky bottom-0 bg-white">
+          <button onClick={borrar} title="Borrar pedido (pruebas)" className="p-2 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
           <button onClick={onClose} className="flex-1 py-2 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100">Cancelar</button>
           <button onClick={guardar} disabled={guardando} className="flex-1 flex items-center justify-center gap-2 py-2 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-600 disabled:opacity-50">
             <Save className="w-4 h-4" /> {guardando ? 'Guardando…' : 'Guardar'}
