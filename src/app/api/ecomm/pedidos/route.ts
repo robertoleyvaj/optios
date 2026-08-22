@@ -29,6 +29,10 @@ export async function DELETE(req: NextRequest) {
     const { id } = await req.json() as { id?: number }
     if (id == null) return NextResponse.json({ ok: false, error: 'Falta id' }, { status: 400 })
     const sb = createEcommClient()
+    // Tablas que referencian al pedido (por pedido_id o por order_id)
+    await sb.from('email_logs').delete().eq('order_id', id).then(() => {}, () => {})
+    await sb.from('scheduled_emails').delete().eq('order_id', id).then(() => {}, () => {})
+    await sb.from('scheduled_emails').delete().eq('pedido_id', id).then(() => {}, () => {})
     await sb.from('pedido_items').delete().eq('pedido_id', id).then(() => {}, () => {})
     await sb.from('recetas').delete().eq('pedido_id', id).then(() => {}, () => {})
     await sb.from('finanzas').delete().eq('pedido_id', id).then(() => {}, () => {})
