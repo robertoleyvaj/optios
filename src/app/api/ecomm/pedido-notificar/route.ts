@@ -28,7 +28,11 @@ export async function POST(req: NextRequest) {
 
     const base = SITIO[tienda === 'gon' ? 'gon' : 'verly']
     const res = await fetch(`${base}/api/emails`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': process.env.INTERNAL_EMAIL_SECRET || '',
+      },
       body: JSON.stringify({ tipo, order_id: id, tracking: tracking ?? '', paqueteria: paqueteria ?? '' }),
     })
     const data = await res.json().catch(() => ({}))
