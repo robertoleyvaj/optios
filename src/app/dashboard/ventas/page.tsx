@@ -34,6 +34,10 @@ type Venta = {
   hora: string
   vendedor: string
   fechaEntrega: string
+  estado?: string                 // 'cancelada' marca una nota cancelada
+  motivo_cancelacion?: string
+  cancelada_por?: string
+  cancelada_en?: string
 }
 
 // ─────────────────────────────────────────
@@ -58,6 +62,10 @@ const SUCURSALES = ['Todas', 'Baja Visión', '5 de Mayo', 'Plaza Laureles']
 function saldoPendiente(v: Venta) {
   // Usar saldo_db como fuente de verdad (refleja todos los abonos en DB)
   return v.saldo_db
+}
+
+function esCancelada(v: Venta) {
+  return v.estado === 'cancelada'
 }
 
 function fmtFecha(iso: string) {
@@ -425,7 +433,7 @@ export default function VentasPage() {
   const [cargando, setCargando]     = useState(true)
   const [busqueda, setBusqueda]     = useState('')
   const [sucursal, setSucursal]     = useState('Todas')
-  const [filtroPago, setFiltroPago] = useState<'todas' | 'pendientes' | 'liquidadas' | 'cotizaciones'>(
+  const [filtroPago, setFiltroPago] = useState<'todas' | 'pendientes' | 'liquidadas' | 'cotizaciones' | 'canceladas'>(
     searchParams.get('pendientes') === '1' ? 'pendientes' : 'todas'
   )
   const [detalle, setDetalle]       = useState<Venta | null>(null)
@@ -521,10 +529,12 @@ export default function VentasPage() {
           atendido_por,
           created_at,
           fecha_entrega,
+          motivo_cancelacion,
+          cancelada_por,
+          cancelada_en,
           ventas_items(nombre, sku, cantidad, precio_unitario, descuento),
           pagos_venta(id, monto, metodo_pago, created_at, tipo)
         `)
-        .neq('estado', 'cancelada')
         .order('created_at', { ascending: false })
 
       // Vendedor solo ve su sucursal
@@ -588,6 +598,10 @@ export default function VentasPage() {
           hora,
           vendedor: v.atendido_por ?? '',
           fechaEntrega: v.fecha_entrega ?? '',
+          estado: v.estado ?? '',
+          motivo_cancelacion: v.motivo_cancelacion ?? '',
+          cancelada_por: v.cancelada_por ?? '',
+          cancelada_en: v.cancelada_en ?? '',
         }
       })
 
@@ -622,6 +636,10 @@ export default function VentasPage() {
     // La pestaña "Cotizaciones" muestra solo cotizaciones; las demás, solo ventas reales
     if (filtroPago === 'cotizaciones') return esCot
     if (esCot) return false
+    // Canceladas: solo aparecen en su propia pestaña y en "Todas" (marcadas).
+    const esCancel = esCancelada(v)
+    if (filtroPago === 'canceladas') return esCancel
+    if (esCancel) return filtroPago === 'todas'
     const sp = saldoPendiente(v)
     return filtroPago === 'todas'
       || (filtroPago === 'pendientes' && sp > 0)
@@ -899,10 +917,13 @@ export default function VentasPage() {
 
     // ── Ventas reales: NO se borran. Se CANCELAN para conservar el folio
     //    y dejar rastro de auditoría (secuencia de folios sin huecos). ───
+    // Lo ya pagado (abono) se CONSERVA como total de la venta cancelada.
+    const totalPagado = Math.round((detalle.total - detalle.saldo_db) * 100) / 100
+
     const motivo = prompt(
       `Cancelar la venta ${detalle.id} de ${detalle.cliente}.\n\n` +
       `El folio se conserva y queda registrado como CANCELADA (para auditoría).\n` +
-      `Se quitarán sus pagos de la caja y su orden de laboratorio.\n\n` +
+      `El abono de $${totalPagado.toLocaleString('es-MX')} se conserva como total; el saldo pendiente se elimina.\n\n` +
       `Escribe el MOTIVO de la cancelación:`
     )
     if (motivo === null) return                       // cerró el prompt
@@ -911,24 +932,18 @@ export default function VentasPage() {
     let quien = ''
     try { quien = JSON.parse(localStorage.getItem('optios_demo_user') || '{}').nombre || '' } catch {}
 
-    // 1. Quitar pagos → el dinero sale de la caja
-    const r1 = await supabase.from('pagos_venta').delete().eq('venta_id', detalle.uuid)
-    if (r1.error) { alert(`Error al quitar pagos: ${r1.error.message}`); return }
-
-    // 2. Quitar orden(es) de laboratorio ligadas a la venta
+    // 1. Quitar orden(es) de laboratorio ligadas a la venta (el trabajo ya no se hará).
+    //    Los PAGOS se conservan: el abono ingresado se queda como ingreso justo.
     const r3 = await supabase.from('ordenes_lab').delete().eq('venta_id', detalle.uuid)
     if (r3.error) { alert(`Error al quitar orden de lab: ${r3.error.message}`); return }
 
-    // 3. Quitar comisión de terminal (gasto ligado por el folio en el concepto)
-    const r4 = await supabase.from('gastos').delete()
-      .eq('categoria', 'comision_terminal').ilike('concepto', `%${detalle.id}%`)
-    if (r4.error) { alert(`Error al quitar comisión: ${r4.error.message}`); return }
-
-    // 4. Marcar la venta como CANCELADA. Conserva folio + productos (para poder
-    //    auditar qué contenía) y guarda motivo, quién y cuándo.
+    // 2. Marcar la venta como CANCELADA. El total pasa a ser lo ya abonado, el saldo
+    //    queda en 0, y se guarda motivo, quién y cuándo. Conserva folio + productos.
     const r5 = await supabase.from('ventas').update({
       estado: 'cancelada',
-      saldo: 0,   // cancelada = no se debe nada
+      total: totalPagado,   // el abono se queda como total de la nota cancelada
+      anticipo: totalPagado,
+      saldo: 0,             // cancelada = ya no se debe nada
       motivo_cancelacion: motivo.trim().toUpperCase(),
       cancelada_por: quien,
       cancelada_en: new Date().toISOString(),
@@ -969,8 +984,17 @@ export default function VentasPage() {
       } catch { /* no bloquear la cancelación */ }
     }
 
-    setVentas(prev => prev.filter(v => v.id !== detalle.id))
-    setDetalle(null)
+    // La nota NO se quita del historial: se conserva marcada como CANCELADA.
+    const parche: Partial<Venta> = {
+      estado: 'cancelada',
+      total: totalPagado,
+      saldo_db: 0,
+      motivo_cancelacion: motivo.trim().toUpperCase(),
+      cancelada_por: quien,
+      cancelada_en: new Date().toISOString(),
+    }
+    setVentas(prev => prev.map(v => v.uuid === detalle.uuid ? { ...v, ...parche } : v))
+    setDetalle(prev => prev ? { ...prev, ...parche } : prev)
   }
 
   return (
@@ -1005,12 +1029,12 @@ export default function VentasPage() {
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
           </div>
           <div className="flex flex-wrap bg-zinc-100 rounded p-0.5 gap-0.5 text-xs">
-            {(['todas', 'pendientes', 'liquidadas', 'cotizaciones'] as const).map(f => (
+            {(['todas', 'pendientes', 'liquidadas', 'cotizaciones', 'canceladas'] as const).map(f => (
               <button key={f} onClick={() => setFiltroPago(f)}
                 className={`px-2.5 py-1 rounded font-medium transition-all ${
                   filtroPago === f ? 'bg-white text-zinc-800 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
                 }`}>
-                {f === 'todas' ? 'Todas' : f === 'pendientes' ? 'Con saldo' : f === 'liquidadas' ? 'Liquidadas' : 'Cotizaciones'}
+                {f === 'todas' ? 'Todas' : f === 'pendientes' ? 'Con saldo' : f === 'liquidadas' ? 'Liquidadas' : f === 'cotizaciones' ? 'Cotizaciones' : 'Canceladas'}
               </button>
             ))}
           </div>
@@ -1045,7 +1069,9 @@ export default function VentasPage() {
                     <p className="text-xs text-zinc-400 truncate">{prods}</p>
                     <div className="flex items-center justify-between mt-2 gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {v.id.startsWith('COT-') ? (
+                        {esCancelada(v) ? (
+                          <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">Cancelada</span>
+                        ) : v.id.startsWith('COT-') ? (
                           <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Cotización</span>
                         ) : saldo > 0 ? (
                           <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">${saldo.toLocaleString('es-MX')} pendiente</span>
@@ -1082,8 +1108,12 @@ export default function VentasPage() {
                     <tr key={v.uuid} onClick={() => { setDetalle(v); setShowAbono(false); setAbonoMonto('') }}
                       className="hover:bg-zinc-100 transition-colors cursor-pointer group">
                       <td className="px-5 py-3.5">
-                        <span className="text-xs font-mono font-semibold text-zinc-500">{v.id}</span>
-                        {v.id.startsWith('COT-') ? (
+                        <span className={`text-xs font-mono font-semibold ${esCancelada(v) ? 'text-zinc-400 line-through' : 'text-zinc-500'}`}>{v.id}</span>
+                        {esCancelada(v) ? (
+                          <span className="ml-2 text-xs font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                            Cancelada
+                          </span>
+                        ) : v.id.startsWith('COT-') ? (
                           <span className="ml-2 text-xs font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
                             Cotización
                           </span>
@@ -1138,7 +1168,11 @@ export default function VentasPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs font-bold text-zinc-400">{detalle.id}</span>
-                  {saldoPendiente(detalle) > 0
+                  {esCancelada(detalle)
+                    ? <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded flex items-center gap-1">
+                        <X className="w-3 h-3" /> Cancelada
+                      </span>
+                    : saldoPendiente(detalle) > 0
                     ? <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" /> Saldo pendiente
                       </span>
@@ -1157,6 +1191,22 @@ export default function VentasPage() {
 
             {/* Contenido scrollable */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+              {/* Aviso de cancelación */}
+              {esCancelada(detalle) && (
+                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                  <p className="text-xs font-bold text-red-700 flex items-center gap-1.5">
+                    <X className="w-3.5 h-3.5" /> NOTA CANCELADA
+                  </p>
+                  {detalle.motivo_cancelacion && (
+                    <p className="text-sm text-red-700 mt-1.5">{detalle.motivo_cancelacion}</p>
+                  )}
+                  <p className="text-xs text-red-400 mt-1.5">
+                    Se conservó el abono como total. {detalle.cancelada_por ? `Canceló: ${detalle.cancelada_por}.` : ''}
+                    {detalle.cancelada_en ? ` ${fmtFecha(detalle.cancelada_en)}` : ''}
+                  </p>
+                </div>
+              )}
 
               {/* Productos */}
               <div>
@@ -1338,7 +1388,7 @@ export default function VentasPage() {
                       <Plus className="w-4 h-4" /> Registrar abono · ${saldoPendiente(detalle).toLocaleString('es-MX')} pendiente
                     </button>
                   )}
-                  {saldoPendiente(detalle) === 0 && !showAbono && (
+                  {saldoPendiente(detalle) === 0 && !showAbono && !esCancelada(detalle) && (
                     <div className="flex items-center justify-center gap-2 py-2 text-sm text-emerald-600 font-semibold">
                       <CheckCircle2 className="w-4 h-4" /> Venta liquidada al 100%
                     </div>
@@ -1353,13 +1403,13 @@ export default function VentasPage() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
                 <Printer className="w-4 h-4" /> Descargar PDF (hoja)
               </button>
-              {esAdmin && !detalle.id.startsWith('COT-') && (
+              {esAdmin && !detalle.id.startsWith('COT-') && !esCancelada(detalle) && (
                 <button onClick={abrirModificar}
                   className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-300 text-zinc-700 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
                   <Pencil className="w-4 h-4" /> Modificar venta
                 </button>
               )}
-              {esAdmin && (
+              {esAdmin && !esCancelada(detalle) && (
                 <button onClick={cancelarVenta}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-400 hover:text-red-600 transition-colors">
                   {detalle.id.startsWith('COT-') ? 'Borrar cotización' : 'Cancelar venta'}
