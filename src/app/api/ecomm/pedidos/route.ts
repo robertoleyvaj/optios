@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   try {
     const tienda = req.nextUrl.searchParams.get('tienda') ?? 'verly'
     const sb = createEcommClient()
-    let q = sb.from('pedidos').select('*, clientes(*), armazones(*)')
+    let q = sb.from('pedidos').select('*, clientes(*), armazones(*), recetas(*)')
     if (tienda === 'gon') q = q.eq('plataforma', 'gon')
     else q = q.or('plataforma.is.null,plataforma.neq.gon')
     q = q.order('created_at', { ascending: false })
@@ -57,7 +57,7 @@ export async function PATCH(req: NextRequest) {
     if (b.tracking !== undefined) patch.tracking = b.tracking
     if (b.paqueteria !== undefined) patch.paqueteria = b.paqueteria
     if (b.notas_admin !== undefined) patch.notas_admin = b.notas_admin
-    const { data, error } = await sb.from('pedidos').update(patch).eq('id', b.id).select('*, clientes(*), armazones(*)').single()
+    const { data, error } = await sb.from('pedidos').update(patch).eq('id', b.id).select('*, clientes(*), armazones(*), recetas(*)').single()
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, pedido: data })
   } catch (e) {

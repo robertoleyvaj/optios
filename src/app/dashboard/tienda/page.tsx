@@ -2,10 +2,25 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import RequireRol from '@/components/RequireRol'
-import { Store, Package, Box, Users, Tag, BarChart3, Truck, X, Save, Plus, Trash2, Mail } from 'lucide-react'
+import { Store, Package, Box, Users, Tag, BarChart3, Truck, X, Save, Plus, Trash2, Mail, Image as ImageIcon } from 'lucide-react'
 
 type Cliente = { nombre?: string; email?: string; telefono?: string; direccion?: string; ciudad?: string; estado?: string }
 type Armazon = { nombre?: string; modelo?: string; marca?: string; color?: string }
+type Receta = {
+  id?: number
+  metodo?: string | null
+  imagen_url?: string | null
+  sph_od?: string | number | null; cyl_od?: string | number | null; axis_od?: string | number | null
+  sph_os?: string | number | null; cyl_os?: string | number | null; axis_os?: string | number | null
+  add_val?: string | number | null; dp?: string | number | null; prisma?: string | number | null
+  notas?: string | null
+}
+type Configuracion = {
+  vision?: string; vision_nombre?: string
+  material?: string; material_nombre?: string
+  filtros?: string[]; filtros_nombres?: string[]
+  tipo?: string
+} | null
 type Pedido = {
   id: number
   created_at: string
@@ -17,8 +32,10 @@ type Pedido = {
   notas_cliente: string | null
   paciente: string | null
   cliente_email: string | null
+  configuracion: Configuracion
   clientes: Cliente | null
   armazones: Armazon | null
+  recetas: Receta[] | null
 }
 
 type Promo = { id: number; codigo: string; tipo: string; valor: number; minimo_compra: number | null; usos_maximos: number | null; usos: number | null; expires_at: string | null; descripcion: string | null; activo: boolean }
@@ -442,6 +459,30 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
   }
   const c = pedido.clientes
   const a = pedido.armazones
+  const cfg = pedido.configuracion
+  const receta = pedido.recetas && pedido.recetas.length > 0 ? pedido.recetas[0] : null
+  const [fotoCargando, setFotoCargando] = useState(false)
+
+  const rx = (v: string | number | null | undefined) => {
+    if (v === null || v === undefined || v === '') return '—'
+    const n = typeof v === 'number' ? v : parseFloat(String(v))
+    if (isNaN(n)) return String(v)
+    return (n > 0 ? '+' : '') + n.toFixed(2)
+  }
+
+  const abrirFotoReceta = async () => {
+    const p = receta?.imagen_url || ''
+    if (!p) return
+    if (/^blob:/.test(p)) { alert('Esta receta es de un pedido anterior; su foto no quedó guardada.'); return }
+    if (/^https?:/.test(p)) { window.open(p, '_blank'); return }
+    setFotoCargando(true)
+    try {
+      const res = await fetch('/api/ecomm/receta-foto?path=' + encodeURIComponent(p))
+      const j = await res.json()
+      if (!j.ok || !j.url) { alert('No se pudo abrir la foto: ' + (j.error || '')); return }
+      window.open(j.url, '_blank')
+    } finally { setFotoCargando(false) }
+  }
 
   const ESTADOS_CORREO = ['en proceso', 'enviado', 'entregado']
   const cambioEstado = estado !== pedido.estado
@@ -498,6 +539,56 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
             {a && <p><span className="text-zinc-400">Armazón:</span> {[a.marca, a.modelo || a.nombre, a.color].filter(Boolean).join(' · ')}</p>}
             <p><span className="text-zinc-400">Total:</span> <span className="font-semibold text-zinc-700">{$$(Number(pedido.precio_venta || 0))}</span></p>
             {pedido.notas_cliente && <p className="bg-zinc-50 rounded p-2 mt-1"><span className="text-zinc-400">Nota del cliente:</span> {pedido.notas_cliente}</p>}
+          </div>
+
+          {/* Expediente del paciente */}
+          <div>
+            <p className="text-[11px] font-bold text-zinc-500 uppercase mb-2">Expediente del paciente</p>
+            <div className="bg-zinc-50 rounded-lg p-3 space-y-2.5 text-xs">
+              <p><span className="text-zinc-400">Paciente:</span> <b className="text-zinc-700">{pedido.paciente || c?.nombre || '—'}</b></p>
+
+              {cfg && (cfg.vision_nombre || cfg.material_nombre || (cfg.filtros_nombres && cfg.filtros_nombres.length > 0)) && (
+                <p><span className="text-zinc-400">Lentes:</span> <span className="text-zinc-700">{[cfg.vision_nombre, cfg.material_nombre, (cfg.filtros_nombres || []).join(', ')].filter(Boolean).join(' · ')}</span></p>
+              )}
+
+              {/* Graduación */}
+              {receta ? (
+                receta.metodo === 'manual' ? (
+                  <div>
+                    <p className="text-zinc-400 mb-1">Graduación (manual):</p>
+                    <table className="w-full text-center border border-zinc-200 rounded overflow-hidden">
+                      <thead>
+                        <tr className="bg-zinc-100 text-[10px] text-zinc-500">
+                          <th className="py-1 font-semibold"></th><th className="py-1 font-semibold">ESF</th><th className="py-1 font-semibold">CIL</th><th className="py-1 font-semibold">EJE</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-zinc-700 font-medium">
+                        <tr className="border-t border-zinc-200"><td className="py-1 text-zinc-400 font-semibold">OD</td><td>{rx(receta.sph_od)}</td><td>{rx(receta.cyl_od)}</td><td>{receta.axis_od ?? '—'}</td></tr>
+                        <tr className="border-t border-zinc-200"><td className="py-1 text-zinc-400 font-semibold">OS</td><td>{rx(receta.sph_os)}</td><td>{rx(receta.cyl_os)}</td><td>{receta.axis_os ?? '—'}</td></tr>
+                      </tbody>
+                    </table>
+                    <div className="flex gap-3 mt-1.5 text-zinc-500">
+                      {(receta.add_val !== null && receta.add_val !== undefined && receta.add_val !== '') && <span>ADD: <b className="text-zinc-700">{rx(receta.add_val)}</b></span>}
+                      {(receta.dp !== null && receta.dp !== undefined && receta.dp !== '') && <span>DP: <b className="text-zinc-700">{receta.dp}</b></span>}
+                      {receta.prisma && <span>Prisma: <b className="text-zinc-700">{receta.prisma}</b></span>}
+                    </div>
+                  </div>
+                ) : receta.metodo === 'foto' ? (
+                  <button onClick={abrirFotoReceta} disabled={fotoCargando}
+                    className="w-full flex items-center justify-center gap-2 py-2 bg-white border border-[#0D9488] text-[#0D9488] rounded font-semibold hover:bg-teal-50 disabled:opacity-50 transition-colors">
+                    <ImageIcon className="w-3.5 h-3.5" /> {fotoCargando ? 'Abriendo…' : 'Ver foto de la receta'}
+                  </button>
+                ) : receta.metodo === 'sin_graduacion' ? (
+                  <p className="text-zinc-500">Sin graduación (lente neutro / cosmético).</p>
+                ) : (
+                  <p className="text-amber-600 bg-amber-50 rounded px-2 py-1">El paciente enviará su receta después.</p>
+                )
+              ) : (
+                <p className="text-zinc-400">Solo armazón — sin receta.</p>
+              )}
+
+              {receta?.notas && <p><span className="text-zinc-400">Notas receta:</span> <span className="text-zinc-700">{receta.notas}</span></p>}
+            </div>
           </div>
 
           {/* Estado */}
