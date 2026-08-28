@@ -3,11 +3,23 @@ import { createEcommClient } from '@/lib/supabase/ecomm'
 
 export const dynamic = 'force-dynamic'
 
-// GET ?armazon_id= → colores (variantes) de un modelo, con stock por sucursal
+// GET ?armazon_id= → colores de un modelo.  GET ?all=1 → colores de TODOS los modelos.
 export async function GET(req: NextRequest) {
   const armazon_id = req.nextUrl.searchParams.get('armazon_id')
-  if (!armazon_id) return NextResponse.json({ ok: false, error: 'Falta armazon_id' }, { status: 400 })
+  const all = req.nextUrl.searchParams.get('all')
   const sb = createEcommClient()
+
+  if (all) {
+    const { data, error } = await sb
+      .from('armazon_colores')
+      .select('armazon_id, color, stock_baja, stock_mayo, stock_plaza, stock_online, publicar_gon, publicar_verly, orden')
+      .order('armazon_id', { ascending: true })
+      .order('orden', { ascending: true })
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, colores: data ?? [] })
+  }
+
+  if (!armazon_id) return NextResponse.json({ ok: false, error: 'Falta armazon_id' }, { status: 400 })
   const { data, error } = await sb
     .from('armazon_colores')
     .select('*')

@@ -655,6 +655,10 @@ function InventarioPage() {
           <p className="text-sm text-zinc-400 mt-0.5">Estado de exhibición y stock por sucursal</p>
         </div>
         <div className="flex items-center gap-2">
+          <a href="/dashboard/inventario/armazones"
+            className="flex-1 sm:flex-none justify-center flex items-center gap-2 border border-zinc-300 text-zinc-700 px-4 py-2.5 rounded text-sm font-semibold hover:bg-zinc-100 active:scale-[0.98] transition-all">
+            <Package className="w-4 h-4" /> <span className="whitespace-nowrap">Armazones por color</span>
+          </a>
           {esAdmin && (
             <button
               onClick={abrirNuevo}
