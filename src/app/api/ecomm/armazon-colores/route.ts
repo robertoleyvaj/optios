@@ -23,7 +23,10 @@ export async function PUT(req: NextRequest) {
   try {
     const b = await req.json() as {
       armazon_id?: number
-      colores?: Array<{ color: string; stock_baja?: number; stock_mayo?: number; stock_plaza?: number; stock_online?: number }>
+      colores?: Array<{
+        color: string; stock_baja?: number; stock_mayo?: number; stock_plaza?: number; stock_online?: number
+        publicar_gon?: boolean; publicar_verly?: boolean; precio?: number | null
+      }>
     }
     if (!b.armazon_id) return NextResponse.json({ ok: false, error: 'Falta armazon_id' }, { status: 400 })
     const sb = createEcommClient()
@@ -41,6 +44,9 @@ export async function PUT(req: NextRequest) {
         stock_mayo: Number(c.stock_mayo) || 0,
         stock_plaza: Number(c.stock_plaza) || 0,
         stock_online: Number(c.stock_online) || 0,
+        publicar_gon: !!c.publicar_gon,
+        publicar_verly: !!c.publicar_verly,
+        precio: c.precio ?? null,
         orden: i,
       }))
 

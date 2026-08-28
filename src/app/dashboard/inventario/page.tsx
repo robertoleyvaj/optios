@@ -62,7 +62,11 @@ type ArmazonRaw = {
 const TC_USD = 17
 const nEd = (v: unknown) => Number(v ?? 0)
 
-type ColorArm = { id?: number; color: string; stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number }
+type ColorArm = {
+  id?: number; color: string
+  stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number
+  publicar_gon: boolean; publicar_verly: boolean; precio: number | null
+}
 
 const TIPOS: Record<TipoProducto, { label: string; color: string }> = {
   armazon:    { label: 'Armazón',    color: 'bg-indigo-50 text-indigo-600' },
@@ -259,6 +263,7 @@ function InventarioPage() {
   const [guardandoArm, setGuardandoArm] = useState(false)
   const [coloresArm, setColoresArm] = useState<ColorArm[]>([])
   const [cargandoColoresArm, setCargandoColoresArm] = useState(false)
+  const [colorSel, setColorSel] = useState(0)
   const [esAdmin, setEsAdmin] = useState(false)
   const [sucursalActual, setSucursalActual] = useState('Baja Visión')
   const { usuario: sessionUser } = useSession()
@@ -564,17 +569,22 @@ function InventarioPage() {
           id: c.id, color: c.color ?? '',
           stock_baja: nEd(c.stock_baja), stock_mayo: nEd(c.stock_mayo),
           stock_plaza: nEd(c.stock_plaza), stock_online: nEd(c.stock_online),
+          publicar_gon: !!c.publicar_gon, publicar_verly: !!c.publicar_verly,
+          precio: c.precio ?? null,
         })))
+        setColorSel(0)
       })
       .finally(() => { if (!cancel) setCargandoColoresArm(false) })
     return () => { cancel = true }
   }, [editArm?.id])
 
-  const setColorArm = (i: number, campo: keyof ColorArm, val: string) =>
+  const setColorArm = (i: number, campo: 'color' | 'stock_baja' | 'stock_mayo' | 'stock_plaza' | 'stock_online', val: string) =>
     setColoresArm(prev => prev.map((c, idx) => idx === i
       ? { ...c, [campo]: campo === 'color' ? val.toUpperCase() : (Number(val) || 0) } : c))
-  const addColorArm = () => setColoresArm(prev => [...prev, { color: '', stock_baja: 0, stock_mayo: 0, stock_plaza: 0, stock_online: 0 }])
-  const delColorArm = (i: number) => setColoresArm(prev => prev.filter((_, idx) => idx !== i))
+  const toggleColorPub = (i: number, campo: 'publicar_gon' | 'publicar_verly') =>
+    setColoresArm(prev => prev.map((c, idx) => idx === i ? { ...c, [campo]: !c[campo] } : c))
+  const addColorArm = () => { setColoresArm(prev => [...prev, { color: '', stock_baja: 0, stock_mayo: 0, stock_plaza: 0, stock_online: 0, publicar_gon: false, publicar_verly: false, precio: null }]); setColorSel(coloresArm.length) }
+  const delColorArm = (i: number) => { setColoresArm(prev => prev.filter((_, idx) => idx !== i)); setColorSel(s => Math.max(0, s > i ? s - 1 : s)) }
   const sumColorArm = (campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza' | 'stock_online') =>
     coloresArm.reduce((s, c) => s + nEd(c[campo]), 0)
 
@@ -1482,42 +1492,58 @@ function InventarioPage() {
                 </div>
               </div>
               <div>
-                <p className="text-xs font-semibold text-zinc-500 mb-2">COLORES Y EXISTENCIAS POR SUCURSAL</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-zinc-500">COLORES DEL MODELO</p>
+                  <button onClick={addColorArm} className="text-xs text-[#0D9488] font-semibold hover:underline">+ Agregar color</button>
+                </div>
                 {cargandoColoresArm ? (
                   <p className="text-xs text-zinc-400">Cargando colores…</p>
                 ) : (
-                  <div className="space-y-1.5">
-                    <div className="grid grid-cols-[1fr_repeat(4,42px)_22px] gap-1.5 text-[10px] text-zinc-400 px-1">
-                      <span>Color</span>
-                      <span className="text-center">Baja</span>
-                      <span className="text-center">5 Mayo</span>
-                      <span className="text-center">Plaza</span>
-                      <span className="text-center">Web</span>
-                      <span></span>
-                    </div>
-                    {coloresArm.map((c, i) => (
-                      <div key={i} className="grid grid-cols-[1fr_repeat(4,42px)_22px] gap-1.5 items-center">
-                        <input value={c.color} onChange={e => setColorArm(i, 'color', e.target.value)} placeholder="COLOR"
-                          className="border border-zinc-200 rounded px-2 py-1.5 text-xs uppercase" />
-                        {(['stock_baja', 'stock_mayo', 'stock_plaza', 'stock_online'] as const).map(campo => (
-                          <input key={campo} type="number" min={0} value={c[campo]} onChange={e => setColorArm(i, campo, e.target.value)}
-                            className="border border-zinc-200 rounded px-1 py-1.5 text-xs text-center" />
-                        ))}
-                        <button onClick={() => delColorArm(i)} title="Quitar color" className="text-zinc-300 hover:text-red-500 flex justify-center">
-                          <span className="text-sm leading-none">✕</span>
+                  <>
+                    {/* Chips: un botón por color */}
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {coloresArm.map((c, i) => (
+                        <button key={i} onClick={() => setColorSel(i)}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${i === colorSel ? 'bg-[#0D9488] text-white border-[#0D9488]' : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'}`}>
+                          {c.color || 'Nuevo'} <span className="opacity-70">({c.stock_baja + c.stock_mayo + c.stock_plaza + c.stock_online})</span>
                         </button>
+                      ))}
+                      {coloresArm.length === 0 && <span className="text-xs text-zinc-400 italic">Sin colores. Agrega uno.</span>}
+                    </div>
+
+                    {/* Ficha del color seleccionado */}
+                    {coloresArm[colorSel] && (
+                      <div className="bg-zinc-50 rounded-lg p-3 space-y-3 border border-zinc-100">
+                        <div className="flex items-center gap-2">
+                          <input value={coloresArm[colorSel].color} onChange={e => setColorArm(colorSel, 'color', e.target.value)}
+                            placeholder="NOMBRE DEL COLOR" className="flex-1 border border-zinc-200 rounded px-2.5 py-1.5 text-sm uppercase bg-white placeholder:normal-case" />
+                          <button onClick={() => delColorArm(colorSel)} className="text-xs text-red-500 hover:underline">Quitar</button>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-zinc-400 mb-1">EXISTENCIAS POR SUCURSAL</p>
+                          <div className="grid grid-cols-4 gap-2">
+                            {([['stock_baja', 'Baja'], ['stock_mayo', '5 Mayo'], ['stock_plaza', 'Plaza'], ['stock_online', 'Web']] as const).map(([campo, lbl]) => (
+                              <div key={campo}>
+                                <label className="block text-[10px] text-zinc-500 mb-0.5 text-center">{lbl}</label>
+                                <input type="number" min={0} value={coloresArm[colorSel][campo]} onChange={e => setColorArm(colorSel, campo, e.target.value)}
+                                  className="w-full border border-zinc-200 rounded px-1 py-1.5 text-sm text-center bg-white" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-zinc-400 mb-1">PUBLICAR ESTE COLOR</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => toggleColorPub(colorSel, 'publicar_gon')} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded border text-xs font-semibold ${coloresArm[colorSel].publicar_gon ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-zinc-500 border-zinc-200'}`}><Globe className="w-3.5 h-3.5" /> GON</button>
+                            <button onClick={() => toggleColorPub(colorSel, 'publicar_verly')} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded border text-xs font-semibold ${coloresArm[colorSel].publicar_verly ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-zinc-500 border-zinc-200'}`}><Globe className="w-3.5 h-3.5" /> Verly</button>
+                          </div>
+                        </div>
                       </div>
-                    ))}
-                    {coloresArm.length === 0 && (
-                      <p className="text-xs text-zinc-400 italic px-1">Sin colores. Agrega uno abajo.</p>
                     )}
-                    <button onClick={addColorArm} className="text-xs text-[#0D9488] font-semibold hover:underline pt-1">
-                      + Agregar color
-                    </button>
-                    <p className="text-xs text-zinc-400 mt-1 border-t border-zinc-100 pt-1.5">
-                      Total: <b className="text-zinc-600">{total}</b> pzas · Baja {sumColorArm('stock_baja')} · 5 Mayo {sumColorArm('stock_mayo')} · Plaza {sumColorArm('stock_plaza')} · Web {sumColorArm('stock_online')}
+                    <p className="text-xs text-zinc-400 mt-2">
+                      Total modelo: <b className="text-zinc-600">{total}</b> pzas · Baja {sumColorArm('stock_baja')} · 5 Mayo {sumColorArm('stock_mayo')} · Plaza {sumColorArm('stock_plaza')} · Web {sumColorArm('stock_online')}
                     </p>
-                  </div>
+                  </>
                 )}
               </div>
               <div>
