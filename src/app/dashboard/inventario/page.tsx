@@ -389,6 +389,8 @@ function InventarioPage() {
   // KPIs
   const armazonesDisp  = productos.filter(p => p.tipo === 'armazon' && p.estado === 'disponible').length
   const armazonesTotal = productos.filter(p => p.tipo === 'armazon').length
+  const armazonesPiezas = productos.filter(p => p.tipo === 'armazon')
+    .reduce((s, p) => s + nEd(p.stockBaja) + nEd(p.stockMayo) + nEd(p.stockPlaza), 0)
   const armazonesApart = productos.filter(p => p.tipo === 'armazon' && p.estado === 'apartado').length
   const consumAlerta   = productos.filter(p => p.tipo === 'consumible' && (p.stock ?? 0) <= (p.stockMin ?? 0)).length
   const totalCanales   = productos.filter(p => p.tipo === 'armazon' && p.estado === 'disponible')
@@ -763,7 +765,7 @@ function InventarioPage() {
           </div>
           <div>
             <p className="text-xs text-zinc-400">Total armazones</p>
-            <p className="text-lg font-bold text-zinc-800">{armazonesDisp} <span className="text-xs font-normal text-zinc-400">disp.</span></p>
+            <p className="text-lg font-bold text-zinc-800">{armazonesPiezas.toLocaleString('es-MX')} <span className="text-xs font-normal text-zinc-400">pzas · {armazonesTotal} modelos</span></p>
           </div>
         </div>
         <div className="bg-white rounded-lg px-4 py-3 border border-zinc-200/80 flex items-center gap-3">
