@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (all) {
     const { data, error } = await sb
       .from('armazon_colores')
-      .select('armazon_id, color, stock_baja, stock_mayo, stock_plaza, stock_online, publicar_gon, publicar_verly, orden')
+      .select('armazon_id, color, stock_baja, stock_mayo, stock_plaza, stock_online, bodega, publicar_gon, publicar_verly, orden')
       .order('armazon_id', { ascending: true })
       .order('orden', { ascending: true })
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
@@ -37,6 +37,7 @@ export async function PUT(req: NextRequest) {
       armazon_id?: number
       colores?: Array<{
         color: string; stock_baja?: number; stock_mayo?: number; stock_plaza?: number; stock_online?: number
+        bodega?: number
         publicar_gon?: boolean; publicar_verly?: boolean; precio?: number | null
         imagen_url?: string | null; imagen2_url?: string | null; imagen3_url?: string | null
       }>
@@ -57,6 +58,7 @@ export async function PUT(req: NextRequest) {
         stock_mayo: Number(c.stock_mayo) || 0,
         stock_plaza: Number(c.stock_plaza) || 0,
         stock_online: Number(c.stock_online) || 0,
+        bodega: Number(c.bodega) || 0,
         publicar_gon: !!c.publicar_gon,
         publicar_verly: !!c.publicar_verly,
         precio: c.precio ?? null,

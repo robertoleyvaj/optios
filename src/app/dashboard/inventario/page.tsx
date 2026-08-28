@@ -65,6 +65,7 @@ const nEd = (v: unknown) => Number(v ?? 0)
 type ColorArm = {
   id?: number; color: string
   stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number
+  bodega: number
   publicar_gon: boolean; publicar_verly: boolean; precio: number | null
   imagen_url: string | null; imagen2_url: string | null; imagen3_url: string | null
 }
@@ -278,6 +279,7 @@ function InventarioPage() {
   const [coloresArm, setColoresArm] = useState<ColorArm[]>([])
   const [cargandoColoresArm, setCargandoColoresArm] = useState(false)
   const [colorSel, setColorSel] = useState(0)
+  const [totalBodega, setTotalBodega] = useState(0)
   const [esAdmin, setEsAdmin] = useState(false)
   const [sucursalActual, setSucursalActual] = useState('Baja Visión')
   const { usuario: sessionUser } = useSession()
@@ -318,6 +320,11 @@ function InventarioPage() {
     const armazones: Producto[] = armzList.map(a => armazonToProducto(a as unknown as SupabaseRow))
     setProductos([...armazones, ...servicios])
     setCargando(false)
+    // Total en bodega (piezas guardadas, sin exhibir) de todos los colores
+    fetch('/api/ecomm/armazon-colores?all=1', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => { if (j.ok) setTotalBodega((j.colores as { bodega?: number }[]).reduce((s, c) => s + nEd(c.bodega), 0)) })
+      .catch(() => {})
   }, [])
 
   useEffect(() => { cargarProductos() }, [cargarProductos])
@@ -585,6 +592,7 @@ function InventarioPage() {
           id: c.id, color: c.color ?? '',
           stock_baja: nEd(c.stock_baja), stock_mayo: nEd(c.stock_mayo),
           stock_plaza: nEd(c.stock_plaza), stock_online: nEd(c.stock_online),
+          bodega: nEd(c.bodega),
           publicar_gon: !!c.publicar_gon, publicar_verly: !!c.publicar_verly,
           precio: c.precio ?? null,
           imagen_url: c.imagen_url ?? null, imagen2_url: c.imagen2_url ?? null, imagen3_url: c.imagen3_url ?? null,
@@ -600,9 +608,9 @@ function InventarioPage() {
       ? { ...c, [campo]: campo === 'color' ? val.toUpperCase() : (Number(val) || 0) } : c))
   const toggleColorPub = (i: number, campo: 'publicar_gon' | 'publicar_verly') =>
     setColoresArm(prev => prev.map((c, idx) => idx === i ? { ...c, [campo]: !c[campo] } : c))
-  const bumpColorArm = (i: number, campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza', d: number) =>
+  const bumpColorArm = (i: number, campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza' | 'bodega', d: number) =>
     setColoresArm(prev => prev.map((c, idx) => idx === i ? { ...c, [campo]: Math.max(0, nEd(c[campo]) + d) } : c))
-  const addColorArm = () => { setColoresArm(prev => [...prev, { color: '', stock_baja: 0, stock_mayo: 0, stock_plaza: 0, stock_online: 0, publicar_gon: false, publicar_verly: false, precio: null, imagen_url: null, imagen2_url: null, imagen3_url: null }]); setColorSel(coloresArm.length) }
+  const addColorArm = () => { setColoresArm(prev => [...prev, { color: '', stock_baja: 0, stock_mayo: 0, stock_plaza: 0, stock_online: 0, bodega: 0, publicar_gon: false, publicar_verly: false, precio: null, imagen_url: null, imagen2_url: null, imagen3_url: null }]); setColorSel(coloresArm.length) }
   const setColorImg = (i: number, campo: 'imagen_url' | 'imagen2_url' | 'imagen3_url', val: string | null) =>
     setColoresArm(prev => prev.map((c, idx) => idx === i ? { ...c, [campo]: val } : c))
   const subirFotoColor = async (i: number, campo: 'imagen_url' | 'imagen2_url' | 'imagen3_url', file: File) => {
@@ -620,7 +628,7 @@ function InventarioPage() {
     } finally { setSubiendoFoto('') }
   }
   const delColorArm = (i: number) => { setColoresArm(prev => prev.filter((_, idx) => idx !== i)); setColorSel(s => Math.max(0, s > i ? s - 1 : s)) }
-  const sumColorArm = (campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza' | 'stock_online') =>
+  const sumColorArm = (campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza' | 'stock_online' | 'bodega') =>
     coloresArm.reduce((s, c) => s + nEd(c[campo]), 0)
 
   const guardarArm = async () => {
@@ -629,7 +637,7 @@ function InventarioPage() {
     const pg = nEd(editArm.precio_gon)
     // El stock del modelo = suma de sus colores (fuente de verdad = armazon_colores)
     const sb = sumColorArm('stock_baja'), sm = sumColorArm('stock_mayo'), sp = sumColorArm('stock_plaza'), so = sumColorArm('stock_online')
-    const total = sb + sm + sp + so
+    const total = sb + sm + sp + so + sumColorArm('bodega')
     const payload = {
       id: editArm.id,
       nombre: (editArm.nombre ?? '').trim(),
@@ -662,6 +670,8 @@ function InventarioPage() {
       })
       const jc = await rc.json()
       if (!jc.ok) throw new Error(jc.error || 'Error al guardar colores')
+      fetch('/api/ecomm/armazon-colores?all=1', { cache: 'no-store' }).then(r => r.json())
+        .then(j => { if (j.ok) setTotalBodega((j.colores as { bodega?: number }[]).reduce((s, c) => s + nEd(c.bodega), 0)) }).catch(() => {})
       setArmazonesRaw(prev => prev.map(a => a.id === editArm.id ? upd : a))
       setProductos(prev => prev.map(p => p._ecommId === editArm.id ? armazonToProducto(upd as unknown as SupabaseRow) : p))
       setEditArm(null)
@@ -783,7 +793,7 @@ function InventarioPage() {
           </div>
           <div>
             <p className="text-xs text-zinc-400">Total armazones</p>
-            <p className="text-lg font-bold text-zinc-800">{armazonesPiezas.toLocaleString('es-MX')} <span className="text-xs font-normal text-zinc-400">pzas · {armazonesTotal} modelos</span></p>
+            <p className="text-lg font-bold text-zinc-800">{(armazonesPiezas + totalBodega).toLocaleString('es-MX')} <span className="text-xs font-normal text-zinc-400">pzas · {totalBodega} en bodega · {armazonesTotal} modelos</span></p>
           </div>
         </div>
         <div className="bg-white rounded-lg px-4 py-3 border border-zinc-200/80 flex items-center gap-3">
@@ -1530,8 +1540,13 @@ function InventarioPage() {
                           <button onClick={() => delColorArm(colorSel)} className="text-xs text-red-500 hover:underline px-2">Quitar</button>
                         </div>
 
-                        <p className="text-xs text-zinc-500 mb-2">Existencias por sucursal</p>
-                        <div className="grid grid-cols-3 gap-3 mb-5">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs text-zinc-500">Exhibidas por sucursal</p>
+                          <span className="text-[11px] text-zinc-400">
+                            en piso {nEd(coloresArm[colorSel].stock_baja) + nEd(coloresArm[colorSel].stock_mayo) + nEd(coloresArm[colorSel].stock_plaza)} · bodega {nEd(coloresArm[colorSel].bodega)}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 mb-3">
                           {([['stock_baja', 'Baja Visión'], ['stock_mayo', '5 de Mayo'], ['stock_plaza', 'Plaza Laureles']] as const).map(([campo, lbl]) => (
                             <div key={campo} className="text-center">
                               <div className="text-[11px] text-zinc-500 mb-1.5">{lbl}</div>
@@ -1542,6 +1557,17 @@ function InventarioPage() {
                               </div>
                             </div>
                           ))}
+                        </div>
+                        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-5">
+                          <div>
+                            <p className="text-xs font-medium text-amber-800">En bodega</p>
+                            <p className="text-[10px] text-amber-600">Guardadas, sin exhibir</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => bumpColorArm(colorSel, 'bodega', -1)} className="text-amber-500 hover:text-amber-700"><Minus className="w-4 h-4" /></button>
+                            <span className="text-base font-semibold text-amber-800 min-w-[20px] text-center">{nEd(coloresArm[colorSel].bodega)}</span>
+                            <button onClick={() => bumpColorArm(colorSel, 'bodega', 1)} className="text-amber-500 hover:text-amber-700"><Plus className="w-4 h-4" /></button>
+                          </div>
                         </div>
 
                         <p className="text-xs text-zinc-500 mb-2">Publicar este color</p>
