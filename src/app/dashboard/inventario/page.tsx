@@ -299,7 +299,9 @@ function InventarioPage() {
     const servicios: Producto[] = (prodRes.data && !prodRes.error)
       ? prodRes.data.map(r => rowToProducto(r as SupabaseRow))
       : inicial
-    const armzList: ArmazonRaw[] = (armzRes && armzRes.ok) ? (armzRes.armazones as ArmazonRaw[]) : []
+    const armzList: ArmazonRaw[] = (armzRes && armzRes.ok)
+      ? (armzRes.armazones as ArmazonRaw[]).filter(a => a.activo !== false)
+      : []
     setArmazonesRaw(armzList)
     const armazones: Producto[] = armzList.map(a => armazonToProducto(a as unknown as SupabaseRow))
     setProductos([...armazones, ...servicios])
