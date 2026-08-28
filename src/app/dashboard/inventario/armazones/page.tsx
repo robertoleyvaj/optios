@@ -30,6 +30,8 @@ type Armazon = {
   imagen_url: string | null
 }
 
+type ColorRow = { id?: number; color: string; stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number }
+
 const num = (v: unknown) => Number(v ?? 0)
 const stockTotal = (a: Armazon) => num(a.stock_baja) + num(a.stock_mayo) + num(a.stock_plaza) + num(a.stock_online)
 const fmtMXN = (n: number) => '$' + Math.round(n).toLocaleString('es-MX')
@@ -41,6 +43,8 @@ function ArmazonesPage() {
   const [busqueda, setBusqueda] = useState('')
   const [edit, setEdit] = useState<Armazon | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [colores, setColores] = useState<ColorRow[]>([])
+  const [cargandoColores, setCargandoColores] = useState(false)
   const [filtroPub, setFiltroPub] = useState<'todos' | 'publicados' | 'sin'>('todos')
   const [filtroSuc, setFiltroSuc] = useState<'Todas' | 'baja' | 'mayo' | 'plaza'>('Todas')
 
@@ -59,20 +63,49 @@ function ArmazonesPage() {
   }
   useEffect(() => { cargar() }, [])
 
+  // Cargar los colores (variantes) del armazón que se está editando
+  useEffect(() => {
+    if (!edit) { setColores([]); return }
+    let cancel = false
+    setCargandoColores(true)
+    fetch(`/api/ecomm/armazon-colores?armazon_id=${edit.id}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => {
+        if (cancel || !j.ok) return
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setColores((j.colores ?? []).map((c: any) => ({
+          id: c.id, color: c.color ?? '',
+          stock_baja: num(c.stock_baja), stock_mayo: num(c.stock_mayo),
+          stock_plaza: num(c.stock_plaza), stock_online: num(c.stock_online),
+        })))
+      })
+      .finally(() => { if (!cancel) setCargandoColores(false) })
+    return () => { cancel = true }
+  }, [edit?.id])
+
+  const setColor = (i: number, campo: keyof ColorRow, val: string) =>
+    setColores(prev => prev.map((c, idx) => idx === i
+      ? { ...c, [campo]: campo === 'color' ? val.toUpperCase() : (Number(val) || 0) } : c))
+  const addColor = () => setColores(prev => [...prev, { color: '', stock_baja: 0, stock_mayo: 0, stock_plaza: 0, stock_online: 0 }])
+  const delColor = (i: number) => setColores(prev => prev.filter((_, idx) => idx !== i))
+  const sumSuc = (campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza' | 'stock_online') =>
+    colores.reduce((s, c) => s + num(c[campo]), 0)
+
   const guardar = async () => {
     if (!edit || guardando) return
     setGuardando(true)
     try {
       const precio_gon = num(edit.precio_gon)
+      // El stock del modelo = suma de sus colores (fuente de verdad = armazon_colores)
       const payload = {
         id: edit.id,
         precio_gon,
         precio: Math.round(precio_gon / TC),   // USD (Verly) = MXN ÷ TC, redondeo al más cercano
         costo: num(edit.costo),
-        stock_baja: num(edit.stock_baja),
-        stock_mayo: num(edit.stock_mayo),
-        stock_plaza: num(edit.stock_plaza),
-        stock_online: num(edit.stock_online),
+        stock_baja: sumSuc('stock_baja'),
+        stock_mayo: sumSuc('stock_mayo'),
+        stock_plaza: sumSuc('stock_plaza'),
+        stock_online: sumSuc('stock_online'),
         publicar_gon: !!edit.publicar_gon,
         publicar_verly: !!edit.publicar_verly,
         descuento_gon: num(edit.descuento_gon),
@@ -86,6 +119,16 @@ function ArmazonesPage() {
       })
       const j = await r.json()
       if (!j.ok) throw new Error(j.error || 'Error al guardar')
+
+      // Guardar los colores (variantes) del modelo
+      const rc = await fetch('/api/ecomm/armazon-colores', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ armazon_id: edit.id, colores }),
+      })
+      const jc = await rc.json()
+      if (!jc.ok) throw new Error(jc.error || 'Error al guardar colores')
+
       setLista(prev => prev.map(a => a.id === edit.id ? (j.armazon as Armazon) : a))
       setEdit(null)
     } catch (e) {
@@ -220,19 +263,46 @@ function ArmazonesPage() {
                 </div>
               </div>
 
-              {/* Stock por sucursal */}
+              {/* Colores y existencias por sucursal */}
               <div>
-                <p className="text-xs font-semibold text-zinc-500 mb-2">EXISTENCIAS POR SUCURSAL</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {([['stock_baja', 'Baja'], ['stock_mayo', '5 Mayo'], ['stock_plaza', 'Laureles'], ['stock_online', 'Online']] as const).map(([campo, lbl]) => (
-                    <div key={campo}>
-                      <label className="block text-xs text-zinc-500 mb-1">{lbl}</label>
-                      <input type="number" value={num(edit[campo])} onChange={e => set(campo, e.target.value)}
-                        className="w-full border border-zinc-200 rounded px-2 py-2 text-center" />
+                <p className="text-xs font-semibold text-zinc-500 mb-2">COLORES Y EXISTENCIAS POR SUCURSAL</p>
+                {cargandoColores ? (
+                  <p className="text-xs text-zinc-400">Cargando colores…</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-[1fr_repeat(4,42px)_22px] gap-1.5 text-[10px] text-zinc-400 px-1">
+                      <span>Color</span>
+                      <span className="text-center">Baja</span>
+                      <span className="text-center">5 Mayo</span>
+                      <span className="text-center">Plaza</span>
+                      <span className="text-center">Web</span>
+                      <span></span>
                     </div>
-                  ))}
-                </div>
-                <p className="text-xs text-zinc-400 mt-1">Total: {stockTotal(edit)}</p>
+                    {colores.map((c, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_repeat(4,42px)_22px] gap-1.5 items-center">
+                        <input value={c.color} onChange={e => setColor(i, 'color', e.target.value)} placeholder="COLOR"
+                          className="border border-zinc-200 rounded px-2 py-1.5 text-xs uppercase" />
+                        {(['stock_baja', 'stock_mayo', 'stock_plaza', 'stock_online'] as const).map(campo => (
+                          <input key={campo} type="number" min={0} value={c[campo]} onChange={e => setColor(i, campo, e.target.value)}
+                            className="border border-zinc-200 rounded px-1 py-1.5 text-xs text-center" />
+                        ))}
+                        <button onClick={() => delColor(i)} title="Quitar color" className="text-zinc-300 hover:text-red-500 flex justify-center">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {colores.length === 0 && (
+                      <p className="text-xs text-zinc-400 italic px-1">Sin colores. Agrega uno abajo.</p>
+                    )}
+                    <button onClick={addColor} className="text-xs text-[#0D9488] font-semibold hover:underline pt-1">
+                      + Agregar color
+                    </button>
+                    <p className="text-xs text-zinc-400 mt-1 border-t border-zinc-100 pt-1.5">
+                      Total: <b className="text-zinc-600">{sumSuc('stock_baja') + sumSuc('stock_mayo') + sumSuc('stock_plaza') + sumSuc('stock_online')}</b> pzas ·
+                      Baja {sumSuc('stock_baja')} · 5 Mayo {sumSuc('stock_mayo')} · Plaza {sumSuc('stock_plaza')} · Web {sumSuc('stock_online')}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Canales */}
