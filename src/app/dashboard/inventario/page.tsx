@@ -62,6 +62,8 @@ type ArmazonRaw = {
 const TC_USD = 17
 const nEd = (v: unknown) => Number(v ?? 0)
 
+type ColorArm = { id?: number; color: string; stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number }
+
 const TIPOS: Record<TipoProducto, { label: string; color: string }> = {
   armazon:    { label: 'Armazón',    color: 'bg-indigo-50 text-indigo-600' },
   consumible: { label: 'Consumible', color: 'bg-teal-50 text-[#0D9488]' },
@@ -255,6 +257,8 @@ function InventarioPage() {
   const [armazonesRaw, setArmazonesRaw] = useState<ArmazonRaw[]>([])
   const [editArm, setEditArm] = useState<ArmazonRaw | null>(null)
   const [guardandoArm, setGuardandoArm] = useState(false)
+  const [coloresArm, setColoresArm] = useState<ColorArm[]>([])
+  const [cargandoColoresArm, setCargandoColoresArm] = useState(false)
   const [esAdmin, setEsAdmin] = useState(false)
   const [sucursalActual, setSucursalActual] = useState('Baja Visión')
   const { usuario: sessionUser } = useSession()
@@ -546,11 +550,41 @@ function InventarioPage() {
     } catch { /* noop */ }
   }
 
+  // Cargar los colores (variantes) del armazón que se está editando
+  useEffect(() => {
+    if (!editArm) { setColoresArm([]); return }
+    let cancel = false
+    setCargandoColoresArm(true)
+    fetch(`/api/ecomm/armazon-colores?armazon_id=${editArm.id}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => {
+        if (cancel || !j.ok) return
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setColoresArm((j.colores ?? []).map((c: any) => ({
+          id: c.id, color: c.color ?? '',
+          stock_baja: nEd(c.stock_baja), stock_mayo: nEd(c.stock_mayo),
+          stock_plaza: nEd(c.stock_plaza), stock_online: nEd(c.stock_online),
+        })))
+      })
+      .finally(() => { if (!cancel) setCargandoColoresArm(false) })
+    return () => { cancel = true }
+  }, [editArm?.id])
+
+  const setColorArm = (i: number, campo: keyof ColorArm, val: string) =>
+    setColoresArm(prev => prev.map((c, idx) => idx === i
+      ? { ...c, [campo]: campo === 'color' ? val.toUpperCase() : (Number(val) || 0) } : c))
+  const addColorArm = () => setColoresArm(prev => [...prev, { color: '', stock_baja: 0, stock_mayo: 0, stock_plaza: 0, stock_online: 0 }])
+  const delColorArm = (i: number) => setColoresArm(prev => prev.filter((_, idx) => idx !== i))
+  const sumColorArm = (campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza' | 'stock_online') =>
+    coloresArm.reduce((s, c) => s + nEd(c[campo]), 0)
+
   const guardarArm = async () => {
     if (!editArm || guardandoArm) return
     setGuardandoArm(true)
     const pg = nEd(editArm.precio_gon)
-    const total = nEd(editArm.stock_baja) + nEd(editArm.stock_mayo) + nEd(editArm.stock_plaza) + nEd(editArm.stock_online)
+    // El stock del modelo = suma de sus colores (fuente de verdad = armazon_colores)
+    const sb = sumColorArm('stock_baja'), sm = sumColorArm('stock_mayo'), sp = sumColorArm('stock_plaza'), so = sumColorArm('stock_online')
+    const total = sb + sm + sp + so
     const payload = {
       id: editArm.id,
       nombre: (editArm.nombre ?? '').trim(),
@@ -559,10 +593,10 @@ function InventarioPage() {
       precio_gon: pg,
       precio: Math.round(pg / TC_USD),
       costo: nEd(editArm.costo),
-      stock_baja: nEd(editArm.stock_baja),
-      stock_mayo: nEd(editArm.stock_mayo),
-      stock_plaza: nEd(editArm.stock_plaza),
-      stock_online: nEd(editArm.stock_online),
+      stock_baja: sb,
+      stock_mayo: sm,
+      stock_plaza: sp,
+      stock_online: so,
       stock: total,
       publicar_gon: !!editArm.publicar_gon,
       publicar_verly: !!editArm.publicar_verly,
@@ -576,6 +610,13 @@ function InventarioPage() {
       const j = await res.json()
       if (!j.ok) throw new Error(j.error || 'Error')
       const upd = j.armazon as ArmazonRaw
+      // Guardar los colores (variantes) del modelo
+      const rc = await fetch('/api/ecomm/armazon-colores', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ armazon_id: editArm.id, colores: coloresArm }),
+      })
+      const jc = await rc.json()
+      if (!jc.ok) throw new Error(jc.error || 'Error al guardar colores')
       setArmazonesRaw(prev => prev.map(a => a.id === editArm.id ? upd : a))
       setProductos(prev => prev.map(p => p._ecommId === editArm.id ? armazonToProducto(upd as unknown as SupabaseRow) : p))
       setEditArm(null)
@@ -1386,7 +1427,7 @@ function InventarioPage() {
 
       {/* ── Editor de ARMAZÓN (base de e-commerce) ── */}
       {editArm && (() => {
-        const total = nEd(editArm.stock_baja) + nEd(editArm.stock_mayo) + nEd(editArm.stock_plaza) + nEd(editArm.stock_online)
+        const total = sumColorArm('stock_baja') + sumColorArm('stock_mayo') + sumColorArm('stock_plaza') + sumColorArm('stock_online')
         return (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !guardandoArm && setEditArm(null)}>
           <div className="bg-white rounded-xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -1441,16 +1482,43 @@ function InventarioPage() {
                 </div>
               </div>
               <div>
-                <p className="text-xs font-semibold text-zinc-500 mb-2">EXISTENCIAS POR SUCURSAL</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {([['stock_baja', 'Baja'], ['stock_mayo', '5 Mayo'], ['stock_plaza', 'Laureles'], ['stock_online', 'Online']] as const).map(([c, l]) => (
-                    <div key={c}>
-                      <label className="block text-xs text-zinc-500 mb-1">{l}</label>
-                      <input type="number" value={nEd(editArm[c])} onChange={e => setArm(c, e.target.value)} className="w-full border border-zinc-200 rounded px-2 py-2 text-center" />
+                <p className="text-xs font-semibold text-zinc-500 mb-2">COLORES Y EXISTENCIAS POR SUCURSAL</p>
+                {cargandoColoresArm ? (
+                  <p className="text-xs text-zinc-400">Cargando colores…</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-[1fr_repeat(4,42px)_22px] gap-1.5 text-[10px] text-zinc-400 px-1">
+                      <span>Color</span>
+                      <span className="text-center">Baja</span>
+                      <span className="text-center">5 Mayo</span>
+                      <span className="text-center">Plaza</span>
+                      <span className="text-center">Web</span>
+                      <span></span>
                     </div>
-                  ))}
-                </div>
-                <p className="text-xs text-zinc-400 mt-1">Total: {total}</p>
+                    {coloresArm.map((c, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_repeat(4,42px)_22px] gap-1.5 items-center">
+                        <input value={c.color} onChange={e => setColorArm(i, 'color', e.target.value)} placeholder="COLOR"
+                          className="border border-zinc-200 rounded px-2 py-1.5 text-xs uppercase" />
+                        {(['stock_baja', 'stock_mayo', 'stock_plaza', 'stock_online'] as const).map(campo => (
+                          <input key={campo} type="number" min={0} value={c[campo]} onChange={e => setColorArm(i, campo, e.target.value)}
+                            className="border border-zinc-200 rounded px-1 py-1.5 text-xs text-center" />
+                        ))}
+                        <button onClick={() => delColorArm(i)} title="Quitar color" className="text-zinc-300 hover:text-red-500 flex justify-center">
+                          <span className="text-sm leading-none">✕</span>
+                        </button>
+                      </div>
+                    ))}
+                    {coloresArm.length === 0 && (
+                      <p className="text-xs text-zinc-400 italic px-1">Sin colores. Agrega uno abajo.</p>
+                    )}
+                    <button onClick={addColorArm} className="text-xs text-[#0D9488] font-semibold hover:underline pt-1">
+                      + Agregar color
+                    </button>
+                    <p className="text-xs text-zinc-400 mt-1 border-t border-zinc-100 pt-1.5">
+                      Total: <b className="text-zinc-600">{total}</b> pzas · Baja {sumColorArm('stock_baja')} · 5 Mayo {sumColorArm('stock_mayo')} · Plaza {sumColorArm('stock_plaza')} · Web {sumColorArm('stock_online')}
+                    </p>
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-xs font-semibold text-zinc-500 mb-2">PUBLICAR EN LÍNEA</p>
