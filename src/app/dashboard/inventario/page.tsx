@@ -717,8 +717,8 @@ function InventarioPage() {
         </div>
       </div>
 
-      {/* Tableros por sucursal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Tableros por sucursal + bodega */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {SUCURSALES_FISICAS.map(suc => {
           const cap     = CAPACIDAD_EXHIBICION[suc]
           // En piso = suma del stock real de armazones en esa óptica (por sucursal)
@@ -750,7 +750,7 @@ function InventarioPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-center mb-3">
+              <div className="grid grid-cols-2 gap-2 text-center mb-3">
                 <div>
                   <p className="text-xl font-bold text-zinc-800">{enPiso}</p>
                   <p className="text-xs text-zinc-400">En piso</p>
@@ -759,16 +759,12 @@ function InventarioPage() {
                   <p className={`text-xl font-bold ${vacios > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>{vacios}</p>
                   <p className="text-xs text-zinc-400">Espacios vacíos</p>
                 </div>
-                <div>
-                  <p className={`text-xl font-bold ${reserva > 0 ? 'text-teal-600' : 'text-zinc-800'}`}>{reserva}</p>
-                  <p className="text-xs text-zinc-400">Reserva</p>
-                </div>
               </div>
 
               {lleno ? (
                 <div className="bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-2">
                   <Package className="w-3.5 h-3.5 flex-shrink-0" />
-                  Exhibidor lleno{reserva > 0 ? ` · ${reserva} en reserva` : ''}
+                  Exhibidor lleno
                 </div>
               ) : surtir ? (
                 <div className="bg-amber-50 border border-amber-100 text-amber-600 text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-2">
@@ -783,6 +779,24 @@ function InventarioPage() {
             </div>
           )
         })}
+
+        {/* Bodega central (piezas guardadas, sin exhibir en ninguna sucursal) */}
+        <div className="bg-white rounded-lg p-5 border border-amber-200 flex flex-col">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <p className="text-sm font-bold text-amber-800">Bodega</p>
+              <p className="text-xs text-zinc-400 mt-0.5">Guardadas, sin exhibir</p>
+            </div>
+            <Package className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center py-2">
+            <p className="text-4xl font-bold text-amber-700">{totalBodega.toLocaleString('es-MX')}</p>
+            <p className="text-xs text-zinc-400 mt-1">piezas en bodega</p>
+          </div>
+          <div className="bg-amber-50 border border-amber-100 text-amber-700 text-xs font-medium px-3 py-2 rounded-lg text-center">
+            Desde aquí las repartes a cada sucursal
+          </div>
+        </div>
       </div>
 
       {/* KPIs compactos */}
@@ -793,7 +807,7 @@ function InventarioPage() {
           </div>
           <div>
             <p className="text-xs text-zinc-400">Total armazones</p>
-            <p className="text-lg font-bold text-zinc-800">{(armazonesPiezas + totalBodega).toLocaleString('es-MX')} <span className="text-xs font-normal text-zinc-400">pzas · {totalBodega} en bodega · {armazonesTotal} modelos</span></p>
+            <p className="text-lg font-bold text-zinc-800">{(armazonesPiezas + totalBodega).toLocaleString('es-MX')} <span className="text-xs font-normal text-zinc-400">pzas · {armazonesTotal} modelos</span></p>
           </div>
         </div>
         <div className="bg-white rounded-lg px-4 py-3 border border-zinc-200/80 flex items-center gap-3">
