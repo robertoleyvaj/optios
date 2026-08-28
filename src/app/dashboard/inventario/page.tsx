@@ -5,7 +5,7 @@ import RequireRol from '@/components/RequireRol'
 import { useSession } from '@/hooks/useSession'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Search, Plus, AlertTriangle, Filter, ChevronDown,
+  Search, Plus, Minus, AlertTriangle, Filter, ChevronDown,
   X, Save, Edit2, Layers, Tag, Store, Globe, CheckSquare, RefreshCw,
   ClipboardCheck, ChevronRight, Check, ShoppingCart, Package,
 } from 'lucide-react'
