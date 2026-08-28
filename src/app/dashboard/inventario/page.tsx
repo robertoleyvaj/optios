@@ -68,6 +68,19 @@ type ColorArm = {
   publicar_gon: boolean; publicar_verly: boolean; precio: number | null
 }
 
+const swatchColor = (n: string): string => {
+  const s = (n || '').toUpperCase()
+  const map: [string, string][] = [
+    ['NEGRO', '#1d1d1d'], ['BLANC', '#e8e8e8'], ['AZUL', '#2f4a8c'], ['ROJO', '#a83232'],
+    ['ROSA', '#d46a90'], ['VERDE', '#3a7d4d'], ['GRIS', '#8a8a8a'], ['CAFE', '#5a3a1e'],
+    ['CAREY', '#6b4423'], ['DORAD', '#c9a227'], ['PLATE', '#b8b8b8'], ['MORAD', '#6a3d9a'],
+    ['LILA', '#b39ddb'], ['NARANJ', '#e07b2f'], ['VINO', '#722f37'], ['AMARIL', '#e6c229'],
+    ['TRANSP', '#d8e4e8'], ['CRISTAL', '#d8e4e8'], ['BRONCE', '#8c6239'], ['GUINDA', '#722f37'],
+  ]
+  for (const [k, v] of map) if (s.includes(k)) return v
+  return '#b0b0b0'
+}
+
 const TIPOS: Record<TipoProducto, { label: string; color: string }> = {
   armazon:    { label: 'Armazón',    color: 'bg-indigo-50 text-indigo-600' },
   consumible: { label: 'Consumible', color: 'bg-teal-50 text-[#0D9488]' },
@@ -583,6 +596,8 @@ function InventarioPage() {
       ? { ...c, [campo]: campo === 'color' ? val.toUpperCase() : (Number(val) || 0) } : c))
   const toggleColorPub = (i: number, campo: 'publicar_gon' | 'publicar_verly') =>
     setColoresArm(prev => prev.map((c, idx) => idx === i ? { ...c, [campo]: !c[campo] } : c))
+  const bumpColorArm = (i: number, campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza', d: number) =>
+    setColoresArm(prev => prev.map((c, idx) => idx === i ? { ...c, [campo]: Math.max(0, nEd(c[campo]) + d) } : c))
   const addColorArm = () => { setColoresArm(prev => [...prev, { color: '', stock_baja: 0, stock_mayo: 0, stock_plaza: 0, stock_online: 0, publicar_gon: false, publicar_verly: false, precio: null }]); setColorSel(coloresArm.length) }
   const delColorArm = (i: number) => { setColoresArm(prev => prev.filter((_, idx) => idx !== i)); setColorSel(s => Math.max(0, s > i ? s - 1 : s)) }
   const sumColorArm = (campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza' | 'stock_online') =>
@@ -655,10 +670,6 @@ function InventarioPage() {
           <p className="text-sm text-zinc-400 mt-0.5">Estado de exhibición y stock por sucursal</p>
         </div>
         <div className="flex items-center gap-2">
-          <a href="/dashboard/inventario/armazones"
-            className="flex-1 sm:flex-none justify-center flex items-center gap-2 border border-zinc-300 text-zinc-700 px-4 py-2.5 rounded text-sm font-semibold hover:bg-zinc-100 active:scale-[0.98] transition-all">
-            <Package className="w-4 h-4" /> <span className="whitespace-nowrap">Armazones por color</span>
-          </a>
           {esAdmin && (
             <button
               onClick={abrirNuevo}
@@ -1453,152 +1464,71 @@ function InventarioPage() {
               <button onClick={() => !guardandoArm && setEditArm(null)} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-sm">
-              <div>
-                <p className="text-xs font-semibold text-zinc-500 mb-2">IDENTIFICACIÓN</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Nombre / apodo <span className="text-zinc-400">(sale en la web)</span></label>
-                    <input value={editArm.nombre ?? ''} onChange={e => setArm('nombre', e.target.value.toUpperCase())}
-                      placeholder="EJ. DARK-RIM" className="w-full border border-zinc-200 rounded px-2.5 py-2 uppercase placeholder:normal-case" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Marca</label>
-                    <input value={editArm.marca ?? ''} onChange={e => setArm('marca', e.target.value.toUpperCase())}
-                      placeholder="EJ. SEIMA" className="w-full border border-zinc-200 rounded px-2.5 py-2 uppercase placeholder:normal-case" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Modelo</label>
-                    <input value={editArm.modelo ?? ''} onChange={e => setArm('modelo', e.target.value)}
-                      placeholder="EJ. SM2308" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Color</label>
-                    <input value={editArm.color1 ?? ''} onChange={e => setArm('color1', e.target.value.toUpperCase())}
-                      placeholder="EJ. NEGRO" className="w-full border border-zinc-200 rounded px-2.5 py-2 uppercase placeholder:normal-case" />
-                  </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Precio (MXN)</label>
+                  <input type="number" value={editArm.precio_gon || ''} onChange={e => setArm('precio_gon', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Costo</label>
+                  <input type="number" value={editArm.costo || ''} onChange={e => setArm('costo', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded-lg px-3 py-2" />
                 </div>
               </div>
+
               <div>
-                <p className="text-xs font-semibold text-zinc-500 mb-2">PRECIO</p>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Precio (MXN)</label>
-                    <input type="number" value={editArm.precio_gon || ''} onChange={e => setArm('precio_gon', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Verly (USD, auto)</label>
-                    <div className="w-full border border-zinc-100 bg-zinc-50 rounded px-2.5 py-2 text-zinc-500">USD ${Math.round(nEd(editArm.precio_gon) / TC_USD)}</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Costo</label>
-                    <input type="number" value={editArm.costo || ''} onChange={e => setArm('costo', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-zinc-500">COLORES DEL MODELO</p>
-                  <button onClick={addColorArm} className="text-xs text-[#0D9488] font-semibold hover:underline">+ Agregar color</button>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-zinc-500">COLORES</p>
+                  <span className="text-xs text-zinc-400">{total} piezas</span>
                 </div>
                 {cargandoColoresArm ? (
                   <p className="text-xs text-zinc-400">Cargando colores…</p>
                 ) : (
                   <>
-                    {/* Chips: un botón por color */}
-                    <div className="flex flex-wrap gap-1.5 mb-3">
+                    <div className="flex flex-wrap gap-2 mb-4">
                       {coloresArm.map((c, i) => (
                         <button key={i} onClick={() => setColorSel(i)}
-                          className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${i === colorSel ? 'bg-[#0D9488] text-white border-[#0D9488]' : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'}`}>
-                          {c.color || 'Nuevo'} <span className="opacity-70">({c.stock_baja + c.stock_mayo + c.stock_plaza + c.stock_online})</span>
+                          className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-full border transition-colors ${i === colorSel ? 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]/40' : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'}`}>
+                          <span className="w-3 h-3 rounded-full border border-zinc-200" style={{ background: swatchColor(c.color) }} />
+                          {c.color || 'Nuevo'} <span className="opacity-60">{c.stock_baja + c.stock_mayo + c.stock_plaza + c.stock_online}</span>
                         </button>
                       ))}
-                      {coloresArm.length === 0 && <span className="text-xs text-zinc-400 italic">Sin colores. Agrega uno.</span>}
+                      <button onClick={addColorArm} className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-full border border-dashed border-zinc-300 text-zinc-500 hover:bg-zinc-50">
+                        <Plus className="w-3.5 h-3.5" /> Color
+                      </button>
                     </div>
 
-                    {/* Ficha del color seleccionado */}
                     {coloresArm[colorSel] && (
-                      <div className="bg-zinc-50 rounded-lg p-3 space-y-3 border border-zinc-100">
-                        <div className="flex items-center gap-2">
+                      <div className="bg-zinc-50 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-4">
                           <input value={coloresArm[colorSel].color} onChange={e => setColorArm(colorSel, 'color', e.target.value)}
-                            placeholder="NOMBRE DEL COLOR" className="flex-1 border border-zinc-200 rounded px-2.5 py-1.5 text-sm uppercase bg-white placeholder:normal-case" />
-                          <button onClick={() => delColorArm(colorSel)} className="text-xs text-red-500 hover:underline">Quitar</button>
+                            placeholder="NOMBRE DEL COLOR" className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm uppercase bg-white placeholder:normal-case" />
+                          <button onClick={() => delColorArm(colorSel)} className="text-xs text-red-500 hover:underline px-2">Quitar</button>
                         </div>
-                        <div>
-                          <p className="text-[10px] text-zinc-400 mb-1">EXISTENCIAS POR SUCURSAL</p>
-                          <div className="grid grid-cols-4 gap-2">
-                            {([['stock_baja', 'Baja'], ['stock_mayo', '5 Mayo'], ['stock_plaza', 'Plaza'], ['stock_online', 'Web']] as const).map(([campo, lbl]) => (
-                              <div key={campo}>
-                                <label className="block text-[10px] text-zinc-500 mb-0.5 text-center">{lbl}</label>
-                                <input type="number" min={0} value={coloresArm[colorSel][campo]} onChange={e => setColorArm(colorSel, campo, e.target.value)}
-                                  className="w-full border border-zinc-200 rounded px-1 py-1.5 text-sm text-center bg-white" />
+
+                        <p className="text-xs text-zinc-500 mb-2">Existencias por sucursal</p>
+                        <div className="grid grid-cols-3 gap-3 mb-5">
+                          {([['stock_baja', 'Baja Visión'], ['stock_mayo', '5 de Mayo'], ['stock_plaza', 'Plaza Laureles']] as const).map(([campo, lbl]) => (
+                            <div key={campo} className="text-center">
+                              <div className="text-[11px] text-zinc-500 mb-1.5">{lbl}</div>
+                              <div className="flex items-center justify-center gap-2 bg-white border border-zinc-200 rounded-lg py-1.5">
+                                <button onClick={() => bumpColorArm(colorSel, campo, -1)} className="text-zinc-400 hover:text-zinc-700"><Minus className="w-4 h-4" /></button>
+                                <span className="text-base font-semibold text-zinc-800 min-w-[20px]">{nEd(coloresArm[colorSel][campo])}</span>
+                                <button onClick={() => bumpColorArm(colorSel, campo, 1)} className="text-zinc-400 hover:text-zinc-700"><Plus className="w-4 h-4" /></button>
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          ))}
                         </div>
-                        <div>
-                          <p className="text-[10px] text-zinc-400 mb-1">PUBLICAR ESTE COLOR</p>
-                          <div className="flex gap-2">
-                            <button onClick={() => toggleColorPub(colorSel, 'publicar_gon')} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded border text-xs font-semibold ${coloresArm[colorSel].publicar_gon ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-zinc-500 border-zinc-200'}`}><Globe className="w-3.5 h-3.5" /> GON</button>
-                            <button onClick={() => toggleColorPub(colorSel, 'publicar_verly')} className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded border text-xs font-semibold ${coloresArm[colorSel].publicar_verly ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-zinc-500 border-zinc-200'}`}><Globe className="w-3.5 h-3.5" /> Verly</button>
-                          </div>
+
+                        <p className="text-xs text-zinc-500 mb-2">Publicar este color</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => toggleColorPub(colorSel, 'publicar_verly')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium ${coloresArm[colorSel].publicar_verly ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-zinc-500 border-zinc-200'}`}><Globe className="w-4 h-4" /> Verly</button>
+                          <button onClick={() => toggleColorPub(colorSel, 'publicar_gon')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium ${coloresArm[colorSel].publicar_gon ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-zinc-500 border-zinc-200'}`}><Globe className="w-4 h-4" /> GON</button>
                         </div>
                       </div>
                     )}
-                    <p className="text-xs text-zinc-400 mt-2">
-                      Total modelo: <b className="text-zinc-600">{total}</b> pzas · Baja {sumColorArm('stock_baja')} · 5 Mayo {sumColorArm('stock_mayo')} · Plaza {sumColorArm('stock_plaza')} · Web {sumColorArm('stock_online')}
-                    </p>
                   </>
                 )}
               </div>
-              <div>
-                <p className="text-xs font-semibold text-zinc-500 mb-2">PUBLICAR EN LÍNEA</p>
-                <div className="flex gap-2">
-                  <button onClick={() => setArm('publicar_gon', !editArm.publicar_gon)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded border text-sm font-semibold ${editArm.publicar_gon ? 'bg-blue-600 text-white border-blue-600' : 'bg-zinc-50 text-zinc-500 border-zinc-200'}`}><Globe className="w-4 h-4" /> GON</button>
-                  <button onClick={() => setArm('publicar_verly', !editArm.publicar_verly)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded border text-sm font-semibold ${editArm.publicar_verly ? 'bg-violet-600 text-white border-violet-600' : 'bg-zinc-50 text-zinc-500 border-zinc-200'}`}><Globe className="w-4 h-4" /> Verly</button>
-                </div>
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Descuento GON (%)</label>
-                    <input type="number" value={editArm.descuento_gon || ''} onChange={e => setArm('descuento_gon', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Descuento Verly (%)</label>
-                    <input type="number" value={editArm.descuento_verly || ''} onChange={e => setArm('descuento_verly', e.target.value)} placeholder="0" className="w-full border border-zinc-200 rounded px-2.5 py-2" />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-zinc-500 mb-2">FOTOS</p>
-                <div className="grid grid-cols-5 gap-2">
-                  {(['imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url', 'imagen5_url'] as const).map((campo, i) => {
-                    const url = editArm[campo]
-                    return (
-                      <div key={campo} className="relative aspect-square">
-                        <label className="absolute inset-0 rounded border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center cursor-pointer hover:border-teal-400 overflow-hidden">
-                          {url ? (
-                            <img src={url as string} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-[10px] text-zinc-400 text-center px-1">{subiendoFoto === campo ? '...' : (i === 0 ? 'Principal' : `+ Foto ${i + 1}`)}</span>
-                          )}
-                          <input type="file" accept="image/*" className="hidden"
-                            onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(campo, f); e.target.value = '' }} />
-                        </label>
-                        {url && (
-                          <button type="button"
-                            onClick={e => { e.preventDefault(); e.stopPropagation(); borrarFoto(campo) }}
-                            title="Borrar foto"
-                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-zinc-800 text-white rounded-full flex items-center justify-center text-sm leading-none hover:bg-red-600 shadow z-10">×</button>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-                <p className="text-[11px] text-zinc-400 mt-1">La primera es la principal. Toca para subir/cambiar.</p>
-              </div>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={editArm.activo !== false} onChange={e => setArm('activo', e.target.checked)} />
-                <span className="text-sm text-zinc-600">Activo (visible en las páginas)</span>
-              </label>
             </div>
             <div className="border-t border-zinc-200 px-5 py-4 flex gap-2">
               <button onClick={() => setEditArm(null)} disabled={guardandoArm} className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 disabled:opacity-50">Cancelar</button>
