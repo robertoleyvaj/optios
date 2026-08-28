@@ -66,6 +66,7 @@ type ColorArm = {
   id?: number; color: string
   stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number
   publicar_gon: boolean; publicar_verly: boolean; precio: number | null
+  imagen_url: string | null; imagen2_url: string | null; imagen3_url: string | null
 }
 
 const swatchColor = (n: string): string => {
@@ -586,6 +587,7 @@ function InventarioPage() {
           stock_plaza: nEd(c.stock_plaza), stock_online: nEd(c.stock_online),
           publicar_gon: !!c.publicar_gon, publicar_verly: !!c.publicar_verly,
           precio: c.precio ?? null,
+          imagen_url: c.imagen_url ?? null, imagen2_url: c.imagen2_url ?? null, imagen3_url: c.imagen3_url ?? null,
         })))
         setColorSel(0)
       })
@@ -600,7 +602,23 @@ function InventarioPage() {
     setColoresArm(prev => prev.map((c, idx) => idx === i ? { ...c, [campo]: !c[campo] } : c))
   const bumpColorArm = (i: number, campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza', d: number) =>
     setColoresArm(prev => prev.map((c, idx) => idx === i ? { ...c, [campo]: Math.max(0, nEd(c[campo]) + d) } : c))
-  const addColorArm = () => { setColoresArm(prev => [...prev, { color: '', stock_baja: 0, stock_mayo: 0, stock_plaza: 0, stock_online: 0, publicar_gon: false, publicar_verly: false, precio: null }]); setColorSel(coloresArm.length) }
+  const addColorArm = () => { setColoresArm(prev => [...prev, { color: '', stock_baja: 0, stock_mayo: 0, stock_plaza: 0, stock_online: 0, publicar_gon: false, publicar_verly: false, precio: null, imagen_url: null, imagen2_url: null, imagen3_url: null }]); setColorSel(coloresArm.length) }
+  const setColorImg = (i: number, campo: 'imagen_url' | 'imagen2_url' | 'imagen3_url', val: string | null) =>
+    setColoresArm(prev => prev.map((c, idx) => idx === i ? { ...c, [campo]: val } : c))
+  const subirFotoColor = async (i: number, campo: 'imagen_url' | 'imagen2_url' | 'imagen3_url', file: File) => {
+    if (!editArm) return
+    setSubiendoFoto(`c${i}-${campo}`)
+    try {
+      const fd = new FormData()
+      fd.append('file', file); fd.append('campo', `color-${i}-${campo}`); fd.append('id', String(editArm.id))
+      const res = await fetch('/api/ecomm/upload-foto', { method: 'POST', body: fd })
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error || 'Error')
+      setColorImg(i, campo, j.url)
+    } catch (e) {
+      alert('No se pudo subir la foto: ' + (e instanceof Error ? e.message : ''))
+    } finally { setSubiendoFoto('') }
+  }
   const delColorArm = (i: number) => { setColoresArm(prev => prev.filter((_, idx) => idx !== i)); setColorSel(s => Math.max(0, s > i ? s - 1 : s)) }
   const sumColorArm = (campo: 'stock_baja' | 'stock_mayo' | 'stock_plaza' | 'stock_online') =>
     coloresArm.reduce((s, c) => s + nEd(c[campo]), 0)
@@ -1466,6 +1484,11 @@ function InventarioPage() {
               <button onClick={() => !guardandoArm && setEditArm(null)} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-sm">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Nombre para la web <span className="text-zinc-400">(apodo)</span></label>
+                <input value={editArm.nombre ?? ''} onChange={e => setArm('nombre', e.target.value.toUpperCase())}
+                  placeholder="EJ. DARK-RIM" className="w-full border border-zinc-200 rounded-lg px-3 py-2 uppercase placeholder:normal-case" />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1">Precio (MXN)</label>
@@ -1522,10 +1545,33 @@ function InventarioPage() {
                         </div>
 
                         <p className="text-xs text-zinc-500 mb-2">Publicar este color</p>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 mb-5">
                           <button onClick={() => toggleColorPub(colorSel, 'publicar_verly')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium ${coloresArm[colorSel].publicar_verly ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-zinc-500 border-zinc-200'}`}><Globe className="w-4 h-4" /> Verly</button>
                           <button onClick={() => toggleColorPub(colorSel, 'publicar_gon')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium ${coloresArm[colorSel].publicar_gon ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-zinc-500 border-zinc-200'}`}><Globe className="w-4 h-4" /> GON</button>
                         </div>
+
+                        <p className="text-xs text-zinc-500 mb-2">Fotos de este color</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['imagen_url', 'imagen2_url', 'imagen3_url'] as const).map((campo, k) => {
+                            const url = coloresArm[colorSel][campo]
+                            const subiendo = subiendoFoto === `c${colorSel}-${campo}`
+                            return (
+                              <div key={campo} className="relative aspect-square">
+                                <label className="absolute inset-0 rounded-lg border border-dashed border-zinc-300 bg-white flex items-center justify-center cursor-pointer hover:border-teal-400 overflow-hidden">
+                                  {url ? <img src={url} alt="" className="w-full h-full object-cover" />
+                                    : <span className="text-[10px] text-zinc-400 text-center px-1">{subiendo ? 'Subiendo…' : (k === 0 ? 'Principal' : `+ Foto ${k + 1}`)}</span>}
+                                  <input type="file" accept="image/*" className="hidden"
+                                    onChange={e => { const f = e.target.files?.[0]; if (f) subirFotoColor(colorSel, campo, f); e.target.value = '' }} />
+                                </label>
+                                {url && (
+                                  <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); setColorImg(colorSel, campo, null) }}
+                                    title="Quitar foto" className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-zinc-800 text-white rounded-full flex items-center justify-center text-xs leading-none hover:bg-red-600 z-10">×</button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-1.5">La primera es la principal en la web. Cada color muestra sus propias fotos.</p>
                       </div>
                     )}
                   </>

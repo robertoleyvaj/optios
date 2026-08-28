@@ -38,6 +38,7 @@ export async function PUT(req: NextRequest) {
       colores?: Array<{
         color: string; stock_baja?: number; stock_mayo?: number; stock_plaza?: number; stock_online?: number
         publicar_gon?: boolean; publicar_verly?: boolean; precio?: number | null
+        imagen_url?: string | null; imagen2_url?: string | null; imagen3_url?: string | null
       }>
     }
     if (!b.armazon_id) return NextResponse.json({ ok: false, error: 'Falta armazon_id' }, { status: 400 })
@@ -59,6 +60,9 @@ export async function PUT(req: NextRequest) {
         publicar_gon: !!c.publicar_gon,
         publicar_verly: !!c.publicar_verly,
         precio: c.precio ?? null,
+        imagen_url: c.imagen_url ?? null,
+        imagen2_url: c.imagen2_url ?? null,
+        imagen3_url: c.imagen3_url ?? null,
         orden: i,
       }))
 
