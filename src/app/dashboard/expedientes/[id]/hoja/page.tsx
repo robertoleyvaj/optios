@@ -56,6 +56,53 @@ const DIAG_INFO: Record<string, string> = {
   'Sospecha de ojo seco': 'Sensación de arenilla, ardor o lagrimeo excesivo.',
 }
 
+// ── Diagnóstico refractivo profesional por ojo, derivado de la graduación ──
+// Convención de cilindro negativo (la usual en las recetas). Es una sugerencia
+// clínica automática a partir de los datos; el optometrista la valida.
+function diagRefractivo(sphS: string, cylS: string, axisS: string): string {
+  const S = parseFloat(sphS)
+  const C = parseFloat(cylS)
+  const A = parseFloat(axisS)
+  if (Number.isNaN(S)) return ''
+  const casi = (n: number) => Math.abs(n) < 0.25
+  const hasCyl = !Number.isNaN(C) && Math.abs(C) >= 0.25
+  if (!hasCyl) {
+    if (casi(S)) return 'Emétrope (sin error refractivo)'
+    return S > 0 ? 'Hipermetropía' : 'Miopía'
+  }
+  const m1 = S, m2 = S + C
+  const s1 = casi(m1) ? 0 : (m1 > 0 ? 1 : -1)
+  const s2 = casi(m2) ? 0 : (m2 > 0 ? 1 : -1)
+  let tipo = 'Astigmatismo'
+  if ((s1 === 0 && s2 < 0) || (s1 < 0 && s2 === 0)) tipo = 'Astigmatismo miópico simple'
+  else if ((s1 === 0 && s2 > 0) || (s1 > 0 && s2 === 0)) tipo = 'Astigmatismo hipermetrópico simple'
+  else if (s1 < 0 && s2 < 0) tipo = 'Astigmatismo miópico compuesto'
+  else if (s1 > 0 && s2 > 0) tipo = 'Astigmatismo hipermetrópico compuesto'
+  else if (s1 * s2 < 0) tipo = 'Astigmatismo mixto'
+  let regla = ''
+  if (!Number.isNaN(A)) {
+    const a = ((A % 180) + 180) % 180
+    const conRegla = C < 0 ? (a <= 30 || a >= 150) : (a >= 60 && a <= 120)
+    const contraRegla = C < 0 ? (a >= 60 && a <= 120) : (a <= 30 || a >= 150)
+    regla = conRegla ? 'con la regla' : contraRegla ? 'contra la regla' : 'oblicuo'
+  }
+  return regla ? `${tipo} ${regla}` : tipo
+}
+
+function recomendacionLente(od: string, oi: string, hasAdd: boolean): string {
+  const t = (od + ' ' + oi).toLowerCase()
+  const miope = t.includes('miop'), hyper = t.includes('hipermetro')
+  const astig = t.includes('astigmatismo'), mixto = t.includes('mixto')
+  let base = ''
+  if (mixto) base = 'Lentes tóricas (corrección esfero-cilíndrica)'
+  else if (astig) base = `Lentes ${miope ? 'divergentes (cóncavas)' : hyper ? 'convergentes (convexas)' : 'esfero-cilíndricas'} con corrección cilíndrica (tóricas)`
+  else if (miope) base = 'Lentes divergentes (cóncavas / negativas)'
+  else if (hyper) base = 'Lentes convergentes (convexas / positivas)'
+  else base = 'Corrección según valoración del especialista'
+  if (hasAdd) base += ', con adición para visión cercana (progresivo o bifocal)'
+  return base
+}
+
 function IcoRegla() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> }
 function IcoGota() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2"><path d="M12 2C6 10 4 14 4 17a8 8 0 0016 0c0-3-2-7-8-15z"/></svg> }
 function IcoSol() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> }
@@ -154,6 +201,15 @@ export default function HojaPage() {
   const sphVal = Number.isNaN(sphParsed) ? null : sphParsed
   const hasCyl = fv(receta.od_cilindro) !== '—' || fv(receta.oi_cilindro) !== '—'
   const hasAddDiag = !!tieneAdd
+  // Diagnóstico profesional por ojo + recomendación de lente, derivados de la graduación
+  const dxOD = diagRefractivo(receta.od_esfera, receta.od_cilindro, receta.od_eje)
+  const dxOI = diagRefractivo(receta.oi_esfera, receta.oi_cilindro, receta.oi_eje)
+  const recLente = recomendacionLente(dxOD, dxOI, hasAddDiag)
+  const dxPorOjo = (dxOD || dxOI) ? [
+    dxOD ? { ojo: 'Ojo derecho (OD)', dx: dxOD } : null,
+    dxOI ? { ojo: 'Ojo izquierdo (OI)', dx: dxOI } : null,
+    hasAddDiag ? { ojo: 'Ambos ojos', dx: 'Presbicia (dificultad para ver de cerca)' } : null,
+  ].filter(Boolean) as { ojo: string; dx: string }[] : []
 
   return (
     <>
@@ -258,7 +314,15 @@ export default function HojaPage() {
           <div style={{ background: 'white', borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
             <ColHeader icon="🔬" label="Diagnóstico" color="#0D9488" />
             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {diagsArr.map((d, i) => (
+              {dxPorOjo.length > 0 ? dxPorOjo.map((d, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2.5" style={{ flexShrink: 0, marginTop: 1 }}><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <div>
+                    <div style={{ fontSize: 10, color: '#0D9488', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{d.ojo}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1E293B' }}>{d.dx}</div>
+                  </div>
+                </div>
+              )) : diagsArr.map((d, i) => (
                 <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2.5" style={{ flexShrink: 0, marginTop: 1 }}><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                   <div>
@@ -267,7 +331,13 @@ export default function HojaPage() {
                   </div>
                 </div>
               ))}
-              {diagsArr.length === 0 && <p style={{ fontSize: 12, color: '#94A3B8' }}>Sin diagnósticos.</p>}
+              {dxPorOjo.length === 0 && diagsArr.length === 0 && <p style={{ fontSize: 12, color: '#94A3B8' }}>Sin diagnósticos.</p>}
+              {recLente && dxPorOjo.length > 0 && (
+                <div style={{ marginTop: 4, paddingTop: 10, borderTop: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: 10, color: '#2563EB', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 2 }}>Corrección recomendada</div>
+                  <div style={{ fontSize: 11, color: '#334155', lineHeight: 1.4 }}>{recLente}</div>
+                </div>
+              )}
             </div>
           </div>
           <div style={{ background: 'white', borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
