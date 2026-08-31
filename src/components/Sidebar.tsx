@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { APP_VERSION_FULL } from '@/lib/version'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
@@ -189,7 +190,7 @@ export default function Sidebar({
           <p className="leading-none tracking-[-0.04em]">
             <span className="text-[#111] font-bold text-[16px]">Opti</span><span className="text-[#0D9488] font-light text-[16px]">OS</span>
           </p>
-          <p className="text-[9px] font-light tracking-[0.08em] text-[#b0b0ad] mt-1 uppercase">Sistema de Gestión</p>
+          <p className="text-[9px] font-light tracking-[0.08em] text-[#b0b0ad] mt-1 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
         </div>
         {/* Close button — mobile only */}
         <button
