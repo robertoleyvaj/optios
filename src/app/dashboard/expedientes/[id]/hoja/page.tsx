@@ -39,6 +39,15 @@ function formatFecha(iso: string) {
 }
 function fv(v: string) { return v && v !== '0.00' && v !== '' ? v : '—' }
 
+// Nombre de pila + inicial del apellido paterno (ej. "Zuleika Jazmin Escalera M." → "Zuleika E.")
+function nombreCorto(full: string): string {
+  const t = (full || '').trim().split(/\s+/).filter(Boolean)
+  if (t.length === 0) return ''
+  if (t.length === 1) return t[0]
+  const apellido = t.length >= 3 ? t[t.length - 2] : t[t.length - 1]
+  return `${t[0]} ${apellido[0].toUpperCase()}.`
+}
+
 const DIAG_INFO: Record<string, string> = {
   'Miopía': 'Ve bien de cerca pero borroso a distancia.',
   'Hipermetropía': 'Cansancio al leer; el ojo hace un esfuerzo extra.',
@@ -179,7 +188,7 @@ export default function HojaPage() {
   const compartirWhatsApp = () => {
     if (!paciente || !receta) return
     const diags = (consulta?.diagnosticos ?? []).join(', ') || receta.diagnostico
-    const texto = `*Resumen de tu consulta — Grupo Óptico del Noroeste*\n\n👤 ${paciente.nombre} ${paciente.apellido}\n📅 ${formatFecha(receta.fecha)}\n\n*Diagnóstico:* ${diags}\n\n*Prescripción (${receta.tipo}):*\nOD: ${receta.od_esfera} / ${receta.od_cilindro} / ${receta.od_eje}°${receta.od_add ? ` ADD ${receta.od_add}` : ''}\nOI: ${receta.oi_esfera} / ${receta.oi_cilindro} / ${receta.oi_eje}°${receta.oi_add ? ` ADD ${receta.oi_add}` : ''}${receta.dp_od ? `\nD.P.: ${receta.dp_od} mm / ${receta.dp_oi} mm` : ''}\n\n_Atendido por ${consulta?.atendido_por || receta.optometrista} — Grupo Óptico del Noroeste_`
+    const texto = `*Resumen de tu consulta — Grupo Óptico del Noroeste*\n\n👤 ${paciente.nombre} ${paciente.apellido}\n📅 ${formatFecha(receta.fecha)}\n\n*Diagnóstico:* ${diags}\n\n*Prescripción (${receta.tipo}):*\nOD: ${receta.od_esfera} / ${receta.od_cilindro} / ${receta.od_eje}°${receta.od_add ? ` ADD ${receta.od_add}` : ''}\nOI: ${receta.oi_esfera} / ${receta.oi_cilindro} / ${receta.oi_eje}°${receta.oi_add ? ` ADD ${receta.oi_add}` : ''}${receta.dp_od ? `\nD.P.: ${receta.dp_od} mm / ${receta.dp_oi} mm` : ''}\n\n_Atendido por ${nombreCorto(consulta?.atendido_por || receta.optometrista)} — Grupo Óptico del Noroeste_`
     const wa = paciente.whatsapp?.replace(/\D/g, '') || paciente.telefono?.replace(/\D/g, '')
     window.open(`https://wa.me/${wa ? wa : ''}?text=${encodeURIComponent(texto)}`, '_blank')
   }
@@ -235,7 +244,7 @@ export default function HojaPage() {
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 24, fontWeight: 600, color: '#0B0E14' }}>Resumen de tu consulta</div>
-            <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{sucNombre} · {opto}</div>
+            <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{sucNombre} · {nombreCorto(opto)}</div>
           </div>
           <div style={{ textAlign: 'right', background: '#EEF2FF', borderRadius: 12, padding: '10px 16px', minWidth: 140 }}>
             <div style={{ fontSize: 10, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Fecha de consulta</div>
