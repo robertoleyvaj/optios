@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { hoyLocal } from '@/lib/fecha'
-import { Clock, LogIn, LogOut, CheckCircle2, MapPin } from 'lucide-react'
+import { Clock, LogIn, LogOut, CheckCircle2, MapPin, Monitor } from 'lucide-react'
 
 const TZ = 'America/Tijuana'
 
@@ -28,12 +28,22 @@ function duracion(entrada: string | null, salida: string | null): string {
   return `${h}h ${m}m`
 }
 
+// El checador solo funciona desde computadora (no teléfono/tablet)
+function esDispositivoMovil(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  return /Mobi|Android|iPhone|iPad|iPod|Windows Phone|BlackBerry/i.test(ua) ||
+    (typeof window !== 'undefined' && window.innerWidth < 900)
+}
+
 export default function ChecadorPage() {
   const [user, setUser] = useState<{ id: string; nombre: string; apodo: string; sucursal: string } | null>(null)
   const [asis, setAsis] = useState<Asistencia | null>(null)
   const [cargando, setCargando] = useState(true)
   const [marcando, setMarcando] = useState(false)
   const [reloj, setReloj] = useState('')
+  const [esMovil, setEsMovil] = useState(false)
+  useEffect(() => { setEsMovil(esDispositivoMovil()) }, [])
 
   // Reloj en vivo
   useEffect(() => {
@@ -126,6 +136,12 @@ export default function ChecadorPage() {
         <p className="text-center text-sm text-zinc-400 py-4">Cargando…</p>
       ) : !user ? (
         <p className="text-center text-sm text-zinc-400 py-4">Inicia sesión para checar.</p>
+      ) : esMovil ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-6 px-4 bg-amber-50 rounded-2xl ring-1 ring-amber-100 text-center">
+          <Monitor className="w-8 h-8 text-amber-600" />
+          <p className="text-sm font-semibold text-amber-800">Solo desde la computadora</p>
+          <p className="text-xs text-amber-700 leading-relaxed">El registro de entrada y salida solo se hace desde la computadora de la óptica, no desde el teléfono.</p>
+        </div>
       ) : !yaEntro ? (
         <button onClick={() => marcar('entrada')} disabled={marcando}
           className="w-full flex items-center justify-center gap-2 py-4 bg-[#0D9488] text-white rounded-2xl text-base font-bold hover:bg-teal-600 transition-colors disabled:opacity-50 shadow-sm">

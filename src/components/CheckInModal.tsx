@@ -3,9 +3,18 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
-import { MapPin, CheckCircle2 } from 'lucide-react'
+import { MapPin, CheckCircle2, Monitor } from 'lucide-react'
 
 const SUCURSALES = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
+
+// El registro de asistencia solo se permite desde computadora (no desde teléfono/tablet)
+function esDispositivoMovil(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  const esMovilUA = /Mobi|Android|iPhone|iPad|iPod|Windows Phone|BlackBerry/i.test(ua)
+  const pantallaChica = typeof window !== 'undefined' && window.innerWidth < 900
+  return esMovilUA || pantallaChica
+}
 
 export default function CheckInModal() {
   const [visible, setVisible]     = useState(false)
@@ -13,6 +22,9 @@ export default function CheckInModal() {
   const [apodo,  setApodo]        = useState('')
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho]         = useState(false)
+  const [esMovil, setEsMovil]     = useState(false)
+
+  useEffect(() => { setEsMovil(esDispositivoMovil()) }, [])
 
   useEffect(() => {
     const verificar = async () => {
@@ -101,6 +113,15 @@ export default function CheckInModal() {
               <p className="text-white/40 text-[13px] mt-1">¿En qué sucursal estás hoy?</p>
             </div>
 
+            {esMovil ? (
+              <div className="p-6 flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center">
+                  <Monitor className="w-6 h-6 text-amber-600" />
+                </div>
+                <p className="text-zinc-800 font-semibold text-[15px]">El registro de asistencia se hace en la computadora</p>
+                <p className="text-zinc-500 text-[13px] leading-relaxed">Por seguridad, el check-in y check-out solo se pueden hacer desde la computadora de la óptica, no desde el teléfono.</p>
+              </div>
+            ) : (
             <div className="p-4 space-y-2">
               {SUCURSALES.map(s => (
                 <button
@@ -116,6 +137,7 @@ export default function CheckInModal() {
                 </button>
               ))}
             </div>
+            )}
           </>
         )}
       </div>
