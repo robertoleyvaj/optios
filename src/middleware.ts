@@ -23,13 +23,15 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // IMPORTANTE: usar getUser() (verifica con servidor), no getSession() (solo cookie local).
-  // Con timeout: si Auth de Supabase se pone lento/no responde, NO colgamos todo el sistema
-  // (evita el 504 MIDDLEWARE_INVOCATION_TIMEOUT). Si no responde a tiempo, tratamos como
-  // "sin sesión" (fail-closed → te manda a login, que es lo seguro).
-  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+  // Usamos getSession() en vez de getUser(): getSession valida el JWT LOCALMENTE (firma +
+  // expiración) sin llamar al servidor de Auth en cada request. getUser hacía una llamada de
+  // red por CADA navegación, y con varios usuarios saturaba Supabase Auth (se ponía lento,
+  // expulsaba a la gente y colgaba el login). Para decidir la ruta, getSession es suficiente y
+  // seguro (las lecturas a la BD ya están protegidas por RLS, que valida el JWT del lado server).
+  // Solo hace red cuando el token está vencido (para refrescarlo), que es raro.
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000))
   const user = await Promise.race([
-    supabase.auth.getUser().then(r => r.data.user).catch(() => null),
+    supabase.auth.getSession().then(r => r.data.session?.user ?? null).catch(() => null),
     timeout,
   ])
 

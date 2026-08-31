@@ -26,12 +26,17 @@ function LoginForm() {
     setLoading(true)
     setError('')
 
+    try {
     const sb = createClient()
     const usernameLower = username.toLowerCase().trim()
     const email = `${usernameLower}@gon.optios`
 
-    // 1. Autenticar con Supabase Auth
-    const { data: authData, error: authErr } = await sb.auth.signInWithPassword({ email, password })
+    // 1. Autenticar con Supabase Auth (con timeout: si Auth se atora, no nos congelamos)
+    const authPromise = sb.auth.signInWithPassword({ email, password })
+    const authTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 15000))
+    const { data: authData, error: authErr } = await Promise.race([authPromise, authTimeout]) as
+      Awaited<typeof authPromise>
 
     if (authErr || !authData.user) {
       setError('Usuario o contraseña incorrectos')
@@ -77,8 +82,12 @@ function LoginForm() {
     sb.auth.updateUser({ data: perfil }).catch(() => { /* best-effort */ })
 
     // 4. Actualizar último acceso y redirigir
-    await sb.from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('id', usuarioData.id)
+    sb.from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('id', usuarioData.id).then(() => {}, () => {})
     router.push('/dashboard')
+    } catch {
+      setError('El servidor tardó en responder. Espera unos segundos e intenta de nuevo.')
+      setLoading(false)
+    }
   }
 
   return (
