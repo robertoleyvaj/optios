@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Printer, MessageCircle, ArrowLeft } from 'lucide-react'
+import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 
 type Receta = {
   id: string; fecha: string; tipo: string; optometrista: string
@@ -116,7 +117,7 @@ export default function HojaPage() {
   const compartirWhatsApp = () => {
     if (!paciente || !receta) return
     const diags = (consulta?.diagnosticos ?? []).join(', ') || receta.diagnostico
-    const texto = `*Resumen de tu consulta — GON Óptica*\n\n👤 ${paciente.nombre} ${paciente.apellido}\n📅 ${formatFecha(receta.fecha)}\n\n*Diagnóstico:* ${diags}\n\n*Prescripción (${receta.tipo}):*\nOD: ${receta.od_esfera} / ${receta.od_cilindro} / ${receta.od_eje}°${receta.od_add ? ` ADD ${receta.od_add}` : ''}\nOI: ${receta.oi_esfera} / ${receta.oi_cilindro} / ${receta.oi_eje}°${receta.oi_add ? ` ADD ${receta.oi_add}` : ''}${receta.dp_od ? `\nD.P.: ${receta.dp_od} mm / ${receta.dp_oi} mm` : ''}\n\n_Atendido por ${consulta?.atendido_por || receta.optometrista} — GON Óptica_`
+    const texto = `*Resumen de tu consulta — Grupo Óptico del Noroeste*\n\n👤 ${paciente.nombre} ${paciente.apellido}\n📅 ${formatFecha(receta.fecha)}\n\n*Diagnóstico:* ${diags}\n\n*Prescripción (${receta.tipo}):*\nOD: ${receta.od_esfera} / ${receta.od_cilindro} / ${receta.od_eje}°${receta.od_add ? ` ADD ${receta.od_add}` : ''}\nOI: ${receta.oi_esfera} / ${receta.oi_cilindro} / ${receta.oi_eje}°${receta.oi_add ? ` ADD ${receta.oi_add}` : ''}${receta.dp_od ? `\nD.P.: ${receta.dp_od} mm / ${receta.dp_oi} mm` : ''}\n\n_Atendido por ${consulta?.atendido_por || receta.optometrista} — Grupo Óptico del Noroeste_`
     const wa = paciente.whatsapp?.replace(/\D/g, '') || paciente.telefono?.replace(/\D/g, '')
     window.open(`https://wa.me/${wa ? wa : ''}?text=${encodeURIComponent(texto)}`, '_blank')
   }
@@ -127,7 +128,9 @@ export default function HojaPage() {
   const edad     = calcEdad(paciente.fecha_nacimiento)
   const diagsArr = consulta?.diagnosticos?.length ? consulta.diagnosticos : (receta.diagnostico ? receta.diagnostico.split(', ') : [])
   const recs     = consulta?.rec_clinicas ?? []
-  const sucursal = consulta?.sucursal || 'GON Óptica'
+  const sucursal = consulta?.sucursal || ''
+  const sucCfg   = SUCURSAL_CONFIG[sucursal]
+  const sucNombre = sucCfg ? (sucCfg.nombreLinea2 ? `${sucCfg.nombreLinea1} · ${sucCfg.nombreLinea2}` : sucCfg.nombreLinea1) : (sucursal || 'Grupo Óptico del Noroeste')
   const opto     = consulta?.atendido_por || receta.optometrista
   const tieneAdd = receta.od_add || receta.oi_add
 
@@ -140,23 +143,22 @@ export default function HojaPage() {
         <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-[#0B0E14] text-white rounded text-sm font-semibold hover:bg-zinc-800 transition-colors"><Printer className="w-4 h-4" /> Imprimir</button>
       </div>
 
-      <div style={{ fontFamily: 'system-ui, sans-serif', background: '#F8FAFC', minHeight: '100vh' }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');`}</style>
+      <div style={{ fontFamily: "'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif", color: '#1E293B', background: '#F8FAFC', minHeight: '100vh' }}>
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px' }}>
 
         {/* Encabezado */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingBottom: 20, borderBottom: '2px solid #E2E8F0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg,#0D9488,#2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </div>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#0B0E14' }}>GON Óptica</div>
-              <div style={{ fontSize: 12, color: '#0D9488', fontStyle: 'italic' }}>Cuidamos tu visión, cuidamos de ti.</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/gon-logo.png" alt="Grupo Óptico del Noroeste" style={{ height: 54, width: 'auto' }} />
+            <div style={{ borderLeft: '1px solid #E2E8F0', paddingLeft: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#0B0E14', lineHeight: 1.2 }}>Grupo Óptico<br />del Noroeste</div>
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#0B0E14' }}>Resumen de tu consulta</div>
-            <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Sucursal {sucursal} · {opto}</div>
+            <div style={{ fontSize: 24, fontWeight: 600, color: '#0B0E14' }}>Resumen de tu consulta</div>
+            <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{sucNombre} · {opto}</div>
           </div>
           <div style={{ textAlign: 'right', background: '#EEF2FF', borderRadius: 12, padding: '10px 16px', minWidth: 140 }}>
             <div style={{ fontSize: 10, color: '#6366F1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Fecha de consulta</div>
@@ -275,9 +277,14 @@ export default function HojaPage() {
         {/* Footer */}
         <div style={{ background: 'linear-gradient(135deg, #4F46E5 0%, #0D9488 100%)', borderRadius: 16, padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 24, color: 'white' }}>
           <div style={{ flex: 1, fontSize: 11, lineHeight: 1.8 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>¿Tienes dudas o necesitas agendar tu próxima cita?</div>
-            <div>📍 {sucursal}</div>
-            {paciente.telefono && <div>📞 {paciente.telefono}</div>}
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>¿Tienes dudas o necesitas agendar tu próxima cita?</div>
+            <div style={{ fontWeight: 500 }}>{sucNombre}</div>
+            {sucCfg?.direccion && <div>📍 {sucCfg.direccion}</div>}
+            <div>
+              {sucCfg?.telefono && <span>📞 {sucCfg.telefono}</span>}
+              {sucCfg?.whatsapp && <span>{'   '}💬 WhatsApp {sucCfg.whatsapp}</span>}
+            </div>
+            {sucCfg?.horario && <div style={{ opacity: 0.85 }}>🕐 {sucCfg.horario}{sucCfg.web ? `  ·  ${sucCfg.web}` : ''}</div>}
           </div>
           <div style={{ textAlign: 'right', fontStyle: 'italic', opacity: 0.9 }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" style={{ marginBottom: 4 }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
