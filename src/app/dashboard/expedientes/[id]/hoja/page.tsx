@@ -70,24 +70,39 @@ function getIconoRec(t: string) {
   return <IcoCal />
 }
 
-function LensDiagram() {
+// Diagrama del lente que se adapta a la graduación real del paciente
+function LensDiagram({ sph, hasCyl, hasAdd }: { sph: number | null; hasCyl: boolean; hasAdd: boolean }) {
+  const sphTxt = sph === null ? 'Ajusta el enfoque.'
+    : sph > 0 ? 'Corrige la hipermetropía.'
+    : sph < 0 ? 'Corrige la miopía.'
+    : 'Sin defecto esférico.'
   return (
-    <svg viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full max-w-[220px]">
+    <svg viewBox="0 0 230 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full max-w-[230px]">
       <ellipse cx="90" cy="100" rx="52" ry="80" fill="rgba(147,197,253,0.25)" stroke="#93C5FD" strokeWidth="2"/>
-      <ellipse cx="90" cy="100" rx="30" ry="80" fill="rgba(147,197,253,0.15)" stroke="#93C5FD" strokeWidth="1" strokeDasharray="4 3"/>
+      {/* eje de astigmatismo — solo si hay cilindro */}
+      {hasCyl && <ellipse cx="90" cy="100" rx="30" ry="80" fill="rgba(13,148,136,0.10)" stroke="#0D9488" strokeWidth="1" strokeDasharray="4 3"/>}
+
+      {/* ESFERA — siempre */}
       <circle cx="90" cy="56" r="4" fill="#4F46E5"/>
       <line x1="94" y1="56" x2="145" y2="42" stroke="#4F46E5" strokeWidth="1.2"/>
       <text x="148" y="38" fontSize="10" fill="#4F46E5" fontWeight="700">Esfera (SPH)</text>
-      <text x="148" y="51" fontSize="9" fill="#6B7280">Corrige la miopía</text>
-      <text x="148" y="62" fontSize="9" fill="#6B7280">o hipermetropía.</text>
-      <circle cx="60" cy="100" r="4" fill="#0D9488"/>
-      <line x1="56" y1="100" x2="145" y2="100" stroke="#0D9488" strokeWidth="1.2" strokeDasharray="4 2"/>
-      <text x="148" y="96" fontSize="10" fill="#0D9488" fontWeight="700">Cilindro (CYL) y Eje</text>
-      <text x="148" y="108" fontSize="9" fill="#6B7280">Corrige el astigmatismo.</text>
-      <circle cx="90" cy="155" r="4" fill="#F43F5E"/>
-      <line x1="94" y1="155" x2="145" y2="158" stroke="#F43F5E" strokeWidth="1.2"/>
-      <text x="148" y="154" fontSize="10" fill="#F43F5E" fontWeight="700">ADD</text>
-      <text x="148" y="166" fontSize="9" fill="#6B7280">Adición para visión cercana.</text>
+      <text x="148" y="51" fontSize="9" fill="#6B7280">{sphTxt}</text>
+
+      {/* CILINDRO — solo si aplica */}
+      {hasCyl && <>
+        <circle cx="60" cy="100" r="4" fill="#0D9488"/>
+        <line x1="56" y1="100" x2="145" y2="96" stroke="#0D9488" strokeWidth="1.2" strokeDasharray="4 2"/>
+        <text x="148" y="93" fontSize="10" fill="#0D9488" fontWeight="700">Cilindro (CYL) y Eje</text>
+        <text x="148" y="105" fontSize="9" fill="#6B7280">Corrige el astigmatismo.</text>
+      </>}
+
+      {/* ADD — solo si hay adición */}
+      {hasAdd && <>
+        <circle cx="90" cy="155" r="4" fill="#F43F5E"/>
+        <line x1="94" y1="155" x2="145" y2="158" stroke="#F43F5E" strokeWidth="1.2"/>
+        <text x="148" y="154" fontSize="10" fill="#F43F5E" fontWeight="700">ADD</text>
+        <text x="148" y="166" fontSize="9" fill="#6B7280">Adición para ver de cerca.</text>
+      </>}
     </svg>
   )
 }
@@ -133,6 +148,12 @@ export default function HojaPage() {
   const sucNombre = sucCfg ? (sucCfg.nombreLinea2 ? `${sucCfg.nombreLinea1} · ${sucCfg.nombreLinea2}` : sucCfg.nombreLinea1) : (sucursal || 'Grupo Óptico del Noroeste')
   const opto     = consulta?.atendido_por || receta.optometrista
   const tieneAdd = receta.od_add || receta.oi_add
+  // Valores para que la ilustración se adapte a la graduación
+  const sphRaw = receta.od_esfera || receta.oi_esfera || ''
+  const sphParsed = fv(sphRaw) !== '—' ? parseFloat(sphRaw) : NaN
+  const sphVal = Number.isNaN(sphParsed) ? null : sphParsed
+  const hasCyl = fv(receta.od_cilindro) !== '—' || fv(receta.oi_cilindro) !== '—'
+  const hasAddDiag = !!tieneAdd
 
   return (
     <>
@@ -227,7 +248,7 @@ export default function HojaPage() {
                 <DPBox label="Tipo de lente" value={receta.tipo || '—'} big />
               </div>
             </div>
-            <div style={{ width: 220, flexShrink: 0 }}><LensDiagram /></div>
+            <div style={{ width: 230, flexShrink: 0 }}><LensDiagram sph={sphVal} hasCyl={hasCyl} hasAdd={hasAddDiag} /></div>
           </div>
           {receta.observaciones && <p style={{ marginTop: 12, fontSize: 11, color: '#64748B', fontStyle: 'italic', paddingTop: 10, borderTop: '1px solid #F1F5F9' }}>Observaciones: {receta.observaciones}</p>}
         </div>
