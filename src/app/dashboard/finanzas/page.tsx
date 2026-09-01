@@ -202,20 +202,44 @@ function FinanzasPage() {
     const { data: pagosData } = await qPagos
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pagosRows = (pagosData || []) as any[]
-    const cobradoTotal = pagosRows.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)
-    setIngresos(cobradoTotal)
     const ingSuc: Record<string, number> = {}
     const metSuc: Record<string, number> = {}
+    let cobradoTotal = 0
     let cobradoPrevias = 0
     for (const p of pagosRows) {
       const s = p.sucursal || '—'
       const monto = parseFloat(p.monto) || 0
+      cobradoTotal += monto
       ingSuc[s] = (ingSuc[s] || 0) + monto
       const met = p.metodo_pago || 'otros'
       metSuc[met] = (metSuc[met] || 0) + monto
       const ventaCreated = p.ventas?.created_at
       if (ventaCreated && ventaCreated < rangoInicio) cobradoPrevias += monto
     }
+
+    // ── Pagos de pacientes de ventas PREVIAS al sistema (ingresos_caja con cuenta_finanzas=true) ──
+    // Solo la categoría 'pago_previo' marca cuenta_finanzas=true; ajustes/cambio/entrada NO cuentan.
+    // No duplica con pagos_venta porque esas ventas no existen en el sistema.
+    let qPrevio = supabase
+      .from('ingresos_caja')
+      .select('monto, metodo_pago, sucursal, fecha, cuenta_finanzas')
+      .eq('cuenta_finanzas', true)
+      .gte('fecha', inicio)
+      .lte('fecha', fin)
+    if (sucursal !== 'Todas') qPrevio = qPrevio.eq('sucursal', sucursal)
+    const { data: previoData } = await qPrevio
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const p of (previoData || []) as any[]) {
+      const s = p.sucursal || '—'
+      const monto = parseFloat(p.monto) || 0
+      cobradoTotal += monto
+      cobradoPrevias += monto            // es dinero de una venta anterior por definición
+      ingSuc[s] = (ingSuc[s] || 0) + monto
+      const met = p.metodo_pago || 'efectivo'
+      metSuc[met] = (metSuc[met] || 0) + monto
+    }
+
+    setIngresos(cobradoTotal)
     setIngresosPorSuc(ingSuc)
     setPorMetodo(metSuc)
     setCobradoAnteriores(cobradoPrevias)
