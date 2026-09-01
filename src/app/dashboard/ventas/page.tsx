@@ -468,6 +468,8 @@ export default function VentasPage() {
   const [buscarProd, setBuscarProd]   = useState('')
   const [guardandoMod, setGuardandoMod] = useState(false)
   const [guardandoAbono, setGuardandoAbono] = useState(false)
+  const [editMetodoId, setEditMetodoId] = useState<string | null>(null)
+  const [guardandoMetodo, setGuardandoMetodo] = useState(false)
 
   const fetchAbonoTC = async () => {
     setAbonoLoadingTC(true)
@@ -785,6 +787,28 @@ export default function VentasPage() {
     }
     setVentas(prev => prev.map(v => v.id === detalle.id ? ventaActualizada : v))
     setDetalle(ventaActualizada)
+  }
+
+  // Corregir el método de un pago SIN mover sucursal/fecha/monto (arregla errores de captura
+  // sin descuadrar la caja de la sucursal). Recomputa las comisiones de terminal del folio.
+  const cambiarMetodoPago = async (pago: Pago, nuevoMetodo: string) => {
+    if (!detalle || !pago.pagos_venta_id || nuevoMetodo === pago.metodo) { setEditMetodoId(null); return }
+    setGuardandoMetodo(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('pagos_venta').update({ metodo_pago: nuevoMetodo }).eq('id', pago.pagos_venta_id)
+    if (error) { alert(`Error: ${error.message}`); setGuardandoMetodo(false); return }
+    // Recomputar comisiones de terminal del folio (borra las viejas y re-registra por cada pago con tarjeta)
+    await supabase.from('gastos').delete().eq('categoria', 'comision_terminal').ilike('concepto', `%${detalle.id}%`)
+    const nuevosPagos = detalle.pagos.map(p => p.pagos_venta_id === pago.pagos_venta_id ? { ...p, metodo: nuevoMetodo } : p)
+    for (const p of nuevosPagos) {
+      if (p.metodo === 'debito' || p.metodo === 'credito') {
+        await registrarComisionTerminal({ metodoPago: p.metodo, monto: p.monto, folio: detalle.id, sucursal: detalle.sucursal })
+      }
+    }
+    const va: Venta = { ...detalle, pagos: nuevosPagos }
+    setVentas(prev => prev.map(v => v.id === detalle.id ? va : v))
+    setDetalle(va)
+    setEditMetodoId(null); setGuardandoMetodo(false)
   }
 
   // ── Modificar venta: abrir el editor y cargar catálogo ──
@@ -1248,12 +1272,29 @@ export default function VentasPage() {
                       <div key={i} className="flex items-center justify-between bg-zinc-50 rounded-lg px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-zinc-400">#{i + 1} · {p.fecha}</span>
-                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${b.cls}`}>
-                            <Icon className="w-3 h-3" />{b.label}
-                          </span>
+                          {editMetodoId === p.pagos_venta_id ? (
+                            <select autoFocus defaultValue={p.metodo} disabled={guardandoMetodo}
+                              onChange={e => cambiarMetodoPago(p, e.target.value)}
+                              className="text-xs border border-[#0D9488] rounded px-1.5 py-0.5 bg-white focus:outline-none">
+                              {METODOS_ABONO.map(m => <option key={m} value={m}>{metodoBadge[m]?.label ?? m}</option>)}
+                            </select>
+                          ) : (
+                            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${b.cls}`}>
+                              <Icon className="w-3 h-3" />{b.label}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-emerald-700">+${p.monto.toLocaleString('es-MX')}</span>
+                          {esAdmin && p.pagos_venta_id && editMetodoId !== p.pagos_venta_id && (
+                            <button
+                              onClick={() => setEditMetodoId(p.pagos_venta_id!)}
+                              title="Corregir método de pago"
+                              className="w-5 h-5 flex items-center justify-center rounded-full text-zinc-400 hover:text-[#0D9488] hover:bg-teal-50 transition-colors"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          )}
                           {esAdmin && p.pagos_venta_id && (
                             <button
                               onClick={() => eliminarPago(p)}
