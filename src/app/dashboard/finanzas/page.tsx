@@ -130,6 +130,12 @@ function FinanzasPage() {
   const [gastos,     setGastos]     = useState<Gasto[]>([])
   const [ingresosPorSuc, setIngresosPorSuc] = useState<Record<string, number>>({})
   const [costoLabPorSuc, setCostoLabPorSuc] = useState<Record<string, number>>({})
+  // Fase 0 motor corregido
+  const [cobradoAnteriores, setCobradoAnteriores] = useState(0)   // cobros del periodo de ventas de periodos previos
+  const [porMetodo,   setPorMetodo]   = useState<Record<string, number>>({})
+  const [garantias,   setGarantias]   = useState(0)               // costo de lab de órdenes es_garantia (línea propia)
+  const [garantiasPorSuc, setGarantiasPorSuc] = useState<Record<string, number>>({})
+  const [overheadModo, setOverheadModo] = useState<'igual' | 'proporcional'>('igual')
   const [porLab,     setPorLab]     = useState<{ nombre: string; total: number; count: number }[]>([])
   const [cargando,   setCargando]   = useState(true)
 
@@ -170,7 +176,7 @@ function FinanzasPage() {
     const rangoFin    = rangoDiaLocal(fin).end
     const supabase = createClient()
 
-    // Cobrado: lo que efectivamente entró de ventas del período (total - saldo)
+    // ── FACTURADO: ventas creadas en el periodo (por created_at) ──
     let qVentas = supabase
       .from('ventas')
       .select('folio, total, saldo, created_at, atendido_por, sucursal')
@@ -181,62 +187,52 @@ function FinanzasPage() {
       .order('created_at', { ascending: false })
     if (sucursal !== 'Todas') qVentas = qVentas.eq('sucursal', sucursal)
     const { data: ventasData } = await qVentas
-    const ventasRows = ventasData || []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setTotalVentas(ventasRows.reduce((s: number, v: any) => s + (parseFloat(v.total) || 0), 0))
-    const cobradoVentas = ventasRows.reduce((s, v) => s + (v.total - v.saldo), 0)
-    // Ingresos manuales de caja marcados como ingreso real (ej. pago de venta previa).
-    // Si la tabla no existe aún, data llega null y no rompe nada.
-    let qIngCaja = supabase
-      .from('ingresos_caja')
-      .select('monto, sucursal, fecha, concepto, notas')
-      .eq('cuenta_finanzas', true)
-      .gte('fecha', inicio)
-      .lte('fecha', fin)
-    if (sucursal !== 'Todas') qIngCaja = qIngCaja.eq('sucursal', sucursal)
-    const { data: ingCajaData } = await qIngCaja
-    const ingCajaRows = ingCajaData || []
+    const ventasRows = (ventasData || []) as any[]
+    setTotalVentas(ventasRows.reduce((s: number, v) => s + (parseFloat(v.total) || 0), 0))
+
+    // ── COBRADO: dinero realmente recibido en el periodo (pagos_venta por fecha de pago) ──
+    // Se trae la fecha de la venta relacionada para separar los cobros de ventas anteriores.
+    let qPagos = supabase
+      .from('pagos_venta')
+      .select('monto, metodo_pago, sucursal, created_at, tipo, ventas(created_at)')
+      .gte('created_at', rangoInicio)
+      .lte('created_at', rangoFin)
+    if (sucursal !== 'Todas') qPagos = qPagos.eq('sucursal', sucursal)
+    const { data: pagosData } = await qPagos
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalIngCaja = ingCajaRows.reduce((s: number, r: any) => s + (parseFloat(r.monto) || 0), 0)
-    setIngresos(cobradoVentas + totalIngCaja)
-    // Ingresos (cobrado) por sucursal — para el P&L por óptica
+    const pagosRows = (pagosData || []) as any[]
+    const cobradoTotal = pagosRows.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0)
+    setIngresos(cobradoTotal)
     const ingSuc: Record<string, number> = {}
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const v of ventasRows as any[]) {
-      const s = v.sucursal || '—'
-      ingSuc[s] = (ingSuc[s] || 0) + ((parseFloat(v.total) || 0) - (parseFloat(v.saldo) || 0))
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const r of ingCajaRows as any[]) {
-      const s = r.sucursal || '—'
-      ingSuc[s] = (ingSuc[s] || 0) + (parseFloat(r.monto) || 0)
+    const metSuc: Record<string, number> = {}
+    let cobradoPrevias = 0
+    for (const p of pagosRows) {
+      const s = p.sucursal || '—'
+      const monto = parseFloat(p.monto) || 0
+      ingSuc[s] = (ingSuc[s] || 0) + monto
+      const met = p.metodo_pago || 'otros'
+      metSuc[met] = (metSuc[met] || 0) + monto
+      const ventaCreated = p.ventas?.created_at
+      if (ventaCreated && ventaCreated < rangoInicio) cobradoPrevias += monto
     }
     setIngresosPorSuc(ingSuc)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setVentasDetalle([
-      ...ventasRows.map((v: any) => ({
-        folio:       v.folio ?? '',
-        // Fecha en hora de Tijuana (no UTC): si no, una venta de la tarde/noche
-        // se ve como del día siguiente.
-        fecha:       v.created_at ? new Date(v.created_at as string).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' }) : '',
-        atendidoPor: v.atendido_por ?? '',
-        total:       parseFloat(v.total) || 0,
-        saldo:       parseFloat(v.saldo) || 0,
-      })),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ...ingCajaRows.map((r: any) => ({
-        folio:       `Caja · ${r.notas || r.concepto || 'pago previo'}`,
-        fecha:       r.fecha ?? '',
-        atendidoPor: '',
-        total:       parseFloat(r.monto) || 0,
-        saldo:       0,
-      })),
-    ])
+    setPorMetodo(metSuc)
+    setCobradoAnteriores(cobradoPrevias)
+
+    // Detalle de facturado (ventas del periodo)
+    setVentasDetalle(ventasRows.map((v) => ({
+      folio:       v.folio ?? '',
+      fecha:       v.created_at ? new Date(v.created_at as string).toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' }) : '',
+      atendidoPor: v.atendido_por ?? '',
+      total:       parseFloat(v.total) || 0,
+      saldo:       parseFloat(v.saldo) || 0,
+    })))
 
     // Costo lab: órdenes pagadas — usa fecha_pago_lab para reflejar cuándo salió el dinero
     let qLab = supabase
       .from('ordenes_lab')
-      .select('folio, costo_lab, laboratorio, fecha_pago_lab, paciente, sucursal')
+      .select('folio, costo_lab, laboratorio, fecha_pago_lab, paciente, sucursal, es_garantia')
       .eq('pagado_lab', true)
       .gt('costo_lab', 0)
       .gte('fecha_pago_lab', inicio)
@@ -244,16 +240,19 @@ function FinanzasPage() {
       .order('fecha_pago_lab', { ascending: false })
     if (sucursal !== 'Todas') qLab = qLab.eq('sucursal', sucursal)
     const { data: labData } = await qLab
-    const labRows = labData || []
-    setCostoLab(labRows.reduce((s, r) => s + (r.costo_lab || 0), 0))
-    // Costo de laboratorio por sucursal — para el P&L por óptica
-    const labSuc: Record<string, number> = {}
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const r of labRows as any[]) {
-      const s = r.sucursal || '—'
-      labSuc[s] = (labSuc[s] || 0) + (parseFloat(r.costo_lab) || 0)
-    }
+    const labRows = (labData || []) as any[]
+    // Separar garantías (es_garantia) del costo de laboratorio normal
+    const labNormales = labRows.filter(r => !r.es_garantia)
+    const labGarantias = labRows.filter(r => r.es_garantia)
+    setCostoLab(labNormales.reduce((s, r) => s + (parseFloat(r.costo_lab) || 0), 0))
+    setGarantias(labGarantias.reduce((s, r) => s + (parseFloat(r.costo_lab) || 0), 0))
+    const labSuc: Record<string, number> = {}
+    const garSuc: Record<string, number> = {}
+    for (const r of labNormales) { const s = r.sucursal || '—'; labSuc[s] = (labSuc[s] || 0) + (parseFloat(r.costo_lab) || 0) }
+    for (const r of labGarantias) { const s = r.sucursal || '—'; garSuc[s] = (garSuc[s] || 0) + (parseFloat(r.costo_lab) || 0) }
     setCostoLabPorSuc(labSuc)
+    setGarantiasPorSuc(garSuc)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setLabDetalle(labRows.map((r: any) => ({
       folio:       r.folio ?? '',
@@ -304,7 +303,7 @@ function FinanzasPage() {
   const retirosAdmin     = gastos.filter(g => CATEGORIAS_RETIRO.includes(g.categoria))
   const totalGastos      = gastosOperativos.reduce((s, g) => s + g.monto, 0)
   const totalRetiros     = retirosAdmin.reduce((s, g) => s + g.monto, 0)
-  const utilidadBruta    = ingresos - costoLab
+  const utilidadBruta    = ingresos - costoLab - garantias   // garantías = línea propia
   const utilidadNeta     = utilidadBruta - totalGastos
   const flujoNeto        = utilidadNeta - totalRetiros
   const margen           = ingresos > 0 ? Math.round((utilidadNeta / ingresos) * 100) : 0
@@ -319,13 +318,19 @@ function FinanzasPage() {
   // Se reparten en partes iguales entre las 3 ópticas (overhead ÷ 3).
   const SUCS_FIN = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
   const overheadGeneral = gastosOperativos.filter(g => !SUCS_FIN.includes(g.sucursal)).reduce((s, g) => s + g.monto, 0)
-  const overheadPorSuc  = overheadGeneral / 3
+  const ingTotal3 = SUCS_FIN.reduce((s, x) => s + (ingresosPorSuc[x] || 0), 0)
+  // Overhead: ÷3 (igual) o proporcional a la venta cobrada de cada sucursal
+  const overheadDe = (s: string) => overheadModo === 'proporcional'
+    ? (ingTotal3 > 0 ? overheadGeneral * ((ingresosPorSuc[s] || 0) / ingTotal3) : overheadGeneral / 3)
+    : overheadGeneral / 3
   const finPorSucursal = SUCS_FIN.map(s => {
     const ing      = ingresosPorSuc[s] || 0
     const lab      = costoLabPorSuc[s] || 0
+    const gar      = garantiasPorSuc[s] || 0
     const directos = gastosOperativos.filter(g => g.sucursal === s).reduce((a, g) => a + g.monto, 0)
-    const util     = ing - lab - directos - overheadPorSuc
-    return { nombre: s, ing, lab, directos, overhead: overheadPorSuc, util, margen: ing > 0 ? Math.round((util / ing) * 100) : 0 }
+    const overhead = overheadDe(s)
+    const util     = ing - lab - gar - directos - overhead
+    return { nombre: s, ing, lab, gar, directos, overhead, util, margen: ing > 0 ? Math.round((util / ing) * 100) : 0 }
   }).sort((a, b) => b.util - a.util)
 
   // ── Guardar / editar gasto ──
@@ -462,9 +467,15 @@ function FinanzasPage() {
             <div className="bg-white rounded-lg border border-zinc-200/80 p-5">
               <div className="flex items-baseline justify-between mb-1">
                 <h3 className="text-sm font-bold text-zinc-700">Rentabilidad por sucursal</h3>
-                {overheadGeneral > 0 && (
-                  <span className="text-[11px] text-zinc-400">Overhead general {$$(overheadGeneral)} repartido ÷3</span>
-                )}
+                <div className="flex items-center gap-2">
+                  {overheadGeneral > 0 && (
+                    <span className="text-[11px] text-zinc-400">Overhead general {$$(overheadGeneral)}</span>
+                  )}
+                  <div className="inline-flex rounded-lg border border-zinc-200 overflow-hidden text-[10px] font-semibold">
+                    <button onClick={() => setOverheadModo('igual')} className={`px-2 py-1 ${overheadModo === 'igual' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>÷3 igual</button>
+                    <button onClick={() => setOverheadModo('proporcional')} className={`px-2 py-1 ${overheadModo === 'proporcional' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:bg-zinc-50'}`}>Proporcional</button>
+                  </div>
+                </div>
               </div>
               <p className="text-xs text-zinc-400 mb-4">Cada óptica como su propio negocio · utilidad real con su parte de gastos generales</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -484,8 +495,9 @@ function FinanzasPage() {
                       <div className="mt-3 space-y-1.5">
                         <div className="flex justify-between text-xs"><span className="text-zinc-500">Ingresos</span><span className="font-semibold text-zinc-700">{$$(s.ing)}</span></div>
                         <div className="flex justify-between text-xs"><span className="text-zinc-500">− Costo laboratorio</span><span className="text-violet-600">−{$$(s.lab)}</span></div>
+                        {s.gar > 0 && <div className="flex justify-between text-xs"><span className="text-zinc-500">− Garantías</span><span className="text-orange-600">−{$$(s.gar)}</span></div>}
                         <div className="flex justify-between text-xs"><span className="text-zinc-500">− Gastos directos</span><span className="text-red-500">−{$$(s.directos)}</span></div>
-                        <div className="flex justify-between text-xs"><span className="text-zinc-500">− Overhead (÷3)</span><span className="text-amber-600">−{$$(s.overhead)}</span></div>
+                        <div className="flex justify-between text-xs"><span className="text-zinc-500">− Overhead ({overheadModo === 'igual' ? '÷3' : 'prop.'})</span><span className="text-amber-600">−{$$(s.overhead)}</span></div>
                         <div className="flex justify-between text-sm pt-2 mt-1 border-t border-zinc-100">
                           <span className="font-bold text-zinc-700">Utilidad neta</span>
                           <span className={`font-bold ${s.util >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{$$(s.util)}</span>
@@ -519,6 +531,17 @@ function FinanzasPage() {
                       <span className="text-zinc-400 text-xs">Cobrado: <span className="font-bold text-teal-600">{$$(ingresos)}</span></span>
                     </div>
                   </div>
+                  {(Object.keys(porMetodo).length > 0 || cobradoAnteriores > 0) && (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 bg-zinc-50 border-b border-zinc-100 text-[11px] text-zinc-500">
+                      <span className="font-semibold text-zinc-400 uppercase tracking-wide">Cobrado por método:</span>
+                      {Object.entries(porMetodo).sort((a, b) => b[1] - a[1]).map(([m, v]) => (
+                        <span key={m}>{m}: <span className="font-bold text-zinc-700">{$$(v)}</span></span>
+                      ))}
+                      {cobradoAnteriores > 0 && (
+                        <span className="ml-auto text-zinc-400">Incluye {$$(cobradoAnteriores)} de ventas de períodos anteriores</span>
+                      )}
+                    </div>
+                  )}
                   {ventasDetalle.length === 0 ? (
                     <p className="text-sm text-zinc-400 text-center py-10">Sin ventas en este período</p>
                   ) : (
@@ -679,8 +702,9 @@ function FinanzasPage() {
                 <div className="px-5 py-5">
                   <h3 className="text-sm font-bold text-zinc-700 mb-4">Estado de resultados</h3>
                   <div className="divide-y divide-zinc-100">
-                    <ResumenRow label="Cobrado en ventas del período" value={ingresos} />
+                    <ResumenRow label="Cobrado en el período" value={ingresos} />
                     <ResumenRow label="− Costo de laboratorio" value={-costoLab} indent color="text-violet-600" />
+                    {garantias > 0 && <ResumenRow label="− Garantías (re-trabajos)" value={-garantias} indent color="text-orange-600" />}
                     <ResumenRow label="Utilidad bruta" value={utilidadBruta} bold color={utilidadBruta >= 0 ? 'text-zinc-900' : 'text-red-600'} />
                     {CATEGORIAS_GASTO.map(cat => {
                       const total = gastosOperativos.filter(g => g.categoria === cat).reduce((s, g) => s + g.monto, 0)
