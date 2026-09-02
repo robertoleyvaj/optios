@@ -60,9 +60,12 @@ El archivo muestra AMBOS por separado. No los llames a los dos "utilidad neta".
 - **Cobros de ventas** = Σ pagos del mes (por fecha de pago). **Otros ingresos de caja** = ingresos_caja \`pago_previo\` (ventas previas al sistema). **Total cobrado** = suma de ambos.
 - **Costo de laboratorio** = Σ costo_lab de órdenes pagadas en el mes (garantías aparte).
 - **Resultado operativo (base cobrado)** = Total cobrado − costo lab − garantías − gastos operativos.
-- **Resultado devengado (aprox.)** = Facturado − costo de ventas del mes − gastos operativos.
-- **Flujo neto** = Resultado operativo − retiros − compras de inventario.
-- **Margen del trabajo** = precio al cliente del par − costo de laboratorio (incluye armazón y tratamiento; NO es margen puro del lente).
+- **Resultado operativo provisional (devengado)** = Facturado − costo de ventas del mes − gastos operativos. Es PROVISIONAL: faltan costos de armazón y algunas órdenes de lab; no es utilidad final.
+- **Flujo identificado** = Resultado operativo − retiros − compras de inventario.
+- **Flujo después de salidas por aclarar** = Flujo identificado − movimientos "por aclarar" que salieron de caja.
+- **Margen del trabajo** = precio del par − costo de laboratorio (incluye armazón y tratamiento; NO es margen puro del lente).
+- **Margen específico de óptica** = (precio del par − precio del armazón en la venta) − costo de laboratorio. Aísla mica+tratamientos. Si el precio del par ya excluye el armazón, coincide con el margen del trabajo.
+- **Compras de inventario** (categoría \`compras\` o \`proveedores\` de mercancía) NO son gasto operativo del mes: son salida de efectivo que se vuelve costo solo al vender. El costo de inventario vendido aún no se puede calcular (faltan costos por armazón).
 
 ## KPIs aproximados (no presentar como exactos)
 - Conversión examen/cita → venta (cruce por teléfono; se necesita relación por ID paciente–venta para ser confiable).

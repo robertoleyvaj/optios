@@ -68,14 +68,20 @@ export function computeMetrics(d: MesData) {
   const costoLab  = r2(labPagadas.filter(o => !o.es_garantia).reduce((s, o) => s + num(o.costo_lab), 0))
   const garantias = r2(labPagadas.filter(o =>  o.es_garantia).reduce((s, o) => s + num(o.costo_lab), 0))
 
-  // ── Egresos, clasificados por es_caja y por naturaleza ──
+  // ── Egresos, clasificados por es_caja, moneda y naturaleza ──
   const esCaja = (g: Row) => g.es_caja === true
-  const retirosRows  = d.gastos.filter(g => g.categoria === CAT_RETIRO)                 // dueño (no es gasto)
+  const esUSD  = (g: Row) => String(g.metodo_pago) === 'efectivo_usd'
+  // Compra de inventario/activo: categoría 'compras' o 'proveedores' cuyo concepto es de mercancía
+  const RX_INVENTARIO = /armaz|estuch|marco|micas?\b|lente|repuesto|mercanc|inventario/i
+  const esInventario = (g: Row) => CAT_INVERSION.includes(g.categoria)
+    || (g.categoria === 'proveedores' && RX_INVENTARIO.test(String(g.concepto ?? '')))
+
+  const retirosRows    = d.gastos.filter(g => g.categoria === CAT_RETIRO)                 // dueño (no es gasto)
   const porAclararRows = d.gastos.filter(g => esOtroGenerico(g) && g.categoria !== CAT_RETIRO)
-  const inversionRows = d.gastos.filter(g => CAT_INVERSION.includes(g.categoria))
-  // Gasto operativo = entró por Finanzas (no caja), no es retiro, ni "otros", ni inversión
+  const inversionRows  = d.gastos.filter(g => esInventario(g) && g.categoria !== CAT_RETIRO && !esOtroGenerico(g))
+  // Gasto operativo = entró por Finanzas (no caja), no es retiro, ni "otros", ni inversión de inventario
   const gastosOperativos = d.gastos.filter(g =>
-    !esCaja(g) && g.categoria !== CAT_RETIRO && !esOtroGenerico(g) && !CAT_INVERSION.includes(g.categoria))
+    !esCaja(g) && g.categoria !== CAT_RETIRO && !esOtroGenerico(g) && !esInventario(g))
 
   const totalRetiros    = r2(retirosRows.reduce((s, g) => s + num(g.monto), 0))
   const totalPorAclarar = r2(porAclararRows.reduce((s, g) => s + num(g.monto), 0))
@@ -83,10 +89,21 @@ export function computeMetrics(d: MesData) {
   const totalGastosOp   = r2(gastosOperativos.reduce((s, g) => s + num(g.monto), 0))
   const comisionTerminal = r2(gastosOperativos.filter(g => g.categoria === 'comision_terminal').reduce((s, g) => s + num(g.monto), 0))
 
-  // ── Resultados: base caja vs base devengado (NO son lo mismo) ──
-  const resultadoOperativoCaja = r2(cobradoTotal - costoLab - garantias - totalGastosOp)   // sobre lo cobrado
-  const flujoNeto = r2(resultadoOperativoCaja - totalRetiros - totalInversion)             // efectivo real
-  // Devengado (aprox.): facturado − costo lab de órdenes de ventas del mes − gastos del mes
+  // Movimientos por aclarar: los que SÍ salieron de caja afectan el efectivo; los demás no
+  const porAclararCaja   = porAclararRows.filter(esCaja)
+  const totalAclararCaja = r2(porAclararCaja.reduce((s, g) => s + num(g.monto), 0))
+  const totalAclararNoCaja = r2(totalPorAclarar - totalAclararCaja)
+  // Movimientos en USD (verificar tipo de cambio; el campo monto puede NO estar en MXN)
+  const usdRows = d.gastos.filter(esUSD)
+  const movimientosUSD = { registros: usdRows.length, monto: r2(usdRows.reduce((s, g) => s + num(g.monto), 0)) }
+
+  // ── Resultados ──
+  const resultadoOperativoCaja = r2(cobradoTotal - costoLab - garantias - totalGastosOp)
+  // Dos flujos de efectivo (punto 1): identificado y después de las salidas por aclarar
+  const flujoIdentificado = r2(resultadoOperativoCaja - totalRetiros - totalInversion)
+  const flujoDespuesAclarar = r2(flujoIdentificado - totalAclararCaja)
+  const flujoNeto = flujoDespuesAclarar
+  // Devengado provisional (aprox.): facturado − costo lab de órdenes de ventas del mes − gastos del mes
   const costoVentasMes = r2(d.ordenes.filter(o => o.venta_id && ventaRealIdSet.has(o.venta_id) && !o.es_garantia)
     .reduce((s, o) => s + num(o.costo_lab), 0))
   const utilidadDevengada = r2(facturado - costoVentasMes - totalGastosOp)
@@ -169,17 +186,27 @@ export function computeMetrics(d: MesData) {
   }))
 
   // ── Conversión: distribución REAL de estados de cita (no inventar tasas) ──
+  const hoyTij = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
   const estadoCitas: Record<string, number> = {}
   for (const c of d.citas) estadoCitas[String(c.estado || '—').toLowerCase()] = (estadoCitas[String(c.estado || '—').toLowerCase()] || 0) + 1
   const ventasPhones = new Set(ventasReales.map(v => normTel(v.paciente_telefono)).filter(Boolean))
+  const examPhones = new Set(d.consultas.map(c => d.consultasTel[c.paciente_id]).filter(Boolean))
   const citasConv = d.citas.filter(c => ventasPhones.has(normTel(c.paciente_telefono))).length
   const examConv = d.consultas.filter(c => ventasPhones.has(d.consultasTel[c.paciente_id] || '')).length
+  const noFinal = (e: string) => ['agendada', 'confirmada', '', '—'].includes(String(e).toLowerCase())
+  // Citas ya vencidas (fecha pasó) que siguen sin estado final → hay que clasificarlas a mano
+  const citasVencidasSinFinal = d.citas.filter(c => c.fecha && c.fecha < hoyTij && noFinal(c.estado))
   const conversion = {
     examenes: d.consultas.length, citas: d.citas.length, estadoCitas,
     ventas: ventasReales.length, examConvertidos: examConv, citasConvertidas: citasConv,
     tasaExamen: d.consultas.length ? examConv / d.consultas.length : 0,
     tasaCita: d.citas.length ? citasConv / d.citas.length : 0,
-    estadosCapturados: Object.keys(estadoCitas).some(k => ['atendida', 'confirmada', 'cancelada', 'no_asistio'].includes(k)),
+    citasVencidasSinFinal: citasVencidasSinFinal.length,
+    citasCanceladas: d.citas.filter(c => String(c.estado).toLowerCase() === 'cancelada').length,
+    citasConVenta: d.citas.filter(c => ventasPhones.has(normTel(c.paciente_telefono))).length,
+    citasConExamen: d.citas.filter(c => examPhones.has(normTel(c.paciente_telefono))).length,
+    // "capturados" solo si NO quedan citas vencidas en estado no-final
+    estadosCapturados: citasVencidasSinFinal.length === 0 && d.citas.length > 0,
   }
 
   // ── Trabajos del mes; separar CON costo vs SIN costo (no inflar márgenes) ──
@@ -188,13 +215,17 @@ export function computeMetrics(d: MesData) {
   const sinCosto = trabajosMes.filter(o => num(o.costo_lab) <= 0)
   const ordenesSinCostoDet = sinCosto.map(o => ({
     folio: o.folio, folioVenta: o.folio_venta, paciente: o.paciente, fecha: o.fecha_ingreso, sucursal: o.sucursal,
-    laboratorio: o.laboratorio, tipoLente: o.tipo_mica, ingreso: num(o.precio_cliente),
+    empleada: o.creado_por || '', tipoLente: o.tipo_mica, laboratorio: o.laboratorio || '(falta)',
+    ingreso: num(o.precio_cliente), estatus: o.estado || '', motivo: 'costo_lab no capturado',
   }))
   const ingresoSinCosto = r2(sinCosto.reduce((s, o) => s + num(o.precio_cliente), 0))
 
-  // Nota: "ingreso" aquí es el precio del PAR (mica+armazón+tratamiento), no solo la mica.
-  // Por eso el KPI se llama "margen del trabajo", no "rentabilidad del lente".
-  const grupo = (rows: Row[], key: (o: Row) => string) => {
+  // Precio del armazón dentro de la venta (para separar ingreso de mica+tratamientos)
+  const armazonEnVenta = (vid: string) => (itemsPorVenta[vid] || [])
+    .filter(it => /^(VRL|ARMZ)-/i.test(String(it.sku ?? ''))).reduce((s, it) => s + num(it.subtotal), 0)
+
+  // Tabla 1 — margen del TRABAJO COMPLETO (precio del par − costo lab). Incluye armazón.
+  const grupoTrabajo = (rows: Row[], key: (o: Row) => string) => {
     const m: Record<string, any> = {}
     for (const o of rows) {
       const k = key(o)
@@ -207,8 +238,37 @@ export function computeMetrics(d: MesData) {
       margenPct: g.ingresoTrabajo ? (g.ingresoTrabajo - g.costo) / g.ingresoTrabajo : 0,
     })).sort((a, b) => b.margenTrabajo - a.margenTrabajo)
   }
-  const porTipoLente   = grupo(conCosto, o => normLente(o.tipo_mica))
-  const porTratamiento = grupo(conCosto, o => normTrat(o.tratamiento))
+  const porTipoLente   = grupoTrabajo(conCosto, o => normLente(o.tipo_mica))
+  const porTratamiento = grupoTrabajo(conCosto, o => normTrat(o.tratamiento))
+
+  // Tabla 2 — rentabilidad ESPECÍFICA de óptica: ingreso de mica+tratamientos (sin armazón) − costo lab.
+  // ingresoOptica = precio_cliente − precio del armazón en la venta (piso 0). Aprox.: si precio_cliente
+  // ya excluye el armazón, ambas tablas coinciden.
+  const grupoOptica = (rows: Row[], key: (o: Row) => string) => {
+    const m: Record<string, any> = {}
+    for (const o of rows) {
+      const k = key(o)
+      const armz = o.venta_id ? armazonEnVenta(o.venta_id) : 0
+      const ingOptica = Math.max(0, num(o.precio_cliente) - armz)
+      const g = (m[k] ||= { clave: k, piezas: 0, ingresoOptica: 0, costo: 0 })
+      g.piezas += 1; g.ingresoOptica += ingOptica; g.costo += num(o.costo_lab)
+    }
+    return Object.values(m).map((g: any) => ({
+      clave: g.clave, piezas: g.piezas, ingresoOptica: r2(g.ingresoOptica), costo: r2(g.costo),
+      margenOptica: r2(g.ingresoOptica - g.costo),
+      margenPct: g.ingresoOptica ? (g.ingresoOptica - g.costo) / g.ingresoOptica : 0,
+    })).sort((a, b) => b.margenOptica - a.margenOptica)
+  }
+  const porTipoLenteOptica = grupoOptica(conCosto, o => normLente(o.tipo_mica))
+
+  // Ventas con costos incompletos (armazón sin costo y/o lab sin costo)
+  const skuArmazon = (v: Row) => (itemsPorVenta[v.id] || []).some(it => /^(VRL|ARMZ)-/i.test(String(it.sku ?? '')))
+  const ordenSinCostoDeVenta = new Set(sinCosto.map(o => o.venta_id).filter(Boolean))
+  const ventasConArmazon = ventasReales.filter(skuArmazon)
+  const ventasArmazonSinCosto = ventasConArmazon.length   // todos: aún no hay costo por armazón
+  const ventasLabSinCosto = ventasReales.filter(v => ordenSinCostoDeVenta.has(v.id)).length
+  const ingresoVentasIncompletas = r2(ventasReales.filter(v => skuArmazon(v) || ordenSinCostoDeVenta.has(v.id))
+    .reduce((s, v) => s + num(v.total), 0))
 
   // ── Laboratorios (solo trabajos con costo para rentabilidad; muestra tamaño de muestra) ──
   const labsMap: Record<string, any> = {}
@@ -232,13 +292,28 @@ export function computeMetrics(d: MesData) {
     urgentes: g.urgentes, garantias: g.garantias, abiertas: g.abiertas,
   })).sort((a, b) => b.piezas - a.piezas)
 
-  // ── Garantías (conserva venta original; marca faltantes) ──
-  const garantiasDet = d.ordenes.filter(o => o.es_garantia).map(o => ({
-    folio: o.folio, folioOrigen: o.folio_origen || '(falta)', fechaOrden: o.fecha_ingreso, fechaCosto: o.fecha_pago_lab || '',
-    sucursal: o.sucursal, laboratorio: o.laboratorio || '(falta)', tipoLente: o.tipo_mica,
-    motivo: o.motivo_problema || '(falta)', costo: num(o.costo_lab), paciente: o.paciente,
-    absorbioOptica: num(o.costo_lab) > 0 ? 'sí (costo>0)' : 'revisar (costo 0)',
-  }))
+  // ── Garantías (conserva venta original; el COSTO del mes usa la fecha económica = fecha_pago_lab) ──
+  const enMes = (f: string) => f >= d.fechaIni && f <= d.fechaFin
+  const garantiasDet = d.ordenes.filter(o => o.es_garantia).map(o => {
+    const abiertaMes = enMes(o.fecha_ingreso || '')
+    const costoMes = o.fecha_pago_lab ? enMes(o.fecha_pago_lab) : false
+    const periodo = costoMes && abiertaMes ? 'abierta y costo en el mes'
+      : costoMes ? 'costo del mes (abierta antes)'
+      : abiertaMes ? 'abierta en el mes (costo otro mes)'
+      : 'fuera del mes'
+    return {
+      folio: o.folio, folioOrigen: o.folio_origen || '(falta)', fechaOrden: o.fecha_ingreso, fechaCosto: o.fecha_pago_lab || '',
+      periodo, sucursal: o.sucursal, laboratorio: o.laboratorio || '(falta)', tipoLente: o.tipo_mica,
+      motivo: o.motivo_problema || '(falta)', costo: num(o.costo_lab), paciente: o.paciente,
+      absorbioOptica: num(o.costo_lab) > 0 ? 'sí (costo>0)' : 'revisar (costo 0)',
+    }
+  })
+  const garantiasResumen = {
+    abiertasMes: d.ordenes.filter(o => o.es_garantia && enMes(o.fecha_ingreso || '')).length,
+    costoReconocidoMes: labPagadas.filter(o => o.es_garantia).length,
+    montoCostoMes: garantias,   // ya calculado por fecha_pago_lab en el mes
+    deMesesPreviosResueltas: d.ordenes.filter(o => o.es_garantia && !enMes(o.fecha_ingreso || '') && o.fecha_pago_lab && enMes(o.fecha_pago_lab)).length,
+  }
 
   // ── Nómina / comisiones / bonos ──
   const catNomina = ['nomina', 'bonos_comisiones', 'bono_diario', 'comisiones', 'adelanto']
@@ -310,10 +385,13 @@ export function computeMetrics(d: MesData) {
     { concepto: 'Gastos operativos', formula: 'gastos de empresa (no caja), sin retiros/otros/compras', fuente: 'gastos', registros: gastosOperativos.length, monto: totalGastosOp },
     { concepto: 'Compras de inventario/activos', formula: "gastos categoría 'compras'", fuente: 'gastos', registros: inversionRows.length, monto: totalInversion },
     { concepto: 'Retiros del propietario', formula: "gastos categoría 'retiro_admin' (afectan caja, NO utilidad)", fuente: 'gastos', registros: retirosRows.length, monto: totalRetiros },
-    { concepto: 'Movimientos por aclarar (otros)', formula: "gastos 'otros'/concepto genérico — sin clasificar", fuente: 'gastos', registros: porAclararRows.length, monto: totalPorAclarar },
+    { concepto: 'Movimientos por aclarar (total)', formula: "gastos 'otros'/concepto genérico — sin clasificar", fuente: 'gastos', registros: porAclararRows.length, monto: totalPorAclarar },
+    { concepto: '  · por aclarar que salieron de caja', formula: 'movimientos por aclarar con es_caja=true', fuente: 'gastos', registros: porAclararCaja.length, monto: totalAclararCaja },
+    { concepto: '  · por aclarar que NO tocaron caja', formula: 'movimientos por aclarar con es_caja=false', fuente: 'gastos', registros: porAclararRows.length - porAclararCaja.length, monto: totalAclararNoCaja },
     { concepto: 'Resultado operativo (base cobrado)', formula: 'cobrado − lab − garantías − gastos op.', fuente: '—', registros: 0, monto: resultadoOperativoCaja },
-    { concepto: 'Resultado devengado (aprox.)', formula: 'facturado − costo de ventas del mes − gastos op.', fuente: '—', registros: 0, monto: utilidadDevengada },
-    { concepto: 'FLUJO NETO (efectivo)', formula: 'resultado operativo − retiros − compras', fuente: '—', registros: 0, monto: flujoNeto },
+    { concepto: 'Resultado operativo provisional (devengado)', formula: 'facturado − costo de ventas del mes − gastos op. (faltan costos)', fuente: '—', registros: 0, monto: utilidadDevengada },
+    { concepto: 'FLUJO IDENTIFICADO', formula: 'resultado operativo − retiros − compras', fuente: '—', registros: 0, monto: flujoIdentificado },
+    { concepto: 'FLUJO DESPUÉS DE SALIDAS POR ACLARAR', formula: 'flujo identificado − por aclarar que salieron de caja', fuente: '—', registros: 0, monto: flujoDespuesAclarar },
   ]
 
   const checks = [
@@ -353,7 +431,11 @@ export function computeMetrics(d: MesData) {
     garantiasSinLab: d.ordenes.filter(o => o.es_garantia && !o.laboratorio).length,
     garantiasFueraMes,
     consumiblesSinCosto: consSinCosto, armazonesSinCosto: armSinCosto,
+    citasVencidasSinFinal: conversion.citasVencidasSinFinal,
     citasSinEstadoUtil: conversion.estadosCapturados ? 0 : d.citas.length,
+    ventasArmazonSinCosto, ventasLabSinCosto, ingresoVentasIncompletas,
+    movimientosUSD: movimientosUSD.registros, montoUSD: movimientosUSD.monto,
+    aclararCaja: totalAclararCaja, aclararNoCaja: totalAclararNoCaja,
     descuadresCaja: d.cortes.filter(c => Math.abs(num(c.diferencia)) > 0.5).length,
     diasSinCorte: diasSinCorte.length, diasSinCorteLista: diasSinCorte,
     cotizacionesAbiertas: cotizaciones.length, cotizacionesMonto: r2(cotizaciones.reduce((s, v) => s + num(v.total), 0)),
@@ -361,9 +443,20 @@ export function computeMetrics(d: MesData) {
     checksNoCuadran, fuentesConError: d.errores,
   }
 
-  // Estado del archivo
-  const problemasGraves = checksNoCuadran > 0 || calidad.ordenesSinCosto > 0 || (invConsumibles + invArmazones) === 0
-    || calidad.movimientosPorAclarar > 0 || !conversion.estadosCapturados
+  // Otros ingresos de caja (los antes llamados "pago previo"): mostrarlos con su detalle real
+  const otrosIngresosCajaDet = pagoPrevios.map(i => ({
+    fecha: i.fecha, concepto: i.concepto || '', categoria: i.categoria || '', sucursal: i.sucursal,
+    metodo: i.metodo_pago || '', monto: num(i.monto),
+  }))
+
+  // Estado del archivo — solo CONFIABLE si TODO está resuelto
+  const inventarioValorable = (invConsumibles + invArmazones) > 0
+  const costosCompletos = calidad.ordenesSinCosto === 0
+  const ventasConCosto = ventasArmazonSinCosto === 0
+  const citasUsables = conversion.estadosCapturados
+  const materialesClasificados = calidad.movimientosPorAclarar === 0
+  const problemasGraves = checksNoCuadran > 0 || !costosCompletos || !inventarioValorable
+    || !ventasConCosto || !citasUsables || !materialesClasificados
   const estadoArchivo = calidad.fuentesConError.length > 5 ? 'NO CONFIABLE' : problemasGraves ? 'PARCIAL' : 'CONFIABLE'
 
   return {
@@ -372,9 +465,13 @@ export function computeMetrics(d: MesData) {
     facturado, cobradoTotal, cobrosVentas, cobrosVentasMes, cobrosVentasPrevias, cobrosSinVenta, otrosIngresosCaja,
     cobradoAnteriores, saldoPendiente,
     costoLab, garantias, costoVentasMes, totalGastosOp, totalRetiros, totalPorAclarar, totalInversion, comisionTerminal,
-    resultadoOperativoCaja, utilidadDevengada, flujoNeto, margenOperativo: cobradoTotal ? resultadoOperativoCaja / cobradoTotal : 0,
+    totalAclararCaja, totalAclararNoCaja, movimientosUSD,
+    resultadoOperativoCaja, utilidadDevengada, flujoIdentificado, flujoDespuesAclarar, flujoNeto,
+    margenOperativo: cobradoTotal ? resultadoOperativoCaja / cobradoTotal : 0,
+    ventasArmazonSinCosto, ventasLabSinCosto, ingresoVentasIncompletas,
     porSucursal, porMetodo, productividad, descTotal, precioListaTotal, descuentoPorSuc, conversion,
-    porTipoLente, porTratamiento, laboratorios, garantiasDet, ordenesSinCostoDet, nomina, cajaResumen,
+    porTipoLente, porTipoLenteOptica, porTratamiento, laboratorios,
+    garantiasDet, garantiasResumen, ordenesSinCostoDet, otrosIngresosCajaDet, nomina, cajaResumen,
     invConsumibles, invArmazones, armazonesRent, porDia, porHora,
     conciliacion, checks, calidad,
     retirosRows, porAclararRows, inversionRows, gastosOperativos,

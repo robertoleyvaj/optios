@@ -129,7 +129,7 @@ export async function fetchMes(anio: number, mes0: number): Promise<MesData> {
 
   // ── Órdenes de laboratorio: ingresadas, pagadas o entregadas en el mes ──
   const ordenes = await safe('ordenes_lab', async () => {
-    const cols = 'folio, folio_venta, venta_id, paciente, sucursal, laboratorio, tipo_mica, tratamiento, color_tratamiento, precio_cliente, costo_lab, pagado_lab, fecha_pago_lab, fecha_ingreso, fecha_promesa, fecha_entrega, estado, urgente, es_garantia, motivo_problema, folio_origen'
+    const cols = 'folio, folio_venta, venta_id, paciente, sucursal, laboratorio, tipo_mica, tratamiento, color_tratamiento, precio_cliente, costo_lab, pagado_lab, fecha_pago_lab, fecha_ingreso, fecha_promesa, fecha_entrega, estado, urgente, es_garantia, motivo_problema, folio_origen, creado_por'
     const byId: Record<string, Row> = {}
     for (const campo of ['fecha_ingreso', 'fecha_pago_lab', 'fecha_entrega']) {
       const { data, error } = await sb.from('ordenes_lab')

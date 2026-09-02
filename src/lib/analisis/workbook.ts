@@ -98,16 +98,19 @@ export function buildWorkbook(d: MesData, m: Metrics): ExcelJS.Workbook {
   // ── 1. Resumen ──
   const res = wb.addWorksheet('1. Resumen')
   addKpis(res, `Resumen — ${d.mesLabel}`, [
-    ['— DEVENGADO (contable) —', ''],
+    ['— DEVENGADO (provisional — faltan costos) —', ''],
     ['Total facturado', m.facturado, 'money'],
-    ['Costo de ventas del mes (aprox.)', m.costoVentasMes, 'money'],
+    ['Costo de ventas del mes (solo lab, aprox.)', m.costoVentasMes, 'money'],
     ['Gastos operativos', m.totalGastosOp, 'money'],
-    ['Resultado operativo devengado (aprox.)', m.utilidadDevengada, 'money'],
+    ['Resultado operativo provisional', m.utilidadDevengada, 'money'],
+    ['  · ventas con armazón sin costo', m.ventasArmazonSinCosto, 'int'],
+    ['  · ventas con laboratorio sin costo', m.ventasLabSinCosto, 'int'],
+    ['  · ingreso de ventas con costo incompleto', m.ingresoVentasIncompletas, 'money'],
     ['Saldo pendiente por cobrar (ventas del mes)', m.saldoPendiente, 'money'],
     ['— CAJA (efectivo) —', ''],
     ['Cobros de ventas', m.cobrosVentas, 'money'],
     ['  · de meses anteriores', m.cobrosVentasPrevias, 'money'],
-    ['Otros ingresos de caja (pago previo)', m.otrosIngresosCaja, 'money'],
+    ['Otros ingresos de caja', m.otrosIngresosCaja, 'money'],
     ['Total cobrado', m.cobradoTotal, 'money'],
     ['Costo de laboratorio', m.costoLab, 'money'],
     ['Garantías', m.garantias, 'money'],
@@ -117,8 +120,15 @@ export function buildWorkbook(d: MesData, m: Metrics): ExcelJS.Workbook {
     ['— MOVIMIENTOS QUE NO SON GASTO —', ''],
     ['Retiros del propietario (solo caja)', m.totalRetiros, 'money'],
     ['Compras de inventario/activos', m.totalInversion, 'money'],
-    ['Movimientos por aclarar', m.totalPorAclarar, 'money'],
-    ['FLUJO NETO (efectivo)', m.flujoNeto, 'money'],
+    ['Movimientos por aclarar (total)', m.totalPorAclarar, 'money'],
+    ['  · que salieron de caja', m.totalAclararCaja, 'money'],
+    ['  · que NO tocaron caja', m.totalAclararNoCaja, 'money'],
+    ['— FLUJO DE EFECTIVO —', ''],
+    ['Flujo identificado (− retiros − compras)', m.flujoIdentificado, 'money'],
+    ['Flujo después de salidas por aclarar', m.flujoDespuesAclarar, 'money'],
+    ['— DIVISAS —', ''],
+    ['Movimientos en USD (verificar tipo de cambio)', m.movimientosUSD.registros, 'int'],
+    ['  · monto USD (posible sin convertir a MXN)', m.movimientosUSD.monto, 'money'],
     ['— CONTEOS —', ''],
     ['# Ventas', m.ventasReales.length, 'int'],
     ['# Cotizaciones abiertas', m.cotizaciones.length, 'int'],
@@ -202,6 +212,12 @@ export function buildWorkbook(d: MesData, m: Metrics): ExcelJS.Workbook {
     { header: 'Concepto', key: 'concepto', width: 34 }, { header: 'Monto', key: 'monto', money: true },
     { header: 'Método', key: 'metodo' }, { header: 'Sucursal', key: 'sucursal' },
   ], m.gastosOperativos.map((g: Row) => ({ fecha: g.fecha, categoria: g.categoria, concepto: g.concepto, monto: Number(g.monto) || 0, metodo: g.metodo_pago, sucursal: g.sucursal })), egr.rowCount + 1, false)
+  egr.addRow([]); egr.addRow(['COMPRAS DE INVENTARIO / ACTIVOS (salida de efectivo, NO gasto completo del mes)']).font = { bold: true, size: 12 }
+  addTable(egr, [
+    { header: 'Fecha', key: 'fecha', width: 12 }, { header: 'Categoría', key: 'categoria', width: 16 },
+    { header: 'Concepto', key: 'concepto', width: 34 }, { header: 'Monto', key: 'monto', money: true },
+    { header: 'Método', key: 'metodo' }, { header: 'Sucursal', key: 'sucursal' },
+  ], m.inversionRows.map((g: Row) => ({ fecha: g.fecha, categoria: g.categoria, concepto: g.concepto, monto: Number(g.monto) || 0, metodo: g.metodo_pago, sucursal: g.sucursal })), egr.rowCount + 1, false)
   egr.addRow([]); egr.addRow(['RETIROS DEL PROPIETARIO (afectan caja, NO son gasto)']).font = { bold: true, size: 12 }
   addTable(egr, [
     { header: 'Fecha', key: 'fecha', width: 12 }, { header: 'Concepto', key: 'concepto', width: 34 },
@@ -233,7 +249,10 @@ export function buildWorkbook(d: MesData, m: Metrics): ExcelJS.Workbook {
     ['  · tasa aprox. de examen', m.conversion.tasaExamen, 'pct'],
     ['Citas agendadas', m.conversion.citas, 'int'],
     ['  · con venta en el mes (aprox.)', m.conversion.citasConvertidas, 'int'],
-    ['¿Estados de cita capturados?', m.conversion.estadosCapturados ? 'sí' : 'NO — no reportar tasa de asistencia'],
+    ['  · con examen (aprox.)', m.conversion.citasConExamen, 'int'],
+    ['  · canceladas', m.conversion.citasCanceladas, 'int'],
+    ['  · VENCIDAS sin estado final (clasificar a mano)', m.conversion.citasVencidasSinFinal, 'int'],
+    ['¿Estados de cita usables?', m.conversion.estadosCapturados ? 'sí' : 'NO — hay citas vencidas sin cerrar; no reportar tasa de asistencia'],
   ])
   conv.addRow(['DISTRIBUCIÓN REAL DE ESTADOS DE CITA']).font = { bold: true, size: 12 }
   addTable(conv, [{ header: 'Estado', key: 'estado', width: 20 }, { header: 'Cantidad', key: 'n', int: true }],
@@ -252,13 +271,21 @@ export function buildWorkbook(d: MesData, m: Metrics): ExcelJS.Workbook {
   addTable(len, colsLente, m.porTipoLente, len.rowCount + 1, false)
   len.addRow([]); len.addRow(['TRATAMIENTOS (orden-independiente)']).font = { bold: true, size: 12 }
   addTable(len, [{ ...colsLente[0], header: 'Tratamiento' }, ...colsLente.slice(1)], m.porTratamiento, len.rowCount + 1, false)
+  len.addRow([]); len.addRow(['RENTABILIDAD ESPECÍFICA DE ÓPTICA (mica+tratamientos, SIN armazón)']).font = { bold: true, size: 12 }
+  len.addRow(['ingreso óptica = precio del par − precio del armazón en la venta. Si el par ya excluye armazón, coincide con la tabla de arriba.']).font = { italic: true, color: { argb: 'FF6B7280' } }
+  addTable(len, [
+    { header: 'Tipo de lente', key: 'clave', width: 28 }, { header: 'Piezas', key: 'piezas', int: true },
+    { header: 'Ingreso óptica', key: 'ingresoOptica', money: true }, { header: 'Costo lab', key: 'costo', money: true },
+    { header: 'Margen óptica', key: 'margenOptica', money: true }, { header: 'Margen %', key: 'margenPct', pct: true },
+  ], m.porTipoLenteOptica, len.rowCount + 1, false)
   if (m.ordenesSinCostoDet.length) {
     len.addRow([]); len.addRow([`⚠️ ${m.ordenesSinCostoDet.length} trabajos SIN costo capturado — excluidos del margen (ingreso asociado: $${m.calidad.ingresoSinCosto.toLocaleString('es-MX')})`]).font = { bold: true, color: { argb: 'FFB45309' } }
     addTable(len, [
       { header: 'Folio', key: 'folio' }, { header: 'Venta', key: 'folioVenta' }, { header: 'Fecha', key: 'fecha' },
-      { header: 'Sucursal', key: 'sucursal' }, { header: 'Laboratorio', key: 'laboratorio' }, { header: 'Tipo lente', key: 'tipoLente', width: 22 },
-      { header: 'Paciente', key: 'paciente', width: 22 }, { header: 'Ingreso', key: 'ingreso', money: true }, { header: 'Costo', key: 'costoFalta', width: 12 },
-    ], m.ordenesSinCostoDet.map(o => ({ ...o, costoFalta: 'FALTA' })), len.rowCount + 1, false)
+      { header: 'Sucursal', key: 'sucursal' }, { header: 'Empleada', key: 'empleada' }, { header: 'Laboratorio', key: 'laboratorio' },
+      { header: 'Tipo lente', key: 'tipoLente', width: 22 }, { header: 'Paciente', key: 'paciente', width: 22 },
+      { header: 'Ingreso', key: 'ingreso', money: true }, { header: 'Estatus', key: 'estatus' }, { header: 'Motivo', key: 'motivo', width: 22 },
+    ], m.ordenesSinCostoDet, len.rowCount + 1, false)
   }
 
   // ── 10. Laboratorios ──
@@ -276,14 +303,20 @@ export function buildWorkbook(d: MesData, m: Metrics): ExcelJS.Workbook {
 
   // ── 11. Garantías ──
   const gar = wb.addWorksheet('11. Garantías')
+  addKpis(gar, `Garantías — el COSTO del mes usa la fecha económica (fecha_pago_lab)`, [
+    ['Abiertas en el mes', m.garantiasResumen.abiertasMes, 'int'],
+    ['Costo reconocido en el mes (# órdenes)', m.garantiasResumen.costoReconocidoMes, 'int'],
+    ['Costo reconocido en el mes ($)', m.garantiasResumen.montoCostoMes, 'money'],
+    ['De meses previos, resueltas en el mes', m.garantiasResumen.deMesesPreviosResueltas, 'int'],
+  ])
   addTable(gar, [
     { header: 'Folio', key: 'folio', width: 12 }, { header: 'Folio origen', key: 'folioOrigen' },
     { header: 'Fecha orden', key: 'fechaOrden', width: 12 }, { header: 'Fecha costo', key: 'fechaCosto', width: 12 },
-    { header: 'Sucursal', key: 'sucursal' }, { header: 'Laboratorio', key: 'laboratorio' },
+    { header: 'Periodo', key: 'periodo', width: 26 }, { header: 'Sucursal', key: 'sucursal' }, { header: 'Laboratorio', key: 'laboratorio' },
     { header: 'Tipo lente', key: 'tipoLente' }, { header: 'Motivo', key: 'motivo', width: 30 },
     { header: 'Costo', key: 'costo', money: true }, { header: '¿Absorbió óptica?', key: 'absorbioOptica', width: 18 },
     { header: 'Paciente', key: 'paciente', width: 22 },
-  ], m.garantiasDet)
+  ], m.garantiasDet, gar.rowCount + 1, false)
 
   // ── 12. Nómina y comisiones ──
   const nom = wb.addWorksheet('12. Nómina y comisiones')
@@ -301,9 +334,15 @@ export function buildWorkbook(d: MesData, m: Metrics): ExcelJS.Workbook {
     { header: 'Diferencia neta', key: 'difNeta', money: true }, { header: 'Retiros al sobre', key: 'retiroTotal', money: true },
     { header: '# Descuadres', key: 'descuadres', int: true },
   ], m.cajaResumen, caja.rowCount + 1, false)
-  caja.addRow([]); caja.addRow(['COBRADO POR MÉTODO DE PAGO']).font = { bold: true, size: 12 }
+  caja.addRow([]); caja.addRow(['COBRADO POR MÉTODO DE PAGO (solo cobros de venta)']).font = { bold: true, size: 12 }
   addTable(caja, [{ header: 'Método', key: 'metodo', width: 20 }, { header: 'Monto', key: 'monto', money: true }],
     Object.entries(m.porMetodo).map(([metodo, monto]) => ({ metodo, monto })), caja.rowCount + 1, false)
+  caja.addRow([]); caja.addRow(['OTROS INGRESOS DE CAJA (aparte de cobros de venta — naturaleza a confirmar)']).font = { bold: true, size: 12 }
+  addTable(caja, [
+    { header: 'Fecha', key: 'fecha', width: 12 }, { header: 'Concepto', key: 'concepto', width: 30 },
+    { header: 'Categoría', key: 'categoria' }, { header: 'Sucursal', key: 'sucursal' },
+    { header: 'Método', key: 'metodo' }, { header: 'Monto', key: 'monto', money: true },
+  ], m.otrosIngresosCajaDet, caja.rowCount + 1, false)
 
   // ── 14. Inventario ──
   const inv = wb.addWorksheet('14. Inventario')
@@ -344,9 +383,17 @@ export function buildWorkbook(d: MesData, m: Metrics): ExcelJS.Workbook {
   addKpis(cal, `Calidad e integridad — ${d.mesLabel} · ESTADO: ${m.estadoArchivo}`, [
     ['Controles cruzados que NO cuadran', m.calidad.checksNoCuadran, 'int'],
     ['Movimientos por aclarar', m.calidad.movimientosPorAclarar, 'int'],
-    ['  · monto', m.calidad.montoPorAclarar, 'money'],
+    ['  · monto total', m.calidad.montoPorAclarar, 'money'],
+    ['  · que salieron de caja', m.calidad.aclararCaja, 'money'],
+    ['  · que NO tocaron caja', m.calidad.aclararNoCaja, 'money'],
     ['Retiros detectados', m.calidad.retirosDetectados, 'int'],
     ['  · monto', m.calidad.montoRetiros, 'money'],
+    ['Movimientos en USD (verificar tipo de cambio)', m.calidad.movimientosUSD, 'int'],
+    ['  · monto USD sin confirmar conversión', m.calidad.montoUSD, 'money'],
+    ['Ventas con armazón sin costo', m.calidad.ventasArmazonSinCosto, 'int'],
+    ['Ventas con laboratorio sin costo', m.calidad.ventasLabSinCosto, 'int'],
+    ['  · ingreso de ventas con costo incompleto', m.calidad.ingresoVentasIncompletas, 'money'],
+    ['Citas vencidas sin estado final', m.calidad.citasVencidasSinFinal, 'int'],
     ['Ventas sin "atendió"', m.calidad.ventasSinAtendio, 'int'],
     ['Gastos sin categoría / desconocida', m.calidad.gastosSinCategoria, 'int'],
     ['Saldos negativos', m.calidad.saldosNegativos, 'int'],
