@@ -1034,8 +1034,9 @@ export default function VentasPage() {
       `Para confirmar, escribe el folio exacto: ${detalle.id}`
     )
     if (confirmacion === null) return
-    if (confirmacion.trim().toUpperCase() !== detalle.id.trim().toUpperCase()) {
-      alert('El folio no coincide. No se borró nada.'); return
+    const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toUpperCase()   // ignora guiones/espacios
+    if (norm(confirmacion) !== norm(detalle.id)) {
+      alert(`El folio no coincide (escribiste "${confirmacion.trim()}", se esperaba "${detalle.id}"). No se borró nada.`); return
     }
 
     // 1. Órdenes de laboratorio ligadas (y su historial) --------------------

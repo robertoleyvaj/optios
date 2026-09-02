@@ -6,7 +6,7 @@ import { hoyLocal, rangoDiaLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
 import {
   TrendingUp, TrendingDown, DollarSign, FlaskConical,
-  Plus, X, Save, ChevronDown, Trash2, Pencil,
+  Plus, X, Save, ChevronDown, Trash2, Pencil, FileDown, Loader2,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────
@@ -154,6 +154,38 @@ function FinanzasPage() {
     monto: '', sucursal: 'General', notas: '', empleado_id: '',
   })
   const [empleadosLista, setEmpleadosLista] = useState<EmpleadoLite[]>([])
+
+  // ── Análisis mensual (Excel + instrucciones para IA) ──
+  const ahora = new Date()
+  const [modalAnalisis, setModalAnalisis] = useState(false)
+  const [anAnio, setAnAnio] = useState(ahora.getFullYear())
+  const [anMes,  setAnMes]  = useState(ahora.getMonth() + 1)   // 1-12
+  const [generando, setGenerando] = useState(false)
+  const [errAnalisis, setErrAnalisis] = useState('')
+
+  const generarAnalisis = async () => {
+    setGenerando(true); setErrAnalisis('')
+    try {
+      const res = await fetch(`/api/finanzas/analisis-mensual?anio=${anAnio}&mes=${anMes}`)
+      if (!res.ok) {
+        let msg = `Error ${res.status}`
+        try { const j = await res.json(); msg = j.error || msg } catch {}
+        throw new Error(msg)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Analisis_OptiOS_${anAnio}-${String(anMes).padStart(2, '0')}.zip`
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+      setModalAnalisis(false)
+    } catch (e) {
+      setErrAnalisis(e instanceof Error ? e.message : 'No se pudo generar el análisis')
+    } finally {
+      setGenerando(false)
+    }
+  }
 
   const abrirEditar = (g: Gasto) => {
     setEditandoId(g.id)
@@ -437,6 +469,11 @@ function FinanzasPage() {
                 className="border border-zinc-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none" />
             </div>
           )}
+          {/* Generar análisis mensual (Excel para IA) */}
+          <button onClick={() => setModalAnalisis(true)}
+            className="flex items-center gap-1.5 border border-zinc-200 text-zinc-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-zinc-50">
+            <FileDown className="w-3.5 h-3.5" /> Análisis mensual
+          </button>
           {/* Agregar gasto */}
           <button onClick={() => setModal(true)}
             className="flex items-center gap-1.5 bg-[#0B0E14] text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#1A1D27]">
@@ -444,6 +481,51 @@ function FinanzasPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Modal: Generar análisis mensual ── */}
+      {modalAnalisis && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => !generando && setModalAnalisis(false)}>
+          <div className="bg-white rounded-2xl shadow-xl ring-1 ring-zinc-200 w-full max-w-md overflow-hidden"
+            onClick={e => e.stopPropagation()}>
+            <div className="bg-[#0B0E14] px-6 py-5">
+              <div className="flex items-center gap-2 mb-1">
+                <FileDown className="w-4 h-4 text-[#2DD4BF]" />
+                <span className="text-[#2DD4BF] text-xs font-semibold tracking-wide uppercase">Análisis mensual</span>
+              </div>
+              <h2 className="text-white text-lg font-semibold tracking-tight">Generar paquete para IA</h2>
+              <p className="text-white/50 text-[13px] mt-1">Descarga un Excel completo + instrucciones para subirlo a ChatGPT o Claude y pedir el análisis gerencial.</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1">Mes</label>
+                  <select value={anMes} onChange={e => setAnMes(Number(e.target.value))}
+                    className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30">
+                    {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+                      .map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="w-28">
+                  <label className="block text-xs font-semibold text-zinc-500 mb-1">Año</label>
+                  <select value={anAnio} onChange={e => setAnAnio(Number(e.target.value))}
+                    className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30">
+                    {[0, 1, 2].map(k => ahora.getFullYear() - k).map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </div>
+              {errAnalisis && <p className="text-[13px] text-red-600 bg-red-50 rounded px-3 py-2">{errAnalisis}</p>}
+              <button onClick={generarAnalisis} disabled={generando}
+                className="w-full flex items-center justify-center gap-2 bg-[#0D9488] text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-[#0B7C72] disabled:opacity-60">
+                {generando
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Generando…</>
+                  : <><FileDown className="w-4 h-4" /> Descargar paquete (.zip)</>}
+              </button>
+              <p className="text-[11px] text-zinc-400 text-center">Puede tardar unos segundos mientras reúne y concilia los datos del mes.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cargando ? (
         <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">Cargando…</div>
