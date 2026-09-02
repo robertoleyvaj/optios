@@ -1021,6 +1021,83 @@ export default function VentasPage() {
     setDetalle(prev => prev ? { ...prev, ...parche } : prev)
   }
 
+  // ── BORRAR venta: elimina TODO rastro (items, pagos, órdenes de lab, comisiones y la nota).
+  //    Irreversible. Solo admin. Se pide teclear el folio para confirmar. Devuelve el stock. ──
+  const borrarVenta = async () => {
+    if (!detalle) return
+    const supabase = createClient()
+
+    const confirmacion = prompt(
+      `⚠️ BORRAR la venta ${detalle.id} de ${detalle.cliente}.\n\n` +
+      `Esto ELIMINA todo rastro: la nota, sus productos, TODOS sus pagos/abonos, sus órdenes de laboratorio y sus comisiones.\n` +
+      `NO se puede deshacer y el folio quedará libre (hueco en la secuencia).\n\n` +
+      `Para confirmar, escribe el folio exacto: ${detalle.id}`
+    )
+    if (confirmacion === null) return
+    if (confirmacion.trim().toUpperCase() !== detalle.id.trim().toUpperCase()) {
+      alert('El folio no coincide. No se borró nada.'); return
+    }
+
+    // 1. Órdenes de laboratorio ligadas (y su historial) --------------------
+    try {
+      const { data: ords } = await supabase.from('ordenes_lab').select('id').eq('venta_id', detalle.uuid)
+      const ordIds = (ords ?? []).map((o: { id: string }) => o.id).filter(Boolean)
+      if (ordIds.length > 0) {
+        await supabase.from('ordenes_lab_historial').delete().in('orden_id', ordIds)
+      }
+      await supabase.from('ordenes_lab').delete().eq('venta_id', detalle.uuid)
+    } catch { /* si no existe historial, seguir */ }
+
+    // 2. Comisiones de terminal generadas por esta venta --------------------
+    await supabase.from('gastos').delete()
+      .eq('categoria', 'comision_terminal').ilike('concepto', `%${detalle.id}%`)
+
+    // 3. Pagos / abonos de la venta -----------------------------------------
+    const rp = await supabase.from('pagos_venta').delete().eq('venta_id', detalle.uuid)
+    if (rp.error) { alert(`Error al borrar los pagos: ${rp.error.message}`); return }
+
+    // 4. Líneas de la venta --------------------------------------------------
+    await supabase.from('ventas_items').delete().eq('venta_id', detalle.uuid)
+
+    // 5. La venta -----------------------------------------------------------
+    const rv = await supabase.from('ventas').delete().eq('id', detalle.uuid)
+    if (rv.error) { alert(`Error al borrar la venta: ${rv.error.message}`); return }
+
+    // 6. Devolver stock (armazones + consumibles), como si no se hubiera vendido
+    const armzItems = (detalle.items || [])
+      .filter(i => /^(VRL|ARMZ)-/i.test(i.sku || ''))
+      .map(i => ({ sku: i.sku as string, cantidad: i.cantidad }))
+    if (armzItems.length > 0) {
+      fetch('/api/ecomm/armazones/movimiento', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sucursal: detalle.sucursal, signo: 1, items: armzItems }),
+      }).catch(() => { /* no bloquear el borrado */ })
+    }
+    const colSuc = detalle.sucursal === 'Baja Visión' ? 'stock_baja'
+      : detalle.sucursal === '5 de Mayo' ? 'stock_mayo'
+      : detalle.sucursal === 'Plaza Laureles' ? 'stock_plaza' : null
+    if (colSuc) {
+      try {
+        const skus = [...new Set((detalle.items || []).map(i => i.sku).filter(Boolean))]
+        const { data: consumibles } = await supabase
+          .from('productos').select('id, sku, stock, stock_baja, stock_mayo, stock_plaza')
+          .in('sku', skus).eq('tipo', 'consumible')
+        for (const p of (consumibles ?? []) as Record<string, number | string>[]) {
+          const qty = (detalle.items || []).filter(i => i.sku === p.sku).reduce((s, i) => s + i.cantidad, 0)
+          if (qty <= 0) continue
+          const nuevo = Number(p[colSuc] ?? 0) + qty
+          const total = (['stock_baja', 'stock_mayo', 'stock_plaza'] as const)
+            .reduce((s, c) => s + (c === colSuc ? nuevo : Number(p[c] ?? 0)), 0)
+          await supabase.from('productos').update({ [colSuc]: nuevo, stock: total }).eq('id', p.id)
+        }
+      } catch { /* no bloquear el borrado */ }
+    }
+
+    // 7. Quitar del historial en pantalla y cerrar el detalle
+    setVentas(prev => prev.filter(v => v.uuid !== detalle.uuid))
+    setDetalle(null)
+  }
+
   return (
     <div className="space-y-5">
 
@@ -1454,6 +1531,12 @@ export default function VentasPage() {
                 <button onClick={cancelarVenta}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-400 hover:text-red-600 transition-colors">
                   {detalle.id.startsWith('COT-') ? 'Borrar cotización' : 'Cancelar venta'}
+                </button>
+              )}
+              {esAdmin && !detalle.id.startsWith('COT-') && (
+                <button onClick={borrarVenta}
+                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-600 hover:text-white hover:bg-red-600 border border-red-200 rounded transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" /> Borrar venta (elimina todo rastro)
                 </button>
               )}
             </div>
