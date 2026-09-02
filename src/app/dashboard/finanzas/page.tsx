@@ -522,6 +522,10 @@ function FinanzasPage() {
                   : <><FileDown className="w-4 h-4" /> Descargar paquete (.zip)</>}
               </button>
               <p className="text-[11px] text-zinc-400 text-center">Puede tardar unos segundos mientras reúne y concilia los datos del mes.</p>
+              <a href={`/dashboard/finanzas/pendientes?anio=${anAnio}&mes=${anMes}`}
+                className="block text-center text-xs font-semibold text-[#0D9488] hover:underline pt-1">
+                ¿Sale PARCIAL? Corrige los pendientes del cierre →
+              </a>
             </div>
           </div>
         </div>

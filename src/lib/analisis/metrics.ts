@@ -457,7 +457,11 @@ export function computeMetrics(d: MesData) {
   const materialesClasificados = calidad.movimientosPorAclarar === 0
   const problemasGraves = checksNoCuadran > 0 || !costosCompletos || !inventarioValorable
     || !ventasConCosto || !citasUsables || !materialesClasificados
-  const estadoArchivo = calidad.fuentesConError.length > 5 ? 'NO CONFIABLE' : problemasGraves ? 'PARCIAL' : 'CONFIABLE'
+  // Cierre manual desde "Pendientes del cierre": marca CONFIABLE si el admin lo cerró y no hay descuadres
+  const cerradoManual = d.cierre?.estado === 'confiable' && checksNoCuadran === 0
+  const estadoArchivo = calidad.fuentesConError.length > 5 ? 'NO CONFIABLE'
+    : cerradoManual ? 'CONFIABLE'
+    : problemasGraves ? 'PARCIAL' : 'CONFIABLE'
 
   return {
     estadoArchivo,

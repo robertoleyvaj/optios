@@ -34,6 +34,7 @@ export type MesData = {
   productos: Row[]
   armazones: Row[]
   config: Row[]
+  cierre: Row | null                        // cierre manual del mes (cierres_mensuales)
   errores: string[]                         // fuentes que fallaron (no rompen el paquete)
 }
 
@@ -110,7 +111,7 @@ export async function fetchMes(anio: number, mes0: number): Promise<MesData> {
   // ── Gastos del mes (por fecha) ──
   const gastos = await safe('gastos', async () => {
     const { data, error } = await sb.from('gastos')
-      .select('fecha, concepto, categoria, monto, metodo_pago, sucursal, empleado_id, es_caja')
+      .select('id, fecha, concepto, categoria, monto, metodo_pago, sucursal, empleado_id, es_caja')
       .gte('fecha', fechaIni).lte('fecha', fechaFin)
       .order('fecha', { ascending: true })
     if (error) throw error
@@ -129,7 +130,7 @@ export async function fetchMes(anio: number, mes0: number): Promise<MesData> {
 
   // ── Órdenes de laboratorio: ingresadas, pagadas o entregadas en el mes ──
   const ordenes = await safe('ordenes_lab', async () => {
-    const cols = 'folio, folio_venta, venta_id, paciente, sucursal, laboratorio, tipo_mica, tratamiento, color_tratamiento, precio_cliente, costo_lab, pagado_lab, fecha_pago_lab, fecha_ingreso, fecha_promesa, fecha_entrega, estado, urgente, es_garantia, motivo_problema, folio_origen, creado_por'
+    const cols = 'id, folio, folio_venta, venta_id, paciente, sucursal, laboratorio, tipo_mica, tratamiento, color_tratamiento, precio_cliente, costo_lab, pagado_lab, fecha_pago_lab, fecha_ingreso, fecha_promesa, fecha_entrega, estado, urgente, es_garantia, motivo_problema, folio_origen, creado_por'
     const byId: Record<string, Row> = {}
     for (const campo of ['fecha_ingreso', 'fecha_pago_lab', 'fecha_entrega']) {
       const { data, error } = await sb.from('ordenes_lab')
@@ -163,7 +164,7 @@ export async function fetchMes(anio: number, mes0: number): Promise<MesData> {
   // ── Citas del mes ──
   const citas = await safe('citas', async () => {
     const { data, error } = await sb.from('citas')
-      .select('paciente_id, paciente_nombre, paciente_telefono, tipo, fecha, hora, sucursal, estado, seguimiento')
+      .select('id, paciente_id, paciente_nombre, paciente_telefono, tipo, fecha, hora, sucursal, estado, seguimiento')
       .gte('fecha', fechaIni).lte('fecha', fechaFin)
     if (error) throw error
     return data ?? []
@@ -198,6 +199,11 @@ export async function fetchMes(anio: number, mes0: number): Promise<MesData> {
     return data ?? []
   }, [] as Row[])
 
+  const cierre = await safe('cierres_mensuales', async () => {
+    const { data } = await sb.from('cierres_mensuales').select('*').eq('anio', anio).eq('mes', mes0 + 1).maybeSingle()
+    return data ?? null
+  }, null as Row | null)
+
   // ── Armazones (BD e-commerce, catálogo compartido) ──
   const armazones = await safe('armazones(ecomm)', async () => {
     const ec = createEcommClient()
@@ -209,7 +215,7 @@ export async function fetchMes(anio: number, mes0: number): Promise<MesData> {
     anio, mes0, mesLabel: `${MESES[mes0]} ${anio}`,
     rango: { start, end }, fechaIni, fechaFin,
     ventas, ventasItems, pagos, ingresosCaja, gastos, cortes, ordenes,
-    consultas, consultasTel, citas, usuarios, asistencias, metas, productos, armazones, config,
+    consultas, consultasTel, citas, usuarios, asistencias, metas, productos, armazones, config, cierre,
     errores,
   }
 }
