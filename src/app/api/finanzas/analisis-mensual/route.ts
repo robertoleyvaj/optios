@@ -1,9 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import JSZip from 'jszip'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchMes } from '@/lib/analisis/queries'
 import { computeMetrics } from '@/lib/analisis/metrics'
 import { buildWorkbook } from '@/lib/analisis/workbook'
 import { buildInstrucciones } from '@/lib/analisis/instrucciones'
+
+// Solo el administrador puede descargar el paquete (datos financieros sensibles).
+async function esAdmin(): Promise<boolean> {
+  try {
+    const sb = await createClient()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) return false
+    if (user.user_metadata?.rol === 'administrador') return true
+    // Respaldo: consultar la tabla usuarios por auth_user_id
+    const admin = createAdminClient()
+    const { data } = await admin.from('usuarios').select('rol').eq('auth_user_id', user.id).single()
+    return data?.rol === 'administrador'
+  } catch { return false }
+}
 
 // ExcelJS necesita runtime Node (no Edge). Todo corre en el servidor.
 export const runtime = 'nodejs'
@@ -14,6 +30,9 @@ export const maxDuration = 60
 // Devuelve un .zip con el Excel del mes + INSTRUCCIONES_PARA_IA.md
 export async function GET(req: NextRequest) {
   try {
+    if (!(await esAdmin()))
+      return NextResponse.json({ ok: false, error: 'Solo el administrador puede descargar este análisis.' }, { status: 403 })
+
     const anio = parseInt(req.nextUrl.searchParams.get('anio') ?? '', 10)
     const mes  = parseInt(req.nextUrl.searchParams.get('mes') ?? '', 10)   // 1-12
     const hoy = new Date()
