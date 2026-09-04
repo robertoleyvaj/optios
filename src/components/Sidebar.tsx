@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign, Briefcase, Palmtree, Store,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign, Briefcase, Palmtree, Store, Ticket,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -81,7 +81,13 @@ const MENU_GESTION: MenuItem[] = [
     ],
   },
   { href: '/dashboard/inventario',  label: 'Inventario',       icon: Package,    key: 'inventario' },
-  { href: '/dashboard/tienda',      label: 'Tienda en línea',  icon: Store,      key: 'tienda' },
+  {
+    href: '/dashboard/tienda',      label: 'Tienda en línea',  icon: Store,      key: 'tienda',
+    subItems: [
+      { href: '/dashboard/tienda',          label: 'Resumen',  icon: Store },
+      { href: '/dashboard/tienda/cupones',  label: 'Cupones',  icon: Ticket },
+    ],
+  },
   {
     href: '/dashboard/empleados', label: 'Equipo', icon: Users, key: 'equipo',
     subItems: [
