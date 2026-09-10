@@ -805,7 +805,12 @@ export default function VentasPage() {
         await registrarComisionTerminal({ metodoPago: p.metodo, monto: p.monto, folio: detalle.id, sucursal: detalle.sucursal })
       }
     }
-    const va: Venta = { ...detalle, pagos: nuevosPagos }
+    // Sincronizar el método del ENCABEZADO de la venta con los pagos reales
+    // (un solo método → ese; varios → 'mixto'). Antes quedaba con el método viejo.
+    const metodosReales = [...new Set(nuevosPagos.map(p => p.metodo).filter(Boolean))]
+    const metodoEncabezado = metodosReales.length === 1 ? metodosReales[0] : metodosReales.length > 1 ? 'mixto' : nuevoMetodo
+    await supabase.from('ventas').update({ metodo_pago: metodoEncabezado }).eq('id', detalle.uuid)
+    const va: Venta = { ...detalle, metodo: metodoEncabezado, pagos: nuevosPagos }
     setVentas(prev => prev.map(v => v.id === detalle.id ? va : v))
     setDetalle(va)
     setEditMetodoId(null); setGuardandoMetodo(false)

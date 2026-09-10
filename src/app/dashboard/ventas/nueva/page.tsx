@@ -2171,13 +2171,13 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                     <label className="block text-xs font-semibold text-zinc-500 mb-2">Modo de pago</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => { setModoPago('liquidar'); setLineasPago([{ metodo: 'efectivo', moneda: 'MXN', monto: String(total) }]) }}
+                        onClick={() => { setModoPago('liquidar'); setLineasPago(prev => [{ metodo: prev[0]?.metodo ?? 'efectivo', moneda: prev[0]?.moneda ?? 'MXN', monto: String(total) }]) }}
                         className={`py-3 rounded-md text-sm font-semibold border transition-all ${modoPago === 'liquidar' ? 'border-[#0B0E14] bg-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}
                       >
                         Liquidar total
                       </button>
                       <button
-                        onClick={() => { setModoPago('diferir'); setLineasPago([{ metodo: 'efectivo', moneda: 'MXN', monto: '' }]) }}
+                        onClick={() => { setModoPago('diferir'); setLineasPago(prev => [{ metodo: prev[0]?.metodo ?? 'efectivo', moneda: prev[0]?.moneda ?? 'MXN', monto: '' }]) }}
                         className={`py-3 rounded-md text-sm font-semibold border transition-all ${modoPago === 'diferir' ? 'border-[#0B0E14] bg-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}
                       >
                         Diferir pagos
