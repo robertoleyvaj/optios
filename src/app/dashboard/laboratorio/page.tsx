@@ -354,16 +354,18 @@ function PrintModal({ orden, onClose }: { orden: OrdenLab; onClose: () => void }
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${orden.folio}</title>
 <style>
-  @page { size: 4in 6in; margin: 6mm; }
+  @page { size: 4in 6in; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body { font-family: 'Arial', sans-serif; font-size: 15px; color: #000; width: 100%; min-height: calc(6in - 12mm); display: flex; flex-direction: column; }
-  .hdr { display: flex; justify-content: space-between; align-items: center; background: #111; color: #fff; padding: 12px 14px; border-radius: 5px; margin-bottom: 14px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .hdr-left h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.3px; color: #fff; }
-  .hdr-left p { font-size: 12px; color: #ccc; }
+  html { height: 100%; }
+  /* Caja EXACTA de una etiqueta 4x6" (el padding hace de margen interno). */
+  body { font-family: 'Arial', sans-serif; font-size: 15px; color: #000; width: 4in; height: 6in; padding: 6mm; display: flex; flex-direction: column; overflow: hidden; }
+  /* Encabezado en NEGRO sobre BLANCO: los bloques negros grandes se embarran en térmica. */
+  .hdr { display: flex; justify-content: space-between; align-items: flex-start; color: #000; padding: 0 0 8px; border-bottom: 3px solid #000; margin-bottom: 14px; }
+  .hdr-left h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.3px; color: #000; }
+  .hdr-left p { font-size: 12px; color: #000; }
   .hdr-right { text-align: right; }
-  .folio { font-size: 24px; font-weight: 900; font-family: monospace; color: #4DB6AC; }
-  .fecha { font-size: 12px; color: #ccc; }
+  .folio { font-size: 26px; font-weight: 900; font-family: monospace; color: #000; }
+  .fecha { font-size: 12px; color: #000; }
   .paciente { font-size: 26px; font-weight: 900; margin-bottom: 2px; }
   .sucursal { font-size: 13px; color: #777; margin-bottom: 12px; }
   .sep { border: none; border-top: 1px dashed #999; margin: 12px 0; }
