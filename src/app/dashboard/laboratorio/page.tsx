@@ -1108,11 +1108,18 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
   onNuevaOrden: () => void
 }) {
   const [busquedaLocal, setBusquedaLocal] = useState('')
+  // Filtro de sucursal DENTRO de laboratorio — solo aplica a quien ve varias (sucursal='Todas').
+  // A las vendedoras (fijas a una óptica) no se les muestra ni afecta.
+  const multiSucursal = sucursal === 'Todas'
+  const [filtroSuc, setFiltroSuc] = useState('Todas')
+  const SUCS_LAB = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
 
   const q = busquedaLocal.toLowerCase().trim()
   const pendientes = ordenes
     .filter(o => {
-      const matchSucursal = sucursal === 'Todas' || o.sucursal === sucursal
+      const matchSucursal = multiSucursal
+        ? (filtroSuc === 'Todas' || o.sucursal === filtroSuc)   // admin/gerente/repartidor: eligen
+        : o.sucursal === sucursal                                // vendedora: fija a su óptica
       // Sin búsqueda: solo activas. Con búsqueda: también entregadas/archivadas (para reimprimir notas viejas).
       const matchEstado   = q ? true : (o.estado !== 'entregado' && !o.archivado)
       const matchBusqueda = !q ||
@@ -1389,6 +1396,20 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
           ))}
         </div>
       </div>
+
+      {/* Filtro de sucursal (solo admin/gerente/repartidor) */}
+      {multiSucursal && (
+        <div className="flex flex-wrap gap-1.5">
+          {['Todas', ...SUCS_LAB].map(s => (
+            <button key={s} onClick={() => setFiltroSuc(s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                filtroSuc === s ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300'
+              }`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Buscador local */}
       <div className="relative">
