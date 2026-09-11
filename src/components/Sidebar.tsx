@@ -38,7 +38,7 @@ const PERMISOS: Record<Rol, string[]> = {
   administrador: [...CORE_ADMIN, ...GESTION_ADMIN],
   gerente:       [...CORE, ...GESTION_GERENTE],
   vendedor:      [...CORE],
-  repartidor:    ['laboratorio','inbox','checador','vacaciones'],
+  repartidor:    ['laboratorio'],
 }
 
 // ─────────────────────────────────────────

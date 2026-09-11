@@ -1580,8 +1580,9 @@ export default function LaboratorioPage() {
 
         const supabase = createClient()
         let q = supabase.from('ordenes_lab').select('*').order('fecha_ingreso', { ascending: true })
-        // Vendedores solo ven órdenes de su sucursal
-        if (user?.rol === 'vendedor' && user?.sucursal) {
+        // Vendedores solo ven órdenes de su sucursal — pero SOLO si tienen una sucursal real.
+        // (Con 'Todas' o vacío no se filtra: si no, no aparecería ninguna orden.)
+        if (user?.rol === 'vendedor' && user?.sucursal && user.sucursal !== 'Todas') {
           q = q.eq('sucursal', user.sucursal)
         }
         const { data, error } = await q
@@ -1595,7 +1596,8 @@ export default function LaboratorioPage() {
       }
     }
     fetchOrdenes()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionUser?.rol, sessionUser?.sucursal])
 
   // ── Escribir cambios a Supabase ─────────────────────────────
   const updateEnSupabase = useCallback(async (supabaseId: string, changes: Partial<OrdenLab>) => {
