@@ -1109,11 +1109,12 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
 }) {
   const [busquedaLocal, setBusquedaLocal] = useState('')
 
+  const q = busquedaLocal.toLowerCase().trim()
   const pendientes = ordenes
     .filter(o => {
       const matchSucursal = sucursal === 'Todas' || o.sucursal === sucursal
-      const matchEstado   = o.estado !== 'entregado' && !o.archivado
-      const q = busquedaLocal.toLowerCase().trim()
+      // Sin búsqueda: solo activas. Con búsqueda: también entregadas/archivadas (para reimprimir notas viejas).
+      const matchEstado   = q ? true : (o.estado !== 'entregado' && !o.archivado)
       const matchBusqueda = !q ||
         o.paciente.toLowerCase().includes(q) ||
         o.folio.toLowerCase().includes(q) ||
@@ -1126,6 +1127,7 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
   const enCamino = pendientes.filter(o => o.estado === 'en_camino')
   const otros    = pendientes.filter(o => !['listo', 'en_camino', 'entregado', 'problema'].includes(o.estado))
   const problemas = pendientes.filter(o => o.estado === 'problema')
+  const entregadas = pendientes.filter(o => o.estado === 'entregado')   // solo aparecen al buscar
 
   const EntregaCard = ({ o }: { o: OrdenLab }) => {
     const [showProblema, setShowProblema] = useState(false)
@@ -1475,6 +1477,21 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
               {problemas.map(o => <EntregaCard key={o.id} o={o} />)}
+            </div>
+          </div>
+        )}
+
+        {/* Entregadas — solo aparecen al buscar, para reimprimir notas viejas */}
+        {entregadas.length > 0 && (
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-zinc-200">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Entregadas · historial (reimprimir)
+              </p>
+              <span className="text-xs font-bold text-zinc-400">· {entregadas.length}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+              {entregadas.map(o => <EntregaCard key={o.id} o={o} />)}
             </div>
           </div>
         )}
