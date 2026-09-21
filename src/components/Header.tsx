@@ -122,6 +122,29 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     router.push(`/dashboard/expedientes?search=${encodeURIComponent(`${p.nombre} ${p.apellido}`)}`)
   }
 
+  // Cambiar la sucursal donde trabajo HOY (sin tocar la "casa" del usuario).
+  // Guarda en el navegador y, si es empleada, registra su check-in del día en la nueva sucursal.
+  const esAdminOGerente = usuario.rol === 'administrador' || usuario.rol === 'gerente'
+  const cambiarSucursal = async (nueva: string) => {
+    setSucursalActual(nueva)
+    try {
+      const raw = localStorage.getItem('optios_demo_user')
+      const u = raw ? JSON.parse(raw) : {}
+      localStorage.setItem('optios_demo_user', JSON.stringify({ ...u, sucursal: nueva, checkInDate: todayISO }))
+    } catch { /* noop */ }
+    // Empleadas (no admin/gerente): dejar registrado el check-in del día en la sucursal nueva,
+    // para que no se revierta y quede reflejado en todo el sistema.
+    if (!esAdminOGerente && usuario.nombre) {
+      try {
+        await createClient().from('check_ins').upsert(
+          { usuario_nombre: usuario.nombre, sucursal: nueva, fecha: todayISO },
+          { onConflict: 'usuario_nombre,fecha' }
+        )
+      } catch { /* si la tabla no existe aún, ignorar */ }
+    }
+    window.location.reload()
+  }
+
   return (
     <header className="h-14 bg-white border-b border-zinc-200 flex items-center justify-between px-3 md:px-6 flex-shrink-0 relative z-30 gap-2">
 
@@ -190,30 +213,16 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           <p className="text-[11px] text-zinc-400 hidden md:block">{todayStr}</p>
           <div className="flex items-center justify-end gap-1 mt-0.5">
             <Store className="w-3 h-3 text-teal-500" />
-            {(usuario.rol === 'administrador' || usuario.rol === 'gerente') ? (
-              <select
-                value={sucursalActual}
-                onChange={e => {
-                  const nueva = e.target.value
-                  setSucursalActual(nueva)
-                  try {
-                    const raw = localStorage.getItem('optios_demo_user')
-                    const u = raw ? JSON.parse(raw) : {}
-                    localStorage.setItem('optios_demo_user', JSON.stringify({ ...u, sucursal: nueva }))
-                  } catch { /* noop */ }
-                  window.location.reload()
-                }}
-                className="text-[11px] font-medium text-zinc-600 bg-transparent border-none outline-none cursor-pointer hover:text-teal-600 transition-colors"
-              >
-                <option value="Baja Visión">Baja Visión</option>
-                <option value="5 de Mayo">5 de Mayo</option>
-                <option value="Plaza Laureles">Plaza Laureles</option>
-              </select>
-            ) : (
-              <p className="text-[11px] font-medium text-zinc-600">
-                {usuario.sucursal || 'Sin sucursal'}
-              </p>
-            )}
+            <select
+              value={sucursalActual}
+              onChange={e => cambiarSucursal(e.target.value)}
+              title={esAdminOGerente ? 'Cambiar la sucursal que estás viendo' : 'Cambiar tu sucursal de hoy'}
+              className="text-[11px] font-medium text-zinc-600 bg-transparent border-none outline-none cursor-pointer hover:text-teal-600 transition-colors"
+            >
+              <option value="Baja Visión">Baja Visión</option>
+              <option value="5 de Mayo">5 de Mayo</option>
+              <option value="Plaza Laureles">Plaza Laureles</option>
+            </select>
           </div>
         </div>
 
