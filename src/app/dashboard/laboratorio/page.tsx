@@ -11,7 +11,7 @@ import {
   ArrowRight, Printer, Link2, User, DollarSign,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
-import { getSucursalActual } from '@/lib/session'
+import { getSucursalActual, getSucursalFiltro } from '@/lib/session'
 import { hoyLocal, hoyMasDias } from '@/lib/fecha'
 
 // ─────────────────────────────────────────
@@ -1610,7 +1610,9 @@ export default function LaboratorioPage() {
         try { legacyU = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
         const user = {
           rol:      sessionUser?.rol      || legacyU.rol      || 'vendedor',
-          sucursal: sessionUser?.sucursal || legacyU.sucursal || '',
+          // Sucursal de TRABAJO = la del check-in del día (no la "casa" de la cuenta).
+          // getSucursalFiltro devuelve 'Todas' para admin/gerente/repartidor, o la óptica del día.
+          sucursal: getSucursalFiltro(),
           nombre:   sessionUser?.nombre   || legacyU.nombre   || '',
         }
         setDemoUser(user as { rol: string; sucursal: string; nombre: string })
