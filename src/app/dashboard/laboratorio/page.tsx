@@ -1601,43 +1601,38 @@ export default function LaboratorioPage() {
   const router = useRouter()
 
   // ── Cargar órdenes desde Supabase ──────────────────────────
-  useEffect(() => {
-    const fetchOrdenes = async () => {
-      setCargando(true)
-      try {
-        // Leer usuario (Supabase Auth o legacy localStorage)
-        let legacyU: { rol?: string; sucursal?: string; nombre?: string } = {}
-        try { legacyU = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
-        const user = {
-          rol:      sessionUser?.rol      || legacyU.rol      || 'vendedor',
-          // Sucursal de TRABAJO = la del check-in del día (no la "casa" de la cuenta).
-          // getSucursalFiltro devuelve 'Todas' para admin/gerente/repartidor, o la óptica del día.
-          sucursal: getSucursalFiltro(),
-          nombre:   sessionUser?.nombre   || legacyU.nombre   || '',
-        }
-        setDemoUser(user as { rol: string; sucursal: string; nombre: string })
-        setSucursalCrear(getSucursalActual())
-
-        const supabase = createClient()
-        let q = supabase.from('ordenes_lab').select('*').order('fecha_ingreso', { ascending: true })
-        // Vendedores solo ven órdenes de su sucursal — pero SOLO si tienen una sucursal real.
-        // (Con 'Todas' o vacío no se filtra: si no, no aparecería ninguna orden.)
-        if (user?.rol === 'vendedor' && user?.sucursal && user.sucursal !== 'Todas') {
-          q = q.eq('sucursal', user.sucursal)
-        }
-        const { data, error } = await q
-        if (data && !error) {
-          setOrdenes(data.map((r, i) => rowToOrden(r as Record<string, unknown>, i)))
-        }
-      } catch (e) {
-        console.warn('Error al cargar órdenes:', e)
-      } finally {
-        setCargando(false)
+  // Función reutilizable: se llama al montar Y después de crear/modificar órdenes
+  const recargarOrdenes = useCallback(async () => {
+    try {
+      let legacyU: { rol?: string; sucursal?: string; nombre?: string } = {}
+      try { legacyU = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
+      const user = {
+        rol:      sessionUser?.rol      || legacyU.rol      || 'vendedor',
+        sucursal: getSucursalFiltro(),
+        nombre:   sessionUser?.nombre   || legacyU.nombre   || '',
       }
+      setDemoUser(user as { rol: string; sucursal: string; nombre: string })
+      setSucursalCrear(getSucursalActual())
+
+      const supabase = createClient()
+      let q = supabase.from('ordenes_lab').select('*').order('fecha_ingreso', { ascending: true })
+      if (user?.rol === 'vendedor' && user?.sucursal && user.sucursal !== 'Todas') {
+        q = q.eq('sucursal', user.sucursal)
+      }
+      const { data, error } = await q
+      if (data && !error) {
+        setOrdenes(data.map((r, i) => rowToOrden(r as Record<string, unknown>, i)))
+      }
+    } catch (e) {
+      console.warn('Error al cargar órdenes:', e)
     }
-    fetchOrdenes()
+  }, [sessionUser?.rol, sessionUser?.sucursal, sessionUser?.nombre])
+
+  useEffect(() => {
+    setCargando(true)
+    recargarOrdenes().finally(() => setCargando(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionUser?.rol, sessionUser?.sucursal])
+  }, [recargarOrdenes])
 
   // ── Escribir cambios a Supabase ─────────────────────────────
   const updateEnSupabase = useCallback(async (supabaseId: string, changes: Partial<OrdenLab>) => {
@@ -1885,20 +1880,14 @@ export default function LaboratorioPage() {
         estado_antes:   null,
         estado_despues: 'recibido',
         registrado_por: demoUser?.nombre ?? '',
-        notas:          'Orden creada',
+        notas:          form.esGarantia ? 'Orden de garantía creada' : 'Orden creada',
       })
     }
 
-    const nueva: OrdenLab = {
-      id: Date.now(),
-      folio,
-      ...form,
-      supabaseId: inserted?.id ?? '',
-    }
-    setOrdenes(prev => [nueva, ...prev])
+    // Re-cargar todas las órdenes de la DB para asegurar que aparezca
+    await recargarOrdenes()
     setModal(false)
     setVentaVinculada(null)
-    setDetalle(nueva)
   }
 
   const f = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
@@ -1945,7 +1934,7 @@ export default function LaboratorioPage() {
             const nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
             const folioNuevo = `L-${String(nL).padStart(4, '0')}`
 
-            const { data: inserted } = await supabase.from('ordenes_lab').insert({
+            const { data: inserted, error: errorGar } = await supabase.from('ordenes_lab').insert({
               folio:               folioNuevo,
               folio_venta:         original.folioVenta,
               venta_id:            original.ventaId || null,
@@ -1974,56 +1963,26 @@ export default function LaboratorioPage() {
               folio_origen:        original.folio,
               es_garantia:         true,
               motivo_problema:     motivo,
+              creado_por:          demoUser?.nombre ?? '',
             }).select('id').single()
 
-            // 3. Agregar nueva orden al estado local
-            const nuevaOrden: OrdenLab = {
-              id: Date.now(),
-              folio: folioNuevo,
-              supabaseId: inserted?.id ?? '',
-              folioVenta: original.folioVenta,
-              ventaId: original.ventaId,
-              pacienteId: original.pacienteId,
-              paciente: original.paciente,
-              telefono: original.telefono,
-              sucursal: original.sucursal,
-              laboratorio: '',
-              tipoMica: original.tipoMica,
-              armazon: original.armazon,
-              descripcionArmazon: original.descripcionArmazon,
-              od: original.od,
-              oi: original.oi,
-              add: original.add,
-              dp: original.dp,
-              altura: original.altura,
-              tratamiento: original.tratamiento,
-              colorTratamiento: original.colorTratamiento,
-              urgente: original.urgente,
-              fechaIngreso: hoy,
-              fechaPromesa: '',
-              fechaEntrega: '',
-              fechaEnvioLab: '',
-              fechaRecogidaLab: '',
-              pagadoLab: false,
-              fechaPagoLab: '',
-              metodoPagoLab: '',
-              estado: 'recibido',
-              costoLab: 0,
-              precioCliente: original.precioCliente,
-              anticipo: original.anticipo,
-              notas: '',
-              verificado: false,
-              verificadoPor: '',
-              fechaVerificacion: '',
-              notasVerificacion: '',
-              motivoRetraso: '',
-              creadoPor: '',
-              folioOrigen: original.folio,
-              esGarantia: true,
-              motivoProblema: motivo,
-              archivado: false,
+            if (errorGar || !inserted?.id) {
+              alert('No se pudo crear la orden de garantía: ' + (errorGar?.message ?? 'error desconocido') + '\n\nToma captura de este mensaje.')
+              return
             }
-            setOrdenes(prev => [nuevaOrden, ...prev])
+
+            // Registrar historial de la nueva orden de garantía
+            await supabase.from('ordenes_lab_historial').insert({
+              orden_id:       inserted.id,
+              evento:         'estado',
+              estado_antes:   null,
+              estado_despues: 'recibido',
+              registrado_por: demoUser?.nombre ?? '',
+              notas:          `Garantía creada desde ${original.folio} — ${motivo}`,
+            })
+
+            // 3. Re-cargar órdenes de la DB para que aparezca
+            await recargarOrdenes()
           },
   }
 
