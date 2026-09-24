@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
+import { getSucursalActual } from '@/lib/session'
 import React from 'react'
 import {
   Search, Plus, X, Save, ChevronRight, ChevronLeft,
   User, Phone, FileText, Calendar, MessageCircle,
   Eye, ShoppingBag, ChevronDown,
   Printer, Edit2, AlertCircle, MoreHorizontal, Trash2,
+  Shield,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -120,7 +122,7 @@ function getTagsPaciente(p: Paciente, rv: Receta | null): { label: string; icon:
   const lastVenta = [...p.ventas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
   if (lastVenta) {
     const dias = Math.floor((now.getTime() - new Date(lastVenta.fecha).getTime()) / 86400000)
-    if (dias < 365)
+    if (dias < 60)
       tags.push({ label: 'Garantía vigente', icon: '✓', color: 'bg-sky-50 text-sky-700 border border-sky-200' })
   }
   if ((p.notas || '').toLowerCase().includes('fotocrom'))
@@ -193,13 +195,26 @@ function tagColor(tag: string): string {
   return TAG_COLORES[tag] ?? 'bg-zinc-100 text-zinc-600'
 }
 
+const DIAS_GARANTIA = 60
+
 function garantiaVigenteInfo(p: Paciente): string | null {
   const last = [...p.ventas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
   if (!last) return null
   const dias = Math.floor((new Date().getTime() - new Date(last.fecha).getTime()) / 86400000)
-  if (dias >= 365) return null
-  const vence = new Date(new Date(last.fecha).getTime() + 365 * 86400000)
-  return `Vigente hasta ${vence.toLocaleDateString('es-MX', { month: 'short', year: 'numeric' })}`
+  if (dias >= DIAS_GARANTIA) return null
+  const vence = new Date(new Date(last.fecha).getTime() + DIAS_GARANTIA * 86400000)
+  return `Vigente hasta ${vence.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`
+}
+
+/** Ventas con garantía vigente (< 60 días desde la compra) */
+function ventasConGarantia(p: Paciente): HistorialVenta[] {
+  const now = Date.now()
+  return [...p.ventas]
+    .filter(v => {
+      const dias = Math.floor((now - new Date(v.fecha).getTime()) / 86400000)
+      return dias < DIAS_GARANTIA && v.estado === 'activa'
+    })
+    .sort((a, b) => b.fecha.localeCompare(a.fecha))
 }
 
 function calcEdad(fechaNac: string) {
@@ -575,6 +590,18 @@ function ExpedientesContent() {
   const [historialResultados, setHistorialResultados] = useState<HistorialBV[]>([])
   const [buscandoHistorial, setBuscandoHistorial] = useState(false)
 
+  // Modal garantía
+  const [modalGarantia, setModalGarantia] = useState(false)
+  const [garantiaVenta, setGarantiaVenta] = useState<HistorialVenta | null>(null) // venta seleccionada
+  const [garantiaTipo, setGarantiaTipo] = useState<'producto' | 'graduacion' | null>(null)
+  const [garantiaMotivo, setGarantiaMotivo] = useState('')
+  const [garantiaProductos, setGarantiaProductos] = useState({ tipoMica: '', tratamiento: '', armazon: '', descripcionArmazon: '' })
+  const [garantiaAltura, setGarantiaAltura] = useState('')
+  const [garantiaNotas, setGarantiaNotas] = useState('')
+  const [garantiaGuardando, setGarantiaGuardando] = useState(false)
+  // Para el flujo de graduación: primero nueva receta, luego crear orden
+  const [garantiaRecetaGuardada, setGarantiaRecetaGuardada] = useState(false)
+
   // Modal editar paciente
   const [modalEditar, setModalEditar] = useState(false)
   const [formEditar, setFormEditar] = useState<Omit<Paciente, 'id' | 'recetas' | 'citas' | 'ventas'>>(formVacioPaciente())
@@ -740,12 +767,13 @@ function ExpedientesContent() {
       if (fichaVenta) { setFichaVenta(null); return }
       if (ventaAbierta) { setVentaAbierta(null); return }
       if (modalReceta) { setModalReceta(false); setErroresReceta({}); return }
+      if (modalGarantia) { setModalGarantia(false); return }
       if (modalEditar) { setModalEditar(false); return }
       if (modalPaciente) { setModalPaciente(false); return }
     }
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
-  }, [menuAbierto, ventaAbierta, modalReceta, modalEditar, modalPaciente])
+  }, [menuAbierto, ventaAbierta, modalReceta, modalGarantia, modalEditar, modalPaciente])
 
   const crearDesdeHistorial = (h: HistorialBV) => {
     const partes = h.nombre.trim().split(' ')
@@ -822,6 +850,133 @@ function ExpedientesContent() {
     ))
     setSeleccionado(prev => prev ? { ...prev, recetas: [nueva, ...prev.recetas] } : null)
     setModalReceta(false)
+
+    // Si estamos en flujo de garantía con cambio de graduación, marcar receta guardada
+    if (modalGarantia && garantiaTipo === 'graduacion') {
+      setGarantiaRecetaGuardada(true)
+    }
+  }
+
+  // ── Garantía: abrir modal ──
+  const abrirGarantia = () => {
+    if (!seleccionado) return
+    const ventas = ventasConGarantia(seleccionado)
+    if (ventas.length === 0) return
+    if (ventas.length === 1) {
+      iniciarGarantia(ventas[0])
+    } else {
+      // Múltiples ventas con garantía: mostrar selector
+      setGarantiaVenta(null)
+      setGarantiaTipo(null)
+      setGarantiaMotivo('')
+      setGarantiaRecetaGuardada(false)
+      setModalGarantia(true)
+    }
+  }
+
+  const iniciarGarantia = (venta: HistorialVenta) => {
+    // Clasificar productos de la venta
+    const esMica = (n: string) => ['mica', 'monofocal', 'progres', 'bifocal', 'transitions', 'rebisel'].some(k => n.toLowerCase().includes(k))
+    const esFiltro = (n: string) => ['filtro', 'antirreflej', 'blue', 'fotocrom', 'polariz', 'tinte', 'crizal'].some(k => n.toLowerCase().includes(k))
+    const nombres = venta.items.map(i => i.nombre)
+    const micas = nombres.filter(esMica)
+    const filtros = nombres.filter(n => esFiltro(n) && !esMica(n))
+    const armazon = nombres.find(n => !esMica(n) && !esFiltro(n)) ?? ''
+    setGarantiaVenta(venta)
+    setGarantiaTipo(null)
+    setGarantiaMotivo('')
+    setGarantiaAltura('')
+    setGarantiaNotas('')
+    setGarantiaRecetaGuardada(false)
+    setGarantiaProductos({
+      tipoMica: micas.join(' + ') || '',
+      tratamiento: filtros.join(' + ') || '',
+      armazon: armazon ? 'comprado' : 'propio',
+      descripcionArmazon: armazon,
+    })
+    setModalGarantia(true)
+  }
+
+  // ── Garantía: crear orden de lab ──
+  const crearOrdenGarantia = async () => {
+    if (!seleccionado || !garantiaVenta || !garantiaTipo) return
+    if (!garantiaMotivo.trim()) { alert('Indica el motivo de la garantía.'); return }
+    setGarantiaGuardando(true)
+    try {
+      const supabase = createClient()
+      // Obtener siguiente folio
+      const { data: ultimoL } = await supabase
+        .from('ordenes_lab').select('folio')
+        .ilike('folio', 'L-%').order('folio', { ascending: false }).limit(1)
+      const nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
+      const folio = `L-${String(nL).padStart(4, '0')}`
+
+      // Receta actual (la más reciente)
+      const rv = seleccionado.recetas.length > 0
+        ? [...seleccionado.recetas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
+        : null
+
+      const od = rv ? `${rv.od_esfera} / ${rv.od_cilindro}${rv.od_eje ? ` / ${rv.od_eje}°` : ''}`.replace(/ \/ $/,'') : ''
+      const oi = rv ? `${rv.oi_esfera} / ${rv.oi_cilindro}${rv.oi_eje ? ` / ${rv.oi_eje}°` : ''}`.replace(/ \/ $/,'') : ''
+      const add = rv?.od_add || rv?.oi_add || ''
+
+      let legacyU: { nombre?: string } = {}
+      try { legacyU = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
+
+      const { data: inserted, error: err } = await supabase.from('ordenes_lab').insert({
+        folio,
+        folio_venta:         garantiaVenta.folio,
+        venta_id:            garantiaVenta.id || null,
+        paciente_id:         String(seleccionado.id),
+        paciente:            `${seleccionado.nombre} ${seleccionado.apellido}`.trim(),
+        telefono:            seleccionado.telefono,
+        sucursal:            getSucursalActual(),
+        laboratorio:         '',
+        tipo_mica:           garantiaProductos.tipoMica,
+        armazon:             garantiaProductos.armazon,
+        descripcion_armazon: garantiaProductos.descripcionArmazon,
+        od, oi, add_graduacion: add,
+        dp:                  rv?.dp || '',
+        altura:              garantiaAltura,
+        tratamiento:         garantiaProductos.tratamiento,
+        color_tratamiento:   '',
+        urgente:             false,
+        fecha_ingreso:       hoyLocal(),
+        fecha_promesa:       new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+        estado:              'recibido',
+        costo_lab:           0,
+        precio_cliente:      0,
+        anticipo:            0,
+        notas:               garantiaNotas,
+        creado_por:          legacyU.nombre ?? '',
+        es_garantia:         true,
+        motivo_problema:     garantiaMotivo,
+      }).select('id').single()
+
+      if (err || !inserted?.id) {
+        alert('Error al crear orden: ' + (err?.message ?? 'desconocido'))
+        setGarantiaGuardando(false)
+        return
+      }
+
+      // Historial
+      await supabase.from('ordenes_lab_historial').insert({
+        orden_id: inserted.id,
+        evento: 'estado',
+        estado_antes: null,
+        estado_despues: 'recibido',
+        registrado_por: legacyU.nombre ?? '',
+        notas: `Orden de garantía creada desde expediente (${garantiaTipo === 'graduacion' ? 'cambio de graduación' : 'cambio de producto'})`,
+      })
+
+      alert(`Orden ${folio} creada exitosamente. Ve a Laboratorio para imprimirla.`)
+      setModalGarantia(false)
+      setGarantiaGuardando(false)
+    } catch (e) {
+      console.error(e)
+      alert('Error inesperado al crear la garantía.')
+      setGarantiaGuardando(false)
+    }
   }
 
   const guardarPaciente = async () => {
@@ -1307,14 +1462,18 @@ function ExpedientesContent() {
               <div className="bg-white rounded-lg border border-zinc-200/80 p-4">
                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Acciones rápidas</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: 'Nueva venta',    Icon: ShoppingBag, color: 'bg-[#0D9488]/10 text-[#0D9488]', action: () => router.push(`/dashboard/ventas/nueva?pacienteId=${seleccionado.id}`) },
-                    { label: 'Agendar cita',   Icon: Calendar,    color: 'bg-blue-50 text-blue-600',        action: () => router.push('/dashboard/agenda') },
-                    { label: 'Enviar mensaje', Icon: MessageCircle,color:'bg-emerald-50 text-emerald-600',  action: () => window.open(`https://wa.me/52${seleccionado.telefono.replace(/\D/g,'')}`, '_blank') },
-                    { label: 'Nueva receta', Icon: FileText, color: 'bg-zinc-100 text-zinc-500', action: () => { setFormReceta(formVacioReceta()); setErroresReceta({}); setModalReceta(true) } },
-                  ].map(({ label, Icon, color, action }) => (
-                    <button key={label} onClick={action}
-                      className="flex flex-col items-center gap-2 p-3 border border-zinc-200 rounded-lg hover:bg-zinc-100 transition-colors text-center">
+                  {(() => {
+                    const tieneGarantia = ventasConGarantia(seleccionado).length > 0
+                    return [
+                      { label: 'Nueva venta',    Icon: ShoppingBag, color: 'bg-[#0D9488]/10 text-[#0D9488]', action: () => router.push(`/dashboard/ventas/nueva?pacienteId=${seleccionado.id}`), disabled: false },
+                      { label: 'Agendar cita',   Icon: Calendar,    color: 'bg-blue-50 text-blue-600',        action: () => router.push('/dashboard/agenda'), disabled: false },
+                      { label: 'Enviar mensaje', Icon: MessageCircle,color:'bg-emerald-50 text-emerald-600',  action: () => window.open(`https://wa.me/52${seleccionado.telefono.replace(/\D/g,'')}`, '_blank'), disabled: false },
+                      { label: 'Garantía', Icon: Shield, color: tieneGarantia ? 'bg-sky-50 text-sky-600' : 'bg-zinc-100 text-zinc-300', action: tieneGarantia ? abrirGarantia : () => {}, disabled: !tieneGarantia },
+                    ]
+                  })().map(({ label, Icon, color, action, disabled }) => (
+                    <button key={label} onClick={action} disabled={disabled}
+                      title={disabled ? 'Sin compras con garantía vigente (2 meses)' : undefined}
+                      className={`flex flex-col items-center gap-2 p-3 border border-zinc-200 rounded-lg transition-colors text-center ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-100'}`}>
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}>
                         <Icon className="w-4 h-4" />
                       </div>
@@ -1620,6 +1779,241 @@ function ExpedientesContent() {
                 <Save className="w-4 h-4" /> Guardar receta
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL GARANTÍA ── */}
+      {modalGarantia && seleccionado && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
+              <div>
+                <h2 className="text-base font-bold text-zinc-800 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-sky-600" /> Crear garantía
+                </h2>
+                <p className="text-xs text-zinc-400 mt-0.5">{seleccionado.nombre} {seleccionado.apellido}</p>
+              </div>
+              <button onClick={() => setModalGarantia(false)}><X className="w-5 h-5 text-zinc-400" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+
+              {/* Paso 1: Seleccionar venta (si hay varias) */}
+              {!garantiaVenta && (
+                <div>
+                  <p className="text-sm font-semibold text-zinc-700 mb-3">¿Para cuál compra es la garantía?</p>
+                  <div className="space-y-2">
+                    {ventasConGarantia(seleccionado).map(v => {
+                      const diasRes = Math.floor((Date.now() - new Date(v.fecha).getTime()) / 86400000)
+                      return (
+                        <button key={v.id} onClick={() => iniciarGarantia(v)}
+                          className="w-full text-left p-3 border border-zinc-200 rounded-lg hover:border-sky-300 hover:bg-sky-50/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-zinc-800">{v.folio}</span>
+                            <span className="text-xs text-zinc-400">hace {diasRes}d</span>
+                          </div>
+                          <p className="text-xs text-zinc-500 mt-1">
+                            {v.items.slice(0, 3).map(i => i.nombre).join(' + ') || 'Sin desglose'}
+                          </p>
+                          <p className="text-xs font-semibold text-zinc-600 mt-1">${v.total.toLocaleString('es-MX')}</p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Paso 2: Tipo de garantía */}
+              {garantiaVenta && !garantiaTipo && (
+                <div>
+                  <div className="bg-zinc-50 rounded-lg p-3 mb-4">
+                    <p className="text-xs text-zinc-400">Venta vinculada</p>
+                    <p className="text-sm font-bold text-zinc-800">{garantiaVenta.folio} — {garantiaVenta.items.slice(0, 2).map(i => i.nombre).join(' + ')}</p>
+                  </div>
+                  <p className="text-sm font-semibold text-zinc-700 mb-3">¿Qué tipo de cambio necesita?</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => setGarantiaTipo('producto')}
+                      className="flex flex-col items-center gap-2 p-4 border border-zinc-200 rounded-lg hover:border-sky-300 hover:bg-sky-50/50 transition-colors text-center">
+                      <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                        <ShoppingBag className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <span className="text-sm font-semibold text-zinc-700">Cambio de producto</span>
+                      <span className="text-[10px] text-zinc-400 leading-tight">Diferente tipo de mica, quitar/agregar filtro, cambiar armazón, ajustar altura, etc.</span>
+                    </button>
+                    <button onClick={() => {
+                      setGarantiaTipo('graduacion')
+                      // Abrir modal de receta para nuevo examen
+                      setFormReceta(formVacioReceta())
+                      setErroresReceta({})
+                      setModalReceta(true)
+                    }}
+                      className="flex flex-col items-center gap-2 p-4 border border-zinc-200 rounded-lg hover:border-sky-300 hover:bg-sky-50/50 transition-colors text-center">
+                      <div className="w-10 h-10 rounded-full bg-violet-50 flex items-center justify-center">
+                        <Eye className="w-5 h-5 text-violet-600" />
+                      </div>
+                      <span className="text-sm font-semibold text-zinc-700">Cambio de graduación</span>
+                      <span className="text-[10px] text-zinc-400 leading-tight">El paciente no ve bien, requiere nuevo examen visual y actualizar receta.</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Paso 3a: Cambio de producto — editar info */}
+              {garantiaVenta && garantiaTipo === 'producto' && (
+                <div className="space-y-4">
+                  <div className="bg-zinc-50 rounded-lg p-3">
+                    <p className="text-xs text-zinc-400">Venta {garantiaVenta.folio} — Cambio de producto</p>
+                  </div>
+
+                  {/* Graduación actual (solo lectura) */}
+                  {(() => {
+                    const rv = seleccionado.recetas.length > 0
+                      ? [...seleccionado.recetas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] : null
+                    return rv ? (
+                      <div className="border border-zinc-200 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-zinc-400 mb-2">Graduación actual (no editable)</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs font-mono text-zinc-600">
+                          <p><span className="font-bold">OD:</span> {rv.od_esfera} / {rv.od_cilindro} {rv.od_eje ? `/ ${rv.od_eje}°` : ''}</p>
+                          <p><span className="font-bold">OI:</span> {rv.oi_esfera} / {rv.oi_cilindro} {rv.oi_eje ? `/ ${rv.oi_eje}°` : ''}</p>
+                          {(rv.od_add || rv.oi_add) && <p><span className="font-bold">ADD:</span> {rv.od_add || rv.oi_add}</p>}
+                          <p><span className="font-bold">DP:</span> {rv.dp}</p>
+                        </div>
+                      </div>
+                    ) : null
+                  })()}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo de mica</label>
+                    <input value={garantiaProductos.tipoMica}
+                      onChange={e => setGarantiaProductos(p => ({ ...p, tipoMica: e.target.value }))}
+                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tratamiento / filtros</label>
+                    <input value={garantiaProductos.tratamiento}
+                      onChange={e => setGarantiaProductos(p => ({ ...p, tratamiento: e.target.value }))}
+                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Altura de montaje</label>
+                    <input value={garantiaAltura}
+                      onChange={e => setGarantiaAltura(e.target.value)}
+                      placeholder="Ej: 18mm"
+                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
+                      Motivo de la garantía <span className="text-red-400">*</span>
+                    </label>
+                    <input value={garantiaMotivo} onChange={e => setGarantiaMotivo(e.target.value)}
+                      placeholder="Ej: quiere progresivo en vez de bifocal"
+                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Notas adicionales</label>
+                    <textarea value={garantiaNotas} onChange={e => setGarantiaNotas(e.target.value)} rows={2}
+                      placeholder="Indicaciones especiales..."
+                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30 resize-none" />
+                  </div>
+                </div>
+              )}
+
+              {/* Paso 3b: Cambio de graduación — después de guardar receta */}
+              {garantiaVenta && garantiaTipo === 'graduacion' && (
+                <div className="space-y-4">
+                  <div className="bg-zinc-50 rounded-lg p-3">
+                    <p className="text-xs text-zinc-400">Venta {garantiaVenta.folio} — Cambio de graduación</p>
+                  </div>
+
+                  {!garantiaRecetaGuardada ? (
+                    <div className="text-center py-6">
+                      <Eye className="w-8 h-8 text-violet-400 mx-auto mb-2" />
+                      <p className="text-sm text-zinc-600 font-semibold">Primero registra la nueva receta</p>
+                      <p className="text-xs text-zinc-400 mt-1">El modal de nueva receta está abierto. Guarda el examen visual y regresa aquí.</p>
+                      <button onClick={() => { setFormReceta(formVacioReceta()); setErroresReceta({}); setModalReceta(true) }}
+                        className="mt-3 text-xs text-sky-600 font-semibold hover:underline">
+                        Abrir formulario de receta
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                        <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white text-[10px] font-bold">✓</span>
+                        </div>
+                        <p className="text-xs font-semibold text-emerald-700">Nueva receta guardada — la graduación se actualizó</p>
+                      </div>
+
+                      {/* Graduación nueva (solo lectura) */}
+                      {(() => {
+                        const rv = seleccionado.recetas.length > 0
+                          ? [...seleccionado.recetas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] : null
+                        return rv ? (
+                          <div className="border border-emerald-200 rounded-lg p-3 bg-emerald-50/50">
+                            <p className="text-xs font-semibold text-emerald-600 mb-2">Nueva graduación</p>
+                            <div className="grid grid-cols-2 gap-2 text-xs font-mono text-zinc-600">
+                              <p><span className="font-bold">OD:</span> {rv.od_esfera} / {rv.od_cilindro} {rv.od_eje ? `/ ${rv.od_eje}°` : ''}</p>
+                              <p><span className="font-bold">OI:</span> {rv.oi_esfera} / {rv.oi_cilindro} {rv.oi_eje ? `/ ${rv.oi_eje}°` : ''}</p>
+                              {(rv.od_add || rv.oi_add) && <p><span className="font-bold">ADD:</span> {rv.od_add || rv.oi_add}</p>}
+                              <p><span className="font-bold">DP:</span> {rv.dp}</p>
+                            </div>
+                          </div>
+                        ) : null
+                      })()}
+
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tipo de mica</label>
+                        <input value={garantiaProductos.tipoMica}
+                          onChange={e => setGarantiaProductos(p => ({ ...p, tipoMica: e.target.value }))}
+                          className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Tratamiento / filtros</label>
+                        <input value={garantiaProductos.tratamiento}
+                          onChange={e => setGarantiaProductos(p => ({ ...p, tratamiento: e.target.value }))}
+                          className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Altura de montaje</label>
+                        <input value={garantiaAltura}
+                          onChange={e => setGarantiaAltura(e.target.value)}
+                          placeholder="Ej: 18mm"
+                          className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
+                          Motivo de la garantía <span className="text-red-400">*</span>
+                        </label>
+                        <input value={garantiaMotivo} onChange={e => setGarantiaMotivo(e.target.value)}
+                          placeholder="Ej: cambio de graduación"
+                          className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Notas adicionales</label>
+                        <textarea value={garantiaNotas} onChange={e => setGarantiaNotas(e.target.value)} rows={2}
+                          placeholder="Indicaciones especiales..."
+                          className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30 resize-none" />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer con botones */}
+            {garantiaVenta && garantiaTipo && (garantiaTipo === 'producto' || garantiaRecetaGuardada) && (
+              <div className="px-6 pb-5 flex gap-3">
+                <button onClick={() => setModalGarantia(false)}
+                  className="flex-1 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100">
+                  Cancelar
+                </button>
+                <button onClick={crearOrdenGarantia} disabled={garantiaGuardando}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-sky-600 text-white rounded text-sm font-bold hover:bg-sky-700 disabled:opacity-50">
+                  <Shield className="w-4 h-4" /> {garantiaGuardando ? 'Creando...' : 'Crear orden de garantía'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
