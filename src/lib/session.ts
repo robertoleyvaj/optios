@@ -34,10 +34,16 @@ const SUCURSAL_CANONICA: Record<string, string> = {
   'bajavision': 'Baja Visión',
   'baja vision': 'Baja Visión',
   'baja visión': 'Baja Visión',
+  'rosarito': 'Baja Visión',
+  'óptica rosarito': 'Baja Visión',
+  'optica rosarito': 'Baja Visión',
+  'optilux': 'Baja Visión',
+  '5demayo': '5 de Mayo',
   '5 de mayo': '5 de Mayo',
+  'laureles': 'Plaza Laureles',
   'plaza laureles': 'Plaza Laureles',
 }
-function normalizarSucursal(s: string | undefined): string | undefined {
+export function normalizarSucursal(s: string | undefined): string | undefined {
   if (!s) return s
   const key = s.trim().toLowerCase()
   return SUCURSAL_CANONICA[key] ?? s

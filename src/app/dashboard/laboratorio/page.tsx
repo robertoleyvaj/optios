@@ -11,7 +11,7 @@ import {
   ArrowRight, Printer, Link2, User, DollarSign,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
-import { getSucursalActual, getSucursalFiltro } from '@/lib/session'
+import { getSucursalActual, getSucursalFiltro, normalizarSucursal } from '@/lib/session'
 import { hoyLocal, hoyMasDias } from '@/lib/fecha'
 
 // ─────────────────────────────────────────
@@ -201,11 +201,14 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
       })
 
       // 2. Pacientes por nombre (para ventas viejas que no están en el sistema)
-      const first = q.split(/\s+/)[0]
+      // Busca con TODAS las palabras para evitar que nombres comunes (jose, maria)
+      // llenen el límite y oculten al paciente correcto.
+      const words = q.split(/\s+/).filter(Boolean)
+      const orFilters = words.map(w => `nombre.ilike.%${w}%,apellido.ilike.%${w}%`).join(',')
       const { data: pacData } = await sb
         .from('pacientes')
         .select('id, nombre, apellido, telefono, sucursal_principal')
-        .or(`nombre.ilike.%${first}%,apellido.ilike.%${first}%`)
+        .or(orFilters)
         .limit(20)
       const full = q.toLowerCase()
       const resPacientes: VentaRef[] = (pacData ?? [])
@@ -216,7 +219,7 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
           pacienteId: p.id as string,
           paciente:   `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim(),
           telefono:   (p.telefono as string) ?? '',
-          sucursal:   (p.sucursal_principal as string) ?? '',
+          sucursal:   normalizarSucursal(p.sucursal_principal as string) ?? '',
           od: '', oi: '', add: '', dp: '', armazon: '',
           esPaciente: true,
         }))
@@ -1731,7 +1734,7 @@ export default function LaboratorioPage() {
       pacienteId: v.pacienteId,
       paciente: v.paciente,
       telefono: v.telefono,
-      sucursal: v.sucursal || prev.sucursal,
+      sucursal: normalizarSucursal(v.sucursal) || prev.sucursal,
     }))
 
     const supabase = createClient()
