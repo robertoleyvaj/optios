@@ -200,20 +200,23 @@ function BuscadorVenta({ onSelect }: { onSelect: (v: VentaRef) => void }) {
         }
       })
 
-      // 2. Pacientes por nombre (para ventas viejas que no están en el sistema)
-      // Busca con TODAS las palabras para evitar que nombres comunes (jose, maria)
-      // llenen el límite y oculten al paciente correcto.
+      // 2. Pacientes por nombre — cada palabra debe aparecer en nombre O apellido (AND entre palabras)
+      // Así "jose ed" solo trae pacientes que contengan ambas palabras, no todos los "jose".
       const words = q.split(/\s+/).filter(Boolean)
-      const orFilters = words.map(w => `nombre.ilike.%${w}%,apellido.ilike.%${w}%`).join(',')
-      const { data: pacData } = await sb
+      let pacQuery = sb
         .from('pacientes')
         .select('id, nombre, apellido, telefono, sucursal_principal')
-        .or(orFilters)
-        .limit(20)
+      for (const w of words) {
+        pacQuery = pacQuery.or(`nombre.ilike.%${w}%,apellido.ilike.%${w}%`)
+      }
+      const { data: pacData } = await pacQuery.limit(30)
       const full = q.toLowerCase()
       const resPacientes: VentaRef[] = (pacData ?? [])
-        .filter((p: Record<string, unknown>) => `${p.nombre ?? ''} ${p.apellido ?? ''}`.toLowerCase().includes(full))
-        .slice(0, 6)
+        .filter((p: Record<string, unknown>) => {
+          const nombre = `${p.nombre ?? ''} ${p.apellido ?? ''}`.toLowerCase()
+          return words.every(w => nombre.includes(w.toLowerCase()))
+        })
+        .slice(0, 8)
         .map((p: Record<string, unknown>) => ({
           id: '', folio: '',
           pacienteId: p.id as string,
