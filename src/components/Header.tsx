@@ -87,11 +87,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     if (search.length < 2) { setSearchRes([]); return }
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(async () => {
-      const { data } = await createClient().from('pacientes')
+      const words = search.split(/\s+/).filter(Boolean)
+      let pacQ = createClient().from('pacientes')
         .select('id, nombre, apellido, telefono')
-        .or(`nombre.ilike.%${search}%,apellido.ilike.%${search}%`)
-        .limit(6)
-      if (data) setSearchRes(data as PacienteResult[])
+      for (const w of words) pacQ = pacQ.or(`nombre.ilike.%${w}%,apellido.ilike.%${w}%`)
+      const { data } = await pacQ.limit(30)
+      if (data) setSearchRes(data
+        .filter((p: PacienteResult) => {
+          const full = `${p.nombre} ${p.apellido}`.toLowerCase()
+          return words.every(w => full.includes(w.toLowerCase()))
+        })
+        .slice(0, 8) as PacienteResult[])
     }, 250)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [search])

@@ -455,12 +455,19 @@ export default function NuevaVentaPage() {
       .order('nombre', { ascending: true })
       .limit(8)
 
-    const fetch = q.length >= 1
-      ? query.or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,telefono.ilike.%${q}%`)
-      : query
+    const words = q.split(/\s+/).filter(Boolean)
+    let fetch = query
+    if (words.length > 0) {
+      for (const w of words) fetch = fetch.or(`nombre.ilike.%${w}%,apellido.ilike.%${w}%,telefono.ilike.%${w}%`)
+    }
 
     fetch.then(({ data }) => {
-      setClientesSuggestions((data ?? []).map(p => ({
+      const filtered = (data ?? []).filter(p => {
+        if (words.length === 0) return true
+        const full = `${p.nombre} ${p.apellido} ${p.telefono}`.toLowerCase()
+        return words.every(w => full.includes(w.toLowerCase()))
+      })
+      setClientesSuggestions(filtered.slice(0, 8).map(p => ({
         id: p.id, nombre: p.nombre, apellido: p.apellido, telefono: p.telefono
       })))
     })

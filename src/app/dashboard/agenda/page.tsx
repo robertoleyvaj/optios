@@ -173,12 +173,20 @@ function BuscadorPaciente({ value, onSelect, onManual }: {
     if (q.length < 2) { setRes([]); return }
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
-      const { data } = await createClient().from('pacientes')
+      const words = q.split(/\s+/).filter(Boolean)
+      let pacQ = createClient().from('pacientes')
         .select('id, nombre, apellido, telefono')
-        .or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%`).limit(6)
-      if (data) setRes(data.map((p: { id: string; nombre: string; apellido: string; telefono: string }) => ({
-        id: p.id, nombre: `${p.nombre} ${p.apellido}`.trim(), telefono: p.telefono ?? '',
-      })))
+      for (const w of words) pacQ = pacQ.or(`nombre.ilike.%${w}%,apellido.ilike.%${w}%`)
+      const { data } = await pacQ.limit(30)
+      if (data) setRes(data
+        .filter((p: { nombre: string; apellido: string }) => {
+          const full = `${p.nombre} ${p.apellido}`.toLowerCase()
+          return words.every(w => full.includes(w.toLowerCase()))
+        })
+        .slice(0, 8)
+        .map((p: { id: string; nombre: string; apellido: string; telefono: string }) => ({
+          id: p.id, nombre: `${p.nombre} ${p.apellido}`.trim(), telefono: p.telefono ?? '',
+        })))
     }, 300)
     return () => { if (timer.current) clearTimeout(timer.current) }
   }, [q])
