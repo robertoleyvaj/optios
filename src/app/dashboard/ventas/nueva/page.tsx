@@ -31,6 +31,7 @@ import {
   Store,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
+import { calcularCupon, generarCodigoCupon, fechaVencimientoCupon, cuponTicketHtml, cuponTicketCss } from '@/lib/cupones'
 
 // --- Catálogo GON ---
 type CatItem = {
@@ -208,8 +209,37 @@ export default function NuevaVentaPage() {
   const [folioGuardado, setFolioGuardado] = useState('')
   const [errorGuardado, setErrorGuardado] = useState('')
   const [folioLabGuardado, setFolioLabGuardado] = useState<string[]>([])
+  const [cuponGenerado, setCuponGenerado] = useState<{ codigo: string; monto: number; vence: string } | null>(null)
   const [notaImpresa, setNotaImpresa] = useState(false)
   const [ordenLabImpresa, setOrdenLabImpresa] = useState(false)
+  // ── Cupón de descuento ──
+  const [codigoCupon, setCodigoCupon] = useState('')
+  const [cuponAplicado, setCuponAplicado] = useState<{ codigo: string; monto: number } | null>(null)
+  const [cuponError, setCuponError] = useState('')
+  const [validandoCupon, setValidandoCupon] = useState(false)
+
+  const validarCupon = async () => {
+    const code = codigoCupon.trim().toUpperCase()
+    if (!code) return
+    setValidandoCupon(true)
+    setCuponError('')
+    try {
+      const { data, error } = await createClient()
+        .from('cupones_ticket')
+        .select('id, codigo, monto, estado, fecha_vencimiento')
+        .eq('codigo', code)
+        .maybeSingle()
+      if (error || !data) { setCuponError('Cupón no encontrado'); return }
+      if (data.estado === 'canjeado') { setCuponError('Este cupón ya fue canjeado'); return }
+      if (data.estado === 'expirado') { setCuponError('Este cupón está expirado'); return }
+      const hoy = new Date().toISOString().slice(0, 10)
+      if (data.fecha_vencimiento < hoy) { setCuponError('Este cupón venció el ' + data.fecha_vencimiento); return }
+      setCuponAplicado({ codigo: data.codigo, monto: Number(data.monto) })
+      setCuponError('')
+    } catch { setCuponError('Error validando cupón') }
+    finally { setValidandoCupon(false) }
+  }
+
   const [busquedaProducto, setBusquedaProducto] = useState('')
   const [showBuscadorProducto, setShowBuscadorProducto] = useState(false)
   const [showProductoLibre, setShowProductoLibre] = useState(false)
@@ -583,6 +613,10 @@ export default function NuevaVentaPage() {
     setFolioLabGuardado([])
     setNotaImpresa(false)
     setOrdenLabImpresa(false)
+    setCuponGenerado(null)
+    setCuponAplicado(null)
+    setCodigoCupon('')
+    setCuponError('')
     setModoPago('liquidar')
     setLineasPago([{ metodo: 'efectivo', moneda: 'MXN', monto: '' }])
     setConfirmarSinAnticipo(false)
@@ -593,8 +627,9 @@ export default function NuevaVentaPage() {
     return s + (i.precio - desc) * i.cantidad
   }, 0)
 
-  // El total al cliente es el subtotal. La comisión bancaria la absorbe la tienda (se registra en finanzas).
-  const total = subtotal
+  // El total al cliente es el subtotal menos cupón si aplica. La comisión bancaria la absorbe la tienda.
+  const descuentoCupon = cuponAplicado ? Math.min(cuponAplicado.monto, subtotal) : 0
+  const total = subtotal - descuentoCupon
 
   // ── Líneas de pago (pago dividido: método + moneda por línea) ──
   // El anticipo/recibido SALE de las líneas — no hay campo aparte.
@@ -756,6 +791,8 @@ export default function NuevaVentaPage() {
           usuario_id:    usuarioId,
           moneda:       'MXN',   // la venta siempre vive en pesos
           tipo_cambio:  null,
+          cupon_codigo:    cuponAplicado?.codigo || null,
+          descuento_cupon: descuentoCupon || 0,
         })
         .select('id')
         .single()
@@ -978,6 +1015,42 @@ export default function NuevaVentaPage() {
         await supabase.from('ventas').delete().eq('id', cotizacionOrigen)
       }
 
+      // ── 5b. Marcar cupón como canjeado si se usó uno ──
+      if (!cotizacion && cuponAplicado) {
+        await supabase.from('cupones_ticket').update({
+          estado: 'canjeado',
+          canjeado_en: new Date().toISOString(),
+          venta_canje_id: ventaId,
+          folio_canje: folio,
+        }).eq('codigo', cuponAplicado.codigo)
+      }
+
+      // ── 6. Generar cupón de descuento (solo ventas reales ≥ $500) ──
+      if (!cotizacion) {
+        const montoCupon = calcularCupon(totalDB)
+        if (montoCupon > 0) {
+          const codigoCupon = generarCodigoCupon()
+          const hoyISO = hoyLocal()
+          const venceCupon = fechaVencimientoCupon(hoyISO)
+          const { error: errCupon } = await supabase.from('cupones_ticket').insert({
+            codigo: codigoCupon,
+            monto: montoCupon,
+            venta_id: ventaId,
+            folio_venta: folio,
+            paciente: `${clienteNombre} ${clienteApellido}`.trim(),
+            sucursal,
+            fecha_emision: hoyISO,
+            fecha_vencimiento: venceCupon,
+            estado: 'activo',
+          })
+          if (!errCupon) {
+            setCuponGenerado({ codigo: codigoCupon, monto: montoCupon, vence: venceCupon })
+          } else {
+            console.error('Error generando cupón:', errCupon)
+          }
+        }
+      }
+
       setFolioGuardado(folio)
       setShowModal(false)
       setGuardado(true)
@@ -1116,6 +1189,8 @@ export default function NuevaVentaPage() {
   .fbar { margin-top: 2.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; font-weight: 900; font-size: 3.5mm; }
   /* ── Evitar cortes ── */
   * { page-break-inside: avoid; break-inside: avoid; }
+  /* ── Cupón ── */
+  ${cuponTicketCss}
   /* ── Aviso pantalla ── */
   .tip { display: block; background: #fff8e1; border: 1px solid #e5a; padding: 5px 6px; margin-bottom: 8px; font-size: 9px; line-height: 1.5; }
   @media print { .tip { display: none; } }
@@ -1146,6 +1221,14 @@ export default function NuevaVentaPage() {
   <tbody>${productosRows}</tbody>
 </table>
 
+${descuentoCupon > 0 ? `
+<div style="display:flex;justify-content:space-between;font-size:3.2mm;padding:1mm 0;border-top:0.3mm dashed #000;">
+  <span>Subtotal:</span><span>$${subtotal.toLocaleString('es-MX')}</span>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:3.2mm;padding:1mm 0;color:#059669;">
+  <span>Cupón ${cuponAplicado?.codigo ?? ''}:</span><span>−$${descuentoCupon.toLocaleString('es-MX')}</span>
+</div>` : ''}
+
 <div class="total-row"><span>TOTAL:</span><span>$${total.toLocaleString('es-MX')}</span></div>
 <div class="pago-line"><span>Forma de pago:</span><span>${metodoPagoLabel}</span></div>
 
@@ -1170,6 +1253,8 @@ ${entregaHtml}
 </div>
 
 ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
+
+${cuponGenerado ? cuponTicketHtml(cuponGenerado.codigo, cuponGenerado.monto, cuponGenerado.vence) : ''}
 
 </body></html>`)
       win.document.close()
@@ -2298,6 +2383,12 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                       <p className="text-xs text-zinc-400 mb-1">
                         {esCotizacion ? 'Total estimado' : 'Total venta'}
                       </p>
+                      {descuentoCupon > 0 && (
+                        <div className="mb-1">
+                          <span className="text-xs text-zinc-400 line-through">${subtotal.toLocaleString('es-MX')}</span>
+                          <span className="text-xs text-emerald-600 ml-2 font-semibold">Cupón −${descuentoCupon.toLocaleString('es-MX')}</span>
+                        </div>
+                      )}
                       {isUSD ? (
                         <>
                           <p className="text-3xl font-bold text-blue-700">USD ${totalUSD.toFixed(2)}</p>
@@ -2314,6 +2405,42 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                 )}
               </div>
             </div>
+
+            {/* ── Cupón de descuento ── */}
+            {!esCotizacion && (
+              <div className="mx-6 mb-3">
+                <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Cupón de descuento</label>
+                {cuponAplicado ? (
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2.5">
+                    <div>
+                      <span className="text-sm font-bold text-emerald-700">{cuponAplicado.codigo}</span>
+                      <span className="text-xs text-emerald-600 ml-2">−${cuponAplicado.monto.toLocaleString('es-MX')}</span>
+                    </div>
+                    <button onClick={() => { setCuponAplicado(null); setCodigoCupon('') }}
+                      className="text-xs text-red-400 hover:text-red-600 font-semibold">Quitar</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="GON-XXXX"
+                      value={codigoCupon}
+                      onChange={e => { setCodigoCupon(e.target.value.toUpperCase()); setCuponError('') }}
+                      onKeyDown={e => e.key === 'Enter' && validarCupon()}
+                      className="flex-1 border border-zinc-200 rounded-md px-3 py-2 text-sm font-mono uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                    />
+                    <button
+                      onClick={validarCupon}
+                      disabled={!codigoCupon.trim() || validandoCupon}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-md text-sm font-semibold hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {validandoCupon ? '...' : 'Aplicar'}
+                    </button>
+                  </div>
+                )}
+                {cuponError && <p className="text-xs text-red-500 mt-1">{cuponError}</p>}
+              </div>
+            )}
 
             {errorGuardado && (
               <div className="mx-6 mb-3 px-4 py-3 bg-red-50 border border-red-100 text-red-600 text-xs rounded-lg">

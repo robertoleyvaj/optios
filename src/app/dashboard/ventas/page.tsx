@@ -12,6 +12,7 @@ import {
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { registrarComisionTerminal } from '@/lib/comisiones'
 import { getSucursalActual, getUsuarioLocal } from '@/lib/session'
+import { cuponTicketHtml, cuponTicketCss } from '@/lib/cupones'
 
 // ─────────────────────────────────────────
 // Tipos
@@ -76,7 +77,20 @@ function fmtHora(iso: string) {
   const d = new Date(iso)
   return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 }
-function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
+async function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
+  // Buscar cupón asociado a esta venta
+  let cuponInfo: { codigo: string; monto: number; vence: string } | null = null
+  try {
+    const { data: cuponData } = await createClient()
+      .from('cupones_ticket')
+      .select('codigo, monto, fecha_vencimiento')
+      .eq('folio_venta', v.id)
+      .limit(1)
+      .maybeSingle()
+    if (cuponData) {
+      cuponInfo = { codigo: cuponData.codigo, monto: cuponData.monto, vence: cuponData.fecha_vencimiento }
+    }
+  } catch { /* si falla, imprimir sin cupón */ }
   // Usar la fecha/hora originales de la venta
   const fechaFmt = v.fecha
   const horaFmt  = v.hora
@@ -136,6 +150,7 @@ function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
     overflow: visible;
     -webkit-font-smoothing: none;
   }
+  ${cuponTicketCss}
   .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
   .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 4mm auto 0; display: block; }
   .b1  { font-size: 5.2mm; font-weight: 900; line-height: 1.15; }
@@ -224,6 +239,8 @@ ${pagosHtml}
 </div>
 
 ${logo ? `<img src="${logo}" class="logo" alt="" />` : ''}
+
+${cuponInfo ? cuponTicketHtml(cuponInfo.codigo, cuponInfo.monto, cuponInfo.vence) : ''}
 
 </body></html>`)
   win.document.close()
