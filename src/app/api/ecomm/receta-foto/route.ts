@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,6 +8,7 @@ export const dynamic = 'force-dynamic'
 // el bucket privado `recetas`. El path se guarda en recetas.imagen_url.
 // GET ?path=2026-08/uuid.jpg
 export async function GET(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const path = req.nextUrl.searchParams.get('path') ?? ''
     if (!path) return NextResponse.json({ ok: false, error: 'Falta path' }, { status: 400 })

@@ -80,7 +80,7 @@ const MENU_GESTION: MenuItem[] = [
       { href: '/dashboard/finanzas', label: 'Finanzas', icon: DollarSign, key: 'finanzas' },
     ],
   },
-  { href: '/dashboard/inventario',  label: 'Inventario',       icon: Package,    key: 'inventario' },
+  { href: '/dashboard/inventario-nuevo',  label: 'Inventario',       icon: Package,    key: 'inventario' },
   {
     href: '/dashboard/tienda',      label: 'Tienda en línea',  icon: Store,      key: 'tienda',
     subItems: [

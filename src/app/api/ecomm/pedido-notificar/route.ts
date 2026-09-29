@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,7 @@ const TIPO_POR_ESTADO: Record<string, string> = {
 // Dispara el correo de actualización de pedido llamando al /api/emails de la web.
 // Body: { id, estado, tienda, tracking?, paqueteria? }
 export async function POST(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const { id, estado, tienda, tracking, paqueteria } = await req.json() as {
       id?: number; estado?: string; tienda?: string; tracking?: string; paqueteria?: string

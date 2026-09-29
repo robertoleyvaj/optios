@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
 // Clientes de la tienda en línea con su historial de pedidos.
 export async function GET(_req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const sb = createEcommClient()
     const { data, error } = await sb

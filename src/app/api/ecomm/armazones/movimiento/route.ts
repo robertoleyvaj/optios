@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
+import { requireRol, TIENDA } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,7 @@ const COL: Record<string, 'stock_baja' | 'stock_mayo' | 'stock_plaza'> = {
 // signo = -1 → venta (descuenta) · signo = +1 → cancelación (regresa).
 // Body: { sucursal, signo, items: [{ sku, cantidad }] }
 export async function POST(req: Request) {
+  const g = await requireRol(TIENDA); if (!g.ok) return g.res
   try {
     const body = await req.json() as {
       sucursal?: string; signo?: number; items?: { sku: string; cantidad: number }[]

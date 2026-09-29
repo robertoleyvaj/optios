@@ -109,9 +109,15 @@ function InventarioNuevo() {
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Armazones</h1>
           <p className="text-sm text-zinc-500 mt-0.5">Cada modelo con sus colores, SKU y existencias por sucursal.</p>
         </div>
-        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 whitespace-nowrap">
-          Vista previa · todavía no está en uso
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 whitespace-nowrap">
+            Vista previa · todavía no está en uso
+          </span>
+          <a href="/dashboard/inventario"
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 whitespace-nowrap">
+            Inventario actual →
+          </a>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

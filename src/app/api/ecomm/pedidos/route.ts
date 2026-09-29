@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,6 +8,7 @@ export const dynamic = 'force-dynamic'
 // ?tienda=gon → solo pedidos de GON.mx (plataforma='gon')
 // ?tienda=verly (o nada) → los de Verly (plataforma nula o distinta de 'gon')
 export async function GET(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const tienda = req.nextUrl.searchParams.get('tienda') ?? 'verly'
     const sb = createEcommClient()
@@ -25,6 +27,7 @@ export async function GET(req: NextRequest) {
 // Borrar un pedido (solo para pruebas). Body: { id }
 // Quita primero las filas ligadas para no dejar basura ni romper llaves.
 export async function DELETE(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const { id } = await req.json() as { id?: number }
     if (id == null) return NextResponse.json({ ok: false, error: 'Falta id' }, { status: 400 })
@@ -46,6 +49,7 @@ export async function DELETE(req: NextRequest) {
 
 // Actualizar un pedido (estado, guía, paquetería, notas del admin).
 export async function PATCH(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const b = await req.json() as {
       id?: number; estado?: string; tracking?: string; paqueteria?: string; notas_admin?: string

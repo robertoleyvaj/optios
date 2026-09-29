@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
+import { requireRol, GESTION } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
 // GET ?armazon_id= → colores de un modelo.  GET ?all=1 → colores de TODOS los modelos.
 export async function GET(req: NextRequest) {
+  const g = await requireRol(GESTION); if (!g.ok) return g.res
   const armazon_id = req.nextUrl.searchParams.get('armazon_id')
   const all = req.nextUrl.searchParams.get('all')
   const sb = createEcommClient()
@@ -32,6 +34,7 @@ export async function GET(req: NextRequest) {
 // PUT → reemplaza TODOS los colores del modelo por la lista enviada.
 // Body: { armazon_id, colores: [{ color, stock_baja, stock_mayo, stock_plaza, stock_online }] }
 export async function PUT(req: NextRequest) {
+  const g = await requireRol(GESTION); if (!g.ok) return g.res
   try {
     const b = await req.json() as {
       armazon_id?: number

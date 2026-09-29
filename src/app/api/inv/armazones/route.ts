@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
+import { requireRol, sinCosto, ADMIN, GESTION } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,7 @@ const CAMPOS_COLOR = 'id, armazon_id, sku, color, stock_baja, stock_mayo, stock_
 
 // GET → todos los modelos del inventario nuevo con sus colores
 export async function GET() {
+  const g = await requireRol(GESTION); if (!g.ok) return g.res
   try {
     const sb = createEcommClient()
     const [m, c] = await Promise.all([
@@ -32,7 +34,7 @@ export async function GET() {
       if (!porModelo.has(k)) porModelo.set(k, [])
       porModelo.get(k)!.push(col)
     }
-    const modelos = ((m.data ?? []) as unknown as { id: number }[])
+    const modelos = sinCosto((m.data ?? []) as unknown as { id: number; costo?: unknown }[], g.usuario)
       .map(x => ({ ...x, colores: porModelo.get(x.id) ?? [] }))
     return NextResponse.json({ ok: true, modelos })
   } catch (e) {
@@ -43,6 +45,7 @@ export async function GET() {
 // PATCH → editar datos del modelo (no el stock: el stock solo cambia con movimientos)
 // Body: { id, ...campos }
 export async function PATCH(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const { id, ...cambios } = (await req.json()) ?? {}
     if (!id) return NextResponse.json({ ok: false, error: 'Falta id' }, { status: 400 })

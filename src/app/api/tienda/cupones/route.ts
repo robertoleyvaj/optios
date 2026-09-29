@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createEcommClient } from '@/lib/supabase/ecomm'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -45,6 +46,7 @@ function limpiar(b: any) {
 }
 
 export async function GET() {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   if (!(await esAdmin())) return NextResponse.json({ ok: false, error: 'Solo administrador' }, { status: 403 })
   try {
     const ec = createEcommClient()
@@ -57,6 +59,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   if (!(await esAdmin())) return NextResponse.json({ ok: false, error: 'Solo administrador' }, { status: 403 })
   try {
     const body = await req.json()

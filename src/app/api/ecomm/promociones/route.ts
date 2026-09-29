@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
 // Listar códigos de descuento.
 export async function GET() {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const sb = createEcommClient()
     const { data, error } = await sb.from('codigos_descuento').select('*').order('created_at', { ascending: false })
@@ -17,6 +19,7 @@ export async function GET() {
 
 // Crear un código.
 export async function POST(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const b = await req.json()
     if (!b.codigo?.trim()) return NextResponse.json({ ok: false, error: 'El código es requerido' }, { status: 400 })
@@ -43,6 +46,7 @@ export async function POST(req: NextRequest) {
 
 // Activar / desactivar (u otros cambios). Body: { id, activo }
 export async function PATCH(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const { id, activo } = await req.json() as { id?: number; activo?: boolean }
     if (id == null) return NextResponse.json({ ok: false, error: 'Falta id' }, { status: 400 })
@@ -57,6 +61,7 @@ export async function PATCH(req: NextRequest) {
 
 // Borrar un código. Body: { id }
 export async function DELETE(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const { id } = await req.json() as { id?: number }
     if (id == null) return NextResponse.json({ ok: false, error: 'Falta id' }, { status: 400 })

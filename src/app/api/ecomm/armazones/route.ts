@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
+import { requireRol, sinCosto, GESTION, TIENDA } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,7 @@ const CAMPOS = 'id, sku, sku_viejo, nombre, marca, modelo, color1, medidas, mate
 
 // Listar todos los armazones del catálogo (base de e-commerce)
 export async function GET() {
+  const g = await requireRol(TIENDA); if (!g.ok) return g.res
   try {
     const sb = createEcommClient()
     const { data, error } = await sb
@@ -16,7 +18,7 @@ export async function GET() {
       .select(CAMPOS)
       .order('id', { ascending: false })
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, armazones: data ?? [] })
+    return NextResponse.json({ ok: true, armazones: sinCosto((data ?? []) as unknown as Record<string, unknown>[], g.usuario) })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 })
   }
@@ -24,6 +26,7 @@ export async function GET() {
 
 // Crear un armazón nuevo en el catálogo (base de e-commerce). Body: { ...campos }
 export async function POST(req: Request) {
+  const g = await requireRol(GESTION); if (!g.ok) return g.res
   try {
     const body = await req.json()
     const permitidos = new Set([
@@ -33,12 +36,13 @@ export async function POST(req: Request) {
     ])
     const row: Record<string, unknown> = {}
     for (const k of Object.keys(body ?? {})) if (permitidos.has(k)) row[k] = body[k]
+    if (g.usuario.rol !== 'administrador') delete row.costo   // solo el admin fija costo
     if (!row.sku) return NextResponse.json({ ok: false, error: 'Falta SKU' }, { status: 400 })
 
     const sb = createEcommClient()
     const { data, error } = await sb.from('armazones').insert(row).select(CAMPOS).single()
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, armazon: data })
+    return NextResponse.json({ ok: true, armazon: sinCosto([data as unknown as Record<string, unknown>], g.usuario)[0] })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 })
   }
@@ -46,6 +50,7 @@ export async function POST(req: Request) {
 
 // Actualizar un armazón. Body: { id, ...campos a cambiar }
 export async function PATCH(req: Request) {
+  const g = await requireRol(GESTION); if (!g.ok) return g.res
   try {
     const body = await req.json()
     const { id, ...cambios } = body ?? {}
@@ -60,6 +65,7 @@ export async function PATCH(req: Request) {
     ])
     const update: Record<string, unknown> = {}
     for (const k of Object.keys(cambios)) if (permitidos.has(k)) update[k] = cambios[k]
+    if (g.usuario.rol !== 'administrador') delete update.costo   // solo el admin fija costo
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ ok: false, error: 'Nada que actualizar' }, { status: 400 })
     }
@@ -67,7 +73,7 @@ export async function PATCH(req: Request) {
     const sb = createEcommClient()
     const { data, error } = await sb.from('armazones').update(update).eq('id', id).select(CAMPOS).single()
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, armazon: data })
+    return NextResponse.json({ ok: true, armazon: sinCosto([data as unknown as Record<string, unknown>], g.usuario)[0] })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 })
   }
