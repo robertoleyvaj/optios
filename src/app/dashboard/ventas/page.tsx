@@ -1003,7 +1003,7 @@ export default function VentasPage() {
     if (armzItems.length > 0) {
       fetch('/api/ecomm/armazones/movimiento', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sucursal: detalle.sucursal, signo: 1, items: armzItems }),
+        body: JSON.stringify({ sucursal: detalle.sucursal, signo: 1, referencia: detalle.id, items: armzItems }),
       }).catch(() => { /* no bloquear la cancelación si falla el regreso de stock */ })
     }
 
@@ -1093,7 +1093,7 @@ export default function VentasPage() {
     if (armzItems.length > 0) {
       fetch('/api/ecomm/armazones/movimiento', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sucursal: detalle.sucursal, signo: 1, items: armzItems }),
+        body: JSON.stringify({ sucursal: detalle.sucursal, signo: 1, referencia: detalle.id, items: armzItems }),
       }).catch(() => { /* no bloquear el borrado */ })
     }
     const colSuc = detalle.sucursal === 'Baja Visión' ? 'stock_baja'

@@ -353,6 +353,61 @@ export default function NuevaVentaPage() {
     return () => { cancelled = true }
   }, [sucursal])
 
+  // ── Inventario nuevo: armazones POR COLOR (SKU VRL-1xxx-xx) ──
+  // posNuevo = ya se hizo el cambio. pruebaPos = el admin prueba la búsqueda antes del cambio.
+  type ColorPos = { sku: string; color: string; marca: string; modelo: string; medidas: string | null; precio: number; baja: number; mayo: number; plaza: number; bodega: number }
+  const [coloresPos, setColoresPos] = useState<ColorPos[]>([])
+  const [posNuevo, setPosNuevo] = useState(false)
+  const [pruebaPos, setPruebaPos] = useState(false)
+  useEffect(() => {
+    fetch('/api/inv/pos', { cache: 'no-store' }).then(r => r.json())
+      .then(j => { if (j.ok) { setPosNuevo(!!j.activo); setColoresPos(j.colores ?? []) } })
+      .catch(() => {})
+  }, [])
+  const usarPosNuevo = posNuevo || pruebaPos
+  const esSkuNuevo = (s: string) => /^VRL-1\d{3}-\d{2}$/i.test(s || '')
+  const stockAqui = (c: ColorPos) => sucursal === 'Baja Visión' ? c.baja : sucursal === '5 de Mayo' ? c.mayo : c.plaza
+  const dondeHay = (c: ColorPos) => [
+    c.baja && sucursal !== 'Baja Visión' ? `Baja ${c.baja}` : '',
+    c.mayo && sucursal !== '5 de Mayo' ? `Mayo ${c.mayo}` : '',
+    c.plaza && sucursal !== 'Plaza Laureles' ? `Plaza ${c.plaza}` : '',
+    c.bodega ? `Bodega ${c.bodega}` : '',
+  ].filter(Boolean).join(' · ')
+  // Búsqueda fácil: "1391" → todos los colores del modelo 1391 · "1391-3" o "139103" → ese color exacto ·
+  // también por modelo, marca o color ("tf8601", "seima negro"). No hace falta escribir "VRL".
+  const normPos = (t: string) => t.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+  const buscarArmazonesNuevos = (texto: string): ColorPos[] => {
+    const raw = texto.trim().toUpperCase().replace(/^VRL[\s-]*/, '')
+    if (!raw) return []
+    const m = raw.match(/^(\d{4})(?:[\s-]*(\d{1,2}))?$/)
+    let res: ColorPos[]
+    if (m) {
+      const [, mod, col] = m
+      res = coloresPos.filter(c => {
+        const [, cm, cc] = c.sku.split('-')
+        return col ? cm === mod && Number(cc) === Number(col) : cm === mod
+      })
+    } else if (/^\d{1,3}$/.test(raw)) {
+      res = coloresPos.filter(c => c.sku.split('-')[1].startsWith(raw))
+    } else {
+      const palabras = normPos(raw).split(' ')
+      res = coloresPos.filter(c => {
+        const h = normPos(`${c.marca} ${c.modelo} ${c.color} ${c.sku}`) + ' ' + normPos(c.modelo).replace(/ /g, '')
+        return palabras.every(p => h.includes(p))
+      })
+    }
+    return res.sort((a, b) => (stockAqui(b) > 0 ? 1 : 0) - (stockAqui(a) > 0 ? 1 : 0) || a.sku.localeCompare(b.sku)).slice(0, 40)
+  }
+  const agregarColorPos = (c: ColorPos) => {
+    if (stockAqui(c) <= 0) return
+    const item: CatItem = {
+      id: 40000 + parseInt(c.sku.replace(/\D/g, '')),
+      nombre: `${c.marca} ${c.modelo} · ${c.color}`,
+      categoria: 'Armazones', precio: c.precio, sku: c.sku.toUpperCase(), stock: stockAqui(c),
+    }
+    agregarDirecto(item)
+  }
+
   // Catálogo efectivo: base fija + lo que llega de la tabla `productos` + armazones de la sucursal.
   // La base de datos SOBRESCRIBE nombre/precio por SKU y AGREGA los nuevos.
   // Nunca se pierde nada del fijo (servicios, paquetes) aunque la BD falle.
@@ -363,7 +418,7 @@ export default function NuevaVentaPage() {
       if (ex) bySku.set(dp.sku, { ...ex, nombre: dp.nombre, precio: dp.precio, categoria: dp.categoria })
       else    bySku.set(dp.sku, dp)
     }
-    for (const a of catalogoArmz) bySku.set(a.sku, a)
+    if (!usarPosNuevo) for (const a of catalogoArmz) bySku.set(a.sku, a)
     return Array.from(bySku.values())
   })()
 
@@ -503,6 +558,7 @@ export default function NuevaVentaPage() {
     })
   }, [busquedaCliente, showClienteDropdown])
 
+  const armazonesNuevosFiltrados = usarPosNuevo ? buscarArmazonesNuevos(busquedaProducto) : []
   const productosFiltrados = [...catalogo, ...catalogoLC].filter(p =>
     p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase()) ||
     p.sku.toLowerCase().includes(busquedaProducto.toLowerCase())
@@ -703,6 +759,12 @@ export default function NuevaVentaPage() {
     setEsCotizacion(cotizacion)
     setErrorGuardado('')
 
+    if (!posNuevo && carrito.some(i => esSkuNuevo(i.sku))) {
+      setErrorGuardado('Modo prueba del inventario nuevo: esta venta no se puede guardar todavía. Quita los armazones VRL-1xxx del carrito.')
+      setGuardando(false)
+      return
+    }
+
     try {
       const supabase = createClient()
 
@@ -826,7 +888,7 @@ export default function NuevaVentaPage() {
         if (armzItems.length > 0) {
           fetch('/api/ecomm/armazones/movimiento', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sucursal, signo: -1, items: armzItems }),
+            body: JSON.stringify({ sucursal, signo: -1, referencia: folio, items: armzItems }),
           }).catch(() => { /* no bloquear la venta si falla el descuento */ })
         }
       }
@@ -963,7 +1025,7 @@ export default function NuevaVentaPage() {
         for (const par of parsConMicas) {
           const itemsPar = carrito.filter(i => i.par === par)
           // Armazón del par (si compró uno con nosotros): se toma del catálogo de armazones
-          const armazonPar = itemsPar.find(i => catalogoArmz.some(a => a.sku === i.sku))
+          const armazonPar = itemsPar.find(i => esSkuNuevo(i.sku) || catalogoArmz.some(a => a.sku === i.sku))
 
           // Para paquetes: usar el desglose explícito; para micas sueltas: usar el nombre
           const micasPar = itemsPar
@@ -1925,6 +1987,12 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 rounded-full px-2.5 py-1">
             <Store className="w-3 h-3" /> Vendiendo en: {sucursal}
           </span>
+          {!posNuevo && getUsuarioLocal()?.rol === 'administrador' && coloresPos.length > 0 && (
+            <button onClick={() => setPruebaPos(v => !v)}
+              className={`ml-2 text-[11px] font-semibold rounded-full px-2.5 py-1 border ${pruebaPos ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-zinc-500 border-zinc-200 hover:bg-zinc-50'}`}>
+              {pruebaPos ? 'Probando búsqueda nueva · quitar' : 'Probar búsqueda nueva'}
+            </button>
+          )}
         </div>
 
         {/* Buscador de productos — fuera del overflow-x-auto para que el dropdown no se corte */}
@@ -1934,11 +2002,30 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
             value={busquedaProducto}
             onChange={e => { setBusquedaProducto(e.target.value); setShowBuscadorProducto(true) }}
             onFocus={() => setShowBuscadorProducto(true)}
-            placeholder="Buscar por código o descripción del producto..."
+            placeholder={usarPosNuevo ? 'Armazón: número de etiqueta (1391 o 1391-3), modelo o marca · o busca micas y servicios…' : 'Buscar por código o descripción del producto...'}
             className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
           />
           {showBuscadorProducto && busquedaProducto && (
             <div className="absolute top-full left-6 right-6 mt-1 bg-white border border-zinc-200 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
+              {armazonesNuevosFiltrados.map(c => {
+                const aqui = stockAqui(c)
+                const [, cm, cc] = c.sku.split('-')
+                return (
+                  <button key={c.sku} onClick={() => agregarColorPos(c)} disabled={aqui <= 0}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${aqui > 0 ? 'hover:bg-zinc-100' : 'opacity-60 cursor-not-allowed'}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 rounded px-1.5 py-0.5 shrink-0">{cm}-{Number(cc)}</span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-zinc-700 truncate">{c.marca} {c.modelo} · {c.color}</div>
+                        <div className={`text-[11px] ${aqui > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {aqui > 0 ? `${aqui} en esta sucursal` : `0 aquí${dondeHay(c) ? ' · hay en ' + dondeHay(c) : ' · agotado'}`}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-zinc-800 shrink-0">${c.precio.toLocaleString('es-MX')}</span>
+                  </button>
+                )
+              })}
               {productosFiltrados.slice(0, 50).map(p => (
                 <button
                   key={p.id}
@@ -1962,7 +2049,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                   </div>
                 </button>
               ))}
-              {productosFiltrados.length === 0 && (
+              {productosFiltrados.length === 0 && armazonesNuevosFiltrados.length === 0 && (
                 <div className="px-4 py-4 text-sm text-zinc-400 text-center">Sin resultados</div>
               )}
             </div>

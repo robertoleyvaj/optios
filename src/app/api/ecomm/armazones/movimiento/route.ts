@@ -17,15 +17,34 @@ export async function POST(req: Request) {
   const g = await requireRol(TIENDA); if (!g.ok) return g.res
   try {
     const body = await req.json() as {
-      sucursal?: string; signo?: number; items?: { sku: string; cantidad: number }[]
+      sucursal?: string; signo?: number; referencia?: string; items?: { sku: string; cantidad: number }[]
     }
     const col = COL[body.sucursal ?? '']
     if (!col) return NextResponse.json({ ok: false, error: 'Sucursal inválida' }, { status: 400 })
-    const items = (body.items ?? []).filter(i => i.sku && (i.cantidad ?? 0) > 0)
-    if (items.length === 0) return NextResponse.json({ ok: true, actualizados: [] })
+    const todos = (body.items ?? []).filter(i => i.sku && (i.cantidad ?? 0) > 0)
+    if (todos.length === 0) return NextResponse.json({ ok: true, actualizados: [] })
     const sg = (body.signo ?? -1) < 0 ? -1 : 1
 
     const sb = createEcommClient()
+
+    // Inventario nuevo (SKU por color, VRL-1xxx-xx): se mueve el color exacto con inv_mover
+    // (descuenta/regresa y deja la bitácora). El resto sigue la lógica anterior.
+    const esNuevo = (s: string) => /^VRL-1\d{3}-\d{2}$/i.test(s)
+    const ubic = col === 'stock_baja' ? 'baja' : col === 'stock_mayo' ? 'mayo' : 'plaza'
+    const erroresNuevo: string[] = []
+    for (const it of todos.filter(i => esNuevo(i.sku))) {
+      const { data: c } = await sb.from('armazon_colores').select('id').eq('sku', it.sku.toUpperCase()).maybeSingle()
+      if (!c) { erroresNuevo.push(`${it.sku}: no existe`); continue }
+      const { error: e } = await sb.rpc('inv_mover', {
+        p_color_id: c.id, p_ubicacion: ubic, p_cantidad: sg * (Number(it.cantidad) || 1),
+        p_tipo: sg < 0 ? 'venta' : 'cancelacion', p_referencia: body.referencia ?? null,
+        p_usuario: g.usuario.nombre || null, p_notas: null,
+      })
+      if (e) erroresNuevo.push(`${it.sku}: ${e.message}`)
+    }
+    const items = todos.filter(i => !esNuevo(i.sku))
+    if (items.length === 0) return NextResponse.json({ ok: erroresNuevo.length === 0, actualizados: [], errores: erroresNuevo })
+
     const skus = [...new Set(items.map(i => i.sku))]
     const { data: rows, error } = await sb
       .from('armazones')
