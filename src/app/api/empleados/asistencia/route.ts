@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireRol, esGestor, TODOS } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,10 +11,12 @@ const hoyTJ = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 //  - Estado de hoy:  ?usuario_id=...&fecha=YYYY-MM-DD
 //  - Rango (admin):  ?usuario_id=...&desde=YYYY-MM-DD&hasta=YYYY-MM-DD
 export async function GET(req: NextRequest) {
+  const g = await requireRol(TODOS); if (!g.ok) return g.res
   try {
     const p = req.nextUrl.searchParams
     const usuarioId = p.get('usuario_id')
     if (!usuarioId) return NextResponse.json({ ok: false, error: 'Falta usuario_id' }, { status: 400 })
+    if (usuarioId !== g.usuario.id && !esGestor(g.usuario)) return NextResponse.json({ ok: false, error: 'Sin permiso' }, { status: 403 })
 
     const sb = createAdminClient()
     let q = sb.from('asistencias').select('*').eq('usuario_id', usuarioId)
@@ -35,6 +38,7 @@ export async function GET(req: NextRequest) {
 
 // Marcar entrada o salida. Body: { usuario_id, usuario_nombre, sucursal, tipo: 'entrada'|'salida' }
 export async function POST(req: NextRequest) {
+  const g = await requireRol(TODOS); if (!g.ok) return g.res
   try {
     // Candado: el registro de asistencia solo se permite desde computadora, no desde teléfono.
     const ua = req.headers.get('user-agent') || ''
@@ -44,6 +48,9 @@ export async function POST(req: NextRequest) {
 
     const { usuario_id, usuario_nombre, sucursal, tipo } =
       await req.json() as { usuario_id?: string; usuario_nombre?: string; sucursal?: string; tipo?: string }
+    if (usuario_id && usuario_id !== g.usuario.id) {
+      return NextResponse.json({ ok: false, error: 'Solo puedes registrar tu propia asistencia' }, { status: 403 })
+    }
     if (!usuario_id || (tipo !== 'entrada' && tipo !== 'salida')) {
       return NextResponse.json({ ok: false, error: 'Faltan datos (usuario_id, tipo)' }, { status: 400 })
     }

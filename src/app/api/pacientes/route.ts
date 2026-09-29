@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,6 +8,7 @@ export const dynamic = 'force-dynamic'
 // Bloquea si el paciente tiene ventas u órdenes de laboratorio (historial real).
 // Si no, borra sus citas, recetas y consultas, y luego el paciente.
 export async function DELETE(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const { id } = await req.json() as { id?: string }
     if (!id) return NextResponse.json({ ok: false, error: 'Falta id' }, { status: 400 })

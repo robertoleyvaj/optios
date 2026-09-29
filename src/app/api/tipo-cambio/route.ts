@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireRol, TODOS } from '@/lib/auth-api'
 
 /**
  * Tipo de cambio USD → MXN, 100% MANUAL.
@@ -8,6 +9,7 @@ import { createClient } from '@supabase/supabase-js'
  * Si no está configurado, devuelve 404 y la UI muestra "sin tipo de cambio".
  */
 export async function GET() {
+  const g = await requireRol(TODOS); if (!g.ok) return g.res
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

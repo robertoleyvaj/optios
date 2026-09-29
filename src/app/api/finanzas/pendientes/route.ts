@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createEcommClient } from '@/lib/supabase/ecomm'
 import { fetchMes } from '@/lib/analisis/queries'
 import { computePendientes } from '@/lib/analisis/pendientes'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,7 @@ const CAMPOS: Record<string, string[]> = {
 
 // GET ?anio=&mes= → lista de pendientes
 export async function GET(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   if (!(await getAdmin())) return NextResponse.json({ ok: false, error: 'Solo administrador' }, { status: 403 })
   const anio = parseInt(req.nextUrl.searchParams.get('anio') ?? '', 10)
   const mes  = parseInt(req.nextUrl.searchParams.get('mes') ?? '', 10)
@@ -45,6 +47,7 @@ export async function GET(req: NextRequest) {
 
 // POST → { action: 'update'|'close'|'reopen', ... }
 export async function POST(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   const admin = await getAdmin()
   if (!admin) return NextResponse.json({ ok: false, error: 'Solo administrador' }, { status: 403 })
   try {

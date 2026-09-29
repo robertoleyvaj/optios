@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown, Menu } from 'lucide-react'
+import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown, Menu, Truck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
 import { getSucursalActual } from '@/lib/session'
 import { useSession } from '@/hooks/useSession'
 
-type Notif = { id: string; tipo: 'cita' | 'lab'; texto: string; sub: string }
+type Notif = { id: string; tipo: 'cita' | 'lab' | 'traspaso'; texto: string; sub: string }
 type PacienteResult = { id: string; nombre: string; apellido: string; telefono: string }
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
@@ -75,6 +75,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       texto: l.paciente || 'Paciente',
       sub: `Lab ${l.folio} — listo para recoger`,
     }))
+    // Traspasos que vienen en camino a esta sucursal (inventario nuevo)
+    if (suc) {
+      const ubic = suc === '5 de Mayo' ? 'mayo' : suc === 'Plaza Laureles' ? 'plaza' : 'baja'
+      try {
+        const j = await fetch(`/api/inv/traspasos?estado=en_camino&destino=${ubic}`, { cache: 'no-store' }).then(r => r.json())
+        for (const t of (j.ok ? j.traspasos : []) as { id: number; folio: string; traspaso_items: { cantidad: number }[] }[]) {
+          const pz = t.traspaso_items.reduce((a, i) => a + i.cantidad, 0)
+          n.unshift({ id: `t-${t.id}`, tipo: 'traspaso', texto: `Traspaso ${t.folio} en camino`, sub: `${pz} pieza${pz === 1 ? '' : 's'} · confirma cuando llegue` })
+        }
+      } catch { /* sin traspasos */ }
+    }
     setNotifs(n)
   }, [usuario.sucursal, todayISO])
 
@@ -262,12 +273,12 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                     <button key={n.id}
                       onClick={() => {
                         setNotifOpen(false)
-                        router.push(n.tipo === 'cita' ? '/dashboard/agenda' : '/dashboard/laboratorio')
+                        router.push(n.tipo === 'cita' ? '/dashboard/agenda' : n.tipo === 'traspaso' ? '/dashboard/traspasos' : '/dashboard/laboratorio')
                       }}
                       className="w-full text-left px-4 py-3 hover:bg-zinc-50 flex items-start gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
-                        ${n.tipo === 'cita' ? 'bg-blue-50 text-blue-500' : 'bg-purple-50 text-purple-500'}`}>
-                        {n.tipo === 'cita' ? <Clock className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
+                        ${n.tipo === 'cita' ? 'bg-blue-50 text-blue-500' : n.tipo === 'traspaso' ? 'bg-teal-50 text-teal-600' : 'bg-purple-50 text-purple-500'}`}>
+                        {n.tipo === 'cita' ? <Clock className="w-4 h-4" /> : n.tipo === 'traspaso' ? <Truck className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-zinc-700 truncate">{n.texto}</p>

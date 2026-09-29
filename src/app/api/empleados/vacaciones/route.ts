@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireRol, esGestor, TODOS, GESTION } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,12 +9,14 @@ export const dynamic = 'force-dynamic'
 //  - Por estado:     ?estado=pendiente|aprobada|rechazada
 //  - Todas (admin):  sin parámetros
 export async function GET(req: NextRequest) {
+  const g = await requireRol(TODOS); if (!g.ok) return g.res
   try {
     const p = req.nextUrl.searchParams
     const sb = createAdminClient()
     let q = sb.from('solicitudes_vacaciones').select('*')
     const usuarioId = p.get('usuario_id')
     const estado = p.get('estado')
+    if (!esGestor(g.usuario) && usuarioId !== g.usuario.id) return NextResponse.json({ ok: false, error: 'Sin permiso' }, { status: 403 })
     if (usuarioId) q = q.eq('usuario_id', usuarioId)
     if (estado) q = q.eq('estado', estado)
     q = q.order('fecha_inicio', { ascending: false })
@@ -27,8 +30,12 @@ export async function GET(req: NextRequest) {
 
 // Crear solicitud. Body: { usuario_id, usuario_nombre, sucursal, tipo, fecha_inicio, fecha_fin, dias, motivo }
 export async function POST(req: NextRequest) {
+  const g = await requireRol(TODOS); if (!g.ok) return g.res
   try {
     const b = await req.json()
+    if (b.usuario_id !== g.usuario.id && !esGestor(g.usuario)) {
+      return NextResponse.json({ ok: false, error: 'Solo puedes pedir vacaciones para ti' }, { status: 403 })
+    }
     if (!b.usuario_id || !b.fecha_inicio || !b.fecha_fin) {
       return NextResponse.json({ ok: false, error: 'Faltan datos' }, { status: 400 })
     }
@@ -53,6 +60,7 @@ export async function POST(req: NextRequest) {
 
 // Resolver (aprobar/rechazar) o cancelar. Body: { id, estado, resuelto_por }
 export async function PATCH(req: NextRequest) {
+  const g = await requireRol(GESTION); if (!g.ok) return g.res
   try {
     const { id, estado, resuelto_por } = await req.json() as { id?: string; estado?: string; resuelto_por?: string }
     if (!id || !['aprobada', 'rechazada', 'pendiente'].includes(estado ?? '')) {

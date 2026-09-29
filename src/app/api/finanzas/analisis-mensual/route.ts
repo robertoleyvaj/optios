@@ -6,6 +6,7 @@ import { fetchMes } from '@/lib/analisis/queries'
 import { computeMetrics } from '@/lib/analisis/metrics'
 import { buildWorkbook } from '@/lib/analisis/workbook'
 import { buildInstrucciones } from '@/lib/analisis/instrucciones'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 // Solo el administrador puede descargar el paquete (datos financieros sensibles).
 async function esAdmin(): Promise<boolean> {
@@ -29,6 +30,7 @@ export const maxDuration = 60
 // GET /api/finanzas/analisis-mensual?anio=2026&mes=8
 // Devuelve un .zip con el Excel del mes + INSTRUCCIONES_PARA_IA.md
 export async function GET(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     if (!(await esAdmin()))
       return NextResponse.json({ ok: false, error: 'Solo el administrador puede descargar este análisis.' }, { status: 403 })

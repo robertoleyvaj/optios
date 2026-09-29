@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireRol, ADMIN } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,7 @@ async function asegurarBucket(sb: ReturnType<typeof createAdminClient>) {
 // Listar documentos de un empleado. Query: ?usuario_id=...
 // Se lee con el cliente admin (service role) para no depender de RLS.
 export async function GET(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const usuarioId = req.nextUrl.searchParams.get('usuario_id')
     if (!usuarioId) return NextResponse.json({ ok: false, error: 'Falta usuario_id' }, { status: 400 })
@@ -28,6 +30,7 @@ export async function GET(req: NextRequest) {
 
 // Subir un documento de empleado. FormData: file, usuario_id, categoria
 export async function POST(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const form = await req.formData()
     const file = form.get('file') as File | null
@@ -70,6 +73,7 @@ export async function POST(req: NextRequest) {
 
 // Borrar un documento. Body: { id, path }
 export async function DELETE(req: NextRequest) {
+  const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
     const { id, path } = await req.json() as { id?: string; path?: string }
     if (!id) return NextResponse.json({ ok: false, error: 'Falta id' }, { status: 400 })

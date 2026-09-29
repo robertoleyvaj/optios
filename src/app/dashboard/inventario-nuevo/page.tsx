@@ -5,6 +5,7 @@ import { Search, X, Camera, Trash2, Save, Globe, Loader2, ImageOff } from 'lucid
 import RequireRol from '@/components/RequireRol'
 import { getUsuarioLocal } from '@/lib/session'
 import Entradas from './Entradas'
+import Traspasos from './Traspasos'
 
 // ─────────────────────────────────────────────────────────────
 // Inventario nuevo · Armazones (SKU por color)
@@ -70,7 +71,7 @@ function InventarioNuevo() {
   const [suc, setSuc] = useState('')
   const [filtro, setFiltro] = useState('')
   const [selId, setSelId] = useState<number | null>(null)
-  const [tab, setTab] = useState<'armazones' | 'entradas'>('armazones')
+  const [tab, setTab] = useState<'armazones' | 'entradas' | 'traspasos'>('armazones')
 
   const cargar = async () => {
     setCargando(true); setError('')
@@ -124,13 +125,14 @@ function InventarioNuevo() {
       </div>
 
       <div className="flex gap-1 border-b border-zinc-200">
-        {([['armazones', 'Armazones'], ['entradas', 'Entradas de mercancía']] as const).map(([k, l]) => (
+        {([['armazones', 'Armazones'], ['entradas', 'Entradas de mercancía'], ['traspasos', 'Traspasos']] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px ${tab === k ? 'border-teal-600 text-teal-700' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}>{l}</button>
         ))}
       </div>
 
       {tab === 'entradas' && <Entradas modelos={modelos} esAdmin={esAdmin} onDone={cargar} />}
+      {tab === 'traspasos' && <Traspasos modelos={modelos} puedeEnviar onDone={cargar} />}
 
       {tab === 'armazones' && <>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

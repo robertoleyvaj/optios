@@ -13,7 +13,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 // ─────────────────────────────────────────────────────────────
 
 export type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor'
-export type UsuarioApi = { authId: string; nombre: string; rol: Rol; sucursal: string }
+export type UsuarioApi = { authId: string; id: string; nombre: string; rol: Rol; sucursal: string }
 
 export const TODOS: Rol[] = ['administrador', 'gerente', 'vendedor', 'repartidor']
 export const TIENDA: Rol[] = ['administrador', 'gerente', 'vendedor']
@@ -46,13 +46,13 @@ async function usuarioActual(): Promise<UsuarioApi | null> {
 
   const { data } = await createAdminClient()
     .from('usuarios')
-    .select('nombre, rol, sucursal, activo')
+    .select('id, nombre, rol, sucursal, activo')
     .eq('auth_user_id', authId)
     .maybeSingle()
   if (!data || data.activo === false) return null
 
   const u: UsuarioApi = {
-    authId, nombre: data.nombre ?? '', rol: (data.rol ?? 'vendedor') as Rol, sucursal: data.sucursal ?? '',
+    authId, id: String(data.id), nombre: data.nombre ?? '', rol: (data.rol ?? 'vendedor') as Rol, sucursal: data.sucursal ?? '',
   }
   cache.set(authId, { u, exp: Date.now() + TTL_MS })
   return u
@@ -71,3 +71,6 @@ export function sinCosto<T extends Record<string, unknown>>(rows: T[], u: Usuari
   if (u.rol === 'administrador') return rows
   return rows.map(r => { const { costo: _c, ...rest } = r; void _c; return rest as T })
 }
+
+// ¿Puede ver/modificar datos de otro empleado? Solo admin y gerente.
+export const esGestor = (u: UsuarioApi) => u.rol === 'administrador' || u.rol === 'gerente'
