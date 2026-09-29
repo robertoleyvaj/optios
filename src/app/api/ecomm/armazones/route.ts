@@ -71,6 +71,12 @@ export async function PATCH(req: Request) {
     }
 
     const sb = createEcommClient()
+    {
+      const { data: prot } = await sb.from('armazones').select('sku').eq('id', id).maybeSingle()
+      if (/^VRL-1\d{3}$/.test(String(prot?.sku ?? ''))) {
+        return NextResponse.json({ ok: false, error: 'Este armazón es del inventario nuevo. Edítalo desde Inventario (nuevo).' }, { status: 409 })
+      }
+    }
     const { data, error } = await sb.from('armazones').update(update).eq('id', id).select(CAMPOS).single()
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, armazon: sinCosto([data as unknown as Record<string, unknown>], g.usuario)[0] })

@@ -48,6 +48,13 @@ export async function PUT(req: NextRequest) {
     if (!b.armazon_id) return NextResponse.json({ ok: false, error: 'Falta armazon_id' }, { status: 400 })
     const sb = createEcommClient()
 
+    // Los modelos del inventario nuevo (VRL-1xxx) solo se tocan desde el inventario nuevo:
+    // este editor borra y recrea colores y les quitaría su SKU y su stock.
+    const { data: prot } = await sb.from('armazones').select('sku').eq('id', b.armazon_id).maybeSingle()
+    if (/^VRL-1\d{3}$/.test(String(prot?.sku ?? ''))) {
+      return NextResponse.json({ ok: false, error: 'Este armazón es del inventario nuevo. Edítalo desde Inventario (nuevo).' }, { status: 409 })
+    }
+
     // Reemplazo limpio: borra los colores actuales y mete los nuevos.
     const del = await sb.from('armazon_colores').delete().eq('armazon_id', b.armazon_id)
     if (del.error) return NextResponse.json({ ok: false, error: del.error.message }, { status: 500 })
