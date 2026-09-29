@@ -10,11 +10,11 @@ export const dynamic = 'force-dynamic'
 // ─────────────────────────────────────────────────────────────
 
 const CAMPOS_MODELO =
-  'id, sku, marca, modelo, nombre, medidas, material, precio_gon, precio, costo, activo, ' +
+  'id, sku, sku_viejo, marca, modelo, nombre, medidas, material, precio_gon, precio, costo, activo, ' +
   'publicar_gon, publicar_verly, descuento_gon, descuento_verly, ' +
   'imagen_url, imagen2_url, imagen3_url, imagen4_url, imagen5_url'
 
-const CAMPOS_COLOR = 'id, armazon_id, sku, color, stock_baja, stock_mayo, stock_plaza, stock_online, orden'
+const CAMPOS_COLOR = 'id, armazon_id, sku, color, stock_baja, stock_mayo, stock_plaza, stock_online, bodega, orden'
 
 // GET → todos los modelos del inventario nuevo con sus colores
 export async function GET() {

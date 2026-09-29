@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, X, Camera, Trash2, Save, Globe, Loader2, ImageOff } from 'lucide-react'
 import RequireRol from '@/components/RequireRol'
 import { getUsuarioLocal } from '@/lib/session'
+import Entradas from './Entradas'
 
 // ─────────────────────────────────────────────────────────────
 // Inventario nuevo · Armazones (SKU por color)
@@ -14,10 +15,10 @@ import { getUsuarioLocal } from '@/lib/session'
 
 type Color = {
   id: number; armazon_id: number; sku: string; color: string
-  stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number; orden: number
+  stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number; bodega: number; orden: number
 }
 type Modelo = {
-  id: number; sku: string; marca: string; modelo: string; nombre: string | null
+  id: number; sku: string; sku_viejo?: string | null; marca: string; modelo: string; nombre: string | null
   medidas: string | null; material: string | null; precio_gon: number | null; precio: number | null
   costo: number | null; activo: boolean; publicar_gon: boolean; publicar_verly: boolean
   imagen_url: string | null; imagen2_url: string | null; imagen3_url: string | null
@@ -30,6 +31,7 @@ const SUC = [
   { key: 'stock_baja' as const,  label: 'Baja Visión',    corto: 'Baja' },
   { key: 'stock_mayo' as const,  label: '5 de Mayo',      corto: 'Mayo' },
   { key: 'stock_plaza' as const, label: 'Plaza Laureles', corto: 'Plaza' },
+  { key: 'bodega' as const,      label: 'Bodega',         corto: 'Bodega' },
 ]
 const FOTOS = ['imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url', 'imagen5_url'] as const
 const TIPO: Record<string, { label: string; cls: string }> = {
@@ -45,7 +47,7 @@ const TIPO: Record<string, { label: string; cls: string }> = {
 
 const num = (v: unknown) => Number(v ?? 0) || 0
 const $ = (n: number) => '$' + Math.round(n).toLocaleString('es-MX')
-const totColor = (c: Color) => num(c.stock_baja) + num(c.stock_mayo) + num(c.stock_plaza)
+const totColor = (c: Color) => num(c.stock_baja) + num(c.stock_mayo) + num(c.stock_plaza) + num(c.bodega)
 const totSuc = (m: Modelo, k: typeof SUC[number]['key']) => m.colores.reduce((s, c) => s + num(c[k]), 0)
 const totModelo = (m: Modelo) => m.colores.reduce((s, c) => s + totColor(c), 0)
 const fotos = (m: Modelo) => FOTOS.map(f => m[f]).filter(Boolean) as string[]
@@ -68,6 +70,7 @@ function InventarioNuevo() {
   const [suc, setSuc] = useState('')
   const [filtro, setFiltro] = useState('')
   const [selId, setSelId] = useState<number | null>(null)
+  const [tab, setTab] = useState<'armazones' | 'entradas'>('armazones')
 
   const cargar = async () => {
     setCargando(true); setError('')
@@ -106,8 +109,8 @@ function InventarioNuevo() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Armazones</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Cada modelo con sus colores, SKU y existencias por sucursal.</p>
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Inventario</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">Armazones por color, con SKU y existencias por sucursal.</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 whitespace-nowrap">
@@ -120,7 +123,17 @@ function InventarioNuevo() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="flex gap-1 border-b border-zinc-200">
+        {([['armazones', 'Armazones'], ['entradas', 'Entradas de mercancía']] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px ${tab === k ? 'border-teal-600 text-teal-700' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}>{l}</button>
+        ))}
+      </div>
+
+      {tab === 'entradas' && <Entradas modelos={modelos} esAdmin={esAdmin} onDone={cargar} />}
+
+      {tab === 'armazones' && <>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3">
           <div className="text-xs text-zinc-500">Piezas</div>
           <div className="text-xl font-semibold text-zinc-900">{totales.reduce((a, b) => a + b, 0)}</div>
@@ -215,6 +228,8 @@ function InventarioNuevo() {
         )}
         {lista.length > 300 && <div className="text-xs text-zinc-400 px-3 py-2">Mostrando 300 de {lista.length}. Usa el buscador para afinar.</div>}
       </div>
+
+      </>}
 
       {sel && <Ficha modelo={sel} esAdmin={esAdmin} onClose={() => setSelId(null)} onChange={actualizar} />}
     </div>
