@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     const row: Record<string, unknown> = {
       sku, nombre: nombreFinal, grupo: gr, vision,
       tipo: gr === 'consumible' || gr === 'lc' || gr === 'lc_grad' ? 'consumible' : 'servicio',
-      categoria: CATEGORIA[gr], marca: gr === 'lc_grad' ? (limpia(b.marca) || null) : (limpia(b.marca) || 'GON'),
+      categoria: CATEGORIA[gr], marca: gr === 'lc_grad' ? (limpia(b.marca) || '') : (limpia(b.marca) || 'GON'),
       precio, costo: admin ? num(b.costo) : 0, ubicacion: 'Todas', activo: true,
       ...s, stock: conStock ? s.stock_baja + s.stock_mayo + s.stock_plaza + s.stock_bodega : 999,
       stock_min: gr === 'consumible' ? Math.max(0, num(b.stock_min)) : 0,
@@ -160,7 +160,11 @@ export async function PATCH(req: NextRequest) {
     const numeros = ['precio', 'stock_min']
     const bools = ['activo', 'control_stock', 'genera_lab']
     const json = ['opciones', 'extra_mica', 'paquete']
-    for (const k of texto) if (c[k] !== undefined) upd[k] = limpia(c[k]) || null
+    for (const k of texto) if (c[k] !== undefined) {
+      const v = limpia(c[k])
+      if (k === 'nombre') { if (v) upd.nombre = v }        // el nombre nunca se deja vacío
+      else upd[k] = k === 'marca' ? v : (v || null)         // marca no acepta vacío nulo en la tabla
+    }
     for (const k of numeros) if (c[k] !== undefined) upd[k] = num(c[k])
     for (const k of bools) if (c[k] !== undefined) upd[k] = !!c[k]
     for (const k of json) if (c[k] !== undefined) upd[k] = c[k]
