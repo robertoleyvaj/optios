@@ -6,6 +6,7 @@ import RequireRol from '@/components/RequireRol'
 import { getUsuarioLocal } from '@/lib/session'
 import Entradas from './Entradas'
 import Traspasos from './Traspasos'
+import Catalogo from './Productos'
 
 // ─────────────────────────────────────────────────────────────
 // Inventario nuevo · Armazones (SKU por color)
@@ -71,7 +72,8 @@ function InventarioNuevo() {
   const [suc, setSuc] = useState('')
   const [filtro, setFiltro] = useState('')
   const [selId, setSelId] = useState<number | null>(null)
-  const [tab, setTab] = useState<'armazones' | 'entradas' | 'traspasos'>('armazones')
+  const [tab, setTab] = useState<'armazones' | 'micas' | 'lc' | 'consumibles' | 'servicios'>('armazones')
+  const [armVista, setArmVista] = useState<'lista' | 'entrada' | 'traspasos'>('lista')
 
   const cargar = async () => {
     setCargando(true); setError('')
@@ -125,16 +127,25 @@ function InventarioNuevo() {
       </div>
 
       <div className="flex gap-1 border-b border-zinc-200">
-        {([['armazones', 'Armazones'], ['entradas', 'Entradas de mercancía'], ['traspasos', 'Traspasos']] as const).map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)}
+        {([['armazones', 'Armazones'], ['micas', 'Micas y tratamientos'], ['lc', 'Lentes de contacto'], ['consumibles', 'Consumibles'], ['servicios', 'Servicios']] as const).map(([k, l]) => (
+          <button key={k} onClick={() => { setTab(k); setArmVista('lista') }}
             className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px ${tab === k ? 'border-teal-600 text-teal-700' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}>{l}</button>
         ))}
       </div>
 
-      {tab === 'entradas' && <Entradas modelos={modelos} esAdmin={esAdmin} onDone={cargar} />}
-      {tab === 'traspasos' && <Traspasos modelos={modelos} puedeEnviar onDone={cargar} />}
+      {(tab === 'micas' || tab === 'lc' || tab === 'consumibles' || tab === 'servicios') && <Catalogo key={tab} seccion={tab} esAdmin={esAdmin} />}
 
-      {tab === 'armazones' && <>
+      {tab === 'armazones' && armVista !== 'lista' && <>
+        <button onClick={() => setArmVista('lista')} className="text-sm font-semibold text-teal-700 hover:underline">← Volver a armazones</button>
+        {armVista === 'entrada' && <Entradas modelos={modelos} esAdmin={esAdmin} onDone={cargar} />}
+        {armVista === 'traspasos' && <Traspasos modelos={modelos} puedeEnviar onDone={cargar} />}
+      </>}
+
+      {tab === 'armazones' && armVista === 'lista' && <>
+        <div className="flex gap-2 justify-end">
+          <button onClick={() => setArmVista('entrada')} className="px-3 py-2 border border-zinc-200 rounded-lg text-sm font-semibold bg-white hover:bg-zinc-50">+ Entrada de armazones</button>
+          <button onClick={() => setArmVista('traspasos')} className="px-3 py-2 border border-zinc-200 rounded-lg text-sm font-semibold bg-white hover:bg-zinc-50">⇄ Traspasos</button>
+        </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3">
           <div className="text-xs text-zinc-500">Piezas</div>

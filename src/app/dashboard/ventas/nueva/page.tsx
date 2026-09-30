@@ -258,6 +258,7 @@ export default function NuevaVentaPage() {
   const [catalogoLC, setCatalogoLC] = useState<CatItem[]>([])
   // Productos desde la tabla `productos` (se fusionan con el catálogo fijo)
   const [catalogoDB, setCatalogoDB] = useState<CatItem[]>([])
+  const [skusInactivos, setSkusInactivos] = useState<Set<string>>(new Set())
   // Graduaciones de Ultra en stock (para el selector al vender Ultra)
   const [gradsUltra, setGradsUltra] = useState<{ sku: string; nombre: string; grad: string; precio: number; stockBaja: number; stockMayo: number; stockPlaza: number }[]>([])
   const [pendingUltra, setPendingUltra] = useState(false)
@@ -285,10 +286,15 @@ export default function NuevaVentaPage() {
   useEffect(() => {
     createClient()
       .from('productos')
-      .select('sku, nombre, precio, categoria, marca, stock_baja, stock_mayo, stock_plaza')
-      .eq('activo', true)
-      .then(({ data }) => {
-        if (!data) return
+      .select('*')
+      .then(({ data: todosRaw }) => {
+        if (!todosRaw) return
+        // Paquetes y "lentes de contacto en stock" del catálogo nuevo se conectan en la Parte 2:
+        // por ahora el POS sigue usando sus paquetes de siempre y el selector de ULTRA.
+        const todos = todosRaw.filter(p => p.grupo !== 'paquete' && p.grupo !== 'lc')
+        // Los desactivados en Inventario → Productos no se venden (aunque estén en el catálogo fijo)
+        setSkusInactivos(new Set(todos.filter(p => p.activo === false).map(p => p.sku as string)))
+        const data = todos.filter(p => p.activo !== false)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const esUltra = (p: any) => String(p.marca ?? '').toUpperCase() === 'ULTRA'
         // Graduaciones de Ultra van al selector, NO al catálogo suelto
@@ -413,6 +419,7 @@ export default function NuevaVentaPage() {
   // Nunca se pierde nada del fijo (servicios, paquetes) aunque la BD falle.
   const catalogo: CatItem[] = (() => {
     const bySku = new Map<string, CatItem>(CATALOGO_FIJO.map(p => [p.sku, p]))
+    for (const sku of skusInactivos) bySku.delete(sku)
     for (const dp of catalogoDB) {
       const ex = bySku.get(dp.sku)
       if (ex) bySku.set(dp.sku, { ...ex, nombre: dp.nombre, precio: dp.precio, categoria: dp.categoria })
