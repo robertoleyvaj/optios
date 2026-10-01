@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, X, Camera, Trash2, Save, Globe, Loader2, ImageOff } from 'lucide-react'
+import { Search, X, Camera, Trash2, Save, Globe, Loader2, ImageOff, Star, Tag, AlertTriangle } from 'lucide-react'
 import RequireRol from '@/components/RequireRol'
 import { getUsuarioLocal } from '@/lib/session'
 import Entradas from './Entradas'
 import Traspasos from './Traspasos'
 import Catalogo from './Productos'
 import { GENEROS, FORMAS, AROS, ETIQUETAS, tallaDeMedidas } from '@/lib/armazon-web'
+import { GAMAS } from '@/lib/precio-gama'
+import Etiquetas from './Etiquetas'
 
 // ─────────────────────────────────────────────────────────────
 // Inventario nuevo · Armazones (SKU por color)
@@ -31,7 +33,7 @@ type Modelo = {
   imagen4_url: string | null; imagen5_url: string | null
   // Datos para la web
   genero?: string | null; forma?: string | null; aro?: string | null; badge?: string | null
-  descripcion_es?: string | null; descripcion_en?: string | null
+  descripcion_es?: string | null; descripcion_en?: string | null; gama?: string | null
   colores: Color[]
 }
 type Mov = { id: number; created_at: string; sku: string; sucursal: string; tipo: string; cantidad: number; referencia: string | null; usuario: string | null; notas: string | null }
@@ -42,7 +44,6 @@ const SUC = [
   { key: 'stock_plaza' as const, label: 'Plaza Laureles', corto: 'Plaza' },
   { key: 'bodega' as const,      label: 'Bodega',         corto: 'Bodega' },
 ]
-const FOTOS = ['imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url', 'imagen5_url'] as const
 const TIPO: Record<string, { label: string; cls: string }> = {
   carga_inicial:    { label: 'Carga inicial',    cls: 'bg-teal-50 text-teal-700' },
   entrada:          { label: 'Entrada',          cls: 'bg-emerald-50 text-emerald-700' },
@@ -59,7 +60,6 @@ const $ = (n: number) => '$' + Math.round(n).toLocaleString('es-MX')
 const totColor = (c: Color) => num(c.stock_baja) + num(c.stock_mayo) + num(c.stock_plaza) + num(c.bodega)
 const totSuc = (m: Modelo, k: typeof SUC[number]['key']) => m.colores.reduce((s, c) => s + num(c[k]), 0)
 const totModelo = (m: Modelo) => m.colores.reduce((s, c) => s + totColor(c), 0)
-const fotos = (m: Modelo) => FOTOS.map(f => m[f]).filter(Boolean) as string[]
 
 const SWATCH: [string, string][] = [
   ['NEGRO', '#1d1d1d'], ['BLANC', '#e8e8e8'], ['AZUL', '#2f4a8c'], ['ROJO', '#a83232'], ['ROSA', '#d46a90'],
@@ -73,9 +73,18 @@ const swatch = (n: string, hex?: string | null) => {
 }
 const FOTOS_COLOR = ['imagen_url', 'imagen2_url', 'imagen3_url'] as const
 const fotosColor = (c: Color) => FOTOS_COLOR.map(f => c[f]).filter(Boolean) as string[]
+// Portada del armazón: la marcada con ⭐ o la primera foto de algún color
+const portadaModelo = (m: Modelo) => m.imagen_url || m.colores.map(c => fotosColor(c)[0]).find(Boolean) || null
+// Regla de la web: 3 o más piezas iguales → va a la web. Pendiente = aún sin fotos o sin publicar.
+const PIEZAS_WEB = 3
+const pendienteWeb = (m: Modelo) => totModelo(m) >= PIEZAS_WEB && (!(m.publicar_verly || m.publicar_gon) || !portadaModelo(m))
 
 function InventarioNuevo() {
-  const esAdmin = getUsuarioLocal()?.rol === 'administrador'
+  const rol = getUsuarioLocal()?.rol as string | undefined
+  const esAdmin = rol === 'administrador'
+  const esWeb = rol === 'web'
+  const puedeWeb = esAdmin || esWeb
+  const esGestion = esAdmin || rol === 'gerente'
   const [modelos, setModelos] = useState<Modelo[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -85,7 +94,8 @@ function InventarioNuevo() {
   const [filtro, setFiltro] = useState('')
   const [selId, setSelId] = useState<number | null>(null)
   const [tab, setTab] = useState<'armazones' | 'micas' | 'lc' | 'consumibles' | 'servicios'>('armazones')
-  const [armVista, setArmVista] = useState<'lista' | 'entrada' | 'traspasos'>('lista')
+  const [armVista, setArmVista] = useState<'lista' | 'entrada' | 'traspasos' | 'etiquetas'>('lista')
+  const [etiquetasPend, setEtiquetasPend] = useState<number | null>(null)
 
   const cargar = async () => {
     setCargando(true); setError('')
@@ -97,6 +107,10 @@ function InventarioNuevo() {
     finally { setCargando(false) }
   }
   useEffect(() => { cargar() }, [])
+  // Cuántas etiquetas hay en la cola (para el botón)
+  const contarEtiquetas = () => fetch('/api/inv/etiquetas', { cache: 'no-store' }).then(r => r.json())
+    .then(j => { if (j.ok) setEtiquetasPend((j.pendientes as { cantidad: number }[]).reduce((s, p) => s + p.cantidad, 0)) }).catch(() => {})
+  useEffect(() => { const t = setTimeout(contarEtiquetas, 0); return () => clearTimeout(t) }, [armVista])
 
   const marcas = useMemo(() => [...new Set(modelos.map(m => m.marca))].sort(), [modelos])
 
@@ -109,16 +123,18 @@ function InventarioNuevo() {
       const tot = totModelo(m)
       if (filtro === 'agotado' && tot !== 0) return false
       if (filtro === 'ultima' && tot !== 1) return false
-      if (filtro === 'sinfoto' && fotos(m).length > 0) return false
+      if (filtro === 'sinfoto' && portadaModelo(m)) return false
+      if (filtro === 'pendweb' && !pendienteWeb(m)) return false
       if (filtro === 'web' && !(m.publicar_gon || m.publicar_verly)) return false
       if (!t) return true
       return (`${m.marca} ${m.modelo} ${m.sku} ` + m.colores.map(c => `${c.color} ${c.sku}`).join(' ')).toLowerCase().includes(t)
     })
   }, [modelos, q, marca, suc, filtro])
 
+  const pendientesWeb = useMemo(() => modelos.filter(pendienteWeb).length, [modelos])
   const totales = useMemo(() => SUC.map(s => lista.reduce((a, m) => a + totSuc(m, s.key), 0)), [lista])
   const sel = modelos.find(m => m.id === selId) ?? null
-  const actualizar = (m: Modelo) => setModelos(prev => prev.map(x => x.id === m.id ? { ...x, ...m, colores: x.colores } : x))
+  const actualizar = (m: Modelo) => setModelos(prev => prev.map(x => x.id === m.id ? { ...x, ...m, colores: m.colores ?? x.colores } : x))
 
   return (
     <div className="space-y-4">
@@ -139,7 +155,7 @@ function InventarioNuevo() {
       </div>
 
       <div className="flex gap-1 border-b border-zinc-200">
-        {([['armazones', 'Armazones'], ['micas', 'Micas y tratamientos'], ['lc', 'Lentes de contacto'], ['consumibles', 'Consumibles'], ['servicios', 'Servicios']] as const).map(([k, l]) => (
+        {([['armazones', 'Armazones'], ['micas', 'Micas y tratamientos'], ['lc', 'Lentes de contacto'], ['consumibles', 'Consumibles'], ['servicios', 'Servicios']] as const).filter(([k]) => esGestion || k === 'armazones').map(([k, l]) => (
           <button key={k} onClick={() => { setTab(k); setArmVista('lista') }}
             className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px ${tab === k ? 'border-teal-600 text-teal-700' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}>{l}</button>
         ))}
@@ -149,14 +165,26 @@ function InventarioNuevo() {
 
       {tab === 'armazones' && armVista !== 'lista' && <>
         <button onClick={() => setArmVista('lista')} className="text-sm font-semibold text-teal-700 hover:underline">← Volver a armazones</button>
-        {armVista === 'entrada' && <Entradas modelos={modelos} esAdmin={esAdmin} onDone={cargar} />}
-        {armVista === 'traspasos' && <Traspasos modelos={modelos} puedeEnviar onDone={cargar} />}
+        {armVista === 'entrada' && <Entradas modelos={modelos} esAdmin={esAdmin} onDone={cargar} onVerEtiquetas={() => setArmVista('etiquetas')} />}
+        {armVista === 'traspasos' && esGestion && <Traspasos modelos={modelos} puedeEnviar onDone={cargar} />}
+        {armVista === 'etiquetas' && <Etiquetas onCambio={setEtiquetasPend} />}
       </>}
 
       {tab === 'armazones' && armVista === 'lista' && <>
-        <div className="flex gap-2 justify-end">
+        <div className="flex flex-wrap gap-2 justify-end">
+          {pendientesWeb > 0 && (
+            <button onClick={() => setFiltro(f => f === 'pendweb' ? '' : 'pendweb')}
+              className={`mr-auto inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border ${filtro === 'pendweb' ? 'bg-red-600 text-white border-red-600' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>
+              <AlertTriangle className="w-4 h-4" /> {pendientesWeb} pendientes de web
+              <span className="text-[11px] font-normal opacity-80">({PIEZAS_WEB}+ piezas sin fotos o sin publicar)</span>
+            </button>
+          )}
           <button onClick={() => setArmVista('entrada')} className="px-3 py-2 border border-zinc-200 rounded-lg text-sm font-semibold bg-white hover:bg-zinc-50">+ Entrada de armazones</button>
-          <button onClick={() => setArmVista('traspasos')} className="px-3 py-2 border border-zinc-200 rounded-lg text-sm font-semibold bg-white hover:bg-zinc-50">⇄ Traspasos</button>
+          <button onClick={() => setArmVista('etiquetas')} className="inline-flex items-center gap-2 px-3 py-2 border border-zinc-200 rounded-lg text-sm font-semibold bg-white hover:bg-zinc-50">
+            <Tag className="w-4 h-4" /> Etiquetas por imprimir
+            {!!etiquetasPend && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-teal-600 text-white">{etiquetasPend}</span>}
+          </button>
+          {esGestion && <button onClick={() => setArmVista('traspasos')} className="px-3 py-2 border border-zinc-200 rounded-lg text-sm font-semibold bg-white hover:bg-zinc-50">⇄ Traspasos</button>}
         </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3">
@@ -192,6 +220,7 @@ function InventarioNuevo() {
           <option value="ultima">Última pieza</option>
           <option value="agotado">Agotados</option>
           <option value="sinfoto">Sin foto</option>
+          <option value="pendweb">Pendientes de web</option>
           <option value="web">Marcados para web</option>
         </select>
       </div>
@@ -218,9 +247,9 @@ function InventarioNuevo() {
             </thead>
             <tbody>
               {lista.slice(0, 300).map(m => {
-                const f = fotos(m)[0]; const tot = totModelo(m)
+                const f = portadaModelo(m); const tot = totModelo(m); const pw = pendienteWeb(m)
                 return (
-                  <tr key={m.id} onClick={() => setSelId(m.id)} className="border-b border-zinc-100 hover:bg-zinc-50 cursor-pointer">
+                  <tr key={m.id} onClick={() => setSelId(m.id)} className={`border-b border-zinc-100 hover:bg-zinc-50 cursor-pointer ${pw ? 'bg-red-50/40' : ''}`}>
                     <td className="px-3 py-2">
                       {f ? <img src={f} alt="" className="w-11 h-8 object-cover rounded-md border border-zinc-200" />
                          : <div className="w-11 h-8 rounded-md border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center"><ImageOff className="w-3.5 h-3.5 text-zinc-300" /></div>}
@@ -243,7 +272,8 @@ function InventarioNuevo() {
                     <td className="px-3 py-2 whitespace-nowrap">
                       {m.publicar_gon && <span className="text-[11px] px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold mr-1">GON</span>}
                       {m.publicar_verly && <span className="text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-semibold">Verly</span>}
-                      {!m.publicar_gon && !m.publicar_verly && <span className="text-zinc-300">–</span>}
+                      {!m.publicar_gon && !m.publicar_verly && !pw && <span className="text-zinc-300">–</span>}
+                      {pw && <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">Pendiente</span>}
                     </td>
                   </tr>
                 )
@@ -256,7 +286,7 @@ function InventarioNuevo() {
 
       </>}
 
-      {sel && <Ficha modelo={sel} esAdmin={esAdmin} onClose={() => setSelId(null)} onChange={actualizar} />}
+      {sel && <Ficha modelo={sel} esAdmin={esAdmin} puedeWeb={puedeWeb} onClose={() => setSelId(null)} onChange={actualizar} />}
     </div>
   )
 }
@@ -264,19 +294,13 @@ function InventarioNuevo() {
 // ─────────────────────────────────────────────────────────────
 // Ficha del armazón
 // ─────────────────────────────────────────────────────────────
-function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
-  modelo: Modelo; esAdmin: boolean; onClose: () => void; onChange: (m: Modelo) => void
+function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
+  modelo: Modelo; esAdmin: boolean; puedeWeb: boolean; onClose: () => void; onChange: (m: Modelo) => void
 }) {
-  const [datos, setDatos] = useState({
-    medidas: m.medidas ?? '', material: m.material ?? '',
-    precio_gon: String(m.precio_gon ?? ''), precio: String(m.precio ?? ''), costo: String(m.costo ?? ''),
-  })
+  const [datos, setDatos] = useState({ medidas: m.medidas ?? '', material: m.material ?? '', precio_gon: String(m.precio_gon ?? '') })
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
-  const [subiendo, setSubiendo] = useState<string | null>(null)
   const [movs, setMovs] = useState<Mov[] | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-  const campoRef = useRef<string>('imagen_url')
 
   useEffect(() => {
     fetch(`/api/inv/movimientos?sku=${encodeURIComponent(m.sku)}`, { cache: 'no-store' })
@@ -294,98 +318,63 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
     }).then(r => r.json())
     if (!j.ok) throw new Error(j.error)
     onChange({ ...m, ...j.modelo })
+    return j.modelo as Modelo
   }
 
   const guardar = async () => {
     setGuardando(true); setMsg('')
     try {
-      await patch({
+      const n = await patch({
         medidas: datos.medidas.trim() || null, material: datos.material.trim().toUpperCase() || null,
         precio_gon: datos.precio_gon ? Number(datos.precio_gon) : null,
-        precio: datos.precio ? Number(datos.precio) : null,
-        costo: datos.costo ? Number(datos.costo) : null,
       })
-      setMsg('Guardado')
+      setDatos(d => ({ ...d, precio_gon: String(n.precio_gon ?? '') }))
+      setMsg('Guardado. El precio de Verly se recalculó solo.')
     } catch (e) { setMsg('No se pudo guardar: ' + (e instanceof Error ? e.message : '')) }
     finally { setGuardando(false) }
   }
 
-  const togglePub = async (campo: 'publicar_gon' | 'publicar_verly') => {
-    if (!m[campo] && fotos(m).length === 0 && !m.colores.some(c => fotosColor(c).length > 0)) { setMsg('Sube al menos una foto antes de publicar'); return }
-    try { await patch({ [campo]: !m[campo] }) } catch (e) { setMsg('Error: ' + (e instanceof Error ? e.message : '')) }
+  const cambiarGama = async (gama: string) => {
+    if (gama === m.gama) return
+    if (!confirm('Al cambiar la gama se pone un precio nuevo dentro de su rango. ¿Seguro?')) return
+    try { const n = await patch({ gama }); setDatos(d => ({ ...d, precio_gon: String(n.precio_gon ?? '') })); setMsg('Gama y precio actualizados. Reimprime sus etiquetas si ya estaban puestas.') }
+    catch (e) { setMsg('Error: ' + (e instanceof Error ? e.message : '')) }
   }
 
-  const elegirFoto = (campo: string) => { campoRef.current = campo; fileRef.current?.click() }
-  const subirFoto = async (file: File) => {
-    const campo = campoRef.current
-    setSubiendo(campo); setMsg('')
-    try {
-      const fd = new FormData()
-      fd.append('file', file); fd.append('campo', campo); fd.append('id', String(m.id))
-      const j = await fetch('/api/ecomm/upload-foto', { method: 'POST', body: fd }).then(r => r.json())
-      if (!j.ok) throw new Error(j.error)
-      onChange({ ...m, [campo]: j.url })
-    } catch (e) { setMsg('No se pudo subir: ' + (e instanceof Error ? e.message : '')) }
-    finally { setSubiendo(null) }
+  const portadaDe = (mm: Modelo) => mm.imagen_url || mm.colores.map(c => fotosColor(c)[0]).find(Boolean) || null
+  const togglePub = async (campo: 'publicar_gon' | 'publicar_verly') => {
+    const portada = portadaDe(m)
+    if (!m[campo] && !portada) { setMsg('Sube al menos una foto de algún color antes de publicar'); return }
+    try { await patch({ [campo]: !m[campo], ...(!m.imagen_url && portada ? { imagen_url: portada } : {}) }) }
+    catch (e) { setMsg('Error: ' + (e instanceof Error ? e.message : '')) }
   }
-  const borrarFoto = async (campo: string, url: string) => {
-    if (!confirm('¿Borrar esta foto?')) return
-    const j = await fetch('/api/ecomm/upload-foto', {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: String(m.id), campo, url }),
-    }).then(r => r.json())
-    if (j.ok) onChange({ ...m, [campo]: null })
-    else setMsg('No se pudo borrar: ' + j.error)
+
+  const reimprimir = async (c: Color) => {
+    const n = parseInt(prompt(`¿Cuántas etiquetas de ${c.sku} (${c.color}) agregar a la cola?`, String(totColor(c) || 1)) ?? '')
+    if (!n || n < 1) return
+    const j = await fetch('/api/inv/etiquetas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'agregar', color_id: c.id, cantidad: n }) }).then(r => r.json())
+    setMsg(j.ok ? `${n} etiquetas de ${c.sku} agregadas a la cola.` : 'Error: ' + j.error)
   }
 
   const tot = totModelo(m)
-  const margen = num(m.precio_gon) && num(m.costo) ? Math.round((1 - num(m.costo) / num(m.precio_gon)) * 100) : null
+  const portada = portadaDe(m)
+  const talla = tallaDeMedidas(m.medidas)
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={onClose}>
       <div className="bg-zinc-50 w-full max-w-2xl h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="bg-white border-b border-zinc-200 px-5 py-4 sticky top-0 z-10 flex items-start gap-3">
-          <div className="flex-1">
-            <div className="text-lg font-semibold text-zinc-900">{m.marca} {m.modelo}</div>
-            <div className="font-mono text-xs text-zinc-400">{m.sku} · {m.medidas} · {m.material} · {tot} piezas</div>
+        <div className="bg-white border-b border-zinc-200 px-5 py-4 sticky top-0 z-10 flex items-center gap-3">
+          {portada ? <img src={portada} alt="" className="w-16 h-12 object-cover rounded-lg border border-zinc-200" />
+            : <div className="w-16 h-12 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center"><ImageOff className="w-4 h-4 text-zinc-300" /></div>}
+          <div className="flex-1 min-w-0">
+            <div className="text-lg font-semibold text-zinc-900 truncate">{m.marca} {m.modelo}{m.nombre && <span className="text-zinc-400 font-normal"> · “{m.nombre}”</span>}</div>
+            <div className="font-mono text-xs text-zinc-400">{m.sku} · {m.medidas}{talla && ` (${talla.talla})`} · {m.material} · {tot} piezas</div>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="p-5 space-y-4">
           {msg && <div className="text-xs px-3 py-2 rounded-lg bg-white border border-zinc-200 text-zinc-600">{msg}</div>}
-
-          {/* Fotos */}
-          <section className="bg-white border border-zinc-200 rounded-xl p-4">
-            <h3 className="text-sm font-semibold text-zinc-800 mb-3">Fotos</h3>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f); e.target.value = '' }} />
-            <div className="grid grid-cols-5 gap-2">
-              {FOTOS.map((campo, i) => {
-                const url = m[campo]
-                return (
-                  <div key={campo} className="relative aspect-[4/3] rounded-lg border border-dashed border-zinc-300 bg-zinc-50 overflow-hidden group">
-                    {subiendo === campo ? (
-                      <div className="w-full h-full flex items-center justify-center"><Loader2 className="w-5 h-5 text-teal-600 animate-spin" /></div>
-                    ) : url ? (
-                      <>
-                        <img src={url} alt="" className="w-full h-full object-cover" />
-                        <button onClick={() => borrarFoto(campo, url)}
-                          className="absolute top-1 right-1 w-6 h-6 rounded-md bg-white/90 text-red-500 hidden group-hover:flex items-center justify-center">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                        {i === 0 && <span className="absolute bottom-1 left-1 text-[10px] px-1.5 py-0.5 rounded bg-white/90 text-zinc-600">Portada</span>}
-                      </>
-                    ) : (
-                      <button onClick={() => elegirFoto(campo)} className="w-full h-full flex flex-col items-center justify-center gap-1 text-zinc-400 hover:text-teal-600">
-                        <Camera className="w-4 h-4" /><span className="text-[10px]">{i === 0 ? 'Portada' : 'Agregar'}</span>
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </section>
 
           {/* Colores y existencias */}
           <section className="bg-white border border-zinc-200 rounded-xl p-4">
@@ -397,6 +386,7 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
                   <th className="text-left font-semibold py-1.5">SKU</th>
                   {SUC.map(s => <th key={s.key} className="text-right font-semibold py-1.5">{s.corto}</th>)}
                   <th className="text-right font-semibold py-1.5">Total</th>
+                  <th className="w-8"></th>
                 </tr>
               </thead>
               <tbody>
@@ -406,6 +396,7 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
                     <td className="py-2 font-mono text-[11px] text-zinc-500">{c.sku}</td>
                     {SUC.map(s => <td key={s.key} className={`py-2 text-right tabular-nums ${num(c[s.key]) ? '' : 'text-zinc-300'}`}>{num(c[s.key]) || '–'}</td>)}
                     <td className="py-2 text-right tabular-nums font-semibold">{totColor(c)}</td>
+                    <td className="py-2 text-right"><button onClick={() => reimprimir(c)} title="Reimprimir etiquetas" className="text-zinc-300 hover:text-teal-600"><Tag className="w-3.5 h-3.5" /></button></td>
                   </tr>
                 ))}
               </tbody>
@@ -413,18 +404,29 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
             <p className="text-[11px] text-zinc-400 mt-2">Las existencias solo cambian con entradas, traspasos, ventas o ajustes, y todo queda registrado.</p>
           </section>
 
-          {/* Colores en la web: circulito, fotos por color y si se muestra */}
-          <ColoresWeb modelo={m} esAdmin={esAdmin} onChange={onChange} setMsg={setMsg} />
-
           {/* Datos y precio */}
           <section className="bg-white border border-zinc-200 rounded-xl p-4">
             <h3 className="text-sm font-semibold text-zinc-800 mb-3">Datos y precio</h3>
             <div className="grid grid-cols-2 gap-3">
-              <Campo label="Medidas" value={datos.medidas} onChange={v => setDatos(d => ({ ...d, medidas: v }))} disabled={!esAdmin} />
+              <Campo label="Medidas (mica-puente-varilla)" value={datos.medidas} onChange={v => setDatos(d => ({ ...d, medidas: v }))} disabled={!esAdmin} />
               <Campo label="Material" value={datos.material} onChange={v => setDatos(d => ({ ...d, material: v }))} disabled={!esAdmin} />
-              <Campo label="Precio tienda y GON (MXN)" value={datos.precio_gon} onChange={v => setDatos(d => ({ ...d, precio_gon: v }))} disabled={!esAdmin} type="number" />
-              <Campo label="Precio Verly (USD)" value={datos.precio} onChange={v => setDatos(d => ({ ...d, precio: v }))} disabled={!esAdmin} type="number" />
-              {esAdmin && <Campo label={`Costo${margen != null ? ` · margen ${margen}%` : ''}`} value={datos.costo} onChange={v => setDatos(d => ({ ...d, costo: v }))} type="number" />}
+            </div>
+            <div className="mt-3">
+              <span className="text-[11px] font-semibold text-zinc-500">Gama</span>
+              <div className="flex gap-1.5 mt-1">
+                {GAMAS.map(g => (
+                  <button key={g.v} disabled={!puedeWeb} onClick={() => cambiarGama(g.v)}
+                    className={`px-3 py-1.5 rounded-full text-xs border disabled:cursor-default ${m.gama === g.v ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-zinc-200 text-zinc-700 enabled:hover:border-zinc-400'}`}>{g.label}</button>
+                ))}
+                {!m.gama && <span className="text-[11px] text-amber-600 self-center ml-1">sin gama</span>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <Campo label="Precio ópticas y GON (MXN)" value={datos.precio_gon} onChange={v => setDatos(d => ({ ...d, precio_gon: v }))} disabled={!esAdmin} type="number" />
+              <label className="block">
+                <span className="text-[11px] font-semibold text-zinc-500">Precio Verly (USD) · automático</span>
+                <div className="mt-1 w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 text-zinc-600">{m.precio ? `$${m.precio}` : '—'} <span className="text-[11px] text-zinc-400">pesos ÷ tipo de cambio × 50%</span></div>
+              </label>
             </div>
             {esAdmin && (
               <button onClick={guardar} disabled={guardando}
@@ -433,23 +435,6 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
               </button>
             )}
           </section>
-
-          {/* Datos para la web (apodo, para quién, forma, tipo, etiqueta, descripción) */}
-          {esAdmin && <DatosWeb modelo={m} onChange={onChange} />}
-
-          {/* Publicar */}
-          {esAdmin && (
-            <section className="bg-white border border-zinc-200 rounded-xl p-4">
-              <h3 className="text-sm font-semibold text-zinc-800 mb-3 flex items-center gap-2"><Globe className="w-4 h-4 text-zinc-400" /> Publicar en línea</h3>
-              <div className="space-y-2">
-                <Switch label="GON" sub="gonmx.com · precio en pesos" on={m.publicar_gon} onClick={() => togglePub('publicar_gon')} />
-                <Switch label="Verly" sub="Precio en dólares" on={m.publicar_verly} onClick={() => togglePub('publicar_verly')} />
-              </div>
-              <p className="text-[11px] text-zinc-400 mt-2">
-                {m.activo ? 'Si el stock llega a 0 se oculta solo de la web.' : 'Se verá en la web hasta el día del cambio; por ahora solo queda marcado.'}
-              </p>
-            </section>
-          )}
 
           {/* Movimientos */}
           <section className="bg-white border border-zinc-200 rounded-xl p-4">
@@ -471,6 +456,34 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
                 </div>
               )}
           </section>
+
+          {/* ───────── PARA LA WEB (admin y encargado de web) ───────── */}
+          {puedeWeb && (
+            <div className="rounded-2xl border border-violet-200 bg-gradient-to-b from-violet-50 to-white p-3 space-y-3">
+              <div className="flex items-center gap-2 px-1 pt-1">
+                <Globe className="w-4 h-4 text-violet-600" />
+                <div className="text-sm font-semibold text-violet-900">Para la web</div>
+                <div className="text-[11px] text-violet-500">Lo que ven los clientes en Verly y GON</div>
+                {pendienteWeb(m) && <span className="ml-auto text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Pendiente de web</span>}
+              </div>
+
+              <ColoresWeb modelo={m} esAdmin={puedeWeb} onChange={onChange} setMsg={setMsg}
+                portada={m.imagen_url ?? null} onPortada={async url => { try { await patch({ imagen_url: url }) } catch (e) { setMsg('Error: ' + (e instanceof Error ? e.message : '')) } }} />
+
+              <DatosWeb modelo={m} onChange={onChange} />
+
+              <section className="bg-white border border-zinc-200 rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-zinc-800 mb-3">Publicar en línea</h3>
+                <div className="space-y-2">
+                  <Switch label="GON" sub="gonmx.com · precio en pesos" on={m.publicar_gon} onClick={() => togglePub('publicar_gon')} />
+                  <Switch label="Verly" sub={`Precio en dólares${m.precio ? ` · $${m.precio}` : ''}`} on={m.publicar_verly} onClick={() => togglePub('publicar_verly')} />
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-2">
+                  {m.activo ? 'Si el stock llega a 0 se oculta solo de la web.' : 'Se verá en la web hasta el día del cambio; por ahora solo queda marcado.'}
+                </p>
+              </section>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -566,8 +579,9 @@ function DatosWeb({ modelo: m, onChange }: { modelo: Modelo; onChange: (m: Model
 // ── Colores en la web ─────────────────────────────────────────
 // Cada color puede tener su circulito (hex), hasta 3 fotos y mostrarse o no en la web.
 // "Mostrar" aplica a Verly y GON; el switch del modelo (abajo) decide en qué página sale.
-function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg }: {
+function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }: {
   modelo: Modelo; esAdmin: boolean; onChange: (m: Modelo) => void; setMsg: (s: string) => void
+  portada: string | null; onPortada: (url: string | null) => void
 }) {
   const [subiendo, setSubiendo] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -606,14 +620,14 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg }: {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: String(c.id), campo, url, tabla: 'color' }),
     }).then(r => r.json())
-    if (j.ok) reemplazar({ ...c, [campo]: null })
+    if (j.ok) { reemplazar({ ...c, [campo]: null }); if (url === portada) onPortada(null) }
     else setMsg('No se pudo borrar: ' + j.error)
   }
 
   return (
     <section className="bg-white border border-zinc-200 rounded-xl p-4">
-      <h3 className="text-sm font-semibold text-zinc-800 mb-1">Colores en la web</h3>
-      <p className="text-[11px] text-zinc-400 mb-3">El cliente ve un circulito por cada color marcado como visible. Al picarlo cambian las fotos.</p>
+      <h3 className="text-sm font-semibold text-zinc-800 mb-1">Fotos por color</h3>
+      <p className="text-[11px] text-zinc-400 mb-3">Sube las fotos de cada color (frente, lado, puesto). Marca con ⭐ la que sale de portada en el catálogo. El cliente ve un circulito por cada color visible.</p>
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = '' }} />
       <div className="space-y-3">
@@ -652,6 +666,10 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg }: {
                             className="absolute top-1 right-1 w-6 h-6 rounded-md bg-white/90 text-red-500 hidden group-hover:flex items-center justify-center">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                          <button onClick={() => onPortada(url)} title="Usar como portada"
+                            className={`absolute bottom-1 left-1 h-6 px-1.5 rounded-md text-[10px] font-semibold flex items-center gap-1 ${url === portada ? 'bg-amber-400 text-white' : 'bg-white/90 text-zinc-500 hidden group-hover:flex'}`}>
+                            <Star className="w-3 h-3" fill={url === portada ? 'currentColor' : 'none'} />{url === portada ? 'Portada' : ''}
+                          </button>
                         </>
                       ) : (
                         <button onClick={() => elegir(c, campo)} className="w-full h-full flex flex-col items-center justify-center gap-1 text-zinc-400 hover:text-teal-600">
@@ -666,7 +684,7 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg }: {
           )
         })}
       </div>
-      <p className="text-[11px] text-zinc-400 mt-2">Si un color no tiene fotos, la web usa las fotos generales del modelo.</p>
+      {!portada && <p className="text-[11px] text-amber-600 mt-2">Sin portada: al publicar se usa la primera foto que haya.</p>}
     </section>
   )
 }
@@ -710,7 +728,7 @@ function Switch({ label, sub, on, onClick }: { label: string; sub: string; on: b
 
 export default function Page() {
   return (
-    <RequireRol roles={['administrador', 'gerente']}>
+    <RequireRol roles={['administrador', 'gerente', 'web']}>
       <InventarioNuevo />
     </RequireRol>
   )

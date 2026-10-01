@@ -8,7 +8,7 @@ import {
   ChevronDown, CheckCircle2, XCircle, Edit2, RefreshCw,
 } from 'lucide-react'
 
-type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor'
+type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor' | 'web'
 
 type Usuario = {
   id: string         // UUID
@@ -43,6 +43,11 @@ const ROL_CONFIG: Record<Rol, { label: string; bg: string; text: string; permiso
     label: 'Repartidor',
     bg: 'bg-orange-50', text: 'text-orange-700',
     permisos: ['Laboratorio (órdenes listas)'],
+  },
+  web: {
+    label: 'Encargado web',
+    bg: 'bg-violet-50', text: 'text-violet-700',
+    permisos: ['Inventario: entradas, etiquetas, fotos y datos para la web (sin costos ni ventas)'],
   },
 }
 

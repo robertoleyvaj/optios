@@ -2,6 +2,14 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v1.12 (1 oct 2026)
+- **Entrada de armazones nueva**: entra a Bodega por defecto, un solo buscador, marca de lista, medidas en 3 cajitas, varios colores de una vez, aviso de modelos repetidos o parecidos, sin costo.
+- **Gamas de precio** por marca (Básico / Estándar / Premium): el precio se pone solo dentro del rango, nunca cerrado. **Precio Verly automático** = pesos ÷ tipo de cambio × 50%.
+- **Cola de etiquetas**: cada entrada agrega sus etiquetas; se imprimen todas juntas en tabloide y se marcan como impresas. Reimpresión por color desde la ficha.
+- **Ficha reordenada**: primero colores y existencias, datos y precio, movimientos; abajo el bloque **Para la web** (fotos por color con ⭐ portada, datos web y publicar). Se quitó la sección de fotos generales.
+- **Pendientes de web en rojo**: modelos con 3+ piezas sin fotos o sin publicar.
+- **Rol "Encargado web"**: solo inventario (entradas, etiquetas, fotos, datos web, publicar). Sin ventas, costos ni traspasos.
+
 ## v1.11 (1 oct 2026)
 - **Datos para la web** en la ficha del armazón (solo admin): nombre en la web (apodo), para quién, forma, tipo de armazón, etiqueta y descripción en español e inglés. La talla se calcula sola de las medidas. Base para que Verly y GON tomen todo de OptiOS.
 

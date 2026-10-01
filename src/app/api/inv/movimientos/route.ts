@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
-import { requireRol, GESTION } from '@/lib/auth-api'
+import { requireRol, INVENTARIO } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
 // GET ?sku=VRL-1391  → movimientos de todos los colores de ese modelo (o de un color exacto)
 // GET (sin sku)      → últimos 200 movimientos
 export async function GET(req: NextRequest) {
-  const g = await requireRol(GESTION); if (!g.ok) return g.res
+  const g = await requireRol(INVENTARIO); if (!g.ok) return g.res
   try {
     const sku = req.nextUrl.searchParams.get('sku')
     const sb = createEcommClient()

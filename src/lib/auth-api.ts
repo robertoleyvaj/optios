@@ -12,13 +12,17 @@ import { createAdminClient } from '@/lib/supabase/admin'
 //   3. Si no tiene sesión → 401. Si su rol no está permitido → 403.
 // ─────────────────────────────────────────────────────────────
 
-export type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor'
+// 'web' = encargado de mercancía y páginas: solo inventario (entradas, fichas, fotos,
+// datos web, publicar, etiquetas). No ve ventas, pacientes, finanzas ni costos.
+export type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor' | 'web'
 export type UsuarioApi = { authId: string; id: string; nombre: string; rol: Rol; sucursal: string }
 
-export const TODOS: Rol[] = ['administrador', 'gerente', 'vendedor', 'repartidor']
+export const TODOS: Rol[] = ['administrador', 'gerente', 'vendedor', 'repartidor', 'web']
 export const TIENDA: Rol[] = ['administrador', 'gerente', 'vendedor']
 export const GESTION: Rol[] = ['administrador', 'gerente']
 export const ADMIN: Rol[] = ['administrador']
+export const INVENTARIO: Rol[] = ['administrador', 'gerente', 'web']   // ver inventario, entradas, etiquetas
+export const WEB: Rol[] = ['administrador', 'web']                     // datos web, fotos, publicar
 
 // Caché corto del rol por usuario para no consultar la BD en cada request
 const cache = new Map<string, { u: UsuarioApi; exp: number }>()

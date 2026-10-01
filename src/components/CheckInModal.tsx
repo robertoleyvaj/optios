@@ -33,7 +33,7 @@ export default function CheckInModal() {
         if (!raw) return
         const u = JSON.parse(raw)
         if (!u.nombre) return
-        if (u.rol === 'repartidor') return
+        if (u.rol === 'repartidor' || u.rol === 'web') return
         // El administrador no hace check-in (puede entrar desde cualquier dispositivo)
         if (u.rol === 'administrador') return
         setNombre(u.nombre)

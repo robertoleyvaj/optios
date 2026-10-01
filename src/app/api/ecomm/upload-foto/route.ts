@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
-import { requireRol, GESTION } from '@/lib/auth-api'
+import { requireRol, INVENTARIO } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +14,7 @@ const TABLA: Record<string, string> = { armazon: 'armazones', color: 'armazon_co
 // Sube una foto de armazón al Storage de e-commerce (bucket 'armazones') y
 // guarda la URL en la columna correspondiente del armazón o del color.
 export async function POST(req: NextRequest) {
-  const g = await requireRol(GESTION); if (!g.ok) return g.res
+  const g = await requireRol(INVENTARIO); if (!g.ok) return g.res
   try {
     const form = await req.formData()
     const file = form.get('file') as File | null
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
 // Borra una foto por completo: elimina el archivo del Storage y limpia la columna.
 export async function DELETE(req: NextRequest) {
-  const g = await requireRol(GESTION); if (!g.ok) return g.res
+  const g = await requireRol(INVENTARIO); if (!g.ok) return g.res
   try {
     const { id, campo, url, tabla = 'armazon' } = await req.json() as { id?: string; campo?: string; url?: string; tabla?: string }
     if (!id || !campo) return NextResponse.json({ ok: false, error: 'Faltan datos (id, campo)' }, { status: 400 })

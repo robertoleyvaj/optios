@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ShieldOff } from 'lucide-react'
 
-type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor'
+type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor' | 'web'
 
 /**
  * Wraps a page and only renders children if the logged-in user

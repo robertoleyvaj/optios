@@ -159,6 +159,7 @@ export default function DashboardPage() {
       if (raw) {
         const u = JSON.parse(raw)
         setUsuario(u)
+        if (u.rol === 'web') { router.replace('/dashboard/inventario-nuevo'); return }
         if (u.rol === 'repartidor') {
           router.replace('/dashboard/laboratorio')
           return

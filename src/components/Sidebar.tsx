@@ -15,13 +15,14 @@ import {
 // ─────────────────────────────────────────
 // Roles y permisos
 // ─────────────────────────────────────────
-type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor'
+type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor' | 'web'
 
 const ROL_LABEL: Record<Rol, string> = {
   administrador: 'Administrador',
   gerente:       'Gerente',
   vendedor:      'Vendedor',
   repartidor:    'Repartidor',
+  web:           'Encargado web',
 }
 
 // Módulos core: todos los roles de tienda los ven
@@ -39,6 +40,7 @@ const PERMISOS: Record<Rol, string[]> = {
   gerente:       [...CORE, ...GESTION_GERENTE],
   vendedor:      [...CORE],
   repartidor:    ['laboratorio'],
+  web:           ['inventario'],
 }
 
 // ─────────────────────────────────────────
@@ -105,6 +107,11 @@ const MENU_REPARTIDOR: MenuItem[] = [
   { href: '/dashboard/vacaciones',  label: 'Vacaciones',  icon: Palmtree,     key: 'vacaciones' },
 ]
 
+// Encargado de mercancía y páginas: solo inventario
+const MENU_WEB: MenuItem[] = [
+  { href: '/dashboard/inventario-nuevo', label: 'Inventario', icon: Package, key: 'inventario' },
+]
+
 const USUARIO_DEFAULT = { nombre: 'Usuario', apodo: 'Usuario', iniciales: 'U', rol: 'vendedor' as Rol, sucursal: '' }
 
 export default function Sidebar({
@@ -168,7 +175,7 @@ export default function Sidebar({
     item.type !== 'sep' && item.subItems ? item.subItems.filter(s => !s.key || puedeVer(s.key)) : []
 
   // Construir menú según rol
-  const menuBase = usuario.rol === 'repartidor' ? MENU_REPARTIDOR : MENU_CORE
+  const menuBase = usuario.rol === 'repartidor' ? MENU_REPARTIDOR : usuario.rol === 'web' ? MENU_WEB : MENU_CORE
   const menuExtra = usuario.rol === 'administrador' || usuario.rol === 'gerente' ? MENU_GESTION : []
   const itemsBase = [...menuBase, ...menuExtra].filter(item => {
     if (item.type === 'sep') return true
