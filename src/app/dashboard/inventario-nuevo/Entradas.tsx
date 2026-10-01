@@ -246,7 +246,7 @@ export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas }: {
                   {sel.colores.map(c => (
                     <div key={c.id} className="flex items-center gap-2">
                       <div className="flex-1 text-sm">{c.color} <span className="font-mono text-[11px] text-zinc-400">{c.sku}</span></div>
-                      <input type="number" min={0} value={cantExist[c.id] ?? ''} placeholder="0" onChange={e => setCantExist(v => ({ ...v, [c.id]: e.target.value }))}
+                      <input type="number" inputMode="numeric" min={0} value={cantExist[c.id] ?? ''} placeholder="0" onChange={e => setCantExist(v => ({ ...v, [c.id]: e.target.value }))}
                         className="w-20 border border-zinc-200 rounded-lg px-2 py-1.5 text-sm text-right" aria-label={`Piezas ${c.color}`} />
                     </div>
                   ))}
@@ -254,7 +254,7 @@ export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas }: {
                     <div key={f.key} className="flex items-center gap-2">
                       <input list="lista-colores" value={f.nombre} onChange={e => setFilasNuevas(v => v.map(x => x.key === f.key ? { ...x, nombre: e.target.value } : x))}
                         placeholder="Color nuevo, ej. NEGRO MATE" className="flex-1 border border-zinc-200 rounded-lg px-3 py-1.5 text-sm" />
-                      <input type="number" min={1} value={f.cant} onChange={e => setFilasNuevas(v => v.map(x => x.key === f.key ? { ...x, cant: e.target.value } : x))}
+                      <input type="number" inputMode="numeric" min={1} value={f.cant} onChange={e => setFilasNuevas(v => v.map(x => x.key === f.key ? { ...x, cant: e.target.value } : x))}
                         className="w-20 border border-zinc-200 rounded-lg px-2 py-1.5 text-sm text-right" aria-label="Piezas" />
                       <button onClick={() => setFilasNuevas(v => v.filter(x => x.key !== f.key))} className="text-zinc-300 hover:text-red-500" aria-label="Quitar"><X className="w-4 h-4" /></button>
                     </div>
@@ -272,7 +272,7 @@ export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas }: {
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Modelo nuevo</span>
                 <button onClick={() => setModoNuevo(false)} className="text-xs text-zinc-500 hover:underline">← Buscar uno que ya existe</button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="block"><span className="text-[11px] font-semibold text-zinc-500">Marca</span>
                   <input list="lista-marcas" value={nm.marca} onChange={e => setNm(v => ({ ...v, marca: e.target.value }))} placeholder="Elige de la lista" className={inputCls} />
                   {marcaUp && !marcaLista && (
@@ -308,7 +308,7 @@ export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas }: {
                 <div className="grid grid-cols-3 gap-2 mt-1">
                   {([['mica', 'Mica', '52'], ['puente', 'Puente', '18'], ['varilla', 'Varilla', '145']] as const).map(([k, l, ph]) => (
                     <label key={k} className="block">
-                      <input type="number" value={nm[k]} onChange={e => setNm(v => ({ ...v, [k]: e.target.value }))} placeholder={ph} className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-center" />
+                      <input type="number" inputMode="numeric" value={nm[k]} onChange={e => setNm(v => ({ ...v, [k]: e.target.value }))} placeholder={ph} className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm text-center" />
                       <span className="block text-center text-[10px] text-zinc-400 mt-0.5">{l}</span>
                     </label>
                   ))}
@@ -339,7 +339,7 @@ export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas }: {
                     )
                   })}
                 </div>
-                <div className="flex items-center gap-3 mt-2 bg-zinc-50 rounded-lg px-3 py-2">
+                <div className="flex flex-wrap items-center gap-3 mt-2 bg-zinc-50 rounded-lg px-3 py-2">
                   <div className="text-sm">
                     Precio: {esAdmin
                       ? <input type="number" value={precio ?? ''} onChange={e => setPrecioManual(Number(e.target.value) || null)} className="w-24 border border-zinc-200 rounded-md px-2 py-0.5 text-sm font-semibold" />
@@ -360,7 +360,7 @@ export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas }: {
                     <div key={f.key} className="flex items-center gap-2">
                       <input list="lista-colores" value={f.nombre} onChange={e => setColoresNm(v => v.map(x => x.key === f.key ? { ...x, nombre: e.target.value } : x))}
                         placeholder="Ej. NEGRO MATE" className="flex-1 border border-zinc-200 rounded-lg px-3 py-1.5 text-sm" />
-                      <input type="number" min={1} value={f.cant} onChange={e => setColoresNm(v => v.map(x => x.key === f.key ? { ...x, cant: e.target.value } : x))}
+                      <input type="number" inputMode="numeric" min={1} value={f.cant} onChange={e => setColoresNm(v => v.map(x => x.key === f.key ? { ...x, cant: e.target.value } : x))}
                         className="w-20 border border-zinc-200 rounded-lg px-2 py-1.5 text-sm text-right" aria-label="Piezas" />
                       <span className="text-[11px] text-zinc-400 w-8">pzas</span>
                       {coloresNm.length > 1 && <button onClick={() => setColoresNm(v => v.filter(x => x.key !== f.key))} className="text-zinc-300 hover:text-red-500" aria-label="Quitar"><X className="w-4 h-4" /></button>}

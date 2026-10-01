@@ -138,7 +138,7 @@ function InventarioNuevo() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Inventario</h1>
           <p className="text-sm text-zinc-500 mt-0.5">Armazones por color, con SKU y existencias por sucursal.</p>
@@ -147,17 +147,17 @@ function InventarioNuevo() {
           <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 whitespace-nowrap">
             Vista previa · todavía no está en uso
           </span>
-          <a href="/dashboard/inventario"
+          {esGestion && <a href="/dashboard/inventario"
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 whitespace-nowrap">
             Inventario actual →
-          </a>
+          </a>}
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-zinc-200">
+      <div className="flex gap-1 border-b border-zinc-200 overflow-x-auto">
         {([['armazones', 'Armazones'], ['micas', 'Micas y tratamientos'], ['lc', 'Lentes de contacto'], ['consumibles', 'Consumibles'], ['servicios', 'Servicios']] as const).filter(([k]) => esGestion || k === 'armazones').map(([k, l]) => (
           <button key={k} onClick={() => { setTab(k); setArmVista('lista') }}
-            className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px ${tab === k ? 'border-teal-600 text-teal-700' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}>{l}</button>
+            className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap ${tab === k ? 'border-teal-600 text-teal-700' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}>{l}</button>
         ))}
       </div>
 
@@ -232,8 +232,34 @@ function InventarioNuevo() {
           <div className="text-center py-16 text-sm text-red-500">{error}</div>
         ) : lista.length === 0 ? (
           <div className="text-center py-16 text-sm text-zinc-400">Sin resultados</div>
-        ) : (
-          <table className="w-full text-sm">
+        ) : (<>
+          {/* Celular: tarjetas */}
+          <div className="md:hidden divide-y divide-zinc-100">
+            {lista.slice(0, 300).map(m => {
+              const f = portadaModelo(m); const tot = totModelo(m); const pw = pendienteWeb(m)
+              return (
+                <button key={m.id} onClick={() => setSelId(m.id)} className={`w-full text-left flex items-center gap-3 px-3 py-3 active:bg-zinc-50 ${pw ? 'bg-red-50/50' : ''}`}>
+                  {f ? <img src={f} alt="" className="w-16 h-12 object-cover rounded-lg border border-zinc-200 shrink-0" />
+                     : <div className="w-16 h-12 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center shrink-0"><ImageOff className="w-4 h-4 text-zinc-300" /></div>}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-zinc-800 truncate">{m.marca} {m.modelo}</div>
+                    <div className="font-mono text-[11px] text-zinc-400 truncate">{m.sku} · {m.medidas}</div>
+                    <div className="flex items-center gap-1 mt-1">
+                      {m.colores.slice(0, 6).map(c => <span key={c.id} className="w-3 h-3 rounded-full border border-zinc-200" style={{ background: swatch(c.color, c.hex) }} />)}
+                      {pw && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold ml-1">Pendiente web</span>}
+                      {!pw && (m.publicar_verly || m.publicar_gon) && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 font-semibold ml-1">En web</span>}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm tabular-nums">{$(num(m.precio_gon))}</div>
+                    <div className={`text-xs tabular-nums ${tot ? 'text-zinc-500' : 'text-red-600 font-semibold'}`}>{tot ? `${tot} pzas` : 'Agotado'}</div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {/* Computadora: tabla */}
+          <table className="w-full text-sm hidden md:table">
             <thead>
               <tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200">
                 <th className="text-left font-semibold px-3 py-2 w-14"></th>
@@ -280,7 +306,7 @@ function InventarioNuevo() {
               })}
             </tbody>
           </table>
-        )}
+        </>)}
         {lista.length > 300 && <div className="text-xs text-zinc-400 px-3 py-2">Mostrando 300 de {lista.length}. Usa el buscador para afinar.</div>}
       </div>
 
@@ -362,7 +388,7 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={onClose}>
-      <div className="bg-zinc-50 w-full max-w-2xl h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-zinc-50 w-full max-w-2xl h-full overflow-y-auto overscroll-contain" onClick={e => e.stopPropagation()}>
         <div className="bg-white border-b border-zinc-200 px-5 py-4 sticky top-0 z-10 flex items-center gap-3">
           {portada ? <img src={portada} alt="" className="w-16 h-12 object-cover rounded-lg border border-zinc-200" />
             : <div className="w-16 h-12 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center"><ImageOff className="w-4 h-4 text-zinc-300" /></div>}
@@ -370,16 +396,17 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
             <div className="text-lg font-semibold text-zinc-900 truncate">{m.marca} {m.modelo}{m.nombre && <span className="text-zinc-400 font-normal"> · “{m.nombre}”</span>}</div>
             <div className="font-mono text-xs text-zinc-400">{m.sku} · {m.medidas}{talla && ` (${talla.talla})`} · {m.material} · {tot} piezas</div>
           </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" aria-label="Cerrar"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-3 sm:p-5 space-y-4">
           {msg && <div className="text-xs px-3 py-2 rounded-lg bg-white border border-zinc-200 text-zinc-600">{msg}</div>}
 
           {/* Colores y existencias */}
           <section className="bg-white border border-zinc-200 rounded-xl p-4">
             <h3 className="text-sm font-semibold text-zinc-800 mb-3">Colores y existencias</h3>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-1 px-1">
+            <table className="w-full text-sm min-w-[440px]">
               <thead>
                 <tr className="text-[11px] text-zinc-500 border-b border-zinc-200">
                   <th className="text-left font-semibold py-1.5">Color</th>
@@ -401,13 +428,14 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
                 ))}
               </tbody>
             </table>
+            </div>
             <p className="text-[11px] text-zinc-400 mt-2">Las existencias solo cambian con entradas, traspasos, ventas o ajustes, y todo queda registrado.</p>
           </section>
 
           {/* Datos y precio */}
           <section className="bg-white border border-zinc-200 rounded-xl p-4">
             <h3 className="text-sm font-semibold text-zinc-800 mb-3">Datos y precio</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Campo label="Medidas (mica-puente-varilla)" value={datos.medidas} onChange={v => setDatos(d => ({ ...d, medidas: v }))} disabled={!esAdmin} />
               <Campo label="Material" value={datos.material} onChange={v => setDatos(d => ({ ...d, material: v }))} disabled={!esAdmin} />
             </div>
@@ -421,7 +449,7 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
                 {!m.gama && <span className="text-[11px] text-amber-600 self-center ml-1">sin gama</span>}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <Campo label="Precio ópticas y GON (MXN)" value={datos.precio_gon} onChange={v => setDatos(d => ({ ...d, precio_gon: v }))} disabled={!esAdmin} type="number" />
               <label className="block">
                 <span className="text-[11px] font-semibold text-zinc-500">Precio Verly (USD) · automático</span>
@@ -444,13 +472,13 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
               : (
                 <div className="space-y-1.5">
                   {movs.map(v => (
-                    <div key={v.id} className="flex items-center gap-2 text-xs">
-                      <span className="text-zinc-400 w-28 shrink-0">{new Date(v.created_at).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                    <div key={v.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs border-b border-zinc-50 pb-1.5 sm:border-0 sm:pb-0">
+                      <span className="text-zinc-400 sm:w-28 shrink-0">{new Date(v.created_at).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                       <span className={`px-2 py-0.5 rounded-full font-semibold ${TIPO[v.tipo]?.cls ?? 'bg-zinc-100'}`}>{TIPO[v.tipo]?.label ?? v.tipo}</span>
                       <span className="text-zinc-600">{v.sucursal}</span>
                       <span className="font-mono text-zinc-400">{v.sku}</span>
                       <span className={`ml-auto font-semibold ${v.cantidad < 0 ? 'text-red-500' : 'text-emerald-600'}`}>{v.cantidad > 0 ? '+' : ''}{v.cantidad}</span>
-                      <span className="text-zinc-400 w-28 truncate text-right">{[v.referencia, v.usuario].filter(Boolean).join(' · ')}</span>
+                      <span className="text-zinc-400 w-full sm:w-28 truncate sm:text-right">{[v.referencia, v.usuario].filter(Boolean).join(' · ')}</span>
                     </div>
                   ))}
                 </div>
@@ -460,7 +488,7 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
           {/* ───────── PARA LA WEB (admin y encargado de web) ───────── */}
           {puedeWeb && (
             <div className="rounded-2xl border border-violet-200 bg-gradient-to-b from-violet-50 to-white p-3 space-y-3">
-              <div className="flex items-center gap-2 px-1 pt-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 pt-1">
                 <Globe className="w-4 h-4 text-violet-600" />
                 <div className="text-sm font-semibold text-violet-900">Para la web</div>
                 <div className="text-[11px] text-violet-500">Lo que ven los clientes en Verly y GON</div>
@@ -554,7 +582,7 @@ function DatosWeb({ modelo: m, onChange }: { modelo: Modelo; onChange: (m: Model
         <div className="text-xs text-zinc-500 bg-zinc-50 rounded-lg px-3 py-2">
           Talla: {talla ? <><b className="text-zinc-800">{talla.talla}</b> · mica {talla.mica} mm + puente {talla.puente} mm ≈ {talla.total} mm de ancho total (se calcula sola)</> : <span className="text-amber-600">pon las medidas (ej. 52-18-145) en Datos y precio para calcularla</span>}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {(['descripcion_es', 'descripcion_en'] as const).map(k => (
             <label key={k} className="block">
               <span className="text-[11px] font-semibold text-zinc-500">Descripción {k.endsWith('es') ? 'en español' : 'en inglés'}</span>
@@ -574,6 +602,21 @@ function DatosWeb({ modelo: m, onChange }: { modelo: Modelo; onChange: (m: Model
       </div>
     </section>
   )
+}
+
+// Las fotos del celular pesan 3–5 MB: se reducen a 1600 px y JPEG antes de subir (≈200–400 KB)
+async function comprimirFoto(file: File, max = 1600, calidad = 0.82): Promise<File> {
+  try {
+    if (!file.type.startsWith('image/') || file.size < 400_000) return file
+    const bmp = await createImageBitmap(file)
+    const k = Math.min(1, max / Math.max(bmp.width, bmp.height))
+    const c = document.createElement('canvas')
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k)
+    c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height)
+    const blob: Blob | null = await new Promise(r => c.toBlob(r, 'image/jpeg', calidad))
+    if (!blob || blob.size >= file.size) return file
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })
+  } catch { return file }
 }
 
 // ── Colores en la web ─────────────────────────────────────────
@@ -607,7 +650,7 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
     setSubiendo(key); setMsg('')
     try {
       const fd = new FormData()
-      fd.append('file', file); fd.append('campo', d.campo); fd.append('id', String(d.color.id)); fd.append('tabla', 'color')
+      fd.append('file', await comprimirFoto(file)); fd.append('campo', d.campo); fd.append('id', String(d.color.id)); fd.append('tabla', 'color')
       const j = await fetch('/api/ecomm/upload-foto', { method: 'POST', body: fd }).then(r => r.json())
       if (!j.ok) throw new Error(j.error)
       reemplazar({ ...d.color, [d.campo]: j.url })
@@ -663,11 +706,11 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
                         <>
                           <img src={url} alt="" className="w-full h-full object-cover" />
                           <button onClick={() => borrar(c, campo, url)}
-                            className="absolute top-1 right-1 w-6 h-6 rounded-md bg-white/90 text-red-500 hidden group-hover:flex items-center justify-center">
+                            className="absolute top-1 right-1 w-7 h-7 rounded-md bg-white/90 text-red-500 flex md:hidden md:group-hover:flex items-center justify-center">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => onPortada(url)} title="Usar como portada"
-                            className={`absolute bottom-1 left-1 h-6 px-1.5 rounded-md text-[10px] font-semibold flex items-center gap-1 ${url === portada ? 'bg-amber-400 text-white' : 'bg-white/90 text-zinc-500 hidden group-hover:flex'}`}>
+                            className={`absolute bottom-1 left-1 h-6 px-1.5 rounded-md text-[10px] font-semibold flex items-center gap-1 ${url === portada ? 'bg-amber-400 text-white' : 'bg-white/90 text-zinc-500 md:hidden md:group-hover:flex'}`}>
                             <Star className="w-3 h-3" fill={url === portada ? 'currentColor' : 'none'} />{url === portada ? 'Portada' : ''}
                           </button>
                         </>

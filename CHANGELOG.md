@@ -2,6 +2,11 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v1.12.1 (1 oct 2026)
+- Inventario cómodo desde el celular: lista en tarjetas, ficha con tablas deslizables y campos apilados, botones de foto visibles sin mouse, teclado numérico en medidas y piezas.
+- Las fotos se reducen antes de subir (de 3–5 MB a ~300 KB) para que la web cargue rápido.
+- Rol "Web" (antes "Encargado web"); no ve el inventario viejo.
+
 ## v1.12 (1 oct 2026)
 - **Entrada de armazones nueva**: entra a Bodega por defecto, un solo buscador, marca de lista, medidas en 3 cajitas, varios colores de una vez, aviso de modelos repetidos o parecidos, sin costo.
 - **Gamas de precio** por marca (Básico / Estándar / Premium): el precio se pone solo dentro del rango, nunca cerrado. **Precio Verly automático** = pesos ÷ tipo de cambio × 50%.

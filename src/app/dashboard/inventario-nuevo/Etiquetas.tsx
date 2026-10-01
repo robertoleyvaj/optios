@@ -63,7 +63,7 @@ export default function Etiquetas({ onCambio }: { onCambio?: (n: number) => void
             <div className="text-xs text-zinc-500">{pend.length} armazones · {hojas} {hojas === 1 ? 'hoja' : 'hojas'} tabloide</div>
           </div>
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="sm:ml-auto flex flex-wrap gap-2 w-full sm:w-auto">
           <button onClick={generar} disabled={!total}
             className="inline-flex items-center gap-2 px-4 py-2 bg-[#0B0E14] text-white rounded-lg text-sm font-semibold hover:bg-[#1A1D27] disabled:opacity-40">
             <Printer className="w-4 h-4" /> Generar documento
@@ -77,11 +77,11 @@ export default function Etiquetas({ onCambio }: { onCambio?: (n: number) => void
       </div>
       {msg && <div className="text-xs px-3 py-2 rounded-lg bg-white border border-zinc-200 text-zinc-600">{msg}</div>}
 
-      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+      <div className="bg-white border border-zinc-200 rounded-xl overflow-x-auto">
         {pend.length === 0 ? (
           <p className="text-sm text-zinc-400 text-center py-12">No hay etiquetas pendientes. Se agregan solas con cada entrada.</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[520px]">
             <thead><tr className="text-[11px] text-zinc-500 bg-zinc-50 border-b border-zinc-200">
               <th className="text-left font-semibold px-3 py-2">SKU</th>
               <th className="text-left font-semibold px-3 py-2">Armazón</th>
