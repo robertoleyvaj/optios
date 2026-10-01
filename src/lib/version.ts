@@ -3,7 +3,7 @@
 //   MENOR       cada función nueva (cupones, traspasos, catálogo…)
 //   CORRECCIÓN  arreglos chicos
 // Se actualiza en cada cambio y se anota en CHANGELOG.md.
-export const APP_VERSION = '1.9.2'
+export const APP_VERSION = '1.10'
 
 // Código del deploy: Vercel lo pone solo (primeros 7 caracteres del commit).
 // En local no existe.

@@ -18,6 +18,9 @@ import Catalogo from './Productos'
 type Color = {
   id: number; armazon_id: number; sku: string; color: string
   stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number; bodega: number; orden: number
+  // Para la web: color del circulito, si se muestra y sus fotos
+  hex?: string | null; publicar_verly?: boolean | null; publicar_gon?: boolean | null
+  imagen_url?: string | null; imagen2_url?: string | null; imagen3_url?: string | null
 }
 type Modelo = {
   id: number; sku: string; sku_viejo?: string | null; marca: string; modelo: string; nombre: string | null
@@ -60,7 +63,12 @@ const SWATCH: [string, string][] = [
   ['PLATE', '#b8b8b8'], ['MORAD', '#6a3d9a'], ['LILA', '#b39ddb'], ['NARANJ', '#e07b2f'], ['GUINDA', '#722f37'],
   ['AMARIL', '#e6c229'], ['TRANSP', '#d8e4e8'], ['CREMA', '#efe3c8'],
 ]
-const swatch = (n: string) => { const s = (n || '').toUpperCase(); for (const [k, v] of SWATCH) if (s.includes(k)) return v; return '#b0b0b0' }
+const swatch = (n: string, hex?: string | null) => {
+  if (hex && /^#[0-9a-f]{6}$/i.test(hex)) return hex
+  const s = (n || '').toUpperCase(); for (const [k, v] of SWATCH) if (s.includes(k)) return v; return '#b0b0b0'
+}
+const FOTOS_COLOR = ['imagen_url', 'imagen2_url', 'imagen3_url'] as const
+const fotosColor = (c: Color) => FOTOS_COLOR.map(f => c[f]).filter(Boolean) as string[]
 
 function InventarioNuevo() {
   const esAdmin = getUsuarioLocal()?.rol === 'administrador'
@@ -299,7 +307,7 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
   }
 
   const togglePub = async (campo: 'publicar_gon' | 'publicar_verly') => {
-    if (!m[campo] && fotos(m).length === 0) { setMsg('Sube al menos una foto antes de publicar'); return }
+    if (!m[campo] && fotos(m).length === 0 && !m.colores.some(c => fotosColor(c).length > 0)) { setMsg('Sube al menos una foto antes de publicar'); return }
     try { await patch({ [campo]: !m[campo] }) } catch (e) { setMsg('Error: ' + (e instanceof Error ? e.message : '')) }
   }
 
@@ -390,7 +398,7 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
               <tbody>
                 {m.colores.map(c => (
                   <tr key={c.id} className="border-b border-zinc-100">
-                    <td className="py-2"><span className="inline-block w-3 h-3 rounded-full border border-zinc-200 mr-2 align-[-1px]" style={{ background: swatch(c.color) }} />{c.color}</td>
+                    <td className="py-2"><span className="inline-block w-3 h-3 rounded-full border border-zinc-200 mr-2 align-[-1px]" style={{ background: swatch(c.color, c.hex) }} />{c.color}</td>
                     <td className="py-2 font-mono text-[11px] text-zinc-500">{c.sku}</td>
                     {SUC.map(s => <td key={s.key} className={`py-2 text-right tabular-nums ${num(c[s.key]) ? '' : 'text-zinc-300'}`}>{num(c[s.key]) || '–'}</td>)}
                     <td className="py-2 text-right tabular-nums font-semibold">{totColor(c)}</td>
@@ -400,6 +408,9 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
             </table>
             <p className="text-[11px] text-zinc-400 mt-2">Las existencias solo cambian con entradas, traspasos, ventas o ajustes, y todo queda registrado.</p>
           </section>
+
+          {/* Colores en la web: circulito, fotos por color y si se muestra */}
+          <ColoresWeb modelo={m} esAdmin={esAdmin} onChange={onChange} setMsg={setMsg} />
 
           {/* Datos y precio */}
           <section className="bg-white border border-zinc-200 rounded-xl p-4">
@@ -457,6 +468,128 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
       </div>
     </div>
   )
+}
+
+// ── Colores en la web ─────────────────────────────────────────
+// Cada color puede tener su circulito (hex), hasta 3 fotos y mostrarse o no en la web.
+// "Mostrar" aplica a Verly y GON; el switch del modelo (abajo) decide en qué página sale.
+function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg }: {
+  modelo: Modelo; esAdmin: boolean; onChange: (m: Modelo) => void; setMsg: (s: string) => void
+}) {
+  const [subiendo, setSubiendo] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const destino = useRef<{ color: Color; campo: string } | null>(null)
+
+  const reemplazar = (c: Color) => onChange({ ...m, colores: m.colores.map(x => x.id === c.id ? c : x) })
+
+  const patchColor = async (c: Color, cambios: Record<string, unknown>) => {
+    try {
+      const j = await fetch('/api/inv/armazones', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ color_id: c.id, ...cambios }),
+      }).then(r => r.json())
+      if (!j.ok) throw new Error(j.error)
+      reemplazar({ ...c, ...j.color })
+    } catch (e) { setMsg('No se pudo guardar el color: ' + (e instanceof Error ? e.message : '')) }
+  }
+
+  const elegir = (color: Color, campo: string) => { destino.current = { color, campo }; fileRef.current?.click() }
+  const subir = async (file: File) => {
+    const d = destino.current; if (!d) return
+    const key = `${d.color.id}-${d.campo}`
+    setSubiendo(key); setMsg('')
+    try {
+      const fd = new FormData()
+      fd.append('file', file); fd.append('campo', d.campo); fd.append('id', String(d.color.id)); fd.append('tabla', 'color')
+      const j = await fetch('/api/ecomm/upload-foto', { method: 'POST', body: fd }).then(r => r.json())
+      if (!j.ok) throw new Error(j.error)
+      reemplazar({ ...d.color, [d.campo]: j.url })
+    } catch (e) { setMsg('No se pudo subir: ' + (e instanceof Error ? e.message : '')) }
+    finally { setSubiendo(null) }
+  }
+  const borrar = async (c: Color, campo: string, url: string) => {
+    if (!confirm('¿Borrar esta foto?')) return
+    const j = await fetch('/api/ecomm/upload-foto', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: String(c.id), campo, url, tabla: 'color' }),
+    }).then(r => r.json())
+    if (j.ok) reemplazar({ ...c, [campo]: null })
+    else setMsg('No se pudo borrar: ' + j.error)
+  }
+
+  return (
+    <section className="bg-white border border-zinc-200 rounded-xl p-4">
+      <h3 className="text-sm font-semibold text-zinc-800 mb-1">Colores en la web</h3>
+      <p className="text-[11px] text-zinc-400 mb-3">El cliente ve un circulito por cada color marcado como visible. Al picarlo cambian las fotos.</p>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = '' }} />
+      <div className="space-y-3">
+        {m.colores.map(c => {
+          const visible = !!(c.publicar_verly || c.publicar_gon)
+          return (
+            <div key={c.id} className={`border rounded-lg p-3 ${visible ? 'border-zinc-200' : 'border-dashed border-zinc-200 bg-zinc-50/60'}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <label className={`relative w-7 h-7 rounded-full border border-zinc-300 shrink-0 overflow-hidden ${esAdmin ? 'cursor-pointer' : ''}`}
+                  style={{ background: swatch(c.color, c.hex) }} title={esAdmin ? 'Elegir el color del circulito' : ''}>
+                  {esAdmin && <SelectorHex valor={swatch(c.color, c.hex)} onElegir={hex => patchColor(c, { hex })} />}
+                </label>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-zinc-800">{c.color}</div>
+                  <div className="font-mono text-[11px] text-zinc-400">{c.sku} · {totColor(c)} pzas{!c.hex && ' · circulito automático'}</div>
+                </div>
+                {esAdmin && (
+                  <button onClick={() => patchColor(c, { web: !visible })}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg border ${visible ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-white border-zinc-200 text-zinc-500'}`}>
+                    {visible ? 'Visible en web' : 'Oculto'}
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {FOTOS_COLOR.map((campo, i) => {
+                  const url = c[campo]
+                  const key = `${c.id}-${campo}`
+                  return (
+                    <div key={campo} className="relative aspect-[4/3] rounded-md border border-dashed border-zinc-300 bg-zinc-50 overflow-hidden group">
+                      {subiendo === key ? (
+                        <div className="w-full h-full flex items-center justify-center"><Loader2 className="w-4 h-4 text-teal-600 animate-spin" /></div>
+                      ) : url ? (
+                        <>
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <button onClick={() => borrar(c, campo, url)}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-md bg-white/90 text-red-500 hidden group-hover:flex items-center justify-center">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={() => elegir(c, campo)} className="w-full h-full flex flex-col items-center justify-center gap-1 text-zinc-400 hover:text-teal-600">
+                          <Camera className="w-4 h-4" /><span className="text-[10px]">{i === 0 ? 'Foto principal' : 'Agregar'}</span>
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <p className="text-[11px] text-zinc-400 mt-2">Si un color no tiene fotos, la web usa las fotos generales del modelo.</p>
+    </section>
+  )
+}
+
+// Selector de color nativo: guarda solo al cerrar el selector (evento 'change'), no mientras se arrastra
+function SelectorHex({ valor, onElegir }: { valor: string; onElegir: (hex: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const cb = useRef(onElegir)
+  useEffect(() => { cb.current = onElegir }, [onElegir])
+  useEffect(() => {
+    const el = ref.current; if (!el) return
+    const h = () => cb.current(el.value)
+    el.addEventListener('change', h)
+    return () => el.removeEventListener('change', h)
+  }, [])
+  return <input ref={ref} type="color" defaultValue={valor} className="absolute inset-0 opacity-0 cursor-pointer" />
 }
 
 function Campo({ label, value, onChange, disabled, type = 'text' }: {

@@ -2,6 +2,10 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v1.10 (1 oct 2026)
+- **Colores en la web**: en la ficha del armazón (inventario nuevo) cada color tiene su circulito, hasta 3 fotos y un botón para mostrarlo u ocultarlo en la web.
+- Pedidos de la tienda en línea: muestran el color del armazón que eligió el cliente (con su SKU) y el color de los filtros.
+
 ## v1.9.2 (30 sep 2026)
 - Cupones del ticket: se generan, validan y canjean desde el servidor (antes no se guardaban).
 

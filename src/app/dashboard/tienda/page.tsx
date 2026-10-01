@@ -20,7 +20,11 @@ type Configuracion = {
   material?: string; material_nombre?: string
   filtros?: string[]; filtros_nombres?: string[]
   tipo?: string
+  // Desde oct 2026: color del armazón elegido en la web y color de cada filtro
+  color_armazon?: string | null; color_sku?: string | null; color_id?: number | null
+  filtros_colores?: Record<string, { id: string; es: string; en: string }> | null
 } | null
+const FILTRO_ES: Record<string, string> = { foto: 'Fotocromático', pol: 'Polarizado', tinte: 'Tinte' }
 type Pedido = {
   id: number
   created_at: string
@@ -536,7 +540,13 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
             {(c?.email || pedido.cliente_email) && <p><span className="text-zinc-400">Correo:</span> {c?.email || pedido.cliente_email}</p>}
             {c?.telefono && <p><span className="text-zinc-400">Tel:</span> {c.telefono}</p>}
             {(c?.direccion || c?.ciudad) && <p><span className="text-zinc-400">Envío:</span> {[c?.direccion, c?.ciudad, c?.estado].filter(Boolean).join(', ')}</p>}
-            {a && <p><span className="text-zinc-400">Armazón:</span> {[a.marca, a.modelo || a.nombre, a.color].filter(Boolean).join(' · ')}</p>}
+            {a && <p><span className="text-zinc-400">Armazón:</span> {[a.marca, a.modelo || a.nombre, cfg?.color_armazon ? null : a.color].filter(Boolean).join(' · ')}</p>}
+            {cfg?.color_armazon && (
+              <p className="bg-blue-50 border border-blue-100 rounded px-2 py-1.5 text-zinc-700">
+                <span className="text-zinc-400">Color del armazón:</span> <b>{cfg.color_armazon}</b>
+                {cfg.color_sku && <span className="font-mono text-[11px] text-zinc-500"> · {cfg.color_sku}</span>}
+              </p>
+            )}
             <p><span className="text-zinc-400">Total:</span> <span className="font-semibold text-zinc-700">{$$(Number(pedido.precio_venta || 0))}</span></p>
             {pedido.notas_cliente && <p className="bg-zinc-50 rounded p-2 mt-1"><span className="text-zinc-400">Nota del cliente:</span> {pedido.notas_cliente}</p>}
           </div>
@@ -549,6 +559,11 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
 
               {cfg && (cfg.vision_nombre || cfg.material_nombre || (cfg.filtros_nombres && cfg.filtros_nombres.length > 0)) && (
                 <p><span className="text-zinc-400">Lentes:</span> <span className="text-zinc-700">{[cfg.vision_nombre, cfg.material_nombre, (cfg.filtros_nombres || []).join(', ')].filter(Boolean).join(' · ')}</span></p>
+              )}
+              {cfg?.filtros_colores && Object.keys(cfg.filtros_colores).length > 0 && (
+                <p><span className="text-zinc-400">Color de filtros:</span> <b className="text-zinc-700">
+                  {Object.entries(cfg.filtros_colores).map(([f, c]) => `${FILTRO_ES[f] ?? f} ${c.es.toLowerCase()}`).join(' · ')}
+                </b></p>
               )}
 
               {/* Graduación */}

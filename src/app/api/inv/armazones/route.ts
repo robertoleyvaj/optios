@@ -14,7 +14,7 @@ const CAMPOS_MODELO =
   'publicar_gon, publicar_verly, descuento_gon, descuento_verly, ' +
   'imagen_url, imagen2_url, imagen3_url, imagen4_url, imagen5_url'
 
-const CAMPOS_COLOR = 'id, armazon_id, sku, color, stock_baja, stock_mayo, stock_plaza, stock_online, bodega, orden'
+const CAMPOS_COLOR = 'id, armazon_id, sku, color, stock_baja, stock_mayo, stock_plaza, stock_online, bodega, orden, hex, publicar_verly, publicar_gon, imagen_url, imagen2_url, imagen3_url'
 
 // GET → todos los modelos del inventario nuevo con sus colores
 export async function GET() {
@@ -47,7 +47,25 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
-    const { id, ...cambios } = (await req.json()) ?? {}
+    const { id, color_id, ...cambios } = (await req.json()) ?? {}
+
+    // Cambios de UN color: circulito (hex) y si se muestra en la web. El stock no se toca aquí.
+    if (color_id) {
+      const upd: Record<string, unknown> = {}
+      if ('hex' in cambios) {
+        const h = cambios.hex
+        if (h !== null && !/^#[0-9a-fA-F]{6}$/.test(String(h))) return NextResponse.json({ ok: false, error: 'Color inválido' }, { status: 400 })
+        upd.hex = h
+      }
+      if ('web' in cambios) { upd.publicar_verly = !!cambios.web; upd.publicar_gon = !!cambios.web }
+      if (Object.keys(upd).length === 0) return NextResponse.json({ ok: false, error: 'Nada que actualizar' }, { status: 400 })
+      const sb = createEcommClient()
+      const { data, error } = await sb.from('armazon_colores').update(upd)
+        .eq('id', color_id).like('sku', 'VRL-1___-__').select(CAMPOS_COLOR).single()
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true, color: data })
+    }
+
     if (!id) return NextResponse.json({ ok: false, error: 'Falta id' }, { status: 400 })
 
     const permitidos = new Set([
