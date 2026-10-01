@@ -1,5 +1,36 @@
 # OptiOS — Historial de versiones
 
+Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
+
+## v1.9.2 (30 sep 2026)
+- Cupones del ticket: se generan, validan y canjean desde el servidor (antes no se guardaban).
+
+## v1.9.1 (30 sep 2026)
+- Catálogo: corrección de marca vacía al guardar productos.
+
+## v1.9 (30 sep 2026)
+- **Catálogo de productos por pestañas**: Micas y tratamientos (micas, tratamientos con colores por mica, paquetes), Lentes de contacto (en stock / sobre pedido), Consumibles (con o sin control de stock) y Servicios. Costos solo para administrador.
+- Logo e isotipo de OptiOS en menú y login; favicon e íconos nuevos.
+
+## v1.8 (28–29 sep 2026)
+- **Inventario nuevo (vista previa)**: SKU por color, ficha de armazón con fotos y publicación, entradas de mercancía, bodega, bitácora de movimientos, traspasos con confirmación y aviso en campanita, POS por color en modo prueba.
+- **Seguridad**: todas las rutas del servidor revisan sesión y rol; el costo solo llega al administrador.
+
+## v1.7 (25 sep 2026)
+- Botón de **garantía** en expedientes (cambio de producto o de graduación, 60 días).
+- **Cupón de descuento** en el ticket según tabulador y canje en ventas.
+- Búsqueda de pacientes por todas las palabras en todos los buscadores; sucursales legacy normalizadas.
+
+## v1.6 (sep 2026)
+- Laboratorio: nota 4×6, reimprimir entregadas, vista del repartidor, filtro de sucursal.
+- Sucursal del día en el encabezado para todos los roles (registra el check-in).
+- Cupones de la tienda en línea (fase 1).
+
+## v1.5 (sep 2026)
+- **Análisis mensual** de finanzas (Excel de 16 hojas) y pantalla de pendientes del cierre.
+- Finanzas con cobrado real, garantías como línea propia y comisiones por método.
+- Borrar venta (admin) devolviendo stock; editar método de pago.
+
 ## v1.4 (agosto 2026)
 - Inventario de armazones por **color/variante**: un SKU por modelo, colores con stock por sucursal, publicación y fotos por color.
 - **Bodega central**: piezas guardadas sin exhibir, separadas de lo exhibido por sucursal.

@@ -1,5 +1,12 @@
-// Versión de OptiOS. Sube MENOR (1.4 → 1.5) al agregar una ola de funciones,
-// y PARCHE (1.4.0 → 1.4.1) en arreglos. El build es el conteo real de cambios.
-export const APP_VERSION = '1.4'
-export const APP_BUILD = 410
-export const APP_VERSION_FULL = `v${APP_VERSION}`
+// Versión de OptiOS — mayor.menor.corrección
+//   MAYOR       cambios que transforman el sistema (2.0 = inventario nuevo activo)
+//   MENOR       cada función nueva (cupones, traspasos, catálogo…)
+//   CORRECCIÓN  arreglos chicos
+// Se actualiza en cada cambio y se anota en CHANGELOG.md.
+export const APP_VERSION = '1.9.2'
+
+// Código del deploy: Vercel lo pone solo (primeros 7 caracteres del commit).
+// En local no existe y no se muestra.
+export const APP_BUILD = (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 7)
+
+export const APP_VERSION_FULL = `v${APP_VERSION}${APP_BUILD ? ` · ${APP_BUILD}` : ''}`
