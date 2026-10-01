@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createEcommClient } from '@/lib/supabase/ecomm'
 import { requireRol, sinCosto, ADMIN, GESTION } from '@/lib/auth-api'
+import { VALIDOS } from '@/lib/armazon-web'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,9 +11,7 @@ export const dynamic = 'force-dynamic'
 // ─────────────────────────────────────────────────────────────
 
 const CAMPOS_MODELO =
-  'id, sku, sku_viejo, marca, modelo, nombre, medidas, material, precio_gon, precio, costo, activo, ' +
-  'publicar_gon, publicar_verly, descuento_gon, descuento_verly, ' +
-  'imagen_url, imagen2_url, imagen3_url, imagen4_url, imagen5_url'
+  'id, sku, sku_viejo, marca, modelo, nombre, medidas, material, precio_gon, precio, costo, activo, publicar_gon, publicar_verly, descuento_gon, descuento_verly, imagen_url, imagen2_url, imagen3_url, imagen4_url, imagen5_url, genero, forma, aro, badge, descripcion_es, descripcion_en'
 
 const CAMPOS_COLOR = 'id, armazon_id, sku, color, stock_baja, stock_mayo, stock_plaza, stock_online, bodega, orden, hex, publicar_verly, publicar_gon, imagen_url, imagen2_url, imagen3_url'
 
@@ -71,9 +70,21 @@ export async function PATCH(req: NextRequest) {
     const permitidos = new Set([
       'marca', 'modelo', 'nombre', 'medidas', 'material', 'precio_gon', 'precio', 'costo',
       'publicar_gon', 'publicar_verly', 'descuento_gon', 'descuento_verly',
+      // Datos para la web
+      'genero', 'forma', 'aro', 'badge', 'descripcion_es', 'descripcion_en',
     ])
     const update: Record<string, unknown> = {}
     for (const k of Object.keys(cambios)) if (permitidos.has(k)) update[k] = cambios[k]
+    // Datos para la web: solo valores de la lista; texto vacío → null
+    for (const k of ['nombre', 'descripcion_es', 'descripcion_en']) {
+      if (k in update) { const v = String(update[k] ?? '').trim(); update[k] = v ? v.slice(0, k === 'nombre' ? 60 : 280) : null }
+    }
+    for (const k of Object.keys(VALIDOS)) {
+      if (!(k in update)) continue
+      const v = update[k] == null || update[k] === '' ? null : String(update[k])
+      if (v !== null && !VALIDOS[k].has(v)) return NextResponse.json({ ok: false, error: `Valor no válido en ${k}` }, { status: 400 })
+      update[k] = v
+    }
     if (Object.keys(update).length === 0) return NextResponse.json({ ok: false, error: 'Nada que actualizar' }, { status: 400 })
 
     const sb = createEcommClient()

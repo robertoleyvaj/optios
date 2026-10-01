@@ -7,6 +7,7 @@ import { getUsuarioLocal } from '@/lib/session'
 import Entradas from './Entradas'
 import Traspasos from './Traspasos'
 import Catalogo from './Productos'
+import { GENEROS, FORMAS, AROS, ETIQUETAS, tallaDeMedidas } from '@/lib/armazon-web'
 
 // ─────────────────────────────────────────────────────────────
 // Inventario nuevo · Armazones (SKU por color)
@@ -28,6 +29,9 @@ type Modelo = {
   costo: number | null; activo: boolean; publicar_gon: boolean; publicar_verly: boolean
   imagen_url: string | null; imagen2_url: string | null; imagen3_url: string | null
   imagen4_url: string | null; imagen5_url: string | null
+  // Datos para la web
+  genero?: string | null; forma?: string | null; aro?: string | null; badge?: string | null
+  descripcion_es?: string | null; descripcion_en?: string | null
   colores: Color[]
 }
 type Mov = { id: number; created_at: string; sku: string; sucursal: string; tipo: string; cantidad: number; referencia: string | null; usuario: string | null; notas: string | null }
@@ -430,6 +434,9 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
             )}
           </section>
 
+          {/* Datos para la web (apodo, para quién, forma, tipo, etiqueta, descripción) */}
+          {esAdmin && <DatosWeb modelo={m} onChange={onChange} />}
+
           {/* Publicar */}
           {esAdmin && (
             <section className="bg-white border border-zinc-200 rounded-xl p-4">
@@ -467,6 +474,92 @@ function Ficha({ modelo: m, esAdmin, onClose, onChange }: {
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Datos para la web ─────────────────────────────────────────
+// Todo lo que la web dice del armazón sale de aquí. Lo edita el admin
+// (más adelante, también el rol de encargado de páginas).
+function DatosWeb({ modelo: m, onChange }: { modelo: Modelo; onChange: (m: Modelo) => void }) {
+  const inicial = () => ({
+    nombre: m.nombre ?? '', genero: m.genero ?? '', forma: m.forma ?? '', aro: m.aro ?? '', badge: m.badge ?? '',
+    descripcion_es: m.descripcion_es ?? '', descripcion_en: m.descripcion_en ?? '',
+  })
+  const [d, setD] = useState(inicial)
+  const [guardando, setGuardando] = useState(false)
+  const [msg, setMsg] = useState('')
+  const cambio = JSON.stringify(d) !== JSON.stringify(inicial())
+  const talla = tallaDeMedidas(m.medidas)
+  // Si la forma guardada es de antes (texto libre), se muestra para que la corrijan
+  const formaVieja = d.forma && !FORMAS.some(f => f.v === d.forma) ? d.forma : ''
+
+  const guardar = async () => {
+    setGuardando(true); setMsg('')
+    try {
+      const j = await fetch('/api/inv/armazones', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: m.id, ...d, forma: formaVieja ? null : d.forma }),
+      }).then(r => r.json())
+      if (!j.ok) throw new Error(j.error)
+      onChange({ ...m, ...j.modelo })
+      setMsg('Guardado')
+    } catch (e) { setMsg('No se pudo guardar: ' + (e instanceof Error ? e.message : '')) }
+    finally { setGuardando(false) }
+  }
+
+  const opciones = (campo: 'genero' | 'forma' | 'aro' | 'badge', lista: readonly { v: string; es: string }[], opcional = false) => (
+    <div className="flex flex-wrap gap-1.5 mt-1">
+      {opcional && (
+        <button type="button" onClick={() => setD(v => ({ ...v, [campo]: '' }))}
+          className={`px-3 py-1.5 rounded-full text-xs border ${!d[campo] ? 'bg-zinc-800 text-white border-zinc-800' : 'bg-white border-zinc-200 text-zinc-500'}`}>Ninguna</button>
+      )}
+      {lista.map(o => (
+        <button key={o.v} type="button" onClick={() => setD(v => ({ ...v, [campo]: o.v }))}
+          className={`px-3 py-1.5 rounded-full text-xs border ${d[campo] === o.v ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-400'}`}>{o.es}</button>
+      ))}
+    </div>
+  )
+
+  return (
+    <section className="bg-white border border-zinc-200 rounded-xl p-4">
+      <h3 className="text-sm font-semibold text-zinc-800 mb-1 flex items-center gap-2"><Globe className="w-4 h-4 text-zinc-400" /> Datos para la web</h3>
+      <p className="text-[11px] text-zinc-400 mb-3">Lo que ven los clientes en Verly y GON. En las ópticas el armazón sigue apareciendo como {m.marca} {m.modelo}.</p>
+      <div className="space-y-3">
+        <label className="block">
+          <span className="text-[11px] font-semibold text-zinc-500">Nombre en la web (apodo)</span>
+          <input value={d.nombre} onChange={e => setD(v => ({ ...v, nombre: e.target.value }))} maxLength={60} placeholder={`Ej. Natura · si se deja vacío sale "${m.modelo}"`}
+            className="mt-1 w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500" />
+        </label>
+        <div><span className="text-[11px] font-semibold text-zinc-500">Para</span>{opciones('genero', GENEROS)}</div>
+        <div>
+          <span className="text-[11px] font-semibold text-zinc-500">Forma</span>
+          {formaVieja && <span className="ml-2 text-[11px] text-amber-600">antes decía “{formaVieja}”: elige una de la lista</span>}
+          {opciones('forma', FORMAS)}
+        </div>
+        <div><span className="text-[11px] font-semibold text-zinc-500">Tipo de armazón</span>{opciones('aro', AROS)}</div>
+        <div><span className="text-[11px] font-semibold text-zinc-500">Etiqueta</span>{opciones('badge', ETIQUETAS, true)}</div>
+        <div className="text-xs text-zinc-500 bg-zinc-50 rounded-lg px-3 py-2">
+          Talla: {talla ? <><b className="text-zinc-800">{talla.talla}</b> · mica {talla.mica} mm + puente {talla.puente} mm ≈ {talla.total} mm de ancho total (se calcula sola)</> : <span className="text-amber-600">pon las medidas (ej. 52-18-145) en Datos y precio para calcularla</span>}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {(['descripcion_es', 'descripcion_en'] as const).map(k => (
+            <label key={k} className="block">
+              <span className="text-[11px] font-semibold text-zinc-500">Descripción {k.endsWith('es') ? 'en español' : 'en inglés'}</span>
+              <textarea value={d[k]} onChange={e => setD(v => ({ ...v, [k]: e.target.value }))} maxLength={280} rows={3}
+                placeholder={k.endsWith('es') ? 'Ligero y clásico, ideal para diario.' : 'Light and classic, made for every day.'}
+                className="mt-1 w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500" />
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <button onClick={guardar} disabled={guardando || !cambio}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#0B0E14] text-white rounded-lg text-sm font-semibold hover:bg-[#1A1D27] disabled:opacity-40">
+          {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Guardar datos web
+        </button>
+        {msg && <span className="text-xs text-zinc-500">{msg}</span>}
+      </div>
+    </section>
   )
 }
 
