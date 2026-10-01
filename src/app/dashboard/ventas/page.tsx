@@ -81,15 +81,8 @@ async function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
   // Buscar cupón asociado a esta venta
   let cuponInfo: { codigo: string; monto: number; vence: string } | null = null
   try {
-    const { data: cuponData } = await createClient()
-      .from('cupones_ticket')
-      .select('codigo, monto, fecha_vencimiento')
-      .eq('folio_venta', v.id)
-      .limit(1)
-      .maybeSingle()
-    if (cuponData) {
-      cuponInfo = { codigo: cuponData.codigo, monto: cuponData.monto, vence: cuponData.fecha_vencimiento }
-    }
+    const jc = await fetch(`/api/cupones?folio=${encodeURIComponent(v.id)}`, { cache: 'no-store' }).then(r => r.json())
+    if (jc.ok && jc.cupon) cuponInfo = jc.cupon
   } catch { /* si falla, imprimir sin cupón */ }
   // Usar la fecha/hora originales de la venta
   const fechaFmt = v.fecha

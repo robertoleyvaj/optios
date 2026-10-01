@@ -31,7 +31,7 @@ import {
   Store,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
-import { calcularCupon, generarCodigoCupon, fechaVencimientoCupon, cuponTicketHtml, cuponTicketCss } from '@/lib/cupones'
+import { cuponTicketHtml, cuponTicketCss } from '@/lib/cupones'
 
 // --- Catálogo GON ---
 type CatItem = {
@@ -224,17 +224,9 @@ export default function NuevaVentaPage() {
     setValidandoCupon(true)
     setCuponError('')
     try {
-      const { data, error } = await createClient()
-        .from('cupones_ticket')
-        .select('id, codigo, monto, estado, fecha_vencimiento')
-        .eq('codigo', code)
-        .maybeSingle()
-      if (error || !data) { setCuponError('Cupón no encontrado'); return }
-      if (data.estado === 'canjeado') { setCuponError('Este cupón ya fue canjeado'); return }
-      if (data.estado === 'expirado') { setCuponError('Este cupón está expirado'); return }
-      const hoy = new Date().toISOString().slice(0, 10)
-      if (data.fecha_vencimiento < hoy) { setCuponError('Este cupón venció el ' + data.fecha_vencimiento); return }
-      setCuponAplicado({ codigo: data.codigo, monto: Number(data.monto) })
+      const j = await fetch(`/api/cupones?codigo=${encodeURIComponent(code)}`, { cache: 'no-store' }).then(r => r.json())
+      if (!j.ok) { setCuponError(j.error || 'Cupón no encontrado'); return }
+      setCuponAplicado({ codigo: j.cupon.codigo, monto: Number(j.cupon.monto) })
       setCuponError('')
     } catch { setCuponError('Error validando cupón') }
     finally { setValidandoCupon(false) }
@@ -1086,38 +1078,23 @@ export default function NuevaVentaPage() {
 
       // ── 5b. Marcar cupón como canjeado si se usó uno ──
       if (!cotizacion && cuponAplicado) {
-        await supabase.from('cupones_ticket').update({
-          estado: 'canjeado',
-          canjeado_en: new Date().toISOString(),
-          venta_canje_id: ventaId,
-          folio_canje: folio,
-        }).eq('codigo', cuponAplicado.codigo)
+        await fetch('/api/cupones', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion: 'canjear', codigo: cuponAplicado.codigo, venta_id: ventaId, folio }),
+        }).catch(() => { /* no bloquear la venta */ })
       }
 
       // ── 6. Generar cupón de descuento (solo ventas reales ≥ $500) ──
       if (!cotizacion) {
-        const montoCupon = calcularCupon(totalDB)
-        if (montoCupon > 0) {
-          const codigoCupon = generarCodigoCupon()
-          const hoyISO = hoyLocal()
-          const venceCupon = fechaVencimientoCupon(hoyISO)
-          const { error: errCupon } = await supabase.from('cupones_ticket').insert({
-            codigo: codigoCupon,
-            monto: montoCupon,
-            venta_id: ventaId,
-            folio_venta: folio,
-            paciente: `${clienteNombre} ${clienteApellido}`.trim(),
-            sucursal,
-            fecha_emision: hoyISO,
-            fecha_vencimiento: venceCupon,
-            estado: 'activo',
-          })
-          if (!errCupon) {
-            setCuponGenerado({ codigo: codigoCupon, monto: montoCupon, vence: venceCupon })
-          } else {
-            console.error('Error generando cupón:', errCupon)
-          }
-        }
+        // El cupón se crea en el servidor con el total real de la venta guardada
+        try {
+          const jc = await fetch('/api/cupones', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accion: 'generar', venta_id: ventaId }),
+          }).then(r => r.json())
+          if (jc.ok && jc.cupon) setCuponGenerado(jc.cupon)
+          else if (!jc.ok) console.error('Error generando cupón:', jc.error)
+        } catch (e) { console.error('Error generando cupón:', e) }
       }
 
       setFolioGuardado(folio)
