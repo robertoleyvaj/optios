@@ -193,10 +193,9 @@ export default function Sidebar({
       {/* Logo — wordmark split */}
       <div className="px-5 py-5 flex items-center justify-between">
         <div>
-          <p className="leading-none tracking-[-0.04em]">
-            <span className="text-[#111] font-bold text-[16px]">Opti</span><span className="text-[#0D9488] font-light text-[16px]">OS</span>
-          </p>
-          <p className="text-[9px] font-light tracking-[0.08em] text-[#b0b0ad] mt-1 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/optios-logo.png" alt="OptiOS" className="h-6 w-auto" />
+          <p className="text-[9px] font-light tracking-[0.08em] text-[#b0b0ad] mt-1.5 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
         </div>
         {/* Close button — mobile only */}
         <button

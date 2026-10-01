@@ -101,10 +101,9 @@ function LoginForm() {
 
         {/* Logo — wordmark */}
         <div className="relative">
-          <p className="leading-none tracking-[-0.04em]">
-            <span className="text-white font-bold text-2xl">Opti</span><span className="text-[#2DD4BF] font-light text-2xl">OS</span>
-          </p>
-          <p className="text-[10px] font-light tracking-[0.14em] text-white/40 mt-1.5 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/optios-logo-blanco.png" alt="OptiOS" className="h-9 w-auto" />
+          <p className="text-[10px] font-light tracking-[0.14em] text-white/40 mt-2.5 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
         </div>
 
         <div className="relative">
@@ -125,10 +124,9 @@ function LoginForm() {
 
           {/* Mobile logo — wordmark */}
           <div className="lg:hidden mb-8">
-            <p className="leading-none tracking-[-0.04em]">
-              <span className="text-[#111] font-bold text-xl">Opti</span><span className="text-[#0D9488] font-light text-xl">OS</span>
-            </p>
-            <p className="text-[9px] font-light tracking-[0.12em] text-[#b0b0ad] mt-1 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logos/optios-logo.png" alt="OptiOS" className="h-8 w-auto" />
+            <p className="text-[9px] font-light tracking-[0.12em] text-[#b0b0ad] mt-2 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
           </div>
 
           <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Bienvenido</h1>
