@@ -45,7 +45,7 @@ const ROL_CONFIG: Record<Rol, { label: string; bg: string; text: string; permiso
     permisos: ['Laboratorio (órdenes listas)'],
   },
   web: {
-    label: 'Encargado web',
+    label: 'Web',
     bg: 'bg-violet-50', text: 'text-violet-700',
     permisos: ['Inventario: entradas, etiquetas, fotos y datos para la web (sin costos ni ventas)'],
   },

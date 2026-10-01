@@ -22,7 +22,7 @@ const ROL_LABEL: Record<Rol, string> = {
   gerente:       'Gerente',
   vendedor:      'Vendedor',
   repartidor:    'Repartidor',
-  web:           'Encargado web',
+  web:           'Web',
 }
 
 // Módulos core: todos los roles de tienda los ven
