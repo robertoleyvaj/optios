@@ -6,7 +6,9 @@
 export const APP_VERSION = '1.9.2'
 
 // Código del deploy: Vercel lo pone solo (primeros 7 caracteres del commit).
-// En local no existe y no se muestra.
+// En local no existe.
 export const APP_BUILD = (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 7)
 
-export const APP_VERSION_FULL = `v${APP_VERSION}${APP_BUILD ? ` · ${APP_BUILD}` : ''}`
+// En pantalla solo se ve la versión; el código del deploy aparece al pasar el mouse.
+export const APP_VERSION_FULL = `v${APP_VERSION}`
+export const APP_BUILD_TITLE = APP_BUILD ? `Deploy ${APP_BUILD}` : undefined

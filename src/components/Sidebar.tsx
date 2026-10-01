@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { APP_VERSION_FULL } from '@/lib/version'
+import { APP_VERSION_FULL, APP_BUILD_TITLE } from '@/lib/version'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
@@ -195,7 +195,7 @@ export default function Sidebar({
         <div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logos/optios-logo.png" alt="OptiOS" className="h-6 w-auto" />
-          <p className="text-[9px] font-light tracking-[0.08em] text-[#b0b0ad] mt-1.5 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
+          <p className="text-[9px] font-light tracking-[0.08em] text-[#b0b0ad] mt-1.5 uppercase" title={APP_BUILD_TITLE}>Sistema de Gestión · {APP_VERSION_FULL}</p>
         </div>
         {/* Close button — mobile only */}
         <button

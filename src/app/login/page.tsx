@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { APP_VERSION_FULL } from '@/lib/version'
+import { APP_VERSION_FULL, APP_BUILD_TITLE } from '@/lib/version'
 
 function LoginForm() {
   const [username, setUsername] = useState('')
@@ -103,7 +103,7 @@ function LoginForm() {
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logos/optios-logo-blanco.png" alt="OptiOS" className="h-9 w-auto" />
-          <p className="text-[10px] font-light tracking-[0.14em] text-white/40 mt-2.5 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
+          <p className="text-[10px] font-light tracking-[0.14em] text-white/40 mt-2.5 uppercase" title={APP_BUILD_TITLE}>Sistema de Gestión · {APP_VERSION_FULL}</p>
         </div>
 
         <div className="relative">
@@ -126,7 +126,7 @@ function LoginForm() {
           <div className="lg:hidden mb-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logos/optios-logo.png" alt="OptiOS" className="h-8 w-auto" />
-            <p className="text-[9px] font-light tracking-[0.12em] text-[#b0b0ad] mt-2 uppercase">Sistema de Gestión · {APP_VERSION_FULL}</p>
+            <p className="text-[9px] font-light tracking-[0.12em] text-[#b0b0ad] mt-2 uppercase" title={APP_BUILD_TITLE}>Sistema de Gestión · {APP_VERSION_FULL}</p>
           </div>
 
           <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Bienvenido</h1>
