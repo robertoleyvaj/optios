@@ -2,6 +2,9 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.0 (2 oct 2026)
+- **Inventario nuevo activo**: el punto de venta busca y descuenta por SKU de color (VRL-1xxx-xx). Un solo inventario para ópticas, bodega y web. El inventario viejo queda solo como consulta.
+
 ## v1.13 (2 oct 2026)
 - **Ajustar existencias** desde la ficha (admin y gerente): por color y ubicación, "dice el sistema / hay de verdad", con motivo (error de captura, conteo físico, dañado o perdido). Queda en la bitácora.
 - **Corregir errores de dedo** (admin): marca, modelo y nombre de color.
