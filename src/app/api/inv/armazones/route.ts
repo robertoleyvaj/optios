@@ -66,6 +66,13 @@ export async function PATCH(req: NextRequest) {
         upd.hex = h
       }
       if ('web' in cambios) { upd.publicar_verly = !!cambios.web; upd.publicar_gon = !!cambios.web }
+      // Corregir el nombre del color (error de dedo) — solo administrador
+      if ('color' in cambios) {
+        if (!esAdmin) return NextResponse.json({ ok: false, error: 'Solo el administrador cambia nombres' }, { status: 403 })
+        const nombre = String(cambios.color ?? '').trim().toUpperCase().replace(/\s+/g, ' ')
+        if (!nombre) return NextResponse.json({ ok: false, error: 'Nombre vacío' }, { status: 400 })
+        upd.color = nombre
+      }
       if (Object.keys(upd).length === 0) return NextResponse.json({ ok: false, error: 'Nada que actualizar' }, { status: 400 })
       const { data, error } = await sb.from('armazon_colores').update(upd)
         .eq('id', color_id).like('sku', 'VRL-1___-__').select(CAMPOS_COLOR).single()

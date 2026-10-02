@@ -2,6 +2,10 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v1.13 (2 oct 2026)
+- **Ajustar existencias** desde la ficha (admin y gerente): por color y ubicación, "dice el sistema / hay de verdad", con motivo (error de captura, conteo físico, dañado o perdido). Queda en la bitácora.
+- **Corregir errores de dedo** (admin): marca, modelo y nombre de color.
+
 ## v1.12.1 (1 oct 2026)
 - Inventario cómodo desde el celular: lista en tarjetas, ficha con tablas deslizables y campos apilados, botones de foto visibles sin mouse, teclado numérico en medidas y piezas.
 - Las fotos se reducen antes de subir (de 3–5 MB a ~300 KB) para que la web cargue rápido.

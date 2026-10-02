@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, X, Camera, Trash2, Save, Globe, Loader2, ImageOff, Star, Tag, AlertTriangle } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Search, X, Camera, Trash2, Save, Globe, Loader2, ImageOff, Star, Tag, AlertTriangle, Pencil, SlidersHorizontal } from 'lucide-react'
 import RequireRol from '@/components/RequireRol'
 import { getUsuarioLocal } from '@/lib/session'
 import Entradas from './Entradas'
@@ -312,7 +312,7 @@ function InventarioNuevo() {
 
       </>}
 
-      {sel && <Ficha modelo={sel} esAdmin={esAdmin} puedeWeb={puedeWeb} onClose={() => setSelId(null)} onChange={actualizar} />}
+      {sel && <Ficha modelo={sel} esAdmin={esAdmin} esGestion={esGestion} puedeWeb={puedeWeb} onClose={() => setSelId(null)} onChange={actualizar} />}
     </div>
   )
 }
@@ -320,18 +320,18 @@ function InventarioNuevo() {
 // ─────────────────────────────────────────────────────────────
 // Ficha del armazón
 // ─────────────────────────────────────────────────────────────
-function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
-  modelo: Modelo; esAdmin: boolean; puedeWeb: boolean; onClose: () => void; onChange: (m: Modelo) => void
+function Ficha({ modelo: m, esAdmin, esGestion, puedeWeb, onClose, onChange }: {
+  modelo: Modelo; esAdmin: boolean; esGestion: boolean; puedeWeb: boolean; onClose: () => void; onChange: (m: Modelo) => void
 }) {
-  const [datos, setDatos] = useState({ medidas: m.medidas ?? '', material: m.material ?? '', precio_gon: String(m.precio_gon ?? '') })
+  const [datos, setDatos] = useState({ marca: m.marca ?? '', modelo: m.modelo ?? '', medidas: m.medidas ?? '', material: m.material ?? '', precio_gon: String(m.precio_gon ?? '') })
+  const [ajusteDe, setAjusteDe] = useState<number | null>(null)   // color que se está ajustando
   const [guardando, setGuardando] = useState(false)
   const [msg, setMsg] = useState('')
   const [movs, setMovs] = useState<Mov[] | null>(null)
 
-  useEffect(() => {
-    fetch(`/api/inv/movimientos?sku=${encodeURIComponent(m.sku)}`, { cache: 'no-store' })
-      .then(r => r.json()).then(j => setMovs(j.ok ? j.movimientos : [])).catch(() => setMovs([]))
-  }, [m.sku])
+  const cargarMovs = () => fetch(`/api/inv/movimientos?sku=${encodeURIComponent(m.sku)}`, { cache: 'no-store' })
+    .then(r => r.json()).then(j => setMovs(j.ok ? j.movimientos : [])).catch(() => setMovs([]))
+  useEffect(() => { cargarMovs() }, [m.sku]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
@@ -351,6 +351,7 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
     setGuardando(true); setMsg('')
     try {
       const n = await patch({
+        marca: datos.marca.trim().toUpperCase() || m.marca, modelo: datos.modelo.trim().toUpperCase() || m.modelo,
         medidas: datos.medidas.trim() || null, material: datos.material.trim().toUpperCase() || null,
         precio_gon: datos.precio_gon ? Number(datos.precio_gon) : null,
       })
@@ -380,6 +381,14 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
     if (!n || n < 1) return
     const j = await fetch('/api/inv/etiquetas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'agregar', color_id: c.id, cantidad: n }) }).then(r => r.json())
     setMsg(j.ok ? `${n} etiquetas de ${c.sku} agregadas a la cola.` : 'Error: ' + j.error)
+  }
+
+  const renombrarColor = async (c: Color) => {
+    const nuevo = prompt(`Nombre correcto del color ${c.sku}:`, c.color)?.trim()
+    if (!nuevo || nuevo.toUpperCase() === c.color) return
+    const j = await fetch('/api/inv/armazones', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ color_id: c.id, color: nuevo }) }).then(r => r.json())
+    if (j.ok) { onChange({ ...m, colores: m.colores.map(x => x.id === c.id ? { ...x, ...j.color } : x) }); setMsg(`Color corregido: ${j.color.color}`) }
+    else setMsg('Error: ' + j.error)
   }
 
   const tot = totModelo(m)
@@ -413,19 +422,28 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
                   <th className="text-left font-semibold py-1.5">SKU</th>
                   {SUC.map(s => <th key={s.key} className="text-right font-semibold py-1.5">{s.corto}</th>)}
                   <th className="text-right font-semibold py-1.5">Total</th>
-                  <th className="w-8"></th>
+                  <th className="w-16"></th>
                 </tr>
               </thead>
               <tbody>
-                {m.colores.map(c => (
-                  <tr key={c.id} className="border-b border-zinc-100">
+                {m.colores.map(c => (<Fragment key={c.id}>
+                  <tr className="border-b border-zinc-100">
                     <td className="py-2"><span className="inline-block w-3 h-3 rounded-full border border-zinc-200 mr-2 align-[-1px]" style={{ background: swatch(c.color, c.hex) }} />{c.color}</td>
                     <td className="py-2 font-mono text-[11px] text-zinc-500">{c.sku}</td>
                     {SUC.map(s => <td key={s.key} className={`py-2 text-right tabular-nums ${num(c[s.key]) ? '' : 'text-zinc-300'}`}>{num(c[s.key]) || '–'}</td>)}
                     <td className="py-2 text-right tabular-nums font-semibold">{totColor(c)}</td>
-                    <td className="py-2 text-right"><button onClick={() => reimprimir(c)} title="Reimprimir etiquetas" className="text-zinc-300 hover:text-teal-600"><Tag className="w-3.5 h-3.5" /></button></td>
+                    <td className="py-2 text-right whitespace-nowrap">
+                      {esAdmin && <button onClick={() => renombrarColor(c)} title="Corregir nombre del color" className="text-zinc-300 hover:text-teal-600 mr-2"><Pencil className="w-3.5 h-3.5" /></button>}
+                      {esGestion && <button onClick={() => setAjusteDe(ajusteDe === c.id ? null : c.id)} title="Ajustar existencias" className={`mr-2 ${ajusteDe === c.id ? 'text-teal-600' : 'text-zinc-300 hover:text-teal-600'}`}><SlidersHorizontal className="w-3.5 h-3.5" /></button>}
+                      <button onClick={() => reimprimir(c)} title="Reimprimir etiquetas" className="text-zinc-300 hover:text-teal-600"><Tag className="w-3.5 h-3.5" /></button>
+                    </td>
                   </tr>
-                ))}
+                  {ajusteDe === c.id && (
+                    <tr><td colSpan={SUC.length + 4} className="py-2">
+                      <AjusteColor color={c} onListo={col => { onChange({ ...m, colores: m.colores.map(x => x.id === c.id ? { ...x, ...col } : x) }); setAjusteDe(null); cargarMovs(); setMsg(`Ajuste guardado en ${c.sku}.`) }} onCancelar={() => setAjusteDe(null)} />
+                    </td></tr>
+                  )}
+                </Fragment>))}
               </tbody>
             </table>
             </div>
@@ -436,6 +454,8 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
           <section className="bg-white border border-zinc-200 rounded-xl p-4">
             <h3 className="text-sm font-semibold text-zinc-800 mb-3">Datos y precio</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {esAdmin && <Campo label="Marca (corregir error de dedo)" value={datos.marca} onChange={v => setDatos(d => ({ ...d, marca: v }))} />}
+              {esAdmin && <Campo label="Modelo (corregir error de dedo)" value={datos.modelo} onChange={v => setDatos(d => ({ ...d, modelo: v }))} />}
               <Campo label="Medidas (mica-puente-varilla)" value={datos.medidas} onChange={v => setDatos(d => ({ ...d, medidas: v }))} disabled={!esAdmin} />
               <Campo label="Material" value={datos.material} onChange={v => setDatos(d => ({ ...d, material: v }))} disabled={!esAdmin} />
             </div>
@@ -513,6 +533,63 @@ function Ficha({ modelo: m, esAdmin, puedeWeb, onClose, onChange }: {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Ajuste de existencias de un color ─────────────────────────
+// Para conteos físicos y errores de captura (ej. pieza capturada en el modelo equivocado:
+// −1 en el equivocado y +1 en el correcto). Queda en la bitácora.
+const UBIC_AJ = [
+  { v: 'baja', label: 'Baja Visión', k: 'stock_baja' }, { v: 'mayo', label: '5 de Mayo', k: 'stock_mayo' },
+  { v: 'plaza', label: 'Plaza Laureles', k: 'stock_plaza' }, { v: 'bodega', label: 'Bodega', k: 'bodega' },
+] as const
+function AjusteColor({ color: c, onListo, onCancelar }: { color: Color; onListo: (col: Partial<Color>) => void; onCancelar: () => void }) {
+  const [ubic, setUbic] = useState<typeof UBIC_AJ[number]['v']>('mayo')
+  const actual = num(c[UBIC_AJ.find(u => u.v === ubic)!.k])
+  const [real, setReal] = useState('')
+  const [motivo, setMotivo] = useState('captura')
+  const [nota, setNota] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [err, setErr] = useState('')
+  const delta = real === '' ? 0 : Number(real) - actual
+
+  const guardar = async () => {
+    if (real === '' || Number(real) < 0 || !Number.isInteger(Number(real))) { setErr('Pon cuántas piezas hay de verdad'); return }
+    if (delta === 0) { setErr('No hay diferencia'); return }
+    setGuardando(true); setErr('')
+    try {
+      const j = await fetch('/api/inv/ajustes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ color_id: c.id, ubicacion: ubic, cantidad: delta, motivo, nota }) }).then(r => r.json())
+      if (!j.ok) throw new Error(j.error)
+      onListo(j.color)
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Error') }
+    finally { setGuardando(false) }
+  }
+
+  return (
+    <div className="bg-teal-50/60 border border-teal-100 rounded-lg p-3 space-y-2">
+      <div className="text-xs font-semibold text-teal-800">Ajustar {c.sku} · {c.color}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <label className="block"><span className="text-[11px] text-zinc-500">¿Dónde?</span>
+          <select value={ubic} onChange={e => { setUbic(e.target.value as typeof ubic); setReal('') }} className="mt-0.5 w-full border border-zinc-200 rounded-md px-2 py-1.5 text-sm bg-white">
+            {UBIC_AJ.map(u => <option key={u.v} value={u.v}>{u.label}</option>)}
+          </select></label>
+        <div><span className="text-[11px] text-zinc-500">Dice el sistema</span><div className="mt-0.5 px-2 py-1.5 text-sm font-semibold">{actual}</div></div>
+        <label className="block"><span className="text-[11px] text-zinc-500">Hay de verdad</span>
+          <input type="number" inputMode="numeric" min={0} value={real} onChange={e => setReal(e.target.value)} className="mt-0.5 w-full border border-zinc-200 rounded-md px-2 py-1.5 text-sm bg-white" /></label>
+        <label className="block"><span className="text-[11px] text-zinc-500">Motivo</span>
+          <select value={motivo} onChange={e => setMotivo(e.target.value)} className="mt-0.5 w-full border border-zinc-200 rounded-md px-2 py-1.5 text-sm bg-white">
+            <option value="captura">Error de captura</option><option value="conteo">Conteo físico</option>
+            <option value="merma">Dañado o perdido</option><option value="otro">Otro</option>
+          </select></label>
+      </div>
+      <input value={nota} onChange={e => setNota(e.target.value)} placeholder="Nota (ej. se capturó como ZB2084, es ZB2094)" className="w-full border border-zinc-200 rounded-md px-2 py-1.5 text-sm bg-white" />
+      {delta !== 0 && <div className={`text-xs font-semibold ${delta > 0 ? 'text-emerald-700' : 'text-red-600'}`}>{delta > 0 ? `+${delta}` : delta} pieza{Math.abs(delta) === 1 ? '' : 's'} en {UBIC_AJ.find(u => u.v === ubic)!.label}</div>}
+      {err && <div className="text-xs text-red-600">{err}</div>}
+      <div className="flex gap-2">
+        <button onClick={guardar} disabled={guardando} className="px-3 py-1.5 bg-teal-600 text-white rounded-md text-xs font-semibold disabled:opacity-50">{guardando ? 'Guardando…' : 'Guardar ajuste'}</button>
+        <button onClick={onCancelar} className="px-3 py-1.5 border border-zinc-200 bg-white rounded-md text-xs font-semibold">Cancelar</button>
       </div>
     </div>
   )
