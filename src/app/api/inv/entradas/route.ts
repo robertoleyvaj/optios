@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
             .order('sku', { ascending: false }).limit(1)
           const sig = ult?.[0]?.sku ? parseInt(String(ult[0].sku).slice(4)) + 1 : 1001
           const { data: nm, error: e1 } = await sb.from('armazones').insert({
-            sku: `VRL-${sig}`, nombre: null, marca, modelo: mod,
+            sku: `VRL-${sig}`, nombre: mod, marca, modelo: mod, // sin apodo → la web muestra el modelo
             medidas: (n.medidas ?? '').trim() || null, material: up(n.material) || null,
             precio_gon: precio, precio: precioVerlyUSD(precio, tc), gama,
             tipo: 'optico', activo: nacenActivos, publicar_gon: false, publicar_verly: false,

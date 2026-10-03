@@ -399,7 +399,7 @@ function Ficha({ modelo: m, esAdmin, esGestion, puedeWeb, onClose, onChange }: {
           {portada ? <img src={portada} alt="" className="w-16 h-12 object-cover rounded-lg border border-zinc-200" />
             : <div className="w-16 h-12 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 flex items-center justify-center"><ImageOff className="w-4 h-4 text-zinc-300" /></div>}
           <div className="flex-1 min-w-0">
-            <div className="text-lg font-semibold text-zinc-900 truncate">{m.marca} {m.modelo}{m.nombre && <span className="text-zinc-400 font-normal"> · “{m.nombre}”</span>}</div>
+            <div className="text-lg font-semibold text-zinc-900 truncate">{m.marca} {m.modelo}{m.nombre && m.nombre !== m.modelo && <span className="text-zinc-400 font-normal"> · “{m.nombre}”</span>}</div>
             <div className="font-mono text-xs text-zinc-400">{m.sku} · {m.medidas}{talla && ` (${talla.talla})`} · {m.material} · {tot} piezas</div>
           </div>
           <button onClick={onClose} className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" aria-label="Cerrar"><X className="w-5 h-5" /></button>
@@ -597,7 +597,7 @@ function AjusteColor({ color: c, onListo, onCancelar }: { color: Color; onListo:
 // (más adelante, también el rol de encargado de páginas).
 function DatosWeb({ modelo: m, onChange }: { modelo: Modelo; onChange: (m: Modelo) => void }) {
   const inicial = () => ({
-    nombre: m.nombre ?? '', genero: m.genero ?? '', forma: m.forma ?? '', aro: m.aro ?? '', badge: m.badge ?? '',
+    nombre: m.nombre && m.nombre !== m.modelo ? m.nombre : '', genero: m.genero ?? '', forma: m.forma ?? '', aro: m.aro ?? '', badge: m.badge ?? '',
     descripcion_es: m.descripcion_es ?? '', descripcion_en: m.descripcion_en ?? '',
   })
   const [d, setD] = useState(inicial)

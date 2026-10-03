@@ -90,6 +90,11 @@ export async function PATCH(req: NextRequest) {
     for (const k of ['nombre', 'descripcion_es', 'descripcion_en']) {
       if (k in update) { const v = String(update[k] ?? '').trim(); update[k] = v ? v.slice(0, k === 'nombre' ? 60 : 280) : null }
     }
+    // El apodo no puede quedar vacío en la base: sin apodo, la web muestra el modelo
+    if ('nombre' in update && update.nombre === null) {
+      const { data: a } = await sb.from('armazones').select('modelo').eq('id', id).maybeSingle()
+      update.nombre = a?.modelo ?? ''
+    }
     for (const k of Object.keys(VALIDOS)) {
       if (!(k in update)) continue
       const v = update[k] == null || update[k] === '' ? null : String(update[k])
