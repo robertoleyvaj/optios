@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 const CAMPOS_MODELO =
   'id, sku, sku_viejo, marca, modelo, nombre, medidas, material, precio_gon, precio, costo, activo, publicar_gon, publicar_verly, descuento_gon, descuento_verly, imagen_url, imagen2_url, imagen3_url, imagen4_url, imagen5_url, genero, forma, aro, badge, descripcion_es, descripcion_en, gama'
 
-const CAMPOS_COLOR = 'id, armazon_id, sku, color, stock_baja, stock_mayo, stock_plaza, stock_online, bodega, orden, hex, publicar_verly, publicar_gon, imagen_url, imagen2_url, imagen3_url'
+const CAMPOS_COLOR = 'id, armazon_id, sku, color, stock_baja, stock_mayo, stock_plaza, stock_online, bodega, orden, hex, publicar_verly, publicar_gon, imagen_url, imagen2_url, imagen3_url, imagen4_url, portada_url'
 
 // Qué puede cambiar cada quien
 const CAMPOS_ADMIN = new Set(['marca', 'modelo', 'medidas', 'material', 'precio_gon', 'costo', 'descuento_gon', 'descuento_verly'])

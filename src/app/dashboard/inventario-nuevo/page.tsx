@@ -23,7 +23,8 @@ type Color = {
   stock_baja: number; stock_mayo: number; stock_plaza: number; stock_online: number; bodega: number; orden: number
   // Para la web: color del circulito, si se muestra y sus fotos
   hex?: string | null; publicar_verly?: boolean | null; publicar_gon?: boolean | null
-  imagen_url?: string | null; imagen2_url?: string | null; imagen3_url?: string | null
+  imagen_url?: string | null; imagen2_url?: string | null; imagen3_url?: string | null; imagen4_url?: string | null
+  portada_url?: string | null   // foto de ambiente para el catálogo (opcional)
 }
 type Modelo = {
   id: number; sku: string; sku_viejo?: string | null; marca: string; modelo: string; nombre: string | null
@@ -71,7 +72,7 @@ const swatch = (n: string, hex?: string | null) => {
   if (hex && /^#[0-9a-f]{6}$/i.test(hex)) return hex
   const s = (n || '').toUpperCase(); for (const [k, v] of SWATCH) if (s.includes(k)) return v; return '#b0b0b0'
 }
-const FOTOS_COLOR = ['imagen_url', 'imagen2_url', 'imagen3_url'] as const
+const FOTOS_COLOR = ['imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url'] as const
 const fotosColor = (c: Color) => FOTOS_COLOR.map(f => c[f]).filter(Boolean) as string[]
 // Portada del armazón: la marcada con ⭐ o la primera foto de algún color
 const portadaModelo = (m: Modelo) => m.imagen_url || m.colores.map(c => fotosColor(c)[0]).find(Boolean) || null
@@ -729,7 +730,7 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
   // Al tocar una casilla se pueden escoger VARIAS fotos: la primera va a esa casilla y las demás a las vacías que siguen
   const elegir = (color: Color, campo: string) => {
     const i = FOTOS_COLOR.indexOf(campo as typeof FOTOS_COLOR[number])
-    const siguientes = FOTOS_COLOR.filter((f, k) => k > i && !color[f] && !subiendo.has(`${color.id}-${f}`))
+    const siguientes = i < 0 ? [] : FOTOS_COLOR.filter((f, k) => k > i && !color[f] && !subiendo.has(`${color.id}-${f}`))
     destino.current = { colorId: color.id, campos: [campo, ...siguientes] }
     fileRef.current?.click()
   }
@@ -761,10 +762,43 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
     else setMsg('No se pudo borrar: ' + j.error)
   }
 
+  // Una casilla de foto (las 4 del armazón llevan ⭐ portada; la de ambiente no)
+  const casilla = (c: Color, campo: string, etiqueta: string, conEstrella: boolean) => {
+    const url = (c as Record<string, unknown>)[campo] as string | null | undefined
+    const key = `${c.id}-${campo}`
+    return (
+      <div key={campo} className={`relative aspect-[4/3] rounded-md border border-dashed overflow-hidden group ${conEstrella ? 'border-zinc-300 bg-zinc-50' : 'border-violet-300 bg-violet-50/50'}`}>
+        {subiendo.has(key) ? (
+          <div className="w-full h-full flex items-center justify-center"><Loader2 className="w-4 h-4 text-teal-600 animate-spin" /></div>
+        ) : url ? (
+          <>
+            <img src={url} alt="" className="w-full h-full object-cover" />
+            <button onClick={() => borrar(c, campo, url)}
+              className="absolute top-1 right-1 w-7 h-7 rounded-md bg-white/90 text-red-500 flex md:hidden md:group-hover:flex items-center justify-center">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+            {conEstrella ? (
+              <button onClick={() => onPortada(url)} title="Usar como portada"
+                className={`absolute bottom-1 left-1 h-6 px-1.5 rounded-md text-[10px] font-semibold flex items-center gap-1 ${url === portada ? 'bg-amber-400 text-white' : 'bg-white/90 text-zinc-500 md:hidden md:group-hover:flex'}`}>
+                <Star className="w-3 h-3" fill={url === portada ? 'currentColor' : 'none'} />{url === portada ? 'Portada' : ''}
+              </button>
+            ) : (
+              <span className="absolute bottom-1 left-1 h-6 px-1.5 rounded-md text-[10px] font-semibold flex items-center bg-violet-600 text-white">Ambiente</span>
+            )}
+          </>
+        ) : (
+          <button onClick={() => elegir(c, campo)} className={`w-full h-full flex flex-col items-center justify-center gap-1 ${conEstrella ? 'text-zinc-400 hover:text-teal-600' : 'text-violet-500 hover:text-violet-700'}`}>
+            <Camera className="w-4 h-4" /><span className="text-[10px]">{etiqueta}</span>
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <section className="bg-white border border-zinc-200 rounded-xl p-4">
       <h3 className="text-sm font-semibold text-zinc-800 mb-1">Fotos por color</h3>
-      <p className="text-[11px] text-zinc-400 mb-3">Sube las fotos de cada color (frente, lado, puesto). Puedes escoger las 3 de una vez y se suben al mismo tiempo. Marca con ⭐ la que sale de portada en el catálogo. El cliente ve un circulito por cada color visible.</p>
+      <p className="text-[11px] text-zinc-400 mb-3">Sube hasta 4 fotos de cada color (frente, tres cuartos, lado, detalle). Puedes escoger varias de una vez y se suben al mismo tiempo. Marca con ⭐ la que sale de portada en el catálogo. El cliente ve un circulito por cada color visible.</p>
       <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
         onChange={e => { const fs = Array.from(e.target.files ?? []); if (fs.length) subir(fs); e.target.value = '' }} />
       <div className="space-y-3">
@@ -788,34 +822,14 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {FOTOS_COLOR.map((campo, i) => {
-                  const url = c[campo]
-                  const key = `${c.id}-${campo}`
-                  return (
-                    <div key={campo} className="relative aspect-[4/3] rounded-md border border-dashed border-zinc-300 bg-zinc-50 overflow-hidden group">
-                      {subiendo.has(key) ? (
-                        <div className="w-full h-full flex items-center justify-center"><Loader2 className="w-4 h-4 text-teal-600 animate-spin" /></div>
-                      ) : url ? (
-                        <>
-                          <img src={url} alt="" className="w-full h-full object-cover" />
-                          <button onClick={() => borrar(c, campo, url)}
-                            className="absolute top-1 right-1 w-7 h-7 rounded-md bg-white/90 text-red-500 flex md:hidden md:group-hover:flex items-center justify-center">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => onPortada(url)} title="Usar como portada"
-                            className={`absolute bottom-1 left-1 h-6 px-1.5 rounded-md text-[10px] font-semibold flex items-center gap-1 ${url === portada ? 'bg-amber-400 text-white' : 'bg-white/90 text-zinc-500 md:hidden md:group-hover:flex'}`}>
-                            <Star className="w-3 h-3" fill={url === portada ? 'currentColor' : 'none'} />{url === portada ? 'Portada' : ''}
-                          </button>
-                        </>
-                      ) : (
-                        <button onClick={() => elegir(c, campo)} className="w-full h-full flex flex-col items-center justify-center gap-1 text-zinc-400 hover:text-teal-600">
-                          <Camera className="w-4 h-4" /><span className="text-[10px]">{i === 0 ? 'Foto principal' : 'Agregar'}</span>
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {FOTOS_COLOR.map((campo, i) => casilla(c, campo, i === 0 ? 'Foto principal' : 'Agregar', true))}
+              </div>
+              <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 items-center">
+                {casilla(c, 'portada_url', 'Ambiente', false)}
+                <p className="md:col-span-3 text-[11px] text-zinc-400">
+                  <b className="text-zinc-500">Foto de ambiente (opcional):</b> el armazón en una escena bonita (piedra, mesa, persona). Sale en el catálogo en lugar de la foto de producto; al pasar el mouse se ve la del armazón.
+                </p>
               </div>
             </div>
           )

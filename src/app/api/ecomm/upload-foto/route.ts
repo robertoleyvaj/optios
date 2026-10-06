@@ -4,10 +4,10 @@ import { requireRol, INVENTARIO } from '@/lib/auth-api'
 
 export const dynamic = 'force-dynamic'
 
-// tabla 'armazon' (default) → fotos del modelo (5); tabla 'color' → fotos de un color (3)
+// tabla 'armazon' (default) → fotos del modelo (5); tabla 'color' → 4 fotos del color + 1 de ambiente (portada_url)
 const CAMPOS_FOTO: Record<string, string[]> = {
   armazon: ['imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url', 'imagen5_url'],
-  color: ['imagen_url', 'imagen2_url', 'imagen3_url'],
+  color: ['imagen_url', 'imagen2_url', 'imagen3_url', 'imagen4_url', 'portada_url'],
 }
 const TABLA: Record<string, string> = { armazon: 'armazones', color: 'armazon_colores' }
 
