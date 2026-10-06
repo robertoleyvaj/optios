@@ -700,11 +700,20 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
   modelo: Modelo; esAdmin: boolean; onChange: (m: Modelo) => void; setMsg: (s: string) => void
   portada: string | null; onPortada: (url: string | null) => void
 }) {
-  const [subiendo, setSubiendo] = useState<string | null>(null)
+  // Varias fotos pueden subirse al mismo tiempo: se lleva la cuenta de cada casilla que está subiendo
+  const [subiendo, setSubiendo] = useState<Set<string>>(new Set())
+  const marcar = (key: string, on: boolean) => setSubiendo(prev => { const n = new Set(prev); if (on) n.add(key); else n.delete(key); return n })
   const fileRef = useRef<HTMLInputElement>(null)
-  const destino = useRef<{ color: Color; campo: string } | null>(null)
+  const destino = useRef<{ colorId: number; campos: string[] } | null>(null)
+  // Siempre la versión más reciente del modelo, para que una subida no borre la de otra que terminó antes
+  const mRef = useRef(m); mRef.current = m
 
-  const reemplazar = (c: Color) => onChange({ ...m, colores: m.colores.map(x => x.id === c.id ? c : x) })
+  const aplicar = (colorId: number, cambios: Record<string, unknown>) => {
+    const cur = mRef.current
+    const nuevo = { ...cur, colores: cur.colores.map(x => x.id === colorId ? { ...x, ...cambios } as Color : x) }
+    mRef.current = nuevo
+    onChange(nuevo)
+  }
 
   const patchColor = async (c: Color, cambios: Record<string, unknown>) => {
     try {
@@ -713,23 +722,34 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
         body: JSON.stringify({ color_id: c.id, ...cambios }),
       }).then(r => r.json())
       if (!j.ok) throw new Error(j.error)
-      reemplazar({ ...c, ...j.color })
+      aplicar(c.id, j.color)
     } catch (e) { setMsg('No se pudo guardar el color: ' + (e instanceof Error ? e.message : '')) }
   }
 
-  const elegir = (color: Color, campo: string) => { destino.current = { color, campo }; fileRef.current?.click() }
-  const subir = async (file: File) => {
-    const d = destino.current; if (!d) return
-    const key = `${d.color.id}-${d.campo}`
-    setSubiendo(key); setMsg('')
+  // Al tocar una casilla se pueden escoger VARIAS fotos: la primera va a esa casilla y las demás a las vacías que siguen
+  const elegir = (color: Color, campo: string) => {
+    const i = FOTOS_COLOR.indexOf(campo as typeof FOTOS_COLOR[number])
+    const siguientes = FOTOS_COLOR.filter((f, k) => k > i && !color[f] && !subiendo.has(`${color.id}-${f}`))
+    destino.current = { colorId: color.id, campos: [campo, ...siguientes] }
+    fileRef.current?.click()
+  }
+  const subirUno = async (colorId: number, campo: string, file: File) => {
+    const key = `${colorId}-${campo}`
+    marcar(key, true)
     try {
       const fd = new FormData()
-      fd.append('file', await comprimirFoto(file)); fd.append('campo', d.campo); fd.append('id', String(d.color.id)); fd.append('tabla', 'color')
+      fd.append('file', await comprimirFoto(file)); fd.append('campo', campo); fd.append('id', String(colorId)); fd.append('tabla', 'color')
       const j = await fetch('/api/ecomm/upload-foto', { method: 'POST', body: fd }).then(r => r.json())
       if (!j.ok) throw new Error(j.error)
-      reemplazar({ ...d.color, [d.campo]: j.url })
+      aplicar(colorId, { [campo]: j.url })
     } catch (e) { setMsg('No se pudo subir: ' + (e instanceof Error ? e.message : '')) }
-    finally { setSubiendo(null) }
+    finally { marcar(key, false) }
+  }
+  const subir = (files: File[]) => {
+    const d = destino.current; if (!d) return
+    setMsg('')
+    files.slice(0, d.campos.length).forEach((f, k) => { void subirUno(d.colorId, d.campos[k], f) })
+    if (files.length > d.campos.length) setMsg(`Solo caben ${d.campos.length} foto(s) más en ese color; las demás no se subieron.`)
   }
   const borrar = async (c: Color, campo: string, url: string) => {
     if (!confirm('¿Borrar esta foto?')) return
@@ -737,16 +757,16 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: String(c.id), campo, url, tabla: 'color' }),
     }).then(r => r.json())
-    if (j.ok) { reemplazar({ ...c, [campo]: null }); if (url === portada) onPortada(null) }
+    if (j.ok) { aplicar(c.id, { [campo]: null }); if (url === portada) onPortada(null) }
     else setMsg('No se pudo borrar: ' + j.error)
   }
 
   return (
     <section className="bg-white border border-zinc-200 rounded-xl p-4">
       <h3 className="text-sm font-semibold text-zinc-800 mb-1">Fotos por color</h3>
-      <p className="text-[11px] text-zinc-400 mb-3">Sube las fotos de cada color (frente, lado, puesto). Marca con ⭐ la que sale de portada en el catálogo. El cliente ve un circulito por cada color visible.</p>
-      <input ref={fileRef} type="file" accept="image/*" className="hidden"
-        onChange={e => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = '' }} />
+      <p className="text-[11px] text-zinc-400 mb-3">Sube las fotos de cada color (frente, lado, puesto). Puedes escoger las 3 de una vez y se suben al mismo tiempo. Marca con ⭐ la que sale de portada en el catálogo. El cliente ve un circulito por cada color visible.</p>
+      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+        onChange={e => { const fs = Array.from(e.target.files ?? []); if (fs.length) subir(fs); e.target.value = '' }} />
       <div className="space-y-3">
         {m.colores.map(c => {
           const visible = !!(c.publicar_verly || c.publicar_gon)
@@ -774,7 +794,7 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
                   const key = `${c.id}-${campo}`
                   return (
                     <div key={campo} className="relative aspect-[4/3] rounded-md border border-dashed border-zinc-300 bg-zinc-50 overflow-hidden group">
-                      {subiendo === key ? (
+                      {subiendo.has(key) ? (
                         <div className="w-full h-full flex items-center justify-center"><Loader2 className="w-4 h-4 text-teal-600 animate-spin" /></div>
                       ) : url ? (
                         <>
