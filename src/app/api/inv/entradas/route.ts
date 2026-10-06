@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       .like('sku', 'VRL-1___').eq('activo', true)
     const nacenActivos = (activos ?? 0) > 0
 
-    const resultado: { sku: string; marca: string; modelo: string; color: string; precio: number; cantidad: number; nuevo: boolean }[] = []
+    const resultado: { sku: string; marca: string; modelo: string; color: string; precio: number; cantidad: number; nuevo: boolean; armazon_id: number | null }[] = []
     const creados = new Map<string, number>()   // marca|modelo → id (varios colores del mismo modelo nuevo)
 
     for (const it of items) {
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
       resultado.push({
         sku: info?.sku ?? '', marca: a.marca ?? '', modelo: a.modelo ?? '', color: info?.color ?? '',
-        precio: Number(a.precio_gon) || 0, cantidad: it.cantidad!, nuevo: esNuevo,
+        precio: Number(a.precio_gon) || 0, cantidad: it.cantidad!, nuevo: esNuevo, armazon_id: info?.armazon_id ?? null,
       })
     }
 

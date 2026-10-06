@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Plus, Trash2, Loader2, CheckCircle2, PackagePlus, RefreshCw, Tag, AlertTriangle, X } from 'lucide-react'
+import { Search, Plus, Trash2, Loader2, CheckCircle2, PackagePlus, RefreshCw, Tag, AlertTriangle, X, Camera } from 'lucide-react'
 import { GAMAS, precioInteligente, precioVerlyUSD, type Gama, type Rango } from '@/lib/precio-gama'
 
 // ─────────────────────────────────────────────────────────────
@@ -18,7 +18,7 @@ type Linea = {
   key: string; texto: string; sku: string; cantidad: number
   item: { cantidad: number; color_id?: number; armazon_id?: number; color?: string; nuevo?: Record<string, unknown> }
 }
-type Resultado = { sku: string; marca: string; modelo: string; color: string; precio: number; cantidad: number; nuevo: boolean }
+type Resultado = { sku: string; marca: string; modelo: string; color: string; precio: number; cantidad: number; nuevo: boolean; armazon_id?: number | null }
 type Catalogos = { marcas: { nombre: string; grupo: string }[]; gamas: Rango[]; colores: string[]; tipoCambio: number | null }
 type FilaColor = { key: string; nombre: string; cant: string }
 
@@ -42,8 +42,9 @@ function distancia(a: string, b: string): number {
   return d[a.length][b.length]
 }
 
-export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas }: {
+export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas, onAbrirFicha }: {
   modelos: Modelo[]; esAdmin: boolean; onDone: () => void; onVerEtiquetas: () => void
+  onAbrirFicha?: (armazonId: number) => void
 }) {
   const [cat, setCat] = useState<Catalogos | null>(null)
   const [ubic, setUbic] = useState('bodega')
@@ -170,6 +171,7 @@ export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas }: {
       <div className="bg-white border border-zinc-200 rounded-xl p-6 max-w-2xl">
         <div className="flex items-center gap-2 text-emerald-700 font-semibold"><CheckCircle2 className="w-5 h-5" /> Entrada guardada en {ubicLabel}</div>
         <p className="text-sm text-zinc-500 mt-1">{pzas} piezas. Ya están en el inventario y en la bitácora. Sus {pzas} etiquetas se agregaron a la cola para imprimir.</p>
+        {onAbrirFicha && <p className="text-xs text-violet-700 mt-2">Con <b>Abrir ficha</b> subes de una vez las fotos y los datos para la web. Al cerrarla vuelves aquí.</p>}
         <table className="w-full text-sm mt-4">
           <tbody>
             {hecho.map((r, i) => (
@@ -178,6 +180,13 @@ export default function Entradas({ modelos, esAdmin, onDone, onVerEtiquetas }: {
                 <td className="py-2">{r.marca} {r.modelo} · {r.color} {r.nuevo && <span className="text-[11px] ml-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">nuevo</span>}</td>
                 <td className="py-2 text-right text-zinc-500">{$(r.precio)}</td>
                 <td className="py-2 text-right">{r.cantidad} pzas</td>
+                <td className="py-2 pl-3 text-right">
+                  {onAbrirFicha && r.armazon_id && (
+                    <button onClick={() => onAbrirFicha(r.armazon_id!)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-violet-200 bg-violet-50 text-violet-700 text-xs font-semibold hover:bg-violet-100 whitespace-nowrap">
+                      <Camera className="w-3.5 h-3.5" /> Abrir ficha
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

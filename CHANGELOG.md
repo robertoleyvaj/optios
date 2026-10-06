@@ -2,6 +2,9 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.0.2 (6 oct 2026)
+- Al guardar una entrada, cada armazón trae el botón **Abrir ficha** para subir fotos y datos de la web de una vez.
+
 ## v2.0.1 (6 oct 2026)
 - **Fotos por color más rápidas**: se pueden escoger las 3 fotos de una vez y se suben al mismo tiempo; ya no se pierde una foto si se toca otra casilla mientras la anterior sigue subiendo.
 - Alta de modelo nuevo sin apodo ya no marca error (el apodo queda igual al modelo).

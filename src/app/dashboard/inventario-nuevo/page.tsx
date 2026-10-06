@@ -162,7 +162,7 @@ function InventarioNuevo() {
 
       {tab === 'armazones' && armVista !== 'lista' && <>
         <button onClick={() => setArmVista('lista')} className="text-sm font-semibold text-teal-700 hover:underline">← Volver a armazones</button>
-        {armVista === 'entrada' && <Entradas modelos={modelos} esAdmin={esAdmin} onDone={cargar} onVerEtiquetas={() => setArmVista('etiquetas')} />}
+        {armVista === 'entrada' && <Entradas modelos={modelos} esAdmin={esAdmin} onDone={cargar} onVerEtiquetas={() => setArmVista('etiquetas')} onAbrirFicha={setSelId} />}
         {armVista === 'traspasos' && esGestion && <Traspasos modelos={modelos} puedeEnviar onDone={cargar} />}
         {armVista === 'etiquetas' && <Etiquetas onCambio={setEtiquetasPend} />}
       </>}
