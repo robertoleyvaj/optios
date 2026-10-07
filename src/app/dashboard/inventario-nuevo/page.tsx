@@ -760,6 +760,12 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
       const j = await fetch('/api/ecomm/upload-foto', { method: 'POST', body: fd }).then(r => r.json())
       if (!j.ok) throw new Error(j.error)
       aplicar(colorId, { [campo]: j.url })
+      // Si el modelo ya está publicado y este color estaba oculto, al subirle foto se hace visible solo
+      const mm = mRef.current, col = mm.colores.find(x => x.id === colorId)
+      if (campo !== 'portada_url' && (mm.publicar_verly || mm.publicar_gon) && col && !(col.publicar_verly || col.publicar_gon)) {
+        const r = await fetch('/api/inv/armazones', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ color_id: colorId, web: true }) }).then(x => x.json())
+        if (r.ok) aplicar(colorId, r.color)
+      }
     } catch (e) { setMsg('No se pudo subir: ' + (e instanceof Error ? e.message : '')) }
     finally { marcar(key, false) }
   }

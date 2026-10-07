@@ -2,6 +2,9 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.1.1 (6 oct 2026)
+- Si el modelo ya está publicado, al subirle fotos a un color oculto ese color se hace visible solo.
+
 ## v2.1 (6 oct 2026)
 - **5 fotos por color**: 4 del armazón (frente, tres cuartos, lado, detalle) + 1 **foto de ambiente** opcional. En Verly la de ambiente sale en la tarjeta del catálogo y al pasar el mouse se ve la del armazón.
 - Al **publicar** un modelo, los colores que ya tienen fotos se hacen visibles solos (antes había que quitar "Oculto" color por color).
