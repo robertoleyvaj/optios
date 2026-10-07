@@ -370,7 +370,24 @@ function Ficha({ modelo: m, esAdmin, esGestion, puedeWeb, onClose, onChange }: {
   const togglePub = async (campo: 'publicar_gon' | 'publicar_verly') => {
     const portada = portadaDe(m)
     if (!m[campo] && !portada) { setMsg('Sube al menos una foto de algún color antes de publicar'); return }
-    try { await patch({ [campo]: !m[campo], ...(!m.imagen_url && portada ? { imagen_url: portada } : {}) }) }
+    try {
+      const publicar = !m[campo]
+      const nm = await patch({ [campo]: publicar, ...(!m.imagen_url && portada ? { imagen_url: portada } : {}) })
+      // Al publicar: los colores que ya tienen fotos se hacen visibles solos (antes había que darle "Oculto" uno por uno)
+      if (publicar) {
+        const aMostrar = m.colores.filter(c => fotosColor(c).length && !(c.publicar_verly || c.publicar_gon))
+        const listos: Record<number, Partial<Color>> = {}
+        for (const c of aMostrar) {
+          const j = await fetch('/api/inv/armazones', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ color_id: c.id, web: true }) }).then(r => r.json())
+          if (j.ok) listos[c.id] = j.color
+        }
+        if (aMostrar.length) {
+          onChange({ ...m, ...nm, colores: m.colores.map(c => listos[c.id] ? { ...c, ...listos[c.id] } : c) })
+          setMsg(`Publicado. ${Object.keys(listos).length} color(es) con fotos quedaron visibles en la web.`)
+        }
+        if (!m.colores.some(c => fotosColor(c).length)) setMsg('Publicado, pero ningún color tiene fotos todavía.')
+      }
+    }
     catch (e) { setMsg('Error: ' + (e instanceof Error ? e.message : '')) }
   }
 
