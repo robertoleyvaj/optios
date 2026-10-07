@@ -781,7 +781,15 @@ function ColoresWeb({ modelo: m, esAdmin, onChange, setMsg, portada, onPortada }
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: String(c.id), campo, url, tabla: 'color' }),
     }).then(r => r.json())
-    if (j.ok) { aplicar(c.id, { [campo]: null }); if (url === portada) onPortada(null) }
+    if (j.ok) {
+      aplicar(c.id, { [campo]: null }); if (url === portada) onPortada(null)
+      // Regla: un color se ve en la web solo si tiene fotos. Si le borras la última, se oculta solo.
+      const col = mRef.current.colores.find(x => x.id === c.id)
+      if (col && campo !== 'portada_url' && !fotosColor(col).length && (col.publicar_verly || col.publicar_gon)) {
+        const r = await fetch('/api/inv/armazones', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ color_id: c.id, web: false }) }).then(x => x.json())
+        if (r.ok) aplicar(c.id, r.color)
+      }
+    }
     else setMsg('No se pudo borrar: ' + j.error)
   }
 
