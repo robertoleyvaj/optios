@@ -1795,24 +1795,24 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
     <div className="space-y-4 max-w-6xl">
 
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 md:gap-4">
         <Link href="/dashboard/ventas" className="w-9 h-9 flex items-center justify-center rounded-md bg-white border border-zinc-200 hover:bg-zinc-100 transition-colors flex-shrink-0">
           <ArrowLeft className="w-4 h-4 text-zinc-500" />
         </Link>
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Nueva venta</h1>
-          <p className="text-sm text-zinc-400">Completa los datos y genera la venta o cotización</p>
+          <p className="hidden sm:block text-sm text-zinc-400">Completa los datos y genera la venta o cotización</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <span className="text-sm font-semibold text-zinc-700 px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-md">
+          <span className="text-xs md:text-sm font-semibold text-zinc-700 px-3 md:px-4 py-2 md:py-2.5 bg-zinc-50 border border-zinc-200 rounded-md whitespace-nowrap">
             {sucursal}
           </span>
         </div>
       </div>
 
       {/* Cliente + Fecha */}
-      <div className="bg-white rounded-lg border border-zinc-200/80 p-6">
-        <div className="grid grid-cols-4 gap-4">
+      <div className="bg-white rounded-lg border border-zinc-200/80 p-4 md:p-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {/* Buscar cliente */}
           <div className="col-span-2 relative">
             <label className="block text-xs font-medium text-zinc-500 mb-1.5">Buscar cliente *</label>
@@ -1920,7 +1920,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
       {/* Productos */}
       <div className="bg-white rounded-lg border border-zinc-200/80">
         {/* Tabs de pares */}
-        <div className="flex items-center gap-1 px-4 pt-3 border-b border-zinc-200">
+        <div className="flex items-center gap-1 px-2 md:px-4 pt-3 border-b border-zinc-200 overflow-x-auto whitespace-nowrap">
           {Array.from({ length: numPares }, (_, i) => i + 1).map(par => {
             const subtotalPar = carrito.filter(i => i.par === par).reduce((s, i) => s + (i.precio * (1 - i.descuento / 100) * i.cantidad), 0)
             const esMicaPar   = carrito.some(i => i.par === par && (
@@ -1967,7 +1967,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
         </div>
 
         {/* Indicador de sucursal: para que el vendedor confirme de qué óptica es el inventario */}
-        <div className="px-6 pt-2">
+        <div className="px-4 md:px-6 pt-2">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 rounded-full px-2.5 py-1">
             <Store className="w-3 h-3" /> Vendiendo en: {sucursal}
           </span>
@@ -1980,8 +1980,8 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
         </div>
 
         {/* Buscador de productos — fuera del overflow-x-auto para que el dropdown no se corte */}
-        <div className="px-6 py-2 relative border-b border-zinc-50">
-          <Search className="absolute left-9 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+        <div className="px-4 md:px-6 py-2 relative border-b border-zinc-50">
+          <Search className="absolute left-7 md:left-9 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             value={busquedaProducto}
             onChange={e => { setBusquedaProducto(e.target.value); setShowBuscadorProducto(true) }}
@@ -1990,7 +1990,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
             className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30 placeholder:text-zinc-400"
           />
           {showBuscadorProducto && busquedaProducto && (
-            <div className="absolute top-full left-6 right-6 mt-1 bg-white border border-zinc-200 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
+            <div className="absolute top-full left-4 right-4 md:left-6 md:right-6 mt-1 bg-white border border-zinc-200 rounded-md shadow-xl z-20 divide-y divide-zinc-50 overflow-hidden max-h-64 overflow-y-auto">
               {armazonesNuevosFiltrados.map(c => {
                 const aqui = stockAqui(c)
                 const [, cm, cc] = c.sku.split('-')
@@ -2040,7 +2040,69 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
           )}
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Celular: productos como tarjetas */}
+        <div className="md:hidden divide-y divide-zinc-100">
+          {carrito.filter(i => i.par === parActivo).length === 0 && (
+            <div className="flex flex-col items-center gap-2 text-zinc-400 py-8">
+              <Package className="w-9 h-9" />
+              <p className="text-sm">Busca y agrega productos arriba</p>
+            </div>
+          )}
+          {carrito.filter(i => i.par === parActivo).map(item => {
+            const precioFinal = item.precio - item.precio * (item.descuento / 100)
+            const subtotalItem = precioFinal * item.cantidad
+            const stockBajo = item.stock !== 999 && item.cantidad > item.stock
+            const esUSDVista = moneda === 'USD' && !!tipoCambio
+            const fmtPrecio = (n: number) => esUSDVista ? `USD $${Math.round(n / tipoCambio!)}` : `$${n.toLocaleString('es-MX')}`
+            return (
+              <div key={item.uid} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-zinc-800 leading-snug">{item.nombre}</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      <span className="font-mono">{item.sku}</span>
+                      {item.stock !== 999 && <> · {item.stock} en existencia</>}
+                      {' · '}{fmtPrecio(precioFinal)} c/u
+                    </p>
+                    {stockBajo && (
+                      <p className="text-xs text-amber-500 flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3 h-3" /> Stock insuficiente
+                      </p>
+                    )}
+                  </div>
+                  <button onClick={() => eliminar(item.uid)} className="p-1 -m-1 text-zinc-400 hover:text-red-500 shrink-0" aria-label="Quitar">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between gap-3 mt-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => cambiarCantidad(item.uid, -1)} className="w-8 h-8 rounded-md bg-zinc-100 flex items-center justify-center active:bg-zinc-200">
+                      <Minus className="w-3.5 h-3.5 text-zinc-600" />
+                    </button>
+                    <span className="w-7 text-center text-sm font-bold text-zinc-700">{item.cantidad}</span>
+                    <button onClick={() => cambiarCantidad(item.uid, 1)} className="w-8 h-8 rounded-md bg-zinc-100 flex items-center justify-center active:bg-zinc-200">
+                      <Plus className="w-3.5 h-3.5 text-zinc-600" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-zinc-400">Desc.</span>
+                    <input
+                      type="number" inputMode="numeric" min={0} max={100}
+                      value={item.descuento || ''}
+                      onChange={e => cambiarDescuento(item.uid, e.target.value)}
+                      placeholder="0"
+                      className="w-12 text-center text-sm border border-zinc-200 rounded-md py-1.5 px-1 focus:outline-none focus:ring-1 focus:ring-[#0D9488] bg-zinc-50"
+                    />
+                    <span className="text-zinc-400 text-xs">%</span>
+                  </div>
+                  <span className="text-sm font-bold text-zinc-900">{fmtPrecio(subtotalItem)}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200">
@@ -2140,7 +2202,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
         </div>
 
         {carrito.length > 0 && (
-          <div className="px-6 py-4 border-t border-zinc-200 flex items-center justify-end">
+          <div className="px-4 md:px-6 py-4 border-t border-zinc-200 flex items-center justify-end">
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <span className="text-sm text-zinc-400">Total</span>
@@ -2162,8 +2224,8 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
       </div>
 
       {/* Botones finales */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={limpiar}
             className="flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-500 hover:text-zinc-700 border border-zinc-200 rounded-md hover:bg-zinc-100 transition-all"
@@ -2178,7 +2240,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
           </button>
 
           {/* Toggle moneda */}
-          <div className="flex items-center gap-1.5 ml-2 pl-3 border-l border-zinc-200">
+          <div className="flex items-center gap-1.5 md:ml-2 md:pl-3 md:border-l border-zinc-200">
             <button
               onClick={() => setMoneda('MXN')}
               className={`text-xs font-bold px-3 py-2 rounded-md border transition-all ${moneda === 'MXN' ? 'bg-zinc-800 text-white border-zinc-800' : 'border-zinc-200 text-zinc-400 hover:border-zinc-400'}`}
@@ -2203,11 +2265,11 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="grid grid-cols-2 md:flex md:items-center gap-2 md:gap-3">
           <button
             onClick={() => { setEsCotizacion(true); setShowModal(true) }}
             disabled={carrito.length === 0}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-md text-sm font-semibold hover:bg-zinc-100 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-3 md:px-5 py-3 md:py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-md text-sm font-semibold hover:bg-zinc-100 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <FileText className="w-4 h-4" />
             Generar cotización
@@ -2215,14 +2277,14 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
           <button
             onClick={() => { setEsCotizacion(false); setShowModal(true) }}
             disabled={carrito.length === 0 || !clienteNombre || !fechaEntrega}
-            className="flex items-center gap-2 px-6 py-2.5 bg-[#0B0E14] text-white rounded-md text-sm font-bold hover:bg-[#1A1D27] active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-3 md:px-6 py-3 md:py-2.5 bg-[#0B0E14] text-white rounded-md text-sm font-bold hover:bg-[#1A1D27] active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <CheckCircle2 className="w-4 h-4" />
             Generar venta
           </button>
         </div>
         {carrito.length > 0 && clienteNombre && !fechaEntrega && (
-          <p className="text-xs text-amber-600 mt-2 font-medium text-right">
+          <p className="w-full text-xs text-amber-600 font-medium md:text-right">
             ⚠️ Falta la <b>fecha de entrega</b> (arriba) para poder generar la venta.
           </p>
         )}

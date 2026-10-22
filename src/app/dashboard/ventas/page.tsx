@@ -1118,13 +1118,13 @@ export default function VentasPage() {
     <div className="space-y-5">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Ventas</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Historial y registro de ventas de todas las sucursales</p>
+          <p className="hidden sm:block text-sm text-zinc-500 mt-0.5">Historial y registro de ventas de todas las sucursales</p>
         </div>
         <Link href="/dashboard/ventas/nueva"
-          className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold hover:bg-[#1A1D27] active:scale-[0.98] transition-all">
+          className="flex items-center gap-2 bg-[#0B0E14] text-white px-4 py-2.5 rounded text-sm font-semibold whitespace-nowrap shrink-0 hover:bg-[#1A1D27] active:scale-[0.98] transition-all">
           <Plus className="w-4 h-4" /> Nueva venta
         </Link>
       </div>
@@ -1275,13 +1275,13 @@ export default function VentasPage() {
 
       {/* ── PANEL DETALLE ── */}
       {detalle && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-black/30 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
           onClick={() => { setDetalle(null); setShowAbono(false) }}>
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col"
+          <div className="bg-white rounded-t-xl sm:rounded-lg shadow-2xl w-full max-w-md max-h-[94dvh] sm:max-h-[92vh] flex flex-col"
             onClick={e => e.stopPropagation()}>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200 flex-shrink-0">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-5 border-b border-zinc-200 flex-shrink-0">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs font-bold text-zinc-400">{detalle.id}</span>
@@ -1307,7 +1307,7 @@ export default function VentasPage() {
             </div>
 
             {/* Contenido scrollable */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            <div className="flex-1 min-h-[35dvh] sm:min-h-0 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 space-y-5">
 
               {/* Aviso de cancelación */}
               {esCancelada(detalle) && (
@@ -1502,57 +1502,57 @@ export default function VentasPage() {
             </div>
 
             {/* Acciones fijas */}
-            <div className="px-6 pb-5 pt-3 border-t border-zinc-200 flex-shrink-0 space-y-2">
+            <div className="px-4 sm:px-6 pb-4 sm:pb-5 pt-3 border-t border-zinc-200 flex-shrink-0 grid grid-cols-2 gap-2">
               {detalle.id.startsWith('COT-') ? (
                 <>
                   <button onClick={() => router.push(`/dashboard/ventas/nueva?cotizacion=${detalle.uuid}`)}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 transition-colors">
+                    className="col-span-2 w-full flex items-center justify-center gap-2 py-3 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 transition-colors">
                     <Plus className="w-4 h-4" /> Convertir a venta
                   </button>
                   <button onClick={() => imprimirCotizacion(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
                     className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
-                    <Printer className="w-4 h-4" /> Imprimir cotización
+                    <Printer className="w-4 h-4" /> Cotización
                   </button>
                 </>
               ) : (
                 <>
                   {saldoPendiente(detalle) > 0 && !showAbono && (
                     <button onClick={() => setShowAbono(true)}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 transition-colors">
+                      className="col-span-2 w-full flex items-center justify-center gap-2 py-3 bg-[#0D9488] text-white rounded text-sm font-bold hover:bg-teal-500 transition-colors">
                       <Plus className="w-4 h-4" /> Registrar abono · ${saldoPendiente(detalle).toLocaleString('es-MX')} pendiente
                     </button>
                   )}
                   {saldoPendiente(detalle) === 0 && !showAbono && !esCancelada(detalle) && (
-                    <div className="flex items-center justify-center gap-2 py-2 text-sm text-emerald-600 font-semibold">
+                    <div className="col-span-2 flex items-center justify-center gap-2 py-1.5 text-sm text-emerald-600 font-semibold">
                       <CheckCircle2 className="w-4 h-4" /> Venta liquidada al 100%
                     </div>
                   )}
                   <button onClick={() => imprimirTicket(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
                     className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
-                    <Printer className="w-4 h-4" /> Reimprimir ticket
+                    <Printer className="w-4 h-4" /> Ticket
                   </button>
                 </>
               )}
               <button onClick={() => descargarPDFDoc(detalle, ticketLogo, recetaMap[detalle.vendedor] || '')}
                 className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-200 text-zinc-600 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
-                <Printer className="w-4 h-4" /> Descargar PDF (hoja)
+                <Printer className="w-4 h-4" /> PDF (hoja)
               </button>
               {esAdmin && !detalle.id.startsWith('COT-') && !esCancelada(detalle) && (
                 <button onClick={abrirModificar}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-300 text-zinc-700 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
+                  className="col-span-2 w-full flex items-center justify-center gap-2 py-2.5 border border-zinc-300 text-zinc-700 rounded text-sm font-semibold hover:bg-zinc-100 transition-colors">
                   <Pencil className="w-4 h-4" /> Modificar venta
                 </button>
               )}
               {esAdmin && !esCancelada(detalle) && (
                 <button onClick={cancelarVenta}
-                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-400 hover:text-red-600 transition-colors">
+                  className={`${detalle.id.startsWith('COT-') ? 'col-span-2 ' : ''}w-full flex items-center justify-center gap-2 py-2 text-xs text-red-500 hover:text-red-700 border border-zinc-200 rounded transition-colors`}>
                   {detalle.id.startsWith('COT-') ? 'Borrar cotización' : 'Cancelar venta'}
                 </button>
               )}
               {esAdmin && !detalle.id.startsWith('COT-') && (
                 <button onClick={borrarVenta}
                   className="w-full flex items-center justify-center gap-2 py-2 text-xs text-red-600 hover:text-white hover:bg-red-600 border border-red-200 rounded transition-colors">
-                  <Trash2 className="w-3.5 h-3.5" /> Borrar venta (elimina todo rastro)
+                  <Trash2 className="w-3.5 h-3.5" /> Borrar venta
                 </button>
               )}
             </div>

@@ -2,6 +2,9 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.1.3 (22 oct 2026)
+- **Ventas en celular**: Nueva venta ya no se desborda (datos del cliente en 2 columnas, productos como tarjetas con cantidad, descuento y quitar; botones de Cotización/Venta a lo ancho). En el historial, el detalle de la venta sale como panel desde abajo con más espacio para los productos y botones compactos.
+
 ## v2.1.2 (22 oct 2026)
 - **Reportes · Otros saldos**: al darle clic se abre la lista de ventas con saldo que no están en laboratorio ni listas (cliente, folio, sucursal, fecha, artículos, saldo) con botón **Cobrar** que abre el abono. Marca en rojo las que ya se entregaron.
 
