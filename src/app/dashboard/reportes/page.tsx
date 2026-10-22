@@ -24,6 +24,12 @@ type Venta = {
   created_at: string
 }
 
+type OtroSaldo = {
+  id: string; folio: string | null; paciente_nombre: string | null; paciente_telefono: string | null
+  sucursal: string; total: number; saldo: number; created_at: string
+  items: string; labEstado: string | null
+}
+
 type OrdenLab = { estado: string; precio_cliente: number; fecha_promesa: string | null; venta_id: string | null }
 
 // ─────────────────────────────────────────────
@@ -158,6 +164,9 @@ function ReportesPage() {
   const [deudaListos, setDeudaListos] = useState(0)  // saldo pendiente de ventas con lentes listos
   const [deudaProceso, setDeudaProceso] = useState(0) // saldo de ventas con lentes aún en laboratorio
   const [porCobrarTotal, setPorCobrarTotal] = useState(0) // saldo pendiente TOTAL histórico (no del periodo)
+  const [otrosIds, setOtrosIds] = useState<string[]>([])    // ventas con saldo sin orden de lab activa
+  const [otrosAbierto, setOtrosAbierto] = useState(false)
+  const [otrosLista, setOtrosLista] = useState<OtroSaldo[] | null>(null)
   const [garantias,  setGarantias]  = useState(0)    // órdenes de garantía/reposición en el periodo
   const [cargando,   setCargando]   = useState(true)
   const [hoverIdx,   setHoverIdx]   = useState<number | null>(null)  // punto activo del gráfico de ritmo
@@ -321,6 +330,8 @@ function ReportesPage() {
     const sumSet = (ids: Set<string>) => [...ids].reduce((s, id) => s + (saldoPorVenta[id] ?? 0), 0)
     setDeudaListos(sumSet(idsListos))
     setDeudaProceso(sumSet(idsProceso))
+    setOtrosIds(deudaRows.filter(v => !idsListos.has(v.id) && !idsProceso.has(v.id)).map(v => v.id))
+    setOtrosLista(null)
 
     setCargando(false)
   }, [periodo, desde, hasta, sucursal])
@@ -333,6 +344,31 @@ function ReportesPage() {
   const tasaGarantia   = ventas.length > 0 ? (garantias / ventas.length) * 100 : 0
   // Por cobrar: lo que no cae ni en "listo" ni en "en lab" (p.ej. ventas a crédito sin orden de lab)
   const cobrarOtros    = Math.max(0, porCobrarTotal - deudaListos - deudaProceso)
+
+  // Detalle de "Otros saldos": se carga al abrir la ventana
+  async function abrirOtros() {
+    setOtrosAbierto(true)
+    if (otrosLista || otrosIds.length === 0) { if (!otrosLista) setOtrosLista([]); return }
+    const sb = createClient()
+    const [rv, rl] = await Promise.all([
+      sb.from('ventas')
+        .select('id, folio, paciente_nombre, paciente_telefono, sucursal, total, saldo, created_at, ventas_items(nombre)')
+        .in('id', otrosIds),
+      sb.from('ordenes_lab').select('venta_id, estado, created_at').in('venta_id', otrosIds).order('created_at', { ascending: false }),
+    ])
+    const labPorVenta: Record<string, string> = {}
+    for (const o of (rl.data ?? []) as { venta_id: string; estado: string }[]) {
+      if (!labPorVenta[o.venta_id]) labPorVenta[o.venta_id] = o.estado
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lista: OtroSaldo[] = ((rv.data ?? []) as any[]).map(v => ({
+      id: v.id, folio: v.folio, paciente_nombre: v.paciente_nombre, paciente_telefono: v.paciente_telefono,
+      sucursal: v.sucursal, total: Number(v.total) || 0, saldo: Number(v.saldo) || 0, created_at: v.created_at,
+      items: ((v.ventas_items ?? []) as { nombre: string }[]).map(i => i.nombre).filter(Boolean).join(', '),
+      labEstado: labPorVenta[v.id] ?? null,
+    })).sort((a, b) => a.created_at.localeCompare(b.created_at))
+    setOtrosLista(lista)
+  }
 
   const metaP   = metaPeriodo(periodo, metaMensual)
   const metaPct = metaP > 0 ? Math.min(Math.round((totalFacturado / metaP) * 100), 100) : 0
@@ -501,9 +537,10 @@ function ReportesPage() {
                       <span className="font-bold text-amber-700">{$$(deudaProceso)}</span>
                     </div>
                     {cobrarOtros > 0 && (
-                      <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                        <span>Otros saldos</span><span className="font-medium">{$$(cobrarOtros)}</span>
-                      </div>
+                      <button onClick={abrirOtros}
+                        className="w-full flex items-center justify-between text-[11px] text-zinc-400 hover:text-zinc-700">
+                        <span className="underline decoration-dotted underline-offset-2">Otros saldos</span><span className="font-medium">{$$(cobrarOtros)}</span>
+                      </button>
                     )}
                   </div>
                 </>
@@ -705,6 +742,57 @@ function ReportesPage() {
           </div>
 
         </>
+      )}
+
+      {/* ── Detalle de "Otros saldos": ventas con saldo sin orden de lab activa ── */}
+      {otrosAbierto && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setOtrosAbierto(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
+              <div>
+                <p className="text-sm font-bold text-zinc-800">Otros saldos por cobrar</p>
+                <p className="text-xs text-zinc-400">Ventas con saldo que no están en laboratorio ni listas para entregar · {sucursal}</p>
+              </div>
+              <button onClick={() => setOtrosAbierto(false)} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">✕</button>
+            </div>
+            <div className="overflow-y-auto">
+              {otrosLista === null ? (
+                <p className="text-sm text-zinc-400 text-center py-10">Cargando…</p>
+              ) : otrosLista.length === 0 ? (
+                <p className="text-sm text-zinc-400 text-center py-10">No hay otros saldos</p>
+              ) : otrosLista.map(v => {
+                const dias = Math.floor((Date.now() - new Date(v.created_at).getTime()) / 86400000)
+                return (
+                  <div key={v.id} className="flex items-start justify-between gap-3 px-5 py-3 border-b border-zinc-100">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-zinc-800 truncate">{v.paciente_nombre || 'Sin nombre'}</p>
+                      <p className="text-[11px] text-zinc-400">
+                        {v.folio ? `${v.folio} · ` : ''}{v.sucursal} · {fmtDia(v.created_at.slice(0, 10))} · hace {dias} {dias === 1 ? 'día' : 'días'}
+                        {v.paciente_telefono ? ` · ${v.paciente_telefono}` : ''}
+                      </p>
+                      {v.items && <p className="text-[11px] text-zinc-500 truncate">{v.items}</p>}
+                      {v.labEstado === 'entregado' && (
+                        <span className="inline-block mt-1 text-[10px] font-semibold text-rose-700 bg-rose-50 rounded px-1.5 py-0.5">Lentes ya entregados</span>
+                      )}
+                      {!v.labEstado && (
+                        <span className="inline-block mt-1 text-[10px] font-semibold text-zinc-500 bg-zinc-100 rounded px-1.5 py-0.5">Sin orden de laboratorio</span>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-rose-600">{$$(v.saldo)}</p>
+                      <p className="text-[11px] text-zinc-400">de {$$(v.total)}</p>
+                      <a href={`/dashboard/ventas?liquidar=${v.id}`} className="inline-block mt-1 text-[11px] font-semibold text-teal-700 hover:underline">Cobrar →</a>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-200">
+              <span className="text-sm font-semibold text-zinc-500">{otrosLista?.length ?? 0} ventas</span>
+              <span className="text-lg font-bold text-rose-600">{$$(cobrarOtros)}</span>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Desglose de "En caja" — saldo real por sucursal (solo admin) ── */}

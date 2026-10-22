@@ -2,6 +2,9 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.1.2 (22 oct 2026)
+- **Reportes · Otros saldos**: al darle clic se abre la lista de ventas con saldo que no están en laboratorio ni listas (cliente, folio, sucursal, fecha, artículos, saldo) con botón **Cobrar** que abre el abono. Marca en rojo las que ya se entregaron.
+
 ## v2.1.1 (6 oct 2026)
 - **Regla automática: un color se ve en la web solo si tiene fotos.** Al subirle foto a un color de un modelo publicado se hace visible solo; al publicar el modelo se muestran los colores con fotos; si le borras la última foto, se oculta solo.
 
