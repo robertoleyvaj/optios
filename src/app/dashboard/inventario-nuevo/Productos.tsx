@@ -8,12 +8,15 @@ import { Plus, Search, Loader2, X, Save, ArrowRight } from 'lucide-react'
 // Cada óptica arma el suyo. El costo solo lo ve el administrador.
 // ─────────────────────────────────────────────────────────────
 
+// Sucursales donde puede valer un paquete (se guarda en paquete.sucursales; sin dato = todas)
+const SUCS_PAQ = ['Baja Visión', '5 de Mayo', 'Plaza Laureles']
+
 type Opcion = { color: string; extra: number; micas: string[] }
 type Prod = {
   id: number; sku: string; nombre: string; marca: string | null; precio: number; costo: number | null; activo: boolean
   grupo: string; vision: string | null; control_stock: boolean | null; genera_lab: boolean | null
   opciones: Opcion[] | null; extra_mica: Record<string, number> | null
-  paquete: { mica: string | null; tratamientos: string[]; armazon: boolean } | null
+  paquete: { mica: string | null; tratamientos: string[]; armazon: boolean; sucursales?: string[] } | null
   padre: string | null; stock_baja: number | null; stock_mayo: number | null; stock_plaza: number | null; stock_bodega: number | null; stock_min: number | null
 }
 type LentePedido = { id: string; nombre: string; precio_publico: number; activo: boolean }
@@ -27,7 +30,7 @@ const UB = [
 ] as const
 const n = (v: unknown) => Number(v ?? 0) || 0
 const $ = (v: number) => '$' + Math.round(v).toLocaleString('es-MX')
-const nomMica = (p: Prod) => p.nombre.replace(/^mica\s+(monofocal|bifocal|progresivo)\s+/i, '')
+const nomMica = (p: Prod) => p.nombre.replace(/^mica\s+(monofocal|bifocal|progresivo|younger)\s+/i, '')
 const stockDe = (p: Prod) => UB.map(u => n(p[u.col]))
 const inp = 'mt-1 w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-white disabled:bg-zinc-50'
 const lbl = 'block text-[11px] font-semibold text-zinc-500'
@@ -123,7 +126,7 @@ export default function Catalogo({ seccion, esAdmin }: { seccion: Seccion; esAdm
         </div>
         {sub === 'mica' && <>
           {barra([{ label: 'Agregar mica', tipo: 'mica' }], null, 'Sin stock: todas se piden al laboratorio.')}
-          {(['Monofocal', 'Bifocal', 'Progresivo'] as const).map(v => {
+          {(['Monofocal', 'Bifocal', 'Progresivo', 'Younger'] as const).map(v => {
             const L = filtra(micas.filter(m => (m.vision ?? 'Monofocal') === v))
             if (!L.length) return null
             return (
@@ -166,6 +169,10 @@ export default function Catalogo({ seccion, esAdmin }: { seccion: Seccion; esAdm
                   {m ? <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 mr-1 mb-1">{m.vision} {nomMica(m)}</span> : <span className="text-[11px] text-amber-600">Sin mica</span>}
                   {ts.map(x => <span key={x.sku} className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 mr-1 mb-1">{x.nombre}</span>)}
                   {p.paquete?.armazon && <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700">+ armazón</span>}
+                  <div className="mt-1 flex flex-wrap gap-1">{SUCS_PAQ.map(sc => {
+                    const ok = !p.paquete?.sucursales || p.paquete.sucursales.includes(sc)
+                    return <span key={sc} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${ok ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-400 line-through'}`}>{sc}</span>
+                  })}</div>
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-zinc-400">{m ? $(sep) : '–'}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-semibold">{$(n(p.precio))}{m && sep > n(p.precio) && <div className="text-[11px] text-emerald-600 font-semibold">ahorra {$(sep - n(p.precio))}</div>}</td>
@@ -268,6 +275,7 @@ function Modal({ tipo, item, esAdmin, prods, onClose, onDone }: {
     min: String(n(p?.stock_min)),
     s: [0, 0, 0, 0],
     pMica: p?.paquete?.mica ?? '', pTrat: p?.paquete?.tratamientos ?? [], pArm: p?.paquete?.armazon ?? true,
+    pSucs: p?.paquete?.sucursales ?? [...SUCS_PAQ] as string[],
   })
   const [colores, setColores] = useState<Opcion[]>(p?.opciones ?? [])
   const [tieneColores, setTieneColores] = useState(!!p?.opciones?.length)
@@ -320,7 +328,8 @@ function Modal({ tipo, item, esAdmin, prods, onClose, onDone }: {
       })
       if (tipo === 'paquete') {
         if (!f.pMica) throw new Error('Elige la mica del paquete')
-        base.paquete = { mica: f.pMica, tratamientos: f.pTrat, armazon: f.pArm }
+        if (f.pSucs.length === 0) throw new Error('Elige al menos una sucursal donde vale el paquete')
+        base.paquete = { mica: f.pMica, tratamientos: f.pTrat, armazon: f.pArm, sucursales: SUCS_PAQ.filter(sc => f.pSucs.includes(sc)) }
       }
       if (tipo === 'servicio') base.genera_lab = f.lab
       if (tipo === 'consumible') Object.assign(base, { control_stock: f.control, stock_min: Number(f.min) || 0, marca: f.marca },
@@ -377,7 +386,7 @@ function Modal({ tipo, item, esAdmin, prods, onClose, onDone }: {
             {tipo.startsWith('traspaso') && <p className="col-span-2 text-[11px] text-zinc-400 flex items-center gap-1">Se mueve al momento <ArrowRight className="w-3 h-3" /> la otra óptica ya lo ve en su stock.</p>}
           </> : <>
             {tipo === 'mica' && <label className={lbl + ' col-span-2'}>Visión
-              <select value={f.vision} onChange={e => set('vision', e.target.value)} className={inp}><option>Monofocal</option><option>Bifocal</option><option>Progresivo</option></select></label>}
+              <select value={f.vision} onChange={e => set('vision', e.target.value)} className={inp}><option>Monofocal</option><option>Bifocal</option><option>Progresivo</option><option>Younger</option></select></label>}
             {tipo === 'lc' && <label className={lbl + ' col-span-2'}>Forma
               <select value={f.forma} onChange={e => set('forma', e.target.value)} className={inp}>
                 <option value="pedido">Sobre pedido (se vende y se pide al laboratorio)</option>
@@ -414,6 +423,15 @@ function Modal({ tipo, item, esAdmin, prods, onClose, onDone }: {
                     <input type="checkbox" checked={f.pTrat.includes(t.sku)} onChange={e => set('pTrat', e.target.checked ? [...f.pTrat, t.sku] : f.pTrat.filter(s => s !== t.sku))} /> {t.nombre} · {$(n(t.precio))}
                   </label>))}</div></div>
               <label className="col-span-2 flex items-center gap-2 text-sm border border-zinc-200 rounded-lg px-3 py-2.5"><input type="checkbox" checked={f.pArm} onChange={e => set('pArm', e.target.checked)} /> Incluye armazón</label>
+              <div className="col-span-2"><div className={lbl + ' mb-1.5'}>Válido en</div>
+                <div className="grid grid-cols-3 gap-2">{SUCS_PAQ.map(sc => {
+                  const on = f.pSucs.includes(sc)
+                  return <button type="button" key={sc} onClick={() => set('pSucs', on ? f.pSucs.filter(x => x !== sc) : [...f.pSucs, sc])}
+                    className={`text-xs font-semibold rounded-lg px-2 py-2.5 border transition-colors ${on ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-zinc-200 text-zinc-400 line-through'}`}>
+                    {on ? '✓ ' : ''}{sc}
+                  </button>
+                })}</div>
+                <p className="text-[11px] text-zinc-400 mt-1">Toca una sucursal para activarlo o desactivarlo ahí.</p></div>
               {pm && Number(f.precio) > 0 && <p className="col-span-2 text-xs">Por separado {$(sep)} · {sep > Number(f.precio) ? <span className="text-emerald-600 font-semibold">el cliente ahorra {$(sep - Number(f.precio))}</span> : <span className="text-red-500 font-semibold">cuesta más que por separado</span>}</p>}
             </>}
 

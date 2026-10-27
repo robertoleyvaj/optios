@@ -83,9 +83,9 @@ export async function POST(req: NextRequest) {
 
     let pref = PREFIJO[gr]
     let nombreFinal = nombre
-    const vision = gr === 'mica' ? (['Monofocal', 'Bifocal', 'Progresivo'].includes(String(b.vision)) ? String(b.vision) : 'Monofocal') : null
+    const vision = gr === 'mica' ? (['Monofocal', 'Bifocal', 'Progresivo', 'Younger'].includes(String(b.vision)) ? String(b.vision) : 'Monofocal') : null
     if (gr === 'mica') {
-      pref = vision === 'Bifocal' ? 'BIF' : vision === 'Progresivo' ? 'PRO' : 'MON'
+      pref = vision === 'Bifocal' ? 'BIF' : vision === 'Progresivo' ? 'PRO' : vision === 'Younger' ? 'YNG' : 'MON'
       // Se guarda como "Mica <visión> <nombre>" para que la orden de laboratorio la reconozca
       if (!/\bmica\b/i.test(nombreFinal)) nombreFinal = `Mica ${vision} ${nombreFinal}`
     }

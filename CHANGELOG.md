@@ -2,6 +2,12 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.1.5 (27 oct 2026)
+- **Micas Younger**: nueva visión "Younger" junto a Monofocal, Bifocal y Progresivo (SKU YNG-…). Se agrega desde Inventario → Productos → Micas y se comporta igual que las demás micas (orden de laboratorio, tratamientos, paquetes).
+
+## v2.1.4 (22 oct 2026)
+- **Paquetes por sucursal**: al editar un paquete eliges en qué ópticas es válido (Baja Visión, 5 de Mayo, Plaza Laureles). En la lista se ve en verde dónde aplica y tachado dónde no.
+
 ## v2.1.3 (22 oct 2026)
 - **Ventas en celular**: Nueva venta ya no se desborda (datos del cliente en 2 columnas, productos como tarjetas con cantidad, descuento y quitar; botones de Cotización/Venta a lo ancho). En el historial, el detalle de la venta sale como panel desde abajo con más espacio para los productos y botones compactos.
 
