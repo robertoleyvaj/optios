@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
       pref = vision === 'Bifocal' ? 'BIF' : vision === 'Progresivo' ? 'PRO' : vision === 'Younger' ? 'YNG' : 'MON'
       // Se guarda como "Mica <visión> <nombre>" para que la orden de laboratorio la reconozca
       if (!/\bmica\b/i.test(nombreFinal)) nombreFinal = `Mica ${vision} ${nombreFinal}`
+      nombreFinal = nombreFinal.toUpperCase()   // las micas van en mayúsculas, como el resto del catálogo
     }
     let padre: string | null = null
     if (gr === 'lc_grad') {

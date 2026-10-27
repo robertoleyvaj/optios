@@ -337,7 +337,7 @@ function Modal({ tipo, item, esAdmin, prods, onClose, onDone }: {
 
       if (item) {
         const body = lp ? { id: lp.id, tabla: 'lc_pedido', nombre: f.nombre, precio: Number(f.precio) || 0 } : { id: p!.id, ...base }
-        if (p?.grupo === 'mica') (body as Record<string, unknown>).nombre = `Mica ${f.vision} ${f.nombre}`
+        if (p?.grupo === 'mica') (body as Record<string, unknown>).nombre = `Mica ${f.vision} ${f.nombre}`.toUpperCase()
         await api('PATCH', body)
         onDone('Cambios guardados.')
       } else {

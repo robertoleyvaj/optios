@@ -2,6 +2,9 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.1.6 (27 oct 2026)
+- Las micas nuevas o editadas se guardan en MAYÚSCULAS, igual que el resto del catálogo.
+
 ## v2.1.5 (27 oct 2026)
 - **Micas Younger**: nueva visión "Younger" junto a Monofocal, Bifocal y Progresivo (SKU YNG-…). Se agrega desde Inventario → Productos → Micas y se comporta igual que las demás micas (orden de laboratorio, tratamientos, paquetes).
 
