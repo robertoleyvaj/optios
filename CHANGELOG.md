@@ -2,6 +2,10 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.2 (28 oct 2026)
+- **Código web (WEB-XXXXX)**: el cliente que aparta en gonmx.com recibe un código. En Nueva venta se escribe en el recuadro "Código web" y se aplica solo el precio web: armazones publicados en GON −60% y micas/filtros de la página −15% (Varilux, Kodak, Transitions, Crizal, Younger, LC, consumibles y servicios quedan a precio normal). Sirve para toda la compra, una vez, 30 días. No se junta con el cupón de ticket.
+- gonmx.com toma los precios de micas y filtros de OptiOS (−15%) automáticamente.
+
 ## v2.1.6 (27 oct 2026)
 - Las micas nuevas o editadas se guardan en MAYÚSCULAS, igual que el resto del catálogo.
 

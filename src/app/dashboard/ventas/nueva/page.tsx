@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { cuponTicketHtml, cuponTicketCss } from '@/lib/cupones'
+import { descuentoWebRenglon } from '@/lib/precio-web'
 
 // --- Catálogo GON ---
 type CatItem = {
@@ -109,7 +110,7 @@ const METODOS_LINEA = [
 
 type LineaPago = { metodo: string; moneda: 'MXN' | 'USD'; monto: string }
 
-type Item = { uid: string; id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number; par: number }
+type Item = { uid: string; id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number; par: number; descWeb?: boolean }
 type Cliente = { id: string; nombre: string; apellido: string; telefono: string }
 
 // Colores disponibles por filtro — Polarizado y Tinte siguen igual
@@ -218,9 +219,32 @@ export default function NuevaVentaPage() {
   const [cuponError, setCuponError] = useState('')
   const [validandoCupon, setValidandoCupon] = useState(false)
 
+  // ── Código web WEB-XXXXX (precio web de gonmx.com) ──
+  // Pone solo el % en cada renglón que aplica (armazones de GON −60%, micas y filtros de la página −15%).
+  // No se junta con el cupón de ticket: es uno u otro.
+  const [codigoWeb, setCodigoWeb] = useState<{ codigo: string; armazones: Record<string, number> } | null>(null)
+  const [codigoWebTxt, setCodigoWebTxt] = useState('')
+  const [codigoWebError, setCodigoWebError] = useState('')
+  const [validandoWeb, setValidandoWeb] = useState(false)
+
+  const validarCodigoWeb = async () => {
+    const code = codigoWebTxt.trim().toUpperCase()
+    if (!code) return
+    if (cuponAplicado) { setCodigoWebError('Ya hay un cupón aplicado: quítalo para usar el código web'); return }
+    setValidandoWeb(true); setCodigoWebError('')
+    try {
+      const j = await fetch(`/api/codigos-web?codigo=${encodeURIComponent(code)}`, { cache: 'no-store' }).then(r => r.json())
+      if (!j.ok) { setCodigoWebError(j.error || 'Código no encontrado'); return }
+      setCodigoWeb({ codigo: j.codigo, armazones: j.armazones || {} })
+      setCodigoWebTxt('')
+    } catch { setCodigoWebError('Error validando el código') }
+    finally { setValidandoWeb(false) }
+  }
+
   const validarCupon = async () => {
     const code = codigoCupon.trim().toUpperCase()
     if (!code) return
+    if (codigoWeb) { setCuponError('Ya hay un código web aplicado: es uno u otro'); return }
     setValidandoCupon(true)
     setCuponError('')
     try {
@@ -231,6 +255,21 @@ export default function NuevaVentaPage() {
     } catch { setCuponError('Error validando cupón') }
     finally { setValidandoCupon(false) }
   }
+
+  // Aplica / quita el descuento web en el carrito (también a lo que se agregue después)
+  useEffect(() => {
+    let cambio = false
+    const nuevo = carrito.map(i => {
+      if (codigoWeb) {
+        const pct = descuentoWebRenglon(i.sku, codigoWeb.armazones)
+        if (pct > 0 && !i.descWeb) { cambio = true; return { ...i, descuento: Math.max(i.descuento, pct), descWeb: true } }
+        return i
+      }
+      if (i.descWeb) { cambio = true; return { ...i, descuento: 0, descWeb: false } }
+      return i
+    })
+    if (cambio) setCarrito(nuevo)
+  }, [codigoWeb, carrito])
 
   const [busquedaProducto, setBusquedaProducto] = useState('')
   const [showBuscadorProducto, setShowBuscadorProducto] = useState(false)
@@ -672,6 +711,9 @@ export default function NuevaVentaPage() {
     setCuponAplicado(null)
     setCodigoCupon('')
     setCuponError('')
+    setCodigoWeb(null)
+    setCodigoWebTxt('')
+    setCodigoWebError('')
     setModoPago('liquidar')
     setLineasPago([{ metodo: 'efectivo', moneda: 'MXN', monto: '' }])
     setConfirmarSinAnticipo(false)
@@ -852,7 +894,7 @@ export default function NuevaVentaPage() {
           usuario_id:    usuarioId,
           moneda:       'MXN',   // la venta siempre vive en pesos
           tipo_cambio:  null,
-          cupon_codigo:    cuponAplicado?.codigo || null,
+          cupon_codigo:    cuponAplicado?.codigo || codigoWeb?.codigo || null,
           descuento_cupon: descuentoCupon || 0,
         })
         .select('id')
@@ -1081,6 +1123,14 @@ export default function NuevaVentaPage() {
         await fetch('/api/cupones', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accion: 'canjear', codigo: cuponAplicado.codigo, venta_id: ventaId, folio }),
+        }).catch(() => { /* no bloquear la venta */ })
+      }
+
+      // ── 5c. Marcar el código web como usado ──
+      if (!cotizacion && codigoWeb) {
+        await fetch('/api/codigos-web', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion: 'canjear', codigo: codigoWeb.codigo, folio, sucursal }),
         }).catch(() => { /* no bloquear la venta */ })
       }
 
@@ -2238,6 +2288,36 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
           >
             <Plus className="w-4 h-4" /> Producto libre
           </button>
+
+          {/* Código web WEB-XXXXX (precio web de gonmx.com) */}
+          {codigoWeb ? (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md border-2 border-emerald-400 bg-emerald-50">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-bold text-emerald-800 font-mono">{codigoWeb.codigo}</span>
+              <span className="text-xs text-emerald-700">precio web aplicado</span>
+              <button onClick={() => setCodigoWeb(null)} className="ml-1 text-emerald-500 hover:text-red-500" aria-label="Quitar código web">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border-2 border-[#0D9488] bg-[#0D9488]/5">
+                <span className="text-[11px] font-bold text-[#0D9488] uppercase tracking-wide pl-1">Código web</span>
+                <input
+                  value={codigoWebTxt}
+                  onChange={e => { setCodigoWebTxt(e.target.value.toUpperCase()); setCodigoWebError('') }}
+                  onKeyDown={e => e.key === 'Enter' && validarCodigoWeb()}
+                  placeholder="WEB-XXXXX"
+                  className="w-28 text-sm font-mono bg-white border border-zinc-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#0D9488]"
+                />
+                <button onClick={validarCodigoWeb} disabled={!codigoWebTxt.trim() || validandoWeb}
+                  className="text-xs font-bold text-white bg-[#0D9488] rounded px-2.5 py-1.5 disabled:opacity-40">
+                  {validandoWeb ? '...' : 'Aplicar'}
+                </button>
+              </div>
+              {codigoWebError && <p className="text-[11px] text-red-500 mt-1">{codigoWebError}</p>}
+            </div>
+          )}
 
           {/* Toggle moneda */}
           <div className="flex items-center gap-1.5 md:ml-2 md:pl-3 md:border-l border-zinc-200">
