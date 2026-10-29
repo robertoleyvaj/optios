@@ -25,6 +25,7 @@ type Configuracion = {
   filtros_colores?: Record<string, { id: string; es: string; en: string }> | null
   // GON (pago en línea): cómo pagó y dónde recoge
   pago?: PagoGon | null; armazon_ref?: string | null; telefono?: string | null
+  falta_examen?: boolean   // pagó sin graduación: primero el examen, luego se manda a hacer
 } | null
 type PagoGon = { modo: 'apartar' | 'anticipo' | 'liquidar'; total: number; pagado: number; saldo: number; sucursal: string; apartado_vence?: string | null }
 const SUC_GON: Record<string, string> = { baja: 'Baja Visión', mayo: '5 de Mayo', plaza: 'Plaza Laureles' }
@@ -253,6 +254,7 @@ function TiendaPage() {
             <span className="text-zinc-700 truncate">{nombrePedido(p)}</span>
             <span>
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ESTADO_STYLE[p.estado] ?? 'bg-zinc-100 text-zinc-500'}`}>{p.estado}</span>
+              {p.configuracion?.falta_examen && <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">Falta examen</span>}
               {p.configuracion?.pago && (
                 <span className={`block text-[10px] mt-0.5 ${apartadoVencido(p) ? 'text-red-600 font-semibold' : 'text-zinc-400'}`}>
                   {apartadoVencido(p) ? 'Apartado vencido' : `${MODO_GON[p.configuracion.pago.modo] ?? ''}${p.configuracion.pago.saldo > 0 ? ` · debe ${$$(p.configuracion.pago.saldo)}` : ''}`} · {SUC_GON[p.configuracion.pago.sucursal] ?? ''}
@@ -627,6 +629,13 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
               {receta?.notas && <p><span className="text-zinc-400">Notas receta:</span> <span className="text-zinc-700">{receta.notas}</span></p>}
             </div>
           </div>
+
+          {pedido.configuracion?.falta_examen && (
+            <div className="rounded-lg p-3 text-sm bg-orange-50 ring-1 ring-orange-200 text-orange-800">
+              <p className="font-semibold">Falta examen de la vista</p>
+              <p className="text-xs mt-0.5">Pagó sin graduación. Agenda su examen y no lo mandes a hacer hasta tenerla. Si su graduación necesita otro material, avísale la diferencia antes.</p>
+            </div>
+          )}
 
           {/* Pago en línea (GON) */}
           {pedido.configuracion?.pago && (() => {

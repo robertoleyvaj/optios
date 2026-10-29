@@ -2,6 +2,9 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.3.1 (29 oct 2026)
+- Tienda en línea · GON: etiqueta naranja **"Falta examen"** cuando el cliente pagó sin graduación (no mandarlo a hacer hasta tener su examen).
+
 ## v2.3 (29 oct 2026)
 - **Tienda en línea · GON**: pedidos pagados en gonmx.com con Apartar / Anticipo / Liquidar. Se ve cuánto pagó, cuánto debe, en qué sucursal recoge y hasta cuándo vale el apartado (en rojo si venció, con su saldo a favor). Estados de GON: apartado, pendiente, en proceso, listo, entregado; "listo" le manda correo al cliente para que pase a recoger.
 
