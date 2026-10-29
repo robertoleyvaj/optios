@@ -14,6 +14,7 @@ const TIPO_POR_ESTADO: Record<string, string> = {
   'en proceso': 'fabricacion',
   'enviado': 'enviado',
   'entregado': 'entregado',
+  'listo': 'listo',          // GON: listos para recoger en sucursal
 }
 
 // Dispara el correo de actualización de pedido llamando al /api/emails de la web.

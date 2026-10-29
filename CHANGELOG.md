@@ -2,6 +2,9 @@
 
 Formato mayor.menor.corrección. El código junto a la versión (ej. `· a19bc32`) es el deploy de Vercel.
 
+## v2.3 (29 oct 2026)
+- **Tienda en línea · GON**: pedidos pagados en gonmx.com con Apartar / Anticipo / Liquidar. Se ve cuánto pagó, cuánto debe, en qué sucursal recoge y hasta cuándo vale el apartado (en rojo si venció, con su saldo a favor). Estados de GON: apartado, pendiente, en proceso, listo, entregado; "listo" le manda correo al cliente para que pase a recoger.
+
 ## v2.2 (28 oct 2026)
 - **Código web (WEB-XXXXX)**: el cliente que aparta en gonmx.com recibe un código. En Nueva venta se escribe en el recuadro "Código web" y se aplica solo el precio web: armazones publicados en GON −60% y micas/filtros de la página −15% (Varilux, Kodak, Transitions, Crizal, Younger, LC, consumibles y servicios quedan a precio normal). Sirve para toda la compra, una vez, 30 días. No se junta con el cupón de ticket.
 - gonmx.com toma los precios de micas y filtros de OptiOS (−15%) automáticamente.

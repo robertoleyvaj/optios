@@ -23,7 +23,17 @@ type Configuracion = {
   // Desde oct 2026: color del armazón elegido en la web y color de cada filtro
   color_armazon?: string | null; color_sku?: string | null; color_id?: number | null
   filtros_colores?: Record<string, { id: string; es: string; en: string }> | null
+  // GON (pago en línea): cómo pagó y dónde recoge
+  pago?: PagoGon | null; armazon_ref?: string | null; telefono?: string | null
 } | null
+type PagoGon = { modo: 'apartar' | 'anticipo' | 'liquidar'; total: number; pagado: number; saldo: number; sucursal: string; apartado_vence?: string | null }
+const SUC_GON: Record<string, string> = { baja: 'Baja Visión', mayo: '5 de Mayo', plaza: 'Plaza Laureles' }
+const MODO_GON: Record<string, string> = { apartar: 'Apartado', anticipo: 'Anticipo', liquidar: 'Liquidado' }
+// Apartado vencido (día 10 sin completar) → saldo a favor por 30 días
+const hoyTJ = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Tijuana' })
+const masDias = (ymd: string, d: number) => { const x = new Date(ymd + 'T12:00:00'); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10) }
+const apartadoVencido = (p: { estado: string; configuracion: Configuracion }) =>
+  p.estado === 'apartado' && !!p.configuracion?.pago?.apartado_vence && hoyTJ() > p.configuracion.pago.apartado_vence
 const FILTRO_ES: Record<string, string> = { foto: 'Fotocromático', pol: 'Polarizado', tinte: 'Tinte' }
 type Pedido = {
   id: number
@@ -55,8 +65,13 @@ type PedidoLite = { id: number; precio_venta: number | null; estado: string; pla
 type ClienteRow = { id: number; nombre?: string; email?: string; telefono?: string; ciudad?: string; estado?: string; created_at?: string; pedidos?: PedidoLite[] }
 
 const ESTADOS = ['pendiente', 'en proceso', 'enviado', 'entregado']
+// GON: se recoge en sucursal (no hay envío) y puede venir apartado
+const ESTADOS_GON = ['apartado', 'pendiente', 'en proceso', 'listo', 'entregado']
+const estadosDe = (tienda: string) => tienda === 'gon' ? ESTADOS_GON : ESTADOS
 const ESTADO_STYLE: Record<string, string> = {
   'pendiente': 'bg-amber-50 text-amber-700',
+  'apartado': 'bg-rose-50 text-rose-700',
+  'listo': 'bg-teal-50 text-teal-700',
   'en proceso': 'bg-blue-50 text-blue-700',
   'enviado': 'bg-violet-50 text-violet-700',
   'entregado': 'bg-emerald-50 text-emerald-700',
@@ -236,7 +251,14 @@ function TiendaPage() {
             className="w-full text-left grid grid-cols-[1.3fr_1.6fr_1fr_0.9fr_1fr] gap-2 px-4 py-3 border-t border-zinc-50 text-sm items-center hover:bg-zinc-50 transition-colors">
             <span className="font-mono text-xs text-zinc-500">{folioDe(p.id, tienda)}</span>
             <span className="text-zinc-700 truncate">{nombrePedido(p)}</span>
-            <span><span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ESTADO_STYLE[p.estado] ?? 'bg-zinc-100 text-zinc-500'}`}>{p.estado}</span></span>
+            <span>
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ESTADO_STYLE[p.estado] ?? 'bg-zinc-100 text-zinc-500'}`}>{p.estado}</span>
+              {p.configuracion?.pago && (
+                <span className={`block text-[10px] mt-0.5 ${apartadoVencido(p) ? 'text-red-600 font-semibold' : 'text-zinc-400'}`}>
+                  {apartadoVencido(p) ? 'Apartado vencido' : `${MODO_GON[p.configuracion.pago.modo] ?? ''}${p.configuracion.pago.saldo > 0 ? ` · debe ${$$(p.configuracion.pago.saldo)}` : ''}`} · {SUC_GON[p.configuracion.pago.sucursal] ?? ''}
+                </span>
+              )}
+            </span>
             <span className="text-right font-semibold text-zinc-800">{$$(Number(p.precio_venta || 0))}</span>
             <span className="text-right text-zinc-400 text-xs">{fFecha(p.created_at)}</span>
           </button>
@@ -488,7 +510,7 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
     } finally { setFotoCargando(false) }
   }
 
-  const ESTADOS_CORREO = ['en proceso', 'enviado', 'entregado']
+  const ESTADOS_CORREO = tienda === 'gon' ? ['en proceso', 'listo', 'entregado'] : ['en proceso', 'enviado', 'entregado']
   const cambioEstado = estado !== pedido.estado
   const notificara = cambioEstado && ESTADOS_CORREO.includes(estado)
 
@@ -606,11 +628,34 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
             </div>
           </div>
 
+          {/* Pago en línea (GON) */}
+          {pedido.configuracion?.pago && (() => {
+            const pg = pedido.configuracion!.pago!
+            const vencido = apartadoVencido(pedido)
+            return (
+              <div className={`rounded-lg p-3 text-sm ${vencido ? 'bg-red-50 ring-1 ring-red-200' : 'bg-zinc-50'}`}>
+                <p className="text-[11px] font-bold text-zinc-500 uppercase mb-2">Pago en línea · {MODO_GON[pg.modo]}</p>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div><p className="text-[10px] text-zinc-400">Total compra</p><p className="font-semibold">{$$(pg.total)}</p></div>
+                  <div><p className="text-[10px] text-zinc-400">Pagó en línea</p><p className="font-semibold text-emerald-700">{$$(pg.pagado)}</p></div>
+                  <div><p className="text-[10px] text-zinc-400">Debe</p><p className="font-semibold text-rose-700">{$$(pg.saldo)}</p></div>
+                </div>
+                <p className="text-xs text-zinc-600 mt-2">Recoge en <b>{SUC_GON[pg.sucursal] ?? pg.sucursal}</b>{pedido.configuracion?.telefono ? ` · Tel. ${pedido.configuracion.telefono}` : ''}</p>
+                {pg.modo === 'apartar' && pg.apartado_vence && (
+                  vencido
+                    ? <p className="text-xs text-red-700 font-semibold mt-1">Apartado vencido el {pg.apartado_vence}. El armazón regresa a venta; tiene {$$(pg.pagado)} de saldo a favor hasta el {masDias(pg.apartado_vence, 30)}.</p>
+                    : <p className="text-xs text-zinc-600 mt-1">Apartado: tiene hasta el <b>{pg.apartado_vence}</b> para completar su anticipo (35% o más). Al completarlo, cámbialo a <b>pendiente</b> o <b>en proceso</b>.</p>
+                )}
+                <p className="text-[11px] text-zinc-400 mt-1">Es el total de toda la compra (si llevó varios pares, se repite en cada uno).</p>
+              </div>
+            )
+          })()}
+
           {/* Estado */}
           <div>
             <p className="text-[11px] font-bold text-zinc-500 uppercase mb-2">Estado del pedido</p>
             <div className="flex flex-wrap gap-2">
-              {ESTADOS.map(e => (
+              {estadosDe(tienda).map(e => (
                 <button key={e} onClick={() => setEstado(e)}
                   className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${estado === e ? `${ESTADO_STYLE[e]} border-transparent` : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50'}`}>
                   {e}
@@ -622,8 +667,8 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
             )}
           </div>
 
-          {/* Envío */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Envío (solo Verly; GON se recoge en sucursal) */}
+          {tienda !== 'gon' && <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-zinc-500 mb-1 flex items-center gap-1"><Truck className="w-3 h-3" /> Paquetería</label>
               <input value={paqueteria} onChange={e => setPaqueteria(e.target.value)} placeholder="Estafeta, DHL…"
@@ -634,7 +679,7 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
               <input value={tracking} onChange={e => setTracking(e.target.value)} placeholder="Tracking"
                 className="w-full border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
             </div>
-          </div>
+          </div>}
 
           <div>
             <label className="block text-[11px] font-semibold text-zinc-500 mb-1">Notas internas</label>
