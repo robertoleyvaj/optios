@@ -659,6 +659,16 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
                       : <p className="text-xs text-zinc-600 mt-1">Apartado: tiene hasta el <b>{pg.apartado_vence}</b> para completar su anticipo (35% o más). Al completarlo, cámbialo a <b>pendiente</b> o <b>en proceso</b>.</p>
                 )}
                 <p className="text-[11px] text-zinc-400 mt-1">Es el total de toda la compra (si llevó varios pares, se repite en cada uno).</p>
+                <button type="button" className="mt-2 text-xs font-semibold text-sky-700 hover:underline"
+                  onClick={async () => {
+                    if (!confirm('¿Reenviar el correo de compra al cliente (y el aviso para ti)?')) return
+                    const r = await fetch('/api/ecomm/pedido-notificar', {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: pedido.id, tienda: 'gon', reenviar_compra: true }),
+                    })
+                    const j = await r.json().catch(() => ({ ok: false }))
+                    alert(j.ok ? 'Correo reenviado ✅' : 'No salió: ' + (j.error || 'error'))
+                  }}>✉️ Reenviar correo de compra</button>
               </div>
             )
           })()}

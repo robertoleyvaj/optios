@@ -22,11 +22,12 @@ const TIPO_POR_ESTADO: Record<string, string> = {
 export async function POST(req: NextRequest) {
   const g = await requireRol(ADMIN); if (!g.ok) return g.res
   try {
-    const { id, estado, tienda, tracking, paqueteria } = await req.json() as {
-      id?: number; estado?: string; tienda?: string; tracking?: string; paqueteria?: string
+    const { id, estado, tienda, tracking, paqueteria, reenviar_compra } = await req.json() as {
+      id?: number; estado?: string; tienda?: string; tracking?: string; paqueteria?: string; reenviar_compra?: boolean
     }
-    if (!id || !estado) return NextResponse.json({ ok: false, error: 'Faltan datos' }, { status: 400 })
-    const tipo = TIPO_POR_ESTADO[estado]
+    if (!id || (!estado && !reenviar_compra)) return NextResponse.json({ ok: false, error: 'Faltan datos' }, { status: 400 })
+    // GON: reenviar el correo de compra (y el aviso interno)
+    const tipo = reenviar_compra ? 'compra' : TIPO_POR_ESTADO[estado!]
     if (!tipo) return NextResponse.json({ ok: true, sinCorreo: true }) // estado sin correo (ej. pendiente)
 
     const base = SITIO[tienda === 'gon' ? 'gon' : 'verly']
