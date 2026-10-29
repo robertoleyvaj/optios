@@ -25,6 +25,7 @@ type Configuracion = {
   filtros_colores?: Record<string, { id: string; es: string; en: string }> | null
   // GON (pago en línea): cómo pagó y dónde recoge
   pago?: PagoGon | null; armazon_ref?: string | null; telefono?: string | null
+  solo_armazon?: boolean
   falta_examen?: boolean   // pagó sin graduación: primero el examen, luego se manda a hacer
 } | null
 type PagoGon = { modo: 'apartar' | 'anticipo' | 'liquidar'; total: number; pagado: number; saldo: number; sucursal: string; apartado_vence?: string | null }
@@ -653,7 +654,9 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
                 {pg.modo === 'apartar' && pg.apartado_vence && (
                   vencido
                     ? <p className="text-xs text-red-700 font-semibold mt-1">Apartado vencido el {pg.apartado_vence}. El armazón regresa a venta; tiene {$$(pg.pagado)} de saldo a favor hasta el {masDias(pg.apartado_vence, 30)}.</p>
-                    : <p className="text-xs text-zinc-600 mt-1">Apartado: tiene hasta el <b>{pg.apartado_vence}</b> para completar su anticipo (35% o más). Al completarlo, cámbialo a <b>pendiente</b> o <b>en proceso</b>.</p>
+                    : pedido.configuracion?.solo_armazon
+                      ? <p className="text-xs text-zinc-600 mt-1">Apartado (solo armazón): guárdale el armazón; tiene hasta el <b>{pg.apartado_vence}</b> para recogerlo y pagar el resto.</p>
+                      : <p className="text-xs text-zinc-600 mt-1">Apartado: tiene hasta el <b>{pg.apartado_vence}</b> para completar su anticipo (35% o más). Al completarlo, cámbialo a <b>pendiente</b> o <b>en proceso</b>.</p>
                 )}
                 <p className="text-[11px] text-zinc-400 mt-1">Es el total de toda la compra (si llevó varios pares, se repite en cada uno).</p>
               </div>
