@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign, Briefcase, Palmtree, Store, Ticket, Globe,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Star, X, BarChart3, DollarSign, Briefcase, Palmtree, Store, Ticket, Globe,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -61,12 +61,12 @@ const MENU_CORE: MenuItem[] = [
       { href: '/dashboard/ventas',       label: 'Historial',   icon: Clock },
     ],
   },
-  { href: '/dashboard/pedidos-linea', label: 'Pedidos en línea', icon: Globe,     key: 'pedidos-linea' },
   { href: '/dashboard/agenda',      label: 'Agenda',      icon: CalendarDays,    key: 'agenda' },
   { href: '/dashboard/expedientes', label: 'Expedientes', icon: FolderOpen,      key: 'expedientes' },
   { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical,    key: 'laboratorio' },
   { href: '/dashboard/caja',          label: 'Caja',          icon: Wallet,          key: 'caja' },
-  { href: '/dashboard/inbox',         label: 'Inbox',         icon: Mail,            key: 'inbox' },
+  { href: '/dashboard/pedidos-linea', label: 'Pedidos en línea', icon: Globe,      key: 'pedidos-linea' },
+  // Inbox oculto (no se usaba); la página sigue existiendo en /dashboard/inbox
   { type: 'sep', label: 'Mi espacio', key: '_sep_mi' },
   { href: '/dashboard/mi-desempeno',  label: 'Mi desempeño',  icon: Star,            key: 'mi-desempeno' },
   { href: '/dashboard/checador',      label: 'Checador',      icon: Clock,           key: 'checador' },
@@ -103,7 +103,6 @@ const MENU_GESTION: MenuItem[] = [
 
 const MENU_REPARTIDOR: MenuItem[] = [
   { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical, key: 'laboratorio' },
-  { href: '/dashboard/inbox',       label: 'Inbox',       icon: Mail,         key: 'inbox' },
   { href: '/dashboard/checador',    label: 'Checador',    icon: Clock,        key: 'checador' },
   { href: '/dashboard/vacaciones',  label: 'Vacaciones',  icon: Palmtree,     key: 'vacaciones' },
 ]
