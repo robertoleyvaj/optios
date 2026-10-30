@@ -26,6 +26,8 @@ type Configuracion = {
   // GON (pago en línea): cómo pagó y dónde recoge
   pago?: PagoGon | null; armazon_ref?: string | null; telefono?: string | null
   solo_armazon?: boolean
+  // Seguimiento de la sucursal (Pedidos en línea)
+  linea?: { contactado_at?: string; contactado_por?: string; liberado_at?: string; saldo_vence?: string; venta?: { folio: string; por: string } } | null
   falta_examen?: boolean   // pagó sin graduación: primero el examen, luego se manda a hacer
 } | null
 type PagoGon = { modo: 'apartar' | 'anticipo' | 'liquidar'; total: number; pagado: number; saldo: number; sucursal: string; apartado_vence?: string | null }
@@ -659,6 +661,13 @@ function DetallePedido({ pedido, tienda, onClose, onSaved, onDeleted }: { pedido
                       : <p className="text-xs text-zinc-600 mt-1">Apartado: tiene hasta el <b>{pg.apartado_vence}</b> para completar su anticipo (35% o más). Al completarlo, cámbialo a <b>pendiente</b> o <b>en proceso</b>.</p>
                 )}
                 <p className="text-[11px] text-zinc-400 mt-1">Es el total de toda la compra (si llevó varios pares, se repite en cada uno).</p>
+                {pedido.configuracion?.linea?.venta
+                  ? <p className="text-xs text-emerald-700 font-semibold mt-1">🌐 Pasado a venta {pedido.configuracion.linea.venta.folio} por {pedido.configuracion.linea.venta.por}</p>
+                  : pedido.configuracion?.linea?.liberado_at
+                    ? <p className="text-xs text-violet-700 font-semibold mt-1">Armazón liberado · saldo a favor hasta {pedido.configuracion.linea.saldo_vence}</p>
+                    : pedido.configuracion?.linea?.contactado_at
+                      ? <p className="text-xs text-sky-700 mt-1">Contactado por {pedido.configuracion.linea.contactado_por}</p>
+                      : <p className="text-xs text-amber-700 mt-1">La sucursal aún no lo atiende</p>}
                 <button type="button" className="mt-2 text-xs font-semibold text-sky-700 hover:underline"
                   onClick={async () => {
                     if (!confirm('¿Reenviar el correo de compra al cliente (y el aviso para ti)?')) return

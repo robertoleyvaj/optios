@@ -110,7 +110,7 @@ const METODOS_LINEA = [
 
 type LineaPago = { metodo: string; moneda: 'MXN' | 'USD'; monto: string }
 
-type Item = { uid: string; id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number; par: number; descWeb?: boolean }
+type Item = { uid: string; id: number; nombre: string; precio: number; cantidad: number; sku: string; stock: number; descuento: number; par: number; descWeb?: boolean; apartadoWeb?: boolean }
 type Cliente = { id: string; nombre: string; apellido: string; telefono: string }
 
 // Colores disponibles por filtro — Polarizado y Tinte siguen igual
@@ -226,6 +226,17 @@ export default function NuevaVentaPage() {
   const [codigoWebTxt, setCodigoWebTxt] = useState('')
   const [codigoWebError, setCodigoWebError] = useState('')
   const [validandoWeb, setValidandoWeb] = useState(false)
+
+  // ── Pedido en línea de gonmx.com que se está pasando a venta (?pedido_web=ID) ──
+  // Lo pagado en línea entra como abono "Pago en línea" (no es efectivo de la caja) y el
+  // armazón ya viene apartado del inventario (no se descuenta otra vez).
+  const [pedidoWeb, setPedidoWeb] = useState<{ id: number; ids: number[]; codigo: string; pagado: number; avisos: string[] } | null>(null)
+  const [recetaWeb, setRecetaWeb] = useState<{
+    od_esfera: string; od_cilindro: string; od_eje: string; od_add: string
+    oi_esfera: string; oi_cilindro: string; oi_eje: string; oi_add: string
+    dp_od: string; dp_oi: string
+  } | null>(null)
+  const abonoWeb = pedidoWeb?.pagado ?? 0
 
   const validarCodigoWeb = async () => {
     const code = codigoWebTxt.trim().toUpperCase()
@@ -568,6 +579,52 @@ export default function NuevaVentaPage() {
       })
   }, []) // eslint-disable-line
 
+  // Pasar a venta un pedido en línea de gonmx.com: precarga armazón, micas y filtros con el
+  // descuento web, el abono "Pago en línea" y, si es paciente nuevo, sus datos de la página.
+  useEffect(() => {
+    const pid = Number(searchParams.get('pedido_web') || 0)
+    if (!pid) return
+    const conPaciente = !!(searchParams.get('pacienteId') || searchParams.get('paciente_id'))
+    fetch(`/api/ecomm/pedidos-linea?id=${pid}`, { cache: 'no-store' }).then(r => r.json()).then(j => {
+      if (!j.ok || !j.prefill) { setErrorGuardado(j.error || 'No se pudo cargar el pedido en línea'); return }
+      const pf = j.prefill as {
+        codigo: string; ids: number[]; pagado: number; avisos: string[]
+        cliente: { nombre: string; email: string; telefono: string }
+        items: { par: number; sku: string; nombre: string; precio: number; descuento: number; apartado: boolean }[]
+        armazonesWeb: Record<string, number>
+        receta: { od_esfera: string; od_cilindro: string; od_eje: string; od_add: string; oi_esfera: string; oi_cilindro: string; oi_eje: string; oi_add: string; dp: string } | null
+      }
+      const yaVendido = (j.pedidos as { configuracion?: { linea?: { venta?: { folio: string } } } }[])?.[0]?.configuracion?.linea?.venta
+      if (yaVendido) { setErrorGuardado(`Este pedido ya se pasó a venta (${yaVendido.folio}).`); return }
+      setPedidoWeb({ id: pid, ids: pf.ids, codigo: pf.codigo, pagado: pf.pagado, avisos: pf.avisos ?? [] })
+      // Mismo descuento que el código WEB (también para lo que se agregue después)
+      setCodigoWeb({ codigo: pf.codigo, armazones: pf.armazonesWeb ?? {} })
+      const items: Item[] = pf.items.map((it, idx) => ({
+        uid: `web-${idx}-${Date.now()}`, id: -(9000 + idx), nombre: it.nombre, precio: it.precio, cantidad: 1,
+        sku: it.sku, stock: 999, descuento: it.descuento, par: it.par, descWeb: it.descuento > 0, apartadoWeb: it.apartado,
+      }))
+      if (items.length > 0) setCarrito(items)
+      const pares = Math.max(1, ...pf.items.map(i => i.par))
+      if (pares > 1) setNumPares(pares)
+      if (!conPaciente && pf.cliente.nombre) {
+        const partes = pf.cliente.nombre.trim().split(/\s+/)
+        setClienteNombre(partes[0] || '')
+        setClienteApellido(partes.slice(1).join(' '))
+        setClienteTelefono(pf.cliente.telefono || '')
+      }
+      if (pf.receta) {
+        const r = pf.receta
+        setRecetaWeb({ od_esfera: r.od_esfera, od_cilindro: r.od_cilindro, od_eje: r.od_eje, od_add: r.od_add,
+          oi_esfera: r.oi_esfera, oi_cilindro: r.oi_cilindro, oi_eje: r.oi_eje, oi_add: r.oi_add, dp_od: r.dp, dp_oi: '' })
+      }
+    }).catch(() => setErrorGuardado('No se pudo cargar el pedido en línea'))
+  }, []) // eslint-disable-line
+
+  // La graduación que dio en la página es la de estos lentes: manda sobre la del expediente
+  useEffect(() => {
+    if (recetaWeb && recetaPaciente !== recetaWeb) setRecetaPaciente(recetaWeb)
+  }, [recetaWeb, recetaPaciente])
+
   // Búsqueda de clientes en Supabase
   useEffect(() => {
     if (!showClienteDropdown) return
@@ -714,6 +771,8 @@ export default function NuevaVentaPage() {
     setCodigoWeb(null)
     setCodigoWebTxt('')
     setCodigoWebError('')
+    setPedidoWeb(null)
+    setRecetaWeb(null)
     setModoPago('liquidar')
     setLineasPago([{ metodo: 'efectivo', moneda: 'MXN', monto: '' }])
     setConfirmarSinAnticipo(false)
@@ -732,7 +791,7 @@ export default function NuevaVentaPage() {
   // El anticipo/recibido SALE de las líneas — no hay campo aparte.
   const lineaEnPesos = (l: LineaPago) =>
     l.moneda === 'USD' ? Number(l.monto || 0) * (tipoCambio || 0) : Number(l.monto || 0)
-  const recibidoRaw = Math.round(lineasPago.reduce((s, l) => s + lineaEnPesos(l), 0) * 100) / 100
+  const recibidoRaw = Math.round((lineasPago.reduce((s, l) => s + lineaEnPesos(l), 0) + abonoWeb) * 100) / 100
   const usaDolares = lineasPago.some(l => l.moneda === 'USD')
   // Tolerancia de redondeo: al cobrar en dólares enteros, la conversión casi nunca da
   // exacto. Aceptamos hasta ~1 dólar de diferencia (el TC efectivo absorbe el redondeo).
@@ -743,7 +802,7 @@ export default function NuevaVentaPage() {
   const recibido = (modoPago === 'liquidar' && cubreTotal) ? total : recibidoRaw
   const sobrepago = recibidoRaw - total > tolerancia
   const saldoCalc = Math.round((total - recibido) * 100) / 100
-  const metodosUsados = [...new Set(lineasPago.filter(l => Number(l.monto) > 0).map(l => l.metodo))]
+  const metodosUsados = [...new Set([...(abonoWeb > 0 ? ['en_linea'] : []), ...lineasPago.filter(l => Number(l.monto) > 0).map(l => l.metodo)])]
   const metodoVenta = metodosUsados.length === 0 ? 'efectivo'
     : metodosUsados.length === 1 ? metodosUsados[0] : 'mixto'
   // Válido para guardar: en liquidar debe cubrir el total (dentro de la tolerancia).
@@ -758,16 +817,16 @@ export default function NuevaVentaPage() {
     setLineasPago(prev => {
       if (prev.length === 1) {
         if (prev[0].moneda === 'MXN') {
-          const t = String(total)
+          const t = String(Math.max(0, Math.round((total - abonoWeb) * 100) / 100))
           if (prev[0].monto !== t) return [{ ...prev[0], monto: t }]
         } else if (prev[0].moneda === 'USD' && tipoCambio) {
-          const t = String(Math.round(total / tipoCambio))  // dólar entero más cercano
+          const t = String(Math.round(Math.max(0, total - abonoWeb) / tipoCambio))  // dólar entero más cercano
           if (prev[0].monto !== t) return [{ ...prev[0], monto: t }]
         }
       }
       return prev
     })
-  }, [total, modoPago, tipoCambio, lineaUnicaMoneda])
+  }, [total, modoPago, tipoCambio, lineaUnicaMoneda, abonoWeb])
 
   // Si alguna línea es USD y aún no hay tipo de cambio, jalarlo
   useEffect(() => {
@@ -896,6 +955,7 @@ export default function NuevaVentaPage() {
           tipo_cambio:  null,
           cupon_codigo:    cuponAplicado?.codigo || codigoWeb?.codigo || null,
           descuento_cupon: descuentoCupon || 0,
+          ...(pedidoWeb && !cotizacion ? { origen: 'web', pedido_web: pedidoWeb.codigo } : {}),
         })
         .select('id')
         .single()
@@ -924,7 +984,7 @@ export default function NuevaVentaPage() {
       //     Solo en ventas reales (no cotizaciones). Se descuenta al momento de vender.
       if (!cotizacion) {
         const armzItems = carrito
-          .filter(i => /^(VRL|ARMZ)-/i.test(i.sku || ''))
+          .filter(i => /^(VRL|ARMZ)-/i.test(i.sku || '') && !i.apartadoWeb)
           .map(i => ({ sku: i.sku, cantidad: i.cantidad }))
         if (armzItems.length > 0) {
           fetch('/api/ecomm/armazones/movimiento', {
@@ -965,7 +1025,10 @@ export default function NuevaVentaPage() {
         const tipoPago  = saldoDB === 0 ? 'liquidacion' : 'anticipo'
 
         // Pesos por línea (dólares → equivalente en pesos)
-        const lineasPay = lineasPago
+        const lineasPay = [
+          ...(abonoWeb > 0 ? [{ metodo: 'en_linea', moneda: 'MXN' as const, monto: String(abonoWeb) }] : []),
+          ...lineasPago,
+        ]
           .map(l => {
             const montoOrigen = Number(l.monto || 0)
             const esUSDLinea = l.moneda === 'USD' && !!tipoCambio
@@ -989,8 +1052,8 @@ export default function NuevaVentaPage() {
             ? Math.round((x.montoPesos / x.montoOrigen) * 100) / 100
             : null
 
-          // caja_movimientos (contabilidad general)
-          await supabase.from('caja_movimientos').insert({
+          // caja_movimientos (contabilidad general). El pago en línea no entró a la caja: no se registra ahí.
+          if (x.metodo !== 'en_linea') await supabase.from('caja_movimientos').insert({
             tipo:           'ingreso',
             concepto:       `Venta ${folio} — ${nombrePac || 'Sin nombre'}`,
             monto:          x.montoPesos,
@@ -1127,7 +1190,7 @@ export default function NuevaVentaPage() {
       }
 
       // ── 5c. Marcar el código web como usado ──
-      if (!cotizacion && codigoWeb) {
+      if (!cotizacion && codigoWeb && !pedidoWeb) {
         await fetch('/api/codigos-web', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accion: 'canjear', codigo: codigoWeb.codigo, folio, sucursal }),
@@ -1147,6 +1210,17 @@ export default function NuevaVentaPage() {
         } catch (e) { console.error('Error generando cupón:', e) }
       }
 
+      // ── 5d. Ligar el pedido en línea con esta venta ──
+      if (!cotizacion && pedidoWeb) {
+        try {
+          const jw = await fetch('/api/ecomm/pedidos-linea', {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: pedidoWeb.id, accion: 'vendido', venta_folio: folio, venta_id: ventaId }),
+          }).then(r => r.json())
+          if (!jw.ok) setErrorGuardado(`⚠️ Venta guardada (${folio}), pero no se pudo marcar el pedido ${pedidoWeb.codigo} como vendido: ${jw.error || 'error'}. Avisa a Rob.`)
+        } catch { setErrorGuardado(`⚠️ Venta guardada (${folio}), pero no se pudo marcar el pedido ${pedidoWeb.codigo}. Avisa a Rob.`) }
+      }
+
       setFolioGuardado(folio)
       setShowModal(false)
       setGuardado(true)
@@ -1164,6 +1238,7 @@ export default function NuevaVentaPage() {
     const folio = folioGuardado
     const metodoPagoLabel = metodoVenta === 'mixto'
       ? 'Pago mixto'
+      : metodoVenta === 'en_linea' ? 'Pago en línea'
       : (metodosPago.find(m => m.key === metodoVenta)?.label ?? metodoVenta)
     const fechaHoy = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })
     const horaHoy = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
@@ -1860,6 +1935,19 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
         </div>
       </div>
 
+      {/* Pedido en línea que se está pasando a venta */}
+      {(pedidoWeb || (searchParams.get('pedido_web') && errorGuardado && !showModal)) && (
+        <div className="rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900 space-y-1">
+          {pedidoWeb ? (
+            <>
+              <p className="font-semibold">🌐 Pedido en línea {pedidoWeb.codigo} · ya pagó ${pedidoWeb.pagado.toLocaleString('es-MX')} en línea</p>
+              <p className="text-xs text-teal-800">Ya viene con el precio web. Si el cliente cambia o agrega algo, hazlo aquí: conserva su descuento. Lo pagado en línea entra como abono y no cuenta en tu efectivo.</p>
+              {pedidoWeb.avisos.map((a, i) => <p key={i} className="text-xs text-amber-800">⚠ {a}</p>)}
+            </>
+          ) : <p className="text-red-700">{errorGuardado}</p>}
+        </div>
+      )}
+
       {/* Cliente + Fecha */}
       <div className="bg-white rounded-lg border border-zinc-200/80 p-4 md:p-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -2476,7 +2564,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                     <label className="block text-xs font-semibold text-zinc-500 mb-2">Modo de pago</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => { setModoPago('liquidar'); setLineasPago(prev => [{ metodo: prev[0]?.metodo ?? 'efectivo', moneda: prev[0]?.moneda ?? 'MXN', monto: String(total) }]) }}
+                        onClick={() => { setModoPago('liquidar'); setLineasPago(prev => [{ metodo: prev[0]?.metodo ?? 'efectivo', moneda: prev[0]?.moneda ?? 'MXN', monto: String(Math.max(0, total - abonoWeb)) }]) }}
                         className={`py-3 rounded-md text-sm font-semibold border transition-all ${modoPago === 'liquidar' ? 'border-[#0B0E14] bg-[#0B0E14] text-white' : 'border-zinc-200 text-zinc-500 hover:border-zinc-300'}`}
                       >
                         Liquidar total
@@ -2506,6 +2594,12 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                     </div>
 
                     <div className="space-y-2">
+                      {abonoWeb > 0 && (
+                        <div className="flex items-center justify-between rounded-md border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm">
+                          <span className="font-semibold text-teal-800">🌐 Pago en línea · {pedidoWeb?.codigo}</span>
+                          <span className="font-bold text-teal-800">${abonoWeb.toLocaleString('es-MX')}</span>
+                        </div>
+                      )}
                       {lineasPago.map((l, i) => (
                         <div key={i} className="flex items-center gap-2">
                           <select

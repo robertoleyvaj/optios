@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown, Menu, Truck } from 'lucide-react'
+import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown, Menu, Truck, Globe } from 'lucide-react'
+import { agruparCompras, estadoCompra, codigoPedidoGon, type PedidoLinea } from '@/lib/pedidos-linea'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
 import { getSucursalActual } from '@/lib/session'
 import { useSession } from '@/hooks/useSession'
 
-type Notif = { id: string; tipo: 'cita' | 'lab' | 'traspaso'; texto: string; sub: string }
+type Notif = { id: string; tipo: 'cita' | 'lab' | 'traspaso' | 'web'; texto: string; sub: string }
 type PacienteResult = { id: string; nombre: string; apellido: string; telefono: string }
 
 export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
@@ -85,6 +86,21 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           n.unshift({ id: `t-${t.id}`, tipo: 'traspaso', texto: `Traspaso ${t.folio} en camino`, sub: `${pz} pieza${pz === 1 ? '' : 's'} · confirma cuando llegue` })
         }
       } catch { /* sin traspasos */ }
+      // Pedidos en línea de gonmx.com para esta sucursal: nuevos sin contactar y apartados vencidos
+      try {
+        const j = await fetch(`/api/ecomm/pedidos-linea?sucursal=${encodeURIComponent(suc)}`, { cache: 'no-store' }).then(r => r.json())
+        for (const c of agruparCompras((j.ok ? j.pedidos : []) as PedidoLinea[])) {
+          const e = estadoCompra(c)
+          if (e !== 'nuevo' && e !== 'vencido') continue
+          const pg = c.principal.configuracion?.pago
+          const nom = c.principal.clientes?.nombre || 'Cliente'
+          n.unshift({
+            id: `w-${c.principal.id}`, tipo: 'web',
+            texto: e === 'nuevo' ? `🛒 Pedido en línea ${codigoPedidoGon(c.principal.id)}` : `⏰ Apartado vencido ${codigoPedidoGon(c.principal.id)}`,
+            sub: e === 'nuevo' ? `${nom} · pagó $${Number(pg?.pagado ?? 0).toLocaleString('es-MX')} · escríbele` : `${nom} · llámale o libéralo`,
+          })
+        }
+      } catch { /* sin pedidos en línea */ }
     }
     setNotifs(n)
   }, [usuario.sucursal, todayISO])
@@ -273,12 +289,12 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                     <button key={n.id}
                       onClick={() => {
                         setNotifOpen(false)
-                        router.push(n.tipo === 'cita' ? '/dashboard/agenda' : n.tipo === 'traspaso' ? '/dashboard/traspasos' : '/dashboard/laboratorio')
+                        router.push(n.tipo === 'cita' ? '/dashboard/agenda' : n.tipo === 'traspaso' ? '/dashboard/traspasos' : n.tipo === 'web' ? '/dashboard/pedidos-linea' : '/dashboard/laboratorio')
                       }}
                       className="w-full text-left px-4 py-3 hover:bg-zinc-50 flex items-start gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
-                        ${n.tipo === 'cita' ? 'bg-blue-50 text-blue-500' : n.tipo === 'traspaso' ? 'bg-teal-50 text-teal-600' : 'bg-purple-50 text-purple-500'}`}>
-                        {n.tipo === 'cita' ? <Clock className="w-4 h-4" /> : n.tipo === 'traspaso' ? <Truck className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
+                        ${n.tipo === 'cita' ? 'bg-blue-50 text-blue-500' : n.tipo === 'traspaso' ? 'bg-teal-50 text-teal-600' : n.tipo === 'web' ? 'bg-amber-50 text-amber-600' : 'bg-purple-50 text-purple-500'}`}>
+                        {n.tipo === 'cita' ? <Clock className="w-4 h-4" /> : n.tipo === 'traspaso' ? <Truck className="w-4 h-4" /> : n.tipo === 'web' ? <Globe className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-zinc-700 truncate">{n.texto}</p>

@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard, ShoppingCart, Users, Package, FlaskConical,
   CalendarDays, FolderOpen, Settings,
-  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign, Briefcase, Palmtree, Store, Ticket,
+  LogOut, Glasses, ChevronDown, Plus, Clock, Wallet, TrendingUp, Mail, Star, X, BarChart3, DollarSign, Briefcase, Palmtree, Store, Ticket, Globe,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────
@@ -26,7 +26,7 @@ const ROL_LABEL: Record<Rol, string> = {
 }
 
 // Módulos core: todos los roles de tienda los ven
-const CORE = ['dashboard','ventas','agenda','expedientes','laboratorio','caja','inbox','mi-desempeno','checador','vacaciones']
+const CORE = ['dashboard','ventas','pedidos-linea','agenda','expedientes','laboratorio','caja','inbox','mi-desempeno','checador','vacaciones']
 
 // Módulos de gestión: solo gerente y admin
 const GESTION_GERENTE = ['inventario','reportes']
@@ -61,6 +61,7 @@ const MENU_CORE: MenuItem[] = [
       { href: '/dashboard/ventas',       label: 'Historial',   icon: Clock },
     ],
   },
+  { href: '/dashboard/pedidos-linea', label: 'Pedidos en línea', icon: Globe,     key: 'pedidos-linea' },
   { href: '/dashboard/agenda',      label: 'Agenda',      icon: CalendarDays,    key: 'agenda' },
   { href: '/dashboard/expedientes', label: 'Expedientes', icon: FolderOpen,      key: 'expedientes' },
   { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical,    key: 'laboratorio' },
