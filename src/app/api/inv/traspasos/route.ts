@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 // ─────────────────────────────────────────────────────────────
 // Traspasos entre sucursales
 // GET   ?estado=en_camino&destino=baja   → lista (con piezas)
-// POST  { origen, destino, notas, items:[{color_id, cantidad}] }   (admin/gerente)
+// POST  { origen, destino, notas, items:[{color_id, cantidad}] }   (admin/gerente) — se recibe al instante
 // PATCH { id, accion: 'recibir' | 'cancelar' }   recibir: cualquiera de tienda · cancelar: admin/gerente
 // ─────────────────────────────────────────────────────────────
 
@@ -44,11 +44,20 @@ export async function POST(req: NextRequest) {
     const items = (b.items ?? []).filter(i => Number.isInteger(i.color_id) && Number.isInteger(i.cantidad) && i.cantidad > 0)
     if (!items.length) return NextResponse.json({ ok: false, error: 'Agrega al menos una pieza' }, { status: 400 })
 
-    const { data, error } = await createEcommClient().rpc('inv_traspaso_enviar', {
-      p_origen: b.origen, p_destino: b.destino, p_usuario: g.usuario.nombre || 'OptiOS',
+    const sb = createEcommClient()
+    const usuario = g.usuario.nombre || 'OptiOS'
+    const { data, error } = await sb.rpc('inv_traspaso_enviar', {
+      p_origen: b.origen, p_destino: b.destino, p_usuario: usuario,
       p_notas: b.notas ?? '', p_items: items,
     })
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
+    // Cambio de ubicación inmediato (decisión de Rob, oct 2026): se recibe en el mismo momento,
+    // sin esperar a que la sucursal le dé "Ya llegó". Queda la misma bitácora de salida y entrada.
+    const { data: t } = await sb.from('traspasos').select('id').eq('folio', data).maybeSingle()
+    if (t) {
+      const { error: eR } = await sb.rpc('inv_traspaso_recibir', { p_id: t.id, p_usuario: usuario })
+      if (eR) return NextResponse.json({ ok: true, folio: data, aviso: `Se envió pero no se pudo recibir en automático: ${eR.message}. Dale "Ya llegó".` })
+    }
     return NextResponse.json({ ok: true, folio: data })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 })

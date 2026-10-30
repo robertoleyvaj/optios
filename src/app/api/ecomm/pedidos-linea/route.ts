@@ -223,6 +223,34 @@ export async function PATCH(req: NextRequest) {
         break
       }
 
+      case 'apartar': {
+        // Reintentar apartar el armazón (por ejemplo, cuando no había piezas porque venían en traspaso)
+        const COL: Record<string, string> = { bodega: 'bodega', baja: 'stock_baja', mayo: 'stock_mayo', plaza: 'stock_plaza' }
+        const msgs: string[] = []
+        for (const p of pedidos) {
+          const inv = p.configuracion?.inventario
+          if (!inv || inv.ok || !inv.sku) continue
+          const { data: c } = await sb.from('armazon_colores').select('id, sku, bodega, stock_baja, stock_mayo, stock_plaza').eq('sku', inv.sku).maybeSingle()
+          if (!c) { msgs.push(`${inv.sku}: no existe`); continue }
+          const suc = p.configuracion?.pago?.sucursal ?? 'baja'
+          const orden = [suc, 'bodega', ...['baja', 'mayo', 'plaza'].filter(u => u !== suc)].filter(u => COL[u])
+          const ub = orden.find(u => Number((c as Row)[COL[u]] ?? 0) > 0)
+          if (!ub) { msgs.push(`${inv.sku} sigue sin piezas (revisa si viene en un traspaso sin confirmar)`); continue }
+          const { error } = await sb.rpc('inv_mover', {
+            p_color_id: c.id, p_ubicacion: ub, p_cantidad: -1, p_tipo: 'venta',
+            p_referencia: codigoPedidoGon(p.id), p_usuario: quien, p_notas: `Apartado por compra en gonmx.com (${codigoPedidoGon(p.id)}); falta pasar a venta`,
+          })
+          if (error) { msgs.push(`${inv.sku}: ${error.message}`); continue }
+          const traspaso = ub !== suc
+          const nuevo = { ok: true, color_id: c.id, sku: c.sku, ubicacion: ub, traspaso,
+            aviso: `Inventario: apartado ${c.sku} de ${SUCURSAL_POR_UBIC[ub] ?? ub}${traspaso ? ` — pedir traspaso a ${SUCURSAL_POR_UBIC[suc] ?? suc}` : ''}.` }
+          const { error: e2 } = await sb.from('pedidos').update({ configuracion: { ...p.configuracion, inventario: nuevo }, notas_admin: nuevo.aviso }).eq('id', p.id)
+          if (e2) msgs.push(e2.message)
+        }
+        if (msgs.length) return NextResponse.json({ ok: false, error: msgs.join(' · ') })
+        break
+      }
+
       case 'vendido': {
         if (!b.venta_folio) return NextResponse.json({ ok: false, error: 'Falta el folio de la venta' }, { status: 400 })
         const venta = { folio: b.venta_folio, id: b.venta_id ?? '', fecha: ahora, por: quien }

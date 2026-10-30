@@ -188,7 +188,7 @@ function TarjetaCompra({ c, ocupado, onAccion, onPasar }: {
         {e === 'vencido' && <p className="text-red-600">Llámale. Si necesita unos días más, dáselos; si ya no lo quiere, libera el armazón (sus {$$(pg?.pagado ?? 0)} quedan como saldo a favor 30 días).</p>}
         {l?.liberado_at && <p className="text-violet-700">Armazón liberado por {l.liberado_por}. Saldo a favor de {$$(pg?.pagado ?? 0)} hasta el {l.saldo_vence ? fechaDia(l.saldo_vence) : '—'}: si regresa, pásalo a venta con el armazón que elija.</p>}
         {traspasos.map((i, k) => <p key={k} className="text-teal-700 font-medium">🚚 {i!.sku} está apartado en {SUCURSAL_POR_UBIC[i!.ubicacion ?? ''] ?? i!.ubicacion}: pide el traspaso a tu sucursal.</p>)}
-        {sinInventario && <p className="text-amber-700">⚠ {c.pedidos.map(x => x.configuracion?.inventario?.aviso).filter(Boolean).join(' ')}</p>}
+        {sinInventario && <p className="text-amber-700">{c.pedidos.map(x => x.configuracion?.inventario?.aviso).filter(Boolean).join(' ')} Si viene en un traspaso, confírmalo en Traspasos y luego dale “Apartar armazón”.</p>}
         {faltaExamen && !l?.venta && <p className="text-orange-700">Pagó sin graduación: agenda su examen; pásalo a venta cuando ya tenga su graduación.</p>}
         {l?.venta && <p className="text-emerald-700 font-medium">Venta {l.venta.folio} · la pasó {l.venta.por} · {fechaCorta(l.venta.fecha)}</p>}
       </div>
@@ -197,6 +197,9 @@ function TarjetaCompra({ c, ocupado, onAccion, onPasar }: {
         {wa && <a href={wa} target="_blank" rel="noopener noreferrer" className={`${btn} bg-[#25D366] text-white`}><MessageCircle className="w-3.5 h-3.5" /> WhatsApp</a>}
         {!l?.contactado_at && !l?.venta && e !== 'entregado' && (
           <button disabled={ocupado} onClick={() => onAccion('contactado')} className={`${btn} border border-zinc-300 text-zinc-700 hover:bg-zinc-50`}><Check className="w-3.5 h-3.5" /> Ya le escribí</button>
+        )}
+        {sinInventario && !l?.venta && !l?.liberado_at && (
+          <button disabled={ocupado} onClick={() => onAccion('apartar')} className={`${btn} border border-amber-300 text-amber-800 hover:bg-amber-50`}><PackageCheck className="w-3.5 h-3.5" /> Apartar armazón</button>
         )}
         {!l?.venta && e !== 'entregado' && e !== 'saldo_vencido' && (
           <button disabled={ocupado} onClick={onPasar} className={`${btn} bg-zinc-900 text-white hover:bg-zinc-800`}><ShoppingCart className="w-3.5 h-3.5" /> Pasar a venta</button>

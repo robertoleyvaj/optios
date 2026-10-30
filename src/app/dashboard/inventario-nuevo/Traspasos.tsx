@@ -62,7 +62,7 @@ export default function Traspasos({ modelos = [], puedeEnviar, soloRecibir = fal
     <div className="space-y-4">
       {msg && <div className="text-sm px-4 py-2.5 rounded-lg bg-white border border-zinc-200 text-zinc-700">{msg}</div>}
 
-      {puedeEnviar && !soloRecibir && <NuevoTraspaso modelos={modelos} onEnviado={f => { setMsg(`${f} enviado. Queda en camino hasta que lo reciban.`); cargar(); onDone?.() }} />}
+      {puedeEnviar && !soloRecibir && <NuevoTraspaso modelos={modelos} onEnviado={f => { setMsg(`${f} listo: las piezas ya están en la nueva ubicación.`); cargar(); onDone?.() }} />}
 
       <section className="bg-white border border-zinc-200 rounded-xl">
         <div className="px-4 py-3 border-b border-zinc-100 flex items-center gap-2">
