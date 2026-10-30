@@ -42,12 +42,20 @@ export type PedidoLinea = {
   cliente_email: string | null
   armazon_id: number | null
   clientes?: { nombre?: string | null; email?: string | null; telefono?: string | null } | null
+  recetas?: RecetaLinea[] | null
   configuracion: {
     solo_armazon?: boolean; falta_examen?: boolean; telefono?: string | null; armazon_ref?: string | null
     vision?: string; material?: string; filtros?: string[]
     vision_nombre?: string; material_nombre?: string; filtros_nombres?: string[]
     pago?: PagoLinea | null; inventario?: InvLinea | null; linea?: SeguimientoLinea | null
   } | null
+}
+
+export type RecetaLinea = {
+  metodo?: string | null; imagen_url?: string | null
+  sph_od?: number | string | null; cyl_od?: number | string | null; axis_od?: number | string | null
+  sph_os?: number | string | null; cyl_os?: number | string | null; axis_os?: number | string | null
+  add_val?: number | string | null; dp?: number | string | null
 }
 
 // Una compra puede traer varios pares (un pedido por par, mismo pago de Stripe)
@@ -103,10 +111,32 @@ export function estadoCompra(c: CompraLinea): EstadoLinea {
   return l?.contactado_at ? 'contactado' : 'nuevo'
 }
 
-// Rojo para Rob/gerente: nuevo sin contactar fuera de tiempo, o apartado vencido sin resolver
-export const compraEnRojo = (c: CompraLinea) => {
+// ¿En qué sección va la compra? (según lo que sigue)
+//   mandar  → pagó todo o dejó anticipo y ya tiene graduación: hay que pasarla a venta y mandar a hacer
+//   apartado → solo apartó (con graduación)        examen → pagó sin graduación
+//   armazon  → solo armazón, por recoger            saldo  → armazón liberado, saldo a favor
+//   venta    → ya se pasó a venta / entregado
+export type SeccionLinea = 'mandar' | 'apartado' | 'examen' | 'armazon' | 'saldo' | 'venta'
+export function seccionCompra(c: CompraLinea): SeccionLinea {
   const e = estadoCompra(c)
-  return (e === 'nuevo' && atencionVencida(c.principal.created_at)) || e === 'vencido'
+  if (e === 'en_venta' || e === 'entregado') return 'venta'
+  if (e === 'liberado' || e === 'saldo_vencido') return 'saldo'
+  if (c.pedidos.every(p => p.configuracion?.solo_armazon)) return 'armazon'
+  if (c.pedidos.some(p => p.configuracion?.falta_examen)) return 'examen'
+  if (c.principal.configuracion?.pago?.modo === 'apartar') return 'apartado'
+  return 'mandar'
+}
+
+// Urgencia de las que hay que mandar a hacer: 'atrasado' | 'hoy' | 'manana'
+export function urgenciaMandar(c: CompraLinea): 'atrasado' | 'hoy' | 'manana' {
+  if (atencionVencida(c.principal.created_at)) return 'atrasado'
+  return limiteAtencion(c.principal.created_at) === hoyTJ() ? 'hoy' : 'manana'
+}
+
+// Rojo: hay que mandar a hacer y ya se pasó el tiempo, o apartado vencido sin resolver
+export const compraEnRojo = (c: CompraLinea) => {
+  const s = seccionCompra(c)
+  return (s === 'mandar' && atencionVencida(c.principal.created_at)) || estadoCompra(c) === 'vencido'
 }
 
 // Normaliza teléfono a los últimos 10 dígitos

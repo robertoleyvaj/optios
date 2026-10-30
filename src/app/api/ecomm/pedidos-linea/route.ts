@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 // Lo que hace la sucursal se guarda en configuracion.linea; no se toca nada más del pedido.
 // ─────────────────────────────────────────────────────────────
 
-const SELECT = 'id, estado, created_at, precio_venta, notas_cliente, notas_admin, paciente, stripe_session_id, cliente_email, armazon_id, configuracion, clientes(nombre, email, telefono)'
+const SELECT = 'id, estado, created_at, precio_venta, notas_cliente, notas_admin, paciente, stripe_session_id, cliente_email, armazon_id, configuracion, clientes(nombre, email, telefono), recetas(metodo, sph_od, cyl_od, axis_od, sph_os, cyl_os, axis_os, add_val, dp, imagen_url)'
 
 const VISION: Record<string, string> = { mono: 'MON', bi: 'BIF', prog: 'PRO' }
 const MATERIAL: Record<string, string> = { cr39: 'ESS', hd: 'SHD', poly: 'PPL', hi: 'USL', shi: 'USP' }

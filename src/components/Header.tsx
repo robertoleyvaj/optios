@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Bell, Search, Store, X, Clock, FlaskConical, LogOut, User, ChevronDown, Menu, Truck, Globe } from 'lucide-react'
-import { agruparCompras, estadoCompra, codigoPedidoGon, type PedidoLinea } from '@/lib/pedidos-linea'
+import { agruparCompras, estadoCompra, seccionCompra, codigoPedidoGon, type PedidoLinea } from '@/lib/pedidos-linea'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
@@ -90,14 +90,17 @@ export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       try {
         const j = await fetch(`/api/ecomm/pedidos-linea?sucursal=${encodeURIComponent(suc)}`, { cache: 'no-store' }).then(r => r.json())
         for (const c of agruparCompras((j.ok ? j.pedidos : []) as PedidoLinea[])) {
-          const e = estadoCompra(c)
-          if (e !== 'nuevo' && e !== 'vencido') continue
+          // Avisa: lo que hay que mandar a hacer, apartados vencidos y cualquier pedido que entró en las últimas 24 h
+          const s = seccionCompra(c)
+          const vencido = estadoCompra(c) === 'vencido'
+          const reciente = Date.now() - new Date(c.principal.created_at).getTime() < 86400_000
+          if (s === 'venta' || s === 'saldo' || !(s === 'mandar' || vencido || reciente)) continue
           const pg = c.principal.configuracion?.pago
           const nom = c.principal.clientes?.nombre || 'Cliente'
           n.unshift({
             id: `w-${c.principal.id}`, tipo: 'web',
-            texto: e === 'nuevo' ? `🛒 Pedido en línea ${codigoPedidoGon(c.principal.id)}` : `⏰ Apartado vencido ${codigoPedidoGon(c.principal.id)}`,
-            sub: e === 'nuevo' ? `${nom} · pagó $${Number(pg?.pagado ?? 0).toLocaleString('es-MX')} · escríbele` : `${nom} · llámale o libéralo`,
+            texto: vencido ? `⏰ Apartado vencido ${codigoPedidoGon(c.principal.id)}` : s === 'mandar' ? `🛒 Mandar a hacer ${codigoPedidoGon(c.principal.id)}` : `🛒 Pedido en línea ${codigoPedidoGon(c.principal.id)}`,
+            sub: vencido ? `${nom} · llámale o libéralo` : `${nom} · pagó $${Number(pg?.pagado ?? 0).toLocaleString('es-MX')}`,
           })
         }
       } catch { /* sin pedidos en línea */ }
