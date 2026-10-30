@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
+import { textoOjo } from '@/lib/graduacion'
 import { getSucursalActual } from '@/lib/session'
 import React from 'react'
 import {
@@ -916,8 +917,8 @@ function ExpedientesContent() {
         ? [...seleccionado.recetas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
         : null
 
-      const od = rv ? `${rv.od_esfera} / ${rv.od_cilindro}${rv.od_eje ? ` / ${rv.od_eje}°` : ''}`.replace(/ \/ $/,'') : ''
-      const oi = rv ? `${rv.oi_esfera} / ${rv.oi_cilindro}${rv.oi_eje ? ` / ${rv.oi_eje}°` : ''}`.replace(/ \/ $/,'') : ''
+      const od = rv ? textoOjo(rv.od_esfera, rv.od_cilindro, rv.od_eje) : ''
+      const oi = rv ? textoOjo(rv.oi_esfera, rv.oi_cilindro, rv.oi_eje) : ''
       const add = rv?.od_add || rv?.oi_add || ''
 
       let legacyU: { nombre?: string } = {}

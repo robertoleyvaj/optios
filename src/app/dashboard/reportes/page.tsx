@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { rangoDiaLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
 import {
-  TrendingUp, ShoppingBag, Package, Target, CheckCircle2, Receipt, RotateCcw,
+  TrendingUp, Package, Target, CheckCircle2, RotateCcw, Wallet,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────
@@ -29,6 +29,24 @@ type OtroSaldo = {
   sucursal: string; total: number; saldo: number; created_at: string
   items: string; labEstado: string | null
 }
+
+// Dinero que realmente entró (pagos_venta): anticipos, abonos y liquidaciones
+type Ingreso = {
+  id: string; created_at: string; monto: number; metodo_pago: string; moneda: string | null; monto_origen: number | null
+  tipo: string | null; folio_venta: string | null; paciente: string | null; sucursal: string
+  ventas?: { created_at: string } | null
+}
+const GRUPO_METODO = (m: string) => m === 'efectivo' ? 'efectivo' : (m === 'debito' || m === 'credito') ? 'tarjeta'
+  : m === 'transferencia' || m === 'deposito' ? 'transferencia' : m === 'en_linea' ? 'en_linea' : 'otros'
+const GRUPOS_ING: { k: string; label: string; color: string }[] = [
+  { k: 'efectivo', label: 'Efectivo', color: 'bg-teal-500' },
+  { k: 'tarjeta', label: 'Tarjeta', color: 'bg-indigo-500' },
+  { k: 'transferencia', label: 'Transferencia', color: 'bg-amber-400' },
+  { k: 'en_linea', label: 'En línea', color: 'bg-sky-400' },
+  { k: 'otros', label: 'Otros', color: 'bg-zinc-400' },
+]
+const METODO_LABEL: Record<string, string> = { efectivo: 'Efectivo', debito: 'T. débito', credito: 'T. crédito', transferencia: 'Transferencia', deposito: 'Depósito', en_linea: 'En línea', otros: 'Otros' }
+const TIPO_LABEL: Record<string, string> = { anticipo: 'Anticipo', abono: 'Abono', liquidacion: 'Liquidó' }
 
 type OrdenLab = { estado: string; precio_cliente: number; fecha_promesa: string | null; venta_id: string | null }
 
@@ -161,6 +179,10 @@ function ReportesPage() {
   const [enCajaUSD,  setEnCajaUSD]  = useState(0)    // dólares en caja (las 3 sucursales)
   const [cajaSaldos, setCajaSaldos] = useState<{ sucursal: string; fondo: number; ingresos: number; egresos: number; saldo: number; saldoUsd: number }[]>([])
   const [cajaAbierto, setCajaAbierto] = useState(false)
+  const [ingresos, setIngresos] = useState<Ingreso[]>([])
+  const [rangoIni, setRangoIni] = useState('')
+  const [ingAbierto, setIngAbierto] = useState(false)
+  const [ingFiltro, setIngFiltro] = useState('todos')
   const [deudaListos, setDeudaListos] = useState(0)  // saldo pendiente de ventas con lentes listos
   const [deudaProceso, setDeudaProceso] = useState(0) // saldo de ventas con lentes aún en laboratorio
   const [porCobrarTotal, setPorCobrarTotal] = useState(0) // saldo pendiente TOTAL histórico (no del periodo)
@@ -333,6 +355,16 @@ function ReportesPage() {
     setOtrosIds(deudaRows.filter(v => !idsListos.has(v.id) && !idsProceso.has(v.id)).map(v => v.id))
     setOtrosLista(null)
 
+    // ── Ingresos reales del periodo (todo lo que se cobró: anticipos, abonos y liquidaciones) ──
+    let qIng = sb.from('pagos_venta')
+      .select('id, created_at, monto, metodo_pago, moneda, monto_origen, tipo, folio_venta, paciente, sucursal, ventas(created_at)')
+      .gte('created_at', rangoInicio).lte('created_at', rangoFin)
+      .order('created_at', { ascending: false }).limit(2000)
+    if (sucursal !== 'Todas') qIng = qIng.eq('sucursal', sucursal)
+    const { data: ingData } = await qIng
+    setIngresos((ingData ?? []) as unknown as Ingreso[])
+    setRangoIni(rangoInicio)
+
     setCargando(false)
   }, [periodo, desde, hasta, sucursal])
 
@@ -341,6 +373,12 @@ function ReportesPage() {
   // ── Cálculos ──────────────────────────────
   const totalFacturado = ventas.reduce((s, v) => s + Number(v.total), 0)
   const ticketProm     = ventas.length > 0 ? Math.round(totalFacturado / ventas.length) : 0
+  // Ingresos por grupo de método (en pesos; los dólares cuentan a su equivalente)
+  const ingTotal = ingresos.reduce((s, p) => s + Number(p.monto || 0), 0)
+  const ingPorGrupo: Record<string, number> = {}
+  for (const p of ingresos) { const g = GRUPO_METODO(p.metodo_pago); ingPorGrupo[g] = (ingPorGrupo[g] ?? 0) + Number(p.monto || 0) }
+  const ingPrevias = ingresos.filter(p => p.ventas?.created_at && p.ventas.created_at < rangoIni).reduce((s, p) => s + Number(p.monto || 0), 0)
+  const ingOtros = ingTotal - (ingPorGrupo.efectivo ?? 0) - (ingPorGrupo.tarjeta ?? 0)
   const tasaGarantia   = ventas.length > 0 ? (garantias / ventas.length) * 100 : 0
   // Por cobrar: lo que no cae ni en "listo" ni en "en lab" (p.ej. ventas a crédito sin orden de lab)
   const cobrarOtros    = Math.max(0, porCobrarTotal - deudaListos - deudaProceso)
@@ -454,12 +492,12 @@ function ReportesPage() {
   const periodoLabel = { hoy: 'diaria', semana: 'semanal', mes: 'mensual', trimestre: 'trimestral', semestre: 'semestral', anio: 'anual', personalizado: 'del período' }[periodo]
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 sm:space-y-5">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-start justify-between gap-2 sm:gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight">Reportes</h1>
+          <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 tracking-tight">Reportes</h1>
           <p className="text-sm text-zinc-400 mt-0.5">
             {inicio === fin ? inicio : `${inicio} → ${fin}`}
           </p>
@@ -467,10 +505,10 @@ function ReportesPage() {
 
         <div className="flex flex-wrap gap-2 items-center">
           {/* Período (gerente: hasta mensual · admin: todo) */}
-          <div className="flex flex-wrap bg-zinc-100 rounded-lg p-1 gap-0.5 max-w-full">
+          <div className="flex flex-nowrap overflow-x-auto bg-zinc-100 rounded-lg p-1 gap-0.5 max-w-full">
             {periodosDisponibles.map(p => (
               <button key={p.key} onClick={() => setPeriodo(p.key)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${
                   periodo === p.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
                 }`}>{p.label}</button>
             ))}
@@ -501,33 +539,51 @@ function ReportesPage() {
         <>
 
           {/* ── KPIs ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <div className="bg-white rounded-lg px-4 py-4 border border-zinc-200/80">
-              <div className="flex items-center justify-between mb-2">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+            <div className="bg-white rounded-lg px-3 py-3 sm:px-4 sm:py-4 border border-zinc-200/80">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
                 <p className="text-xs font-medium text-zinc-400">Ventas del periodo</p>
                 <TrendingUp className="w-4 h-4 text-teal-600 opacity-60" />
               </div>
-              <p className="text-2xl font-bold text-teal-600">{$$(totalFacturado)}</p>
-              <p className="text-xs mt-1 text-zinc-400">{metaPct}% de la meta</p>
+              <p className="text-xl sm:text-2xl font-bold text-teal-600">{$$(totalFacturado)}</p>
+              <p className="text-[11px] sm:text-xs mt-1 text-zinc-500">{ventas.length} {ventas.length === 1 ? 'venta' : 'ventas'}{ventas.length > 0 ? ` · ticket prom. ${$$(ticketProm)}` : ''}</p>
+              <p className="text-[11px] sm:text-xs text-zinc-400">{metaPct}% de la meta</p>
             </div>
-            <KPI label="# Ventas" value={String(ventas.length)}
-              sub={ventas.length > 0 ? `ticket prom. ${$$(ticketProm)}` : 'transacciones'}
-              icon={ShoppingBag} color="text-zinc-800" />
+
+            {/* Ingresos reales: lo que de verdad entró en el periodo (al picarle, los movimientos) */}
+            <button onClick={() => { setIngFiltro('todos'); setIngAbierto(true) }}
+              className="bg-white rounded-lg px-3 py-3 sm:px-4 sm:py-4 border border-zinc-200/80 text-left hover:border-teal-300 hover:shadow-sm transition-all">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                <p className="text-xs font-medium text-zinc-400">Ingresos</p>
+                <Wallet className="w-4 h-4 text-zinc-700 opacity-60" />
+              </div>
+              <p className="text-xl sm:text-2xl font-bold text-zinc-800">{$$(ingTotal)}</p>
+              {ingTotal > 0 && (
+                <div className="flex h-1 sm:h-1.5 rounded-full overflow-hidden mt-1.5 sm:mt-2 mb-1 sm:mb-1.5 bg-zinc-100">
+                  {GRUPOS_ING.map(g => (ingPorGrupo[g.k] ?? 0) > 0 && <div key={g.k} className={g.color} style={{ width: `${((ingPorGrupo[g.k] ?? 0) / ingTotal) * 100}%` }} />)}
+                </div>
+              )}
+              <p className="text-[11px] sm:text-xs text-zinc-400 mt-0.5 leading-snug">
+                <span className="block sm:inline">Efectivo {$$(ingPorGrupo.efectivo ?? 0)}</span><span className="hidden sm:inline"> · </span>
+                <span className="block sm:inline">Tarjeta {$$(ingPorGrupo.tarjeta ?? 0)}</span>
+                {ingOtros > 0 && <><span className="hidden sm:inline"> · </span><span className="block sm:inline">Otros {$$(ingOtros)}</span></>}
+              </p>
+            </button>
 
             {/* Por cobrar — total histórico con desglose accionable */}
-            <div className="bg-white rounded-lg px-4 py-4 border border-zinc-200/80">
-              <div className="flex items-center justify-between mb-2">
+            <div className="bg-white rounded-lg px-3 py-3 sm:px-4 sm:py-4 border border-zinc-200/80">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
                 <p className="text-xs font-medium text-zinc-400">Por cobrar</p>
                 <Package className={`w-4 h-4 opacity-60 ${porCobrarTotal > 0 ? 'text-rose-600' : 'text-green-600'}`} />
               </div>
-              <p className={`text-2xl font-bold ${porCobrarTotal > 0 ? 'text-rose-600' : 'text-green-600'}`}>{$$(porCobrarTotal)}</p>
+              <p className={`text-xl sm:text-2xl font-bold ${porCobrarTotal > 0 ? 'text-rose-600' : 'text-green-600'}`}>{$$(porCobrarTotal)}</p>
               {porCobrarTotal > 0 ? (
                 <>
-                  <div className="flex h-1.5 rounded-full overflow-hidden mt-2 mb-2 bg-zinc-100">
+                  <div className="hidden sm:flex h-1.5 rounded-full overflow-hidden mt-2 mb-2 bg-zinc-100">
                     <div style={{ width: `${(deudaListos / porCobrarTotal) * 100}%` }} className="bg-teal-500" />
                     <div style={{ width: `${(deudaProceso / porCobrarTotal) * 100}%` }} className="bg-amber-400" />
                   </div>
-                  <div className="space-y-0.5">
+                  <div className="space-y-0.5 mt-1 sm:mt-0">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="flex items-center gap-1 text-teal-700"><span className="w-1.5 h-1.5 rounded-full bg-teal-500" />Listo p/ cobrar</span>
                       <span className="font-bold text-teal-700">{$$(deudaListos)}</span>
@@ -549,18 +605,15 @@ function ReportesPage() {
               )}
             </div>
 
-            <KPI label="Ticket promedio" value={$$(ticketProm)}
-              sub={ventas.length > 0 ? `${ventas.length} ventas` : 'sin ventas'}
-              icon={Receipt} color="text-indigo-600" />
 
             {rolUsuario === 'administrador' && (
               <button onClick={() => setCajaAbierto(true)}
-                className="bg-white rounded-lg px-4 py-4 border border-zinc-200/80 text-left hover:border-teal-300 hover:shadow-sm transition-all">
-                <div className="flex items-center justify-between mb-2">
+                className="bg-white rounded-lg px-3 py-3 sm:px-4 sm:py-4 border border-zinc-200/80 text-left hover:border-teal-300 hover:shadow-sm transition-all">
+                <div className="flex items-center justify-between mb-1 sm:mb-2">
                   <p className="text-xs font-medium text-zinc-400">En caja</p>
                   <Target className="w-4 h-4 text-teal-600 opacity-60" />
                 </div>
-                <p className="text-2xl font-bold text-teal-600">{$$(enCaja)}</p>
+                <p className="text-xl sm:text-2xl font-bold text-teal-600">{$$(enCaja)}</p>
                 {enCajaUSD !== 0 && <p className="text-sm font-bold text-blue-600 -mt-0.5">+ USD ${enCajaUSD.toFixed(2)}</p>}
                 <p className="text-xs text-zinc-400 mt-0.5">efectivo real · <span className="text-teal-600 font-medium">ver desglose</span></p>
               </button>
@@ -794,6 +847,63 @@ function ReportesPage() {
           </div>
         </div>
       )}
+
+      {/* ── Ingresos del periodo: cada cobro (anticipo, abono o liquidación) ── */}
+      {ingAbierto && (() => {
+        const lista = ingFiltro === 'todos' ? ingresos : ingresos.filter(p => GRUPO_METODO(p.metodo_pago) === ingFiltro)
+        const totalLista = lista.reduce((s, p) => s + Number(p.monto || 0), 0)
+        const variosDias = periodo !== 'hoy'
+        return (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setIngAbierto(false)}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200">
+                <div>
+                  <p className="text-sm font-bold text-zinc-800">Ingresos · {sucursal}</p>
+                  <p className="text-xs text-zinc-400">Todo lo que se cobró en el periodo{ingPrevias > 0 ? ` · ${$$(ingPrevias)} son abonos de ventas anteriores` : ''}</p>
+                </div>
+                <button onClick={() => setIngAbierto(false)} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">✕</button>
+              </div>
+              <div className="flex flex-wrap gap-1.5 px-5 py-3 border-b border-zinc-100">
+                {[{ k: 'todos', label: 'Todos', total: ingTotal }, ...GRUPOS_ING.map(g => ({ k: g.k, label: g.label, total: ingPorGrupo[g.k] ?? 0 })).filter(g => g.total > 0)].map(g => (
+                  <button key={g.k} onClick={() => setIngFiltro(g.k)}
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-md ${ingFiltro === g.k ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}>
+                    {g.label} {$$(g.total)}
+                  </button>
+                ))}
+              </div>
+              <div className="overflow-y-auto">
+                {lista.length === 0 ? (
+                  <p className="text-sm text-zinc-400 text-center py-10">Sin ingresos en el periodo</p>
+                ) : lista.map(p => {
+                  const f = new Date(p.created_at)
+                  const hora = f.toLocaleTimeString('es-MX', { timeZone: 'America/Tijuana', hour: 'numeric', minute: '2-digit' })
+                  const dia = f.toLocaleDateString('es-MX', { timeZone: 'America/Tijuana', day: 'numeric', month: 'short' })
+                  const usd = p.metodo_pago === 'efectivo' && p.moneda === 'USD'
+                  return (
+                    <div key={p.id} className="flex items-center justify-between gap-3 px-5 py-2.5 border-b border-zinc-100">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-[11px] text-zinc-400 w-14 flex-shrink-0">{variosDias ? dia : hora}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-zinc-800 truncate">{p.paciente || 'Sin nombre'}</p>
+                          <p className="text-[11px] text-zinc-400">{p.folio_venta ? `${p.folio_venta} · ` : ''}{p.sucursal}{variosDias ? ` · ${hora}` : ''}</p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold text-zinc-800">{usd ? `US$${Number(p.monto_origen ?? 0).toLocaleString('es-MX')}` : $$(p.monto)}</p>
+                        <p className="text-[11px] text-zinc-400">{TIPO_LABEL[p.tipo ?? ''] ?? p.tipo ?? ''} · {METODO_LABEL[p.metodo_pago] ?? p.metodo_pago}{usd ? ` (${$$(p.monto)})` : ''}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-200">
+                <span className="text-sm font-semibold text-zinc-500">{lista.length} {lista.length === 1 ? 'cobro' : 'cobros'}</span>
+                <span className="text-lg font-bold text-zinc-800">{$$(totalLista)}</span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Desglose de "En caja" — saldo real por sucursal (solo admin) ── */}
       {cajaAbierto && (

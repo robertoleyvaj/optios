@@ -13,6 +13,7 @@ import {
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { getSucursalActual, getSucursalFiltro, normalizarSucursal } from '@/lib/session'
 import { hoyLocal, hoyMasDias } from '@/lib/fecha'
+import { textoOjo } from '@/lib/graduacion'
 
 // ─────────────────────────────────────────
 // Tipos
@@ -1768,8 +1769,8 @@ export default function LaboratorioPage() {
         .limit(1).maybeSingle()
       if (rec) {
         const r = rec as Record<string, string>
-        const fmtOjo = (esf: string, cil: string, eje: string) =>
-          [esf, cil, eje ? `${eje}°` : ''].filter(Boolean).join(' / ')
+        // Nunca recorrer el cilindro a la esfera (ver lib/graduacion.ts)
+        const fmtOjo = textoOjo
         setForm(prev => ({
           ...prev,
           od:  fmtOjo(r.od_esfera, r.od_cilindro, r.od_eje),

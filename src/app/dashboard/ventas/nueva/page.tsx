@@ -33,6 +33,7 @@ import {
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { cuponTicketHtml, cuponTicketCss } from '@/lib/cupones'
 import { descuentoWebRenglon } from '@/lib/precio-web'
+import { textoOjo } from '@/lib/graduacion'
 
 // --- Catálogo GON ---
 type CatItem = {
@@ -1112,8 +1113,8 @@ export default function NuevaVentaPage() {
         let nL = ultimoL?.[0]?.folio ? parseInt(ultimoL[0].folio.replace(/\D/g, '')) + 1 : 1
         const hoy = hoyLocal()
 
-        const fmtOjo = (esf: string, cil: string, eje: string) =>
-          [esf, cil, eje ? `${eje}°` : ''].filter(Boolean).join(' / ')
+        // Nunca recorrer el cilindro a la esfera (ver lib/graduacion.ts)
+        const fmtOjo = textoOjo
         const odTexto = recetaPaciente
           ? fmtOjo(recetaPaciente.od_esfera, recetaPaciente.od_cilindro, recetaPaciente.od_eje)
           : ''
