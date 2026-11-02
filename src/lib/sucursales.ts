@@ -11,7 +11,7 @@ export const SUCURSAL_CONFIG: Record<string, {
   'Baja Visión': {
     nombreLinea1: 'Óptica Baja Visión',
     nombreLinea2: '',
-    telefono: '661 104 0431',
+    telefono: '661 104 0873',
     whatsapp: '664 834 3018',
     direccion: 'Blvd. Benito Juárez, Playas de Rosarito, B.C.',
     horario: 'Lun–Dom 10:00–18:00',
