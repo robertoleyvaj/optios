@@ -85,15 +85,22 @@ export const sumarDias = (fecha: string, dias: number) => {
   return d.toISOString().slice(0, 10)
 }
 
-// Fecha (YYYY-MM-DD) límite para atender: cierre (6 pm) de ese día o del siguiente
-export function limiteAtencion(createdAt: string): string {
+// Sucursales que cierran en domingo (5 de Mayo abre de lunes a sábado)
+const CIERRA_DOMINGO = new Set(['mayo'])
+const esDomingo = (fecha: string) => new Date(fecha + 'T12:00:00Z').getUTCDay() === 0
+
+// Fecha (YYYY-MM-DD) límite para atender: cierre (6 pm) de ese día o del siguiente.
+// Si la sucursal no abre ese día (domingo en 5 de Mayo), pasa al siguiente día que abra.
+export function limiteAtencion(createdAt: string, ubic?: string | null): string {
   const { fecha, hora } = partesTJ(new Date(createdAt))
-  return hora >= 18 ? sumarDias(fecha, 1) : fecha
+  let lim = hora >= 18 ? sumarDias(fecha, 1) : fecha
+  if (ubic && CIERRA_DOMINGO.has(ubic) && esDomingo(lim)) lim = sumarDias(lim, 1)
+  return lim
 }
 
 // ¿Ya se pasó del tiempo para atender? (cierre 6 pm del día límite)
-export function atencionVencida(createdAt: string): boolean {
-  const lim = limiteAtencion(createdAt)
+export function atencionVencida(createdAt: string, ubic?: string | null): boolean {
+  const lim = limiteAtencion(createdAt, ubic)
   const { fecha, hora } = partesTJ(new Date())
   return fecha > lim || (fecha === lim && hora >= 18)
 }
@@ -127,16 +134,20 @@ export function seccionCompra(c: CompraLinea): SeccionLinea {
   return 'mandar'
 }
 
-// Urgencia de las que hay que mandar a hacer: 'atrasado' | 'hoy' | 'manana'
-export function urgenciaMandar(c: CompraLinea): 'atrasado' | 'hoy' | 'manana' {
-  if (atencionVencida(c.principal.created_at)) return 'atrasado'
-  return limiteAtencion(c.principal.created_at) === hoyTJ() ? 'hoy' : 'manana'
+const ubicDe = (c: CompraLinea) => c.principal.configuracion?.pago?.sucursal ?? null
+export const limiteCompra = (c: CompraLinea) => limiteAtencion(c.principal.created_at, ubicDe(c))
+
+// Urgencia de las que hay que mandar a hacer
+export function urgenciaMandar(c: CompraLinea): 'atrasado' | 'hoy' | 'manana' | 'despues' {
+  if (atencionVencida(c.principal.created_at, ubicDe(c))) return 'atrasado'
+  const lim = limiteCompra(c)
+  return lim === hoyTJ() ? 'hoy' : lim === sumarDias(hoyTJ(), 1) ? 'manana' : 'despues'
 }
 
 // Rojo: hay que mandar a hacer y ya se pasó el tiempo, o apartado vencido sin resolver
 export const compraEnRojo = (c: CompraLinea) => {
   const s = seccionCompra(c)
-  return (s === 'mandar' && atencionVencida(c.principal.created_at)) || estadoCompra(c) === 'vencido'
+  return (s === 'mandar' && atencionVencida(c.principal.created_at, ubicDe(c))) || estadoCompra(c) === 'vencido'
 }
 
 // Normaliza teléfono a los últimos 10 dígitos

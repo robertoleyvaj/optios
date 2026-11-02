@@ -39,6 +39,7 @@ type Venta = {
   motivo_cancelacion?: string
   cancelada_por?: string
   cancelada_en?: string
+  enLinea?: boolean               // vino de un pedido de gonmx.com
 }
 
 // ─────────────────────────────────────────
@@ -52,6 +53,7 @@ const metodoBadge: Record<string, { label: string; icon: React.ElementType; cls:
   transferencia: { label: 'Transferencia', icon: Building2,  cls: 'bg-violet-50 text-violet-700' },
   deposito:      { label: 'Depósito',      icon: Building2,  cls: 'bg-violet-50 text-violet-700' },
   otros:         { label: 'Otros',         icon: Clock,      cls: 'bg-zinc-100 text-zinc-600' },
+  en_linea:      { label: 'En línea',      icon: CreditCard, cls: 'bg-sky-50 text-sky-700' },
 }
 
 const METODOS_ABONO = ['efectivo', 'debito', 'credito', 'transferencia']
@@ -617,6 +619,15 @@ export default function VentasPage() {
         }
       })
 
+      // Ventas que vinieron de gonmx.com (consulta aparte: si la columna no existiera, el historial no se cae)
+      try {
+        const { data: web, error: eWeb } = await supabase.from('ventas').select('id').eq('origen', 'web').limit(5000)
+        if (!eWeb && web?.length) {
+          const ids = new Set((web as { id: string }[]).map(w => w.id))
+          for (const m of mapped) if (ids.has(m.uuid)) m.enLinea = true
+        }
+      } catch { /* sin marca de en línea */ }
+
       setVentas(mapped)
     } finally {
       setCargando(false)
@@ -1179,7 +1190,7 @@ export default function VentasPage() {
                   <button key={v.uuid} onClick={() => { setDetalle(v); setShowAbono(false); setAbonoMonto('') }}
                     className="w-full text-left px-4 py-3 active:bg-zinc-50">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-mono font-semibold text-zinc-500">{v.id}</span>
+                      <span className="text-xs font-mono font-semibold text-zinc-500">{v.id}{v.enLinea && <span className="ml-1.5 font-sans text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded">🌐 En línea</span>}</span>
                       <span className="text-base font-bold text-zinc-900">${v.total.toLocaleString('es-MX')}</span>
                     </div>
                     <p className="text-sm font-semibold text-zinc-800 mt-0.5">{v.cliente || '—'}</p>
@@ -1226,6 +1237,7 @@ export default function VentasPage() {
                       className="hover:bg-zinc-100 transition-colors cursor-pointer group">
                       <td className="px-5 py-3.5">
                         <span className={`text-xs font-mono font-semibold ${esCancelada(v) ? 'text-zinc-400 line-through' : 'text-zinc-500'}`}>{v.id}</span>
+                        {v.enLinea && <span className="ml-2 text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded">🌐 En línea</span>}
                         {esCancelada(v) ? (
                           <span className="ml-2 text-xs font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
                             Cancelada

@@ -138,7 +138,7 @@ async function armarPrefill(sb: ReturnType<typeof createEcommClient>, pedidos: R
   }
 
   // Graduación capturada en la página (primer par que la traiga)
-  const { data: recetas } = await sb.from('recetas').select('pedido_id, metodo, sph_od, cyl_od, axis_od, sph_os, cyl_os, axis_os, add_val, dp')
+  const { data: recetas } = await sb.from('recetas').select('pedido_id, metodo, sph_od, cyl_od, axis_od, sph_os, cyl_os, axis_os, add_val, dp, imagen_url')
     .in('pedido_id', pedidos.map(p => p.id))
   const rec = (recetas ?? []).find(r => r.metodo === 'manual' && (r.sph_od != null || r.sph_os != null)) ?? null
 
@@ -152,6 +152,9 @@ async function armarPrefill(sb: ReturnType<typeof createEcommClient>, pedidos: R
     cliente: { nombre: cli.nombre || '', email: cli.email || p0.cliente_email || '', telefono: cli.telefono || p0.configuracion?.telefono || '' },
     pacientes: pedidos.map(p => p.paciente).filter(Boolean),
     falta_examen: pedidos.some(p => p.configuracion?.falta_examen),
+    // Para pedir la graduación al pasar a venta: foto de receta (si la mandó) y si son lentes sin graduación
+    receta_foto: (recetas ?? []).find(r => r.metodo === 'foto' && r.imagen_url)?.imagen_url ?? null,
+    neutro: (recetas ?? []).some(r => r.metodo === 'sin_graduacion'),
     items, armazonesWeb, avisos,
     receta: rec ? {
       od_esfera: rec.sph_od != null ? String(rec.sph_od) : '', od_cilindro: rec.cyl_od != null ? String(rec.cyl_od) : '', od_eje: rec.axis_od != null ? String(rec.axis_od) : '',

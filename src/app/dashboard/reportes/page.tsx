@@ -180,6 +180,7 @@ function ReportesPage() {
   const [cajaSaldos, setCajaSaldos] = useState<{ sucursal: string; fondo: number; ingresos: number; egresos: number; saldo: number; saldoUsd: number }[]>([])
   const [cajaAbierto, setCajaAbierto] = useState(false)
   const [ingresos, setIngresos] = useState<Ingreso[]>([])
+  const [idsWeb, setIdsWeb] = useState<Set<string>>(new Set())   // ventas del periodo que vinieron de gonmx.com
   const [rangoIni, setRangoIni] = useState('')
   const [ingAbierto, setIngAbierto] = useState(false)
   const [ingFiltro, setIngFiltro] = useState('todos')
@@ -363,6 +364,15 @@ function ReportesPage() {
     if (sucursal !== 'Todas') qIng = qIng.eq('sucursal', sucursal)
     const { data: ingData } = await qIng
     setIngresos((ingData ?? []) as unknown as Ingreso[])
+
+    // Ventas del periodo que vinieron de la página (consulta aparte para no tumbar el reporte si algo falla)
+    try {
+      let qWeb = sb.from('ventas').select('id').eq('origen', 'web').eq('es_cotizacion', false).neq('estado', 'cancelada')
+        .gte('created_at', rangoInicio).lte('created_at', rangoFin)
+      if (sucursal !== 'Todas') qWeb = qWeb.eq('sucursal', sucursal)
+      const { data: web, error: eWeb } = await qWeb
+      setIdsWeb(new Set(!eWeb ? ((web ?? []) as { id: string }[]).map(w => w.id) : []))
+    } catch { setIdsWeb(new Set()) }
     setRangoIni(rangoInicio)
 
     setCargando(false)
@@ -374,6 +384,8 @@ function ReportesPage() {
   const totalFacturado = ventas.reduce((s, v) => s + Number(v.total), 0)
   const ticketProm     = ventas.length > 0 ? Math.round(totalFacturado / ventas.length) : 0
   // Ingresos por grupo de método (en pesos; los dólares cuentan a su equivalente)
+  const ventasWeb = ventas.filter(v => idsWeb.has(v.id))
+  const totalWeb = ventasWeb.reduce((s, v) => s + Number(v.total), 0)
   const ingTotal = ingresos.reduce((s, p) => s + Number(p.monto || 0), 0)
   const ingPorGrupo: Record<string, number> = {}
   for (const p of ingresos) { const g = GRUPO_METODO(p.metodo_pago); ingPorGrupo[g] = (ingPorGrupo[g] ?? 0) + Number(p.monto || 0) }
@@ -548,6 +560,7 @@ function ReportesPage() {
               <p className="text-xl sm:text-2xl font-bold text-teal-600">{$$(totalFacturado)}</p>
               <p className="text-[11px] sm:text-xs mt-1 text-zinc-500">{ventas.length} {ventas.length === 1 ? 'venta' : 'ventas'}{ventas.length > 0 ? ` · ticket prom. ${$$(ticketProm)}` : ''}</p>
               <p className="text-[11px] sm:text-xs text-zinc-400">{metaPct}% de la meta</p>
+              {totalWeb > 0 && <p className="text-[11px] sm:text-xs text-sky-700 mt-0.5">🌐 {$$(totalWeb)} de la página ({ventasWeb.length})</p>}
             </div>
 
             {/* Ingresos reales: lo que de verdad entró en el periodo (al picarle, los movimientos) */}

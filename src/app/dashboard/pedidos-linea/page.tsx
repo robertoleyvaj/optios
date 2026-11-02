@@ -6,7 +6,7 @@ import RequireRol from '@/components/RequireRol'
 import { createClient } from '@/lib/supabase/client'
 import { getSucursalActual } from '@/lib/session'
 import {
-  agruparCompras, estadoCompra, seccionCompra, urgenciaMandar, limiteAtencion, codigoPedidoGon, tel10, normNombre, hoyTJ,
+  agruparCompras, estadoCompra, seccionCompra, urgenciaMandar, limiteCompra, codigoPedidoGon, tel10, normNombre, hoyTJ,
   SUCURSAL_POR_UBIC, type CompraLinea, type PedidoLinea, type SeccionLinea, type RecetaLinea,
 } from '@/lib/pedidos-linea'
 import { Globe, Flame, Eye, Glasses, Clock, Wallet, CheckCircle2, X, Loader2, ArrowRight, ShoppingCart, Unlock, PackageCheck, Check } from 'lucide-react'
@@ -54,9 +54,10 @@ function etiqueta(c: CompraLinea): { txt: string; cls: string; banda: string } {
   const l = p.configuracion?.linea
   if (s === 'mandar') {
     const u = urgenciaMandar(c)
-    if (u === 'atrasado') return { txt: `Atrasado · era el ${fechaDia(limiteAtencion(p.created_at))}`, cls: 'bg-red-100 text-red-700', banda: 'bg-red-500' }
+    if (u === 'atrasado') return { txt: `Atrasado · era el ${fechaDia(limiteCompra(c))}`, cls: 'bg-red-100 text-red-700', banda: 'bg-red-500' }
     if (u === 'hoy') return { txt: 'Hoy antes de 6 pm', cls: 'bg-red-100 text-red-700', banda: 'bg-red-500' }
-    return { txt: 'Mañana antes de 6 pm', cls: 'bg-amber-100 text-amber-800', banda: 'bg-amber-400' }
+    if (u === 'manana') return { txt: 'Mañana antes de 6 pm', cls: 'bg-amber-100 text-amber-800', banda: 'bg-amber-400' }
+    return { txt: `${fechaDia(limiteCompra(c))} antes de 6 pm`, cls: 'bg-amber-100 text-amber-800', banda: 'bg-amber-400' }
   }
   if (estadoCompra(c) === 'vencido') return { txt: `Apartado venció ${fechaDia(pg!.apartado_vence!)}`, cls: 'bg-red-100 text-red-700', banda: 'bg-red-500' }
   if (s === 'saldo') return { txt: l?.saldo_vence ? `Saldo hasta ${fechaDia(l.saldo_vence)}` : 'Saldo a favor', cls: 'bg-violet-100 text-violet-800', banda: 'bg-violet-400' }

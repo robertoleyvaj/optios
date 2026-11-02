@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useSession } from '@/hooks/useSession'
@@ -231,7 +231,10 @@ export default function NuevaVentaPage() {
   // ── Pedido en línea de gonmx.com que se está pasando a venta (?pedido_web=ID) ──
   // Lo pagado en línea entra como abono "Pago en línea" (no es efectivo de la caja) y el
   // armazón ya viene apartado del inventario (no se descuenta otra vez).
-  const [pedidoWeb, setPedidoWeb] = useState<{ id: number; ids: number[]; codigo: string; pagado: number; avisos: string[] } | null>(null)
+  const [pedidoWeb, setPedidoWeb] = useState<{ id: number; ids: number[]; codigo: string; pagado: number; avisos: string[]; sinGrad: boolean; fotoReceta: string | null } | null>(null)
+  // Graduación que se captura aquí cuando el pedido en línea no la trae (falta examen o mandó foto)
+  const [gradWeb, setGradWeb] = useState({ od_esf: '', od_cil: '', od_eje: '', oi_esf: '', oi_cil: '', oi_eje: '', add: '', dp: '' })
+  const gradWebOk = !!((gradWeb.od_esf || gradWeb.od_cil) && (gradWeb.oi_esf || gradWeb.oi_cil))
   const [recetaWeb, setRecetaWeb] = useState<{
     od_esfera: string; od_cilindro: string; od_eje: string; od_add: string
     oi_esfera: string; oi_cilindro: string; oi_eje: string; oi_add: string
@@ -589,7 +592,7 @@ export default function NuevaVentaPage() {
     fetch(`/api/ecomm/pedidos-linea?id=${pid}`, { cache: 'no-store' }).then(r => r.json()).then(j => {
       if (!j.ok || !j.prefill) { setErrorGuardado(j.error || 'No se pudo cargar el pedido en línea'); return }
       const pf = j.prefill as {
-        codigo: string; ids: number[]; pagado: number; avisos: string[]
+        codigo: string; ids: number[]; pagado: number; avisos: string[]; receta_foto?: string | null; neutro?: boolean
         cliente: { nombre: string; email: string; telefono: string }
         items: { par: number; sku: string; nombre: string; precio: number; descuento: number; apartado: boolean }[]
         armazonesWeb: Record<string, number>
@@ -597,7 +600,8 @@ export default function NuevaVentaPage() {
       }
       const yaVendido = (j.pedidos as { configuracion?: { linea?: { venta?: { folio: string } } } }[])?.[0]?.configuracion?.linea?.venta
       if (yaVendido) { setErrorGuardado(`Este pedido ya se pasó a venta (${yaVendido.folio}).`); return }
-      setPedidoWeb({ id: pid, ids: pf.ids, codigo: pf.codigo, pagado: pf.pagado, avisos: pf.avisos ?? [] })
+      setPedidoWeb({ id: pid, ids: pf.ids, codigo: pf.codigo, pagado: pf.pagado, avisos: pf.avisos ?? [],
+        sinGrad: !pf.receta && !pf.neutro, fotoReceta: pf.receta_foto ?? null })
       // Mismo descuento que el código WEB (también para lo que se agregue después)
       setCodigoWeb({ codigo: pf.codigo, armazones: pf.armazonesWeb ?? {} })
       const items: Item[] = pf.items.map((it, idx) => ({
@@ -620,6 +624,16 @@ export default function NuevaVentaPage() {
       }
     }).catch(() => setErrorGuardado('No se pudo cargar el pedido en línea'))
   }, []) // eslint-disable-line
+
+  // Lo que se capture aquí (pedido sin graduación) se vuelve la graduación de estos lentes
+  useEffect(() => {
+    if (!pedidoWeb?.sinGrad) return
+    const g = gradWeb
+    setRecetaWeb(gradWebOk ? {
+      od_esfera: g.od_esf, od_cilindro: g.od_cil, od_eje: g.od_eje, od_add: g.add,
+      oi_esfera: g.oi_esf, oi_cilindro: g.oi_cil, oi_eje: g.oi_eje, oi_add: g.add, dp_od: g.dp, dp_oi: '',
+    } : null)
+  }, [gradWeb, gradWebOk, pedidoWeb?.sinGrad])
 
   // La graduación que dio en la página es la de estos lentes: manda sobre la del expediente
   useEffect(() => {
@@ -859,6 +873,14 @@ export default function NuevaVentaPage() {
     setGuardando(true)
     setEsCotizacion(cotizacion)
     setErrorGuardado('')
+
+    // Pedido en línea con micas y sin graduación: hay que capturarla antes (la orden de lab no puede ir sin OD/OI)
+    const llevaMicas = carrito.some(i => /^(MON|BIF|PRO)-/i.test(i.sku || '') || ['mica', 'monofocal', 'progres', 'bifocal'].some(k => i.nombre.toLowerCase().includes(k)))
+    if (!cotizacion && pedidoWeb?.sinGrad && llevaMicas && !gradWebOk) {
+      setErrorGuardado('Captura la graduación (OD y OI) en el recuadro del pedido en línea antes de guardar.')
+      setGuardando(false)
+      return
+    }
 
     if (!posNuevo && carrito.some(i => esSkuNuevo(i.sku))) {
       setErrorGuardado('Modo prueba del inventario nuevo: esta venta no se puede guardar todavía. Quita los armazones VRL-1xxx del carrito.')
@@ -1944,6 +1966,39 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
               <p className="font-semibold">🌐 Pedido en línea {pedidoWeb.codigo} · ya pagó ${pedidoWeb.pagado.toLocaleString('es-MX')} en línea</p>
               <p className="text-xs text-teal-800">Ya viene con el precio web. Si el cliente cambia o agrega algo, hazlo aquí: conserva su descuento. Lo pagado en línea entra como abono y no cuenta en tu efectivo.</p>
               {pedidoWeb.avisos.map((a, i) => <p key={i} className="text-xs text-amber-800">⚠ {a}</p>)}
+              {pedidoWeb.sinGrad && (
+                <div className={`mt-2 rounded-md border bg-white p-3 ${gradWebOk ? 'border-teal-200' : 'border-amber-300'}`}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-xs font-semibold text-zinc-700">{gradWebOk ? '✓ Graduación capturada' : 'Captura la graduación antes de guardar'}</p>
+                    {pedidoWeb.fotoReceta && (
+                      <button type="button" className="text-xs font-semibold text-sky-700 hover:underline" onClick={async () => {
+                        const jf = await fetch('/api/ecomm/receta-foto?path=' + encodeURIComponent(pedidoWeb.fotoReceta!)).then(r => r.json()).catch(() => ({ ok: false }))
+                        if (jf.ok) window.open(jf.url, '_blank'); else alert('No se pudo abrir la foto')
+                      }}>Ver foto de receta</button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-[28px_repeat(3,minmax(0,1fr))] gap-1.5 items-center text-xs">
+                    <span />
+                    <span className="text-zinc-400 text-center">ESF</span><span className="text-zinc-400 text-center">CIL</span><span className="text-zinc-400 text-center">EJE</span>
+                    {(['od', 'oi'] as const).map(ojo => (
+                      <React.Fragment key={ojo}>
+                        <span className="font-bold text-zinc-600 uppercase">{ojo}</span>
+                        {(['esf', 'cil', 'eje'] as const).map(k => (
+                          <input key={k} inputMode="decimal" value={gradWeb[`${ojo}_${k}`]} placeholder={k === 'esf' ? '0.00' : ''}
+                            onChange={e => setGradWeb(g => ({ ...g, [`${ojo}_${k}`]: e.target.value }))}
+                            className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-500/30" />
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 mt-1.5 text-xs">
+                    <label className="flex items-center gap-1.5"><span className="text-zinc-400 w-8">ADD</span>
+                      <input inputMode="decimal" value={gradWeb.add} onChange={e => setGradWeb(g => ({ ...g, add: e.target.value }))} className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm text-center" /></label>
+                    <label className="flex items-center gap-1.5"><span className="text-zinc-400 w-8">DP</span>
+                      <input inputMode="decimal" value={gradWeb.dp} onChange={e => setGradWeb(g => ({ ...g, dp: e.target.value }))} className="w-full border border-zinc-200 rounded px-2 py-1.5 text-sm text-center" /></label>
+                  </div>
+                </div>
+              )}
             </>
           ) : <p className="text-red-700">{errorGuardado}</p>}
         </div>
