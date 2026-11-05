@@ -1289,9 +1289,9 @@ export default function NuevaVentaPage() {
           const subtotalItem = precioUnit * item.cantidad
           const descStr = item.descuento > 0 ? `<br><small>(−${item.descuento}%)</small>` : ''
           return `<tr>
-            <td class="cant">${item.cantidad}</td>
-            <td class="desc">${item.nombre}${descStr}</td>
-            <td class="precio">$${subtotalItem.toLocaleString('es-MX')}</td>
+            <td class="tc">${item.cantidad}</td>
+            <td class="td">${item.nombre}${descStr}</td>
+            <td class="tp">$${subtotalItem.toLocaleString('es-MX')}</td>
           </tr>`
         }).join('')
         return headerRow + rows
@@ -1351,11 +1351,13 @@ export default function NuevaVentaPage() {
   .folio-lbl { font-size: 3mm; }
   .folio-num { font-size: 5.2mm; font-weight: 900; margin-top: 1mm; }
   /* ── Productos ── */
-  table.prods { width: 100%; border-collapse: collapse; margin-bottom: 2mm; font-size: 3.2mm; }
-  table.prods th { border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 1.5mm 1mm; text-align: left; font-weight: 900; }
-  table.prods td { padding: 1.5mm 1mm; vertical-align: top; line-height: 1.4; }
-  .tc { width: 6mm; text-align: center; }
-  .tp { text-align: right; width: 14mm; }
+  /* Columnas fijas (igual que la cotización): cantidad · descripción · precio alineado a la derecha */
+  table.prods { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 2mm; font-size: 3.2mm; }
+  table.prods th { border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 1.5mm 0.6mm; text-align: left; font-weight: 900; }
+  table.prods td { padding: 1.5mm 0.6mm; vertical-align: top; line-height: 1.4; word-break: break-word; overflow-wrap: anywhere; }
+  table.prods th.tp, table.prods td.tp { text-align: right; }
+  .tc { width: 5mm; text-align: center; }
+  .tp { text-align: right; width: 13mm; white-space: nowrap; }
   /* ── Total ── */
   .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 4.6mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; }
   .pago-line { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.4mm; padding: 2mm 0 0; margin-bottom: 3mm; }
