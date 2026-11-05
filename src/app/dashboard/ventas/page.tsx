@@ -12,7 +12,8 @@ import {
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { registrarComisionTerminal } from '@/lib/comisiones'
 import { getSucursalActual, getUsuarioLocal } from '@/lib/session'
-import { cuponTicketHtml, cuponTicketCss } from '@/lib/cupones'
+import { cuponTicketHtml } from '@/lib/cupones'
+import { ticketVentaHtml } from '@/lib/ticket-venta'
 
 // ─────────────────────────────────────────
 // Tipos
@@ -107,137 +108,16 @@ async function imprimirTicket(v: Venta, logo = '', atendioReceta = '') {
 
   const saldo = saldoPendiente(v)
   const pagadoTotal = v.pagos.reduce((s, p) => s + p.monto, 0)
-  const mAbbr = (m: string) => (({ efectivo: 'Efvo', debito: 'Déb', credito: 'Créd', transferencia: 'Transf', banco: 'Banco' } as Record<string, string>)[m] || m)
-
-  const pagosRows = v.pagos.map((p, i) =>
-    `<tr><td>${i + 1}</td><td>${p.fecha}</td><td>${mAbbr(p.metodo)}</td><td class="r">$${p.monto.toLocaleString('es-MX')}</td></tr>`
-  ).join('')
-
-  const pagosHtml = v.pagos.length > 0 ? `
-    <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">PAGOS REALIZADOS</div><div class="ph-line"></div></div>
-    <table class="pagos">
-      <tr><th>#</th><th>Fecha</th><th>Método</th><th class="r">Pago</th></tr>
-      ${pagosRows}
-    </table>
-    <div class="pagos-total-row"><span>TOTAL PAGADO:</span><span>$${pagadoTotal.toLocaleString('es-MX')}</span></div>
-    ${saldo > 0 ? `<div class="saldo-box">
-      <div class="saldo-lbl">Cantidad restante para liquidar el pago:</div>
-      <div class="saldo-val">$${saldo.toLocaleString('es-MX')}</div>
-    </div>` : ''}
-  ` : ''
-
   const win = window.open('', '_blank', 'width=230,height=900')
   if (!win) return
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>Ticket ${v.id}</title>
-<style>
-  @page { size: 58mm auto; margin: 0; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { height: auto; }
-  body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-size: 3.3mm;
-    font-weight: 600;
-    color: #000;
-    background: #fff;
-    width: 48mm;
-    padding: 1mm 1.5mm 4mm 1.5mm;
-    overflow: visible;
-    -webkit-font-smoothing: none;
-  }
-  ${cuponTicketCss}
-  .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
-  .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 4mm auto 0; display: block; }
-  .b1  { font-size: 5.2mm; font-weight: 900; line-height: 1.15; }
-  .b2  { font-size: 3.8mm; font-weight: 900; line-height: 1.2; }
-  .dt  { font-size: 3mm; margin-top: 1.5mm; }
-  .info-sec { margin-bottom: 3mm; padding-bottom: 2mm; border-bottom: 0.4mm dashed #000; }
-  .irow { display: flex; padding: 1mm 0; font-size: 3.5mm; gap: 1mm; }
-  .ilbl { font-weight: 700; min-width: 18mm; flex-shrink: 0; }
-  .folio { text-align: center; border: 0.5mm solid #000; padding: 2.5mm 1mm; margin-bottom: 3mm; }
-  .folio-lbl { font-size: 3mm; }
-  .folio-num { font-size: 5.2mm; font-weight: 900; margin-top: 1mm; }
-  table.prods { width: 100%; border-collapse: collapse; margin-bottom: 2mm; font-size: 3.2mm; }
-  table.prods th { border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 1.5mm 1mm; text-align: left; font-weight: 900; }
-  table.prods td { padding: 1.5mm 1mm; vertical-align: top; line-height: 1.4; }
-  .tc { width: 6mm; text-align: center; }
-  .tp { text-align: right; width: 14mm; }
-  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 4.6mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; }
-  .pago-line { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.4mm; padding: 2mm 0 0; margin-bottom: 3mm; }
-  .ph-title { text-align: center; font-weight: 900; font-size: 3.2mm; border-top: 0.4mm dashed #000; border-bottom: 0.4mm dashed #000; padding: 1.5mm 0; margin: 2.5mm 0 2mm; }
-  .ph-line { display: none; }
-  table.pagos { width: 100%; border-collapse: collapse; font-size: 2.7mm; }
-  table.pagos td, table.pagos th { padding: 0.8mm 0.5mm; }
-  table.pagos th { text-align: left; font-weight: 700; padding: 1mm; border-bottom: 0.4mm solid #000; }
-  table.pagos td { padding: 1mm; }
-  .r { text-align: right; }
-  .pagos-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.2mm; border-top: 0.5mm solid #000; padding-top: 1.5mm; margin: 1.5mm 0 3mm; }
-  .saldo-box { border: 0.5mm solid #000; padding: 3mm 2mm; text-align: center; margin-bottom: 3mm; }
-  .saldo-lbl { font-size: 3mm; line-height: 1.4; }
-  .saldo-val { font-size: 5.2mm; font-weight: 900; margin-top: 1.5mm; }
-  .icard { padding: 2.5mm 0; border-top: 0.4mm dashed #000; font-size: 3mm; line-height: 1.5; }
-  .firma-sec { margin: 6mm 0 3mm; }
-  .fline-rule { border-bottom: 0.4mm solid #000; height: 6mm; }
-  .flbl { font-size: 3mm; text-align: center; margin-top: 1mm; }
-  .footer { border-top: 0.5mm solid #000; padding-top: 3mm; margin-top: 2mm; text-align: center; font-size: 3mm; line-height: 2; }
-  .faddr { font-weight: 700; line-height: 1.4; margin-bottom: 1.5mm; }
-  .fatendio { font-weight: 900; }
-  .fbar { margin-top: 2.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; font-weight: 900; font-size: 3.5mm; }
-  * { page-break-inside: avoid; break-inside: avoid; }
-  .tip { display: block; background: #fff8e1; border: 1px solid #e5a; padding: 5px 6px; margin-bottom: 8px; font-size: 9px; line-height: 1.5; }
-  @media print { .tip { display: none; } }
-</style></head><body>
-
-<div class="tip">Configurar impresion: <b>Margenes → Ninguno</b> · Sin encabezados/pies</div>
-
-<div class="hdr">
-  <div class="b1">${(SUCURSAL_CONFIG[v.sucursal]?.nombreLinea1 ?? v.sucursal).toUpperCase()}</div>
-  ${SUCURSAL_CONFIG[v.sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[v.sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
-  <div class="dt">${fechaFmt} | ${horaFmt}</div>
-</div>
-
-<div class="info-sec">
-  ${v.cliente ? `<div class="irow"><span class="ilbl">Paciente:</span><span>${v.cliente}</span></div>` : ''}
-  ${v.telefono ? `<div class="irow"><span class="ilbl">Tel:</span><span>${v.telefono}</span></div>` : ''}
-</div>
-
-<div class="folio">
-  <div class="folio-lbl">FOLIO DE VENTA</div>
-  <div class="folio-num">${v.id}</div>
-</div>
-
-<table class="prods">
-  <thead><tr><th class="tc">CANT</th><th>DESCRIPCION</th><th class="tp">PRECIO</th></tr></thead>
-  <tbody>${productosRows || '<tr><td colspan="3" style="text-align:center;padding:4mm 1mm">---</td></tr>'}</tbody>
-</table>
-
-<div class="total-row"><span>TOTAL:</span><span>$${v.total.toLocaleString('es-MX')}</span></div>
-<div class="pago-line"><span>Forma de pago:</span><span>${metodoBadge[v.metodo]?.label ?? v.metodo}</span></div>
-
-${pagosHtml}
-
-<div class="icard">${v.fechaEntrega ? `Fecha de entrega: <b>${v.fechaEntrega}</b>` : 'Fecha de entrega de 3 a 5 dias habiles a partir de la compra.'}</div>
-<div class="icard">Conserve este ticket para cualquier aclaracion o garantia.</div>
-
-<div class="firma-sec">
-  <div class="fline-rule"></div>
-  <div class="flbl">Nombre y firma del comprador</div>
-</div>
-
-<div class="footer">
-  ${SUCURSAL_CONFIG[v.sucursal]?.direccion ? `<div class="faddr">${SUCURSAL_CONFIG[v.sucursal].direccion}</div>` : ''}
-  <div>Tel. ${SUCURSAL_CONFIG[v.sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[v.sucursal]?.whatsapp ?? '664 834 3018'}</div>
-  <div>${SUCURSAL_CONFIG[v.sucursal]?.horario ?? 'Lun-Sab 10:00-18:00'}</div>
-  ${vendedorCorto ? `<div class="fatendio">Atendio: ${vendedorCorto}</div>` : ''}
-  <div>${SUCURSAL_CONFIG[v.sucursal]?.web ?? 'gonmx.com'}</div>
-  <div class="fbar">... Gracias por su compra! ...</div>
-</div>
-
-${logo ? `<img src="${logo}" class="logo" alt="" />` : ''}
-
-${cuponInfo ? cuponTicketHtml(cuponInfo.codigo, cuponInfo.monto, cuponInfo.vence) : ''}
-
-</body></html>`)
+  win.document.write(ticketVentaHtml({
+    sucursal: v.sucursal, fecha: fechaFmt, hora: horaFmt, folio: v.id, atendio: vendedorCorto,
+    paciente: v.cliente, telefono: v.telefono,
+    productosRows,
+    total: v.total, pagado: pagadoTotal, metodo: metodoBadge[v.metodo]?.label ?? v.metodo, saldo,
+    fechaEntrega: v.fechaEntrega, logo,
+    cuponHtml: cuponInfo ? cuponTicketHtml(cuponInfo.codigo, cuponInfo.monto, cuponInfo.vence) : '',
+  }))
   win.document.close()
   setTimeout(() => { win.print() }, 400)
 }

@@ -31,7 +31,8 @@ import {
   Store,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
-import { cuponTicketHtml, cuponTicketCss } from '@/lib/cupones'
+import { cuponTicketHtml } from '@/lib/cupones'
+import { ticketVentaHtml } from '@/lib/ticket-venta'
 import { descuentoWebRenglon } from '@/lib/precio-web'
 import { textoOjo } from '@/lib/graduacion'
 
@@ -1297,162 +1298,21 @@ export default function NuevaVentaPage() {
         return headerRow + rows
       }).join('')
 
-      // Sección de pagos realizados (solo si quedó saldo diferido)
+      // Pagado y saldo para el ticket
       const anticoNum = anticipoGuardado
       const saldo = saldoGuardado
 
-      const pagosHtml = saldoGuardado > 0 ? `
-        <div class="ph-title"><div class="ph-line"></div><div class="ph-txt">PAGOS REALIZADOS</div><div class="ph-line"></div></div>
-        <table class="pagos">
-          <tr><th>#</th><th>Fecha</th><th class="r">Pago</th></tr>
-          ${anticoNum > 0 ? `<tr><td>1</td><td>${fechaFmt}</td><td class="r">$${anticoNum.toLocaleString('es-MX')}</td></tr>` : ''}
-        </table>
-        <div class="pagos-total-row"><span>TOTAL PAGADO:</span><span>$${anticoNum.toLocaleString('es-MX')}</span></div>
-        <div class="saldo-box">
-          <div class="saldo-lbl">Cantidad restante para liquidar el pago:</div>
-          <div class="saldo-val">$${saldo.toLocaleString('es-MX')}</div>
-        </div>` : ''
-
-      const entregaHtml = fechaEntrega
-        ? `<div class="icard"><div>Fecha de entrega: <b>${fechaEntrega}</b></div></div>`
-        : `<div class="icard"><div>Fecha de entrega de <b>3 a 5</b> días hábiles a partir de la compra.</div></div>`
-
       const win = window.open('', '_blank', 'width=230,height=900')
       if (!win) return
-      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>Ticket ${folio}</title>
-<style>
-  @page { size: 58mm auto; margin: 0; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { height: auto; }
-  body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-size: 3.3mm;
-    font-weight: 600;
-    color: #000;
-    background: #fff;
-    width: 48mm;
-    padding: 1mm 1.5mm 4mm 1.5mm;
-    overflow: visible;
-    -webkit-font-smoothing: none;
-  }
-  /* ── Header ── */
-  .hdr { text-align: center; padding-bottom: 2mm; border-bottom: 0.5mm solid #000; margin-bottom: 3mm; }
-  .logo { max-width: 42mm; max-height: 18mm; object-fit: contain; margin: 4mm auto 0; display: block; }
-  .b1  { font-size: 5.2mm; font-weight: 900; line-height: 1.15; }
-  .b2  { font-size: 3.8mm; font-weight: 900; line-height: 1.2; }
-  .dt  { font-size: 3mm; margin-top: 1.5mm; }
-  /* ── Info ── */
-  .info-sec { margin-bottom: 3mm; padding-bottom: 2mm; border-bottom: 0.4mm dashed #000; }
-  .irow { display: flex; padding: 1mm 0; font-size: 3.5mm; gap: 1mm; }
-  .ilbl { font-weight: 700; min-width: 18mm; flex-shrink: 0; }
-  /* ── Folio ── */
-  .folio { text-align: center; border: 0.5mm solid #000; padding: 2.5mm 1mm; margin-bottom: 3mm; }
-  .folio-lbl { font-size: 3mm; }
-  .folio-num { font-size: 5.2mm; font-weight: 900; margin-top: 1mm; }
-  /* ── Productos ── */
-  /* Columnas fijas (igual que la cotización): cantidad · descripción · precio alineado a la derecha */
-  table.prods { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 2mm; font-size: 3.2mm; }
-  table.prods th { border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 1.5mm 0.6mm; text-align: left; font-weight: 900; }
-  table.prods td { padding: 1.5mm 0.6mm; vertical-align: top; line-height: 1.4; word-break: break-word; overflow-wrap: anywhere; }
-  table.prods th.tp, table.prods td.tp { text-align: right; }
-  .tc { width: 5mm; text-align: center; }
-  .tp { text-align: right; width: 13mm; white-space: nowrap; }
-  /* ── Total ── */
-  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 900; font-size: 4.6mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; }
-  .pago-line { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.4mm; padding: 2mm 0 0; margin-bottom: 3mm; }
-  /* ── Pagos ── */
-  .ph-title { text-align: center; font-weight: 900; font-size: 3.2mm; border-top: 0.4mm dashed #000; border-bottom: 0.4mm dashed #000; padding: 1.5mm 0; margin: 2.5mm 0 2mm; }
-  .ph-line { display: none; }
-  table.pagos { width: 100%; border-collapse: collapse; font-size: 3mm; }
-  table.pagos th { text-align: left; font-weight: 700; padding: 1mm; border-bottom: 0.4mm solid #000; }
-  table.pagos td { padding: 1mm; }
-  .r { text-align: right; }
-  .pagos-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 3.2mm; border-top: 0.5mm solid #000; padding-top: 1.5mm; margin: 1.5mm 0 3mm; }
-  .saldo-box { border: 0.5mm solid #000; padding: 3mm 2mm; text-align: center; margin-bottom: 3mm; }
-  .saldo-lbl { font-size: 3mm; line-height: 1.4; }
-  .saldo-val { font-size: 5.2mm; font-weight: 900; margin-top: 1.5mm; }
-  /* ── Info cards ── */
-  .icard { padding: 2.5mm 0; border-top: 0.4mm dashed #000; font-size: 3mm; line-height: 1.5; }
-  /* ── Firma ── */
-  .firma-sec { margin: 6mm 0 3mm; }
-  .fline-rule { border-bottom: 0.4mm solid #000; height: 6mm; }
-  .flbl { font-size: 3mm; text-align: center; margin-top: 1mm; }
-  /* ── Footer ── */
-  .footer { border-top: 0.5mm solid #000; padding-top: 3mm; margin-top: 2mm; text-align: center; font-size: 3mm; line-height: 2; }
-  .faddr { font-weight: 700; line-height: 1.4; margin-bottom: 1.5mm; }
-  .fatendio { font-weight: 900; }
-  .fbar { margin-top: 2.5mm; border-top: 0.5mm solid #000; border-bottom: 0.5mm solid #000; padding: 2.5mm 0; font-weight: 900; font-size: 3.5mm; }
-  /* ── Evitar cortes ── */
-  * { page-break-inside: avoid; break-inside: avoid; }
-  /* ── Cupón ── */
-  ${cuponTicketCss}
-  /* ── Aviso pantalla ── */
-  .tip { display: block; background: #fff8e1; border: 1px solid #e5a; padding: 5px 6px; margin-bottom: 8px; font-size: 9px; line-height: 1.5; }
-  @media print { .tip { display: none; } }
-</style></head><body>
-
-<div class="tip">
-  Configurar impresión: <b>Márgenes → Ninguno</b> · Sin encabezados/pies
-</div>
-
-<div class="hdr">
-  <div class="b1">${(SUCURSAL_CONFIG[sucursal]?.nombreLinea1 ?? sucursal).toUpperCase()}</div>
-  ${SUCURSAL_CONFIG[sucursal]?.nombreLinea2 ? `<div class="b2">${SUCURSAL_CONFIG[sucursal].nombreLinea2.toUpperCase()}</div>` : ''}
-  <div class="dt">${fechaFmt} | ${horaHoy}</div>
-</div>
-
-<div class="info-sec">
-  ${(clienteNombre || clienteApellido) ? `<div class="irow"><span class="ilbl">Paciente:</span><span>${clienteNombre} ${clienteApellido}</span></div>` : ''}
-  ${clienteTelefono ? `<div class="irow"><span class="ilbl">Tel:</span><span>${clienteTelefono}</span></div>` : ''}
-</div>
-
-<div class="folio">
-  <div class="folio-lbl">FOLIO DE VENTA</div>
-  <div class="folio-num">${folio}</div>
-</div>
-
-<table class="prods">
-  <thead><tr><th class="tc">CANT</th><th>DESCRIPCION</th><th class="tp">PRECIO</th></tr></thead>
-  <tbody>${productosRows}</tbody>
-</table>
-
-${descuentoCupon > 0 ? `
-<div style="display:flex;justify-content:space-between;font-size:3.2mm;padding:1mm 0;border-top:0.3mm dashed #000;">
-  <span>Subtotal:</span><span>$${subtotal.toLocaleString('es-MX')}</span>
-</div>
-<div style="display:flex;justify-content:space-between;font-size:3.2mm;padding:1mm 0;color:#059669;">
-  <span>Cupón ${cuponAplicado?.codigo ?? ''}:</span><span>−$${descuentoCupon.toLocaleString('es-MX')}</span>
-</div>` : ''}
-
-<div class="total-row"><span>TOTAL:</span><span>$${total.toLocaleString('es-MX')}</span></div>
-<div class="pago-line"><span>Forma de pago:</span><span>${metodoPagoLabel}</span></div>
-
-${pagosHtml}
-
-${entregaHtml}
-
-<div class="icard">Conserve este ticket para cualquier aclaracion o garantia.</div>
-
-<div class="firma-sec">
-  <div class="fline-rule"></div>
-  <div class="flbl">Nombre y firma del comprador</div>
-</div>
-
-<div class="footer">
-  ${SUCURSAL_CONFIG[sucursal]?.direccion ? `<div class="faddr">${SUCURSAL_CONFIG[sucursal].direccion}</div>` : ''}
-  <div>Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
-  <div>${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun-Sab 10:00-18:00'}</div>
-  ${atendioPor ? `<div class="fatendio">Atendio: ${atendioPor}</div>` : ''}
-  <div>${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
-  <div class="fbar">... Gracias por su compra! ...</div>
-</div>
-
-${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
-
-${cuponGenerado ? cuponTicketHtml(cuponGenerado.codigo, cuponGenerado.monto, cuponGenerado.vence) : ''}
-
-</body></html>`)
+      win.document.write(ticketVentaHtml({
+        sucursal, fecha: fechaFmt, hora: horaHoy, folio, atendio: atendioPor,
+        paciente: `${clienteNombre} ${clienteApellido}`.trim(), telefono: clienteTelefono,
+        productosRows,
+        subtotal, descuentoCupon, cuponCodigo: cuponAplicado?.codigo,
+        total, pagado: anticoNum, metodo: metodoPagoLabel, saldo,
+        fechaEntrega, logo: ticketLogo,
+        cuponHtml: cuponGenerado ? cuponTicketHtml(cuponGenerado.codigo, cuponGenerado.monto, cuponGenerado.vence) : '',
+      }))
       win.document.close()
       setTimeout(() => { win.print() }, 400)
     }
