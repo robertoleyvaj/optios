@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { rangoDiaLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
+import { ventasAnteriores } from '@/lib/compras-anteriores'
 import {
   TrendingUp, Package, Target, CheckCircle2, RotateCcw, Wallet,
 } from 'lucide-react'
@@ -306,10 +307,11 @@ function ReportesPage() {
       qEg     = qEg.eq('sucursal', sucursal)
     }
 
-    const [rV, rC, rL, rGar, rDeuda, rEf, rEfUsd, rEg] = await Promise.all([qVentas, qCot, qLab, qGar, qDeuda, qEf, qEfUsd, qEg])
+    const [rV, rC, rL, rGar, rDeuda, rEf, rEfUsd, rEg, vAnt] = await Promise.all([qVentas, qCot, qLab, qGar, qDeuda, qEf, qEfUsd, qEg,
+      ventasAnteriores(sb, inicio, fin, sucursal)])   // + ventas de OptikSoft si el periodo las incluye
 
     const ordLabData = rL.data || []
-    setVentas(rV.data || [])
+    setVentas([...(rV.data || []), ...vAnt])
     setCotCount(rC.count ?? 0)
     setOrdLab(ordLabData)
     setGarantias(rGar.count ?? 0)

@@ -60,6 +60,8 @@ type VentaItem = {
   cantidad: number
   descuento: number
   subtotal: number
+  incluido?: boolean      // compras de OptikSoft: filtro incluido en el precio de la mica
+  original?: string       // compras de OptikSoft: cómo se capturó en el sistema anterior
 }
 
 type HistorialVenta = {
@@ -72,6 +74,10 @@ type HistorialVenta = {
   metodo_pago: string
   atendido_por: string
   items: VentaItem[]
+  origen?: 'optiksoft'    // compra del sistema anterior (tabla compras_anteriores)
+  sucursal?: string
+  pagado?: number
+  saldo?: number
 }
 
 type Paciente = {
@@ -142,9 +148,11 @@ function getHistorialMezclado(p: Paciente): HistorialEvento[] {
   p.ventas.forEach(v => eventos.push({
     fecha: v.fecha, tipo: 'venta', titulo: 'Compra',
     folio: v.folio,
-    tags: v.items.length > 0 ? v.items.slice(0, 2).map(i => i.nombre) : undefined,
+    tags: v.items.length > 0 ? v.items.filter(i => !i.incluido).slice(0, 2).map(i => i.nombre) : undefined,
     monto: v.total,
-    subtitulo: v.items.length === 0 ? 'Sin desglose de productos' : undefined,
+    subtitulo: v.origen === 'optiksoft'
+      ? `OptikSoft${v.sucursal ? ` · ${v.sucursal}` : ''}`
+      : v.items.length === 0 ? 'Sin desglose de productos' : undefined,
   }))
   return eventos.filter(e => e.fecha).sort((a, b) => b.fecha.localeCompare(a.fecha))
 }
@@ -693,10 +701,12 @@ function ExpedientesContent() {
     const loadDetalle = async () => {
       try {
         const supabase = createClient()
-        const [recRes, venRes, consRes] = await Promise.all([
+        const [recRes, venRes, consRes, antRes] = await Promise.all([
           supabase.from('recetas').select('*').eq('paciente_id', id).order('fecha', { ascending: false }),
           supabase.from('ventas').select('id, folio, total, created_at, notas, estado, metodo_pago, atendido_por, ventas_items(id, nombre, sku, precio_unitario, cantidad, descuento, subtotal)').eq('paciente_id', id).eq('es_cotizacion', false).order('created_at', { ascending: false }),
           supabase.from('consultas').select('id', { count: 'exact', head: true }).eq('paciente_id', id),
+          // Compras del sistema anterior (OptikSoft) — solo historial, no tocan caja ni reportes del día
+          supabase.from('compras_anteriores').select('id, ref, fecha, folio, sucursal, total, pagado, saldo, estado, metodo_pago, items').eq('paciente_id', id).order('fecha', { ascending: false }),
         ])
         setConsultasCount(consRes.count ?? 0)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -730,9 +740,33 @@ function ExpedientesContent() {
             subtotal: parseFloat(i.subtotal) || 0,
           })),
         }))
+        // items: n=nombre, c=categoría, q=cantidad, p=precio, s=subtotal, d=% desc, inc=incluido, o=original
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anteriores: HistorialVenta[] = (antRes.error ? [] : antRes.data ?? []).map((a: any) => ({
+          id: `os-${a.id}`,
+          fecha: a.fecha ?? '',
+          folio: `OptikSoft #${a.folio ?? a.ref}`,
+          total: Number(a.total) || 0,
+          notas: '',
+          estado: 'optiksoft',
+          metodo_pago: a.metodo_pago ?? '',
+          atendido_por: '',
+          origen: 'optiksoft' as const,
+          sucursal: a.sucursal ?? '',
+          pagado: Number(a.pagado) || 0,
+          saldo: Number(a.saldo) || 0,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          items: (Array.isArray(a.items) ? a.items : []).map((i: any, k: number) => ({
+            id: `${a.id}-${k}`, nombre: i.n ?? '', sku: i.c ?? '',
+            precio_unitario: Number(i.p) || 0, cantidad: Number(i.q) || 1,
+            descuento: Number(i.d) || 0, subtotal: Number(i.s) || 0,
+            incluido: !!i.inc, original: i.o ?? undefined,
+          })),
+        }))
+        const todas = [...ventas, ...anteriores].sort((a, b) => b.fecha.localeCompare(a.fecha))
         setSeleccionado(prev => {
           if (!prev || prev.id !== id) return prev
-          return { ...prev, recetas, ventas }
+          return { ...prev, recetas, ventas: todas }
         })
       } catch (e) { console.error('Error cargando detalle:', e) }
     }
@@ -1423,9 +1457,18 @@ function ExpedientesContent() {
                                   <Eye className="w-3 h-3" />
                                 </button>
                               )}
-                              {ev.tipo === 'venta' && esAdmin && ev.folio && (() => {
+                              {ev.tipo === 'venta' && ev.folio && (() => {
                                 const v = seleccionado?.ventas.find(x => x.folio === ev.folio)
-                                return v ? (
+                                if (v?.origen === 'optiksoft') return (
+                                  <button
+                                    onClick={() => setVentaAbierta(v)}
+                                    title="Ver compra"
+                                    className="p-1 rounded text-zinc-400 hover:text-[#0D9488] hover:bg-[#0D9488]/10 transition-colors"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                  </button>
+                                )
+                                return v && esAdmin ? (
                                   <button
                                     onClick={() => setFichaVenta(v)}
                                     title="Ver ficha completa"
@@ -1540,14 +1583,14 @@ function ExpedientesContent() {
                           <div className="min-w-0 flex-1">
                             <p className="text-[10px] font-medium text-zinc-500">{v.fecha}</p>
                             <p className="text-[10px] text-zinc-400 truncate">
-                              {v.items.length > 0 ? v.items.slice(0, 2).map(it => it.nombre).join(' + ') : 'Sin desglose'}
+                              {v.items.length > 0 ? v.items.filter(it => !it.incluido).slice(0, 2).map(it => it.nombre).join(' + ') : 'Sin desglose'}
                             </p>
                           </div>
                           <span className="text-xs font-bold text-zinc-700 ml-2 flex-shrink-0">
                             ${v.total.toLocaleString('es-MX')}
                           </span>
                         </button>
-                        {esAdmin && (
+                        {esAdmin && v.origen !== 'optiksoft' && (
                           <button
                             onClick={() => setFichaVenta(v)}
                             title="Ver ficha"
@@ -1585,11 +1628,15 @@ function ExpedientesContent() {
                 <h2 className="text-base font-bold text-zinc-800">{ventaAbierta.folio}</h2>
                 <p className="text-xs text-zinc-400 mt-0.5">
                   {ventaAbierta.fecha}
+                  {ventaAbierta.sucursal ? ` · ${ventaAbierta.sucursal}` : ''}
                   {ventaAbierta.atendido_por ? ` · ${ventaAbierta.atendido_por}` : ''}
                   {ventaAbierta.metodo_pago ? ` · ${ventaAbierta.metodo_pago}` : ''}
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                {ventaAbierta.origen === 'optiksoft' && (
+                  <span className="text-xs bg-zinc-100 text-zinc-500 px-2 py-1 rounded-full font-medium">OptikSoft</span>
+                )}
                 {ventaAbierta.estado === 'cancelada' && (
                   <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-medium">Cancelada</span>
                 )}
@@ -1609,14 +1656,17 @@ function ExpedientesContent() {
                       <div key={idx} className="flex items-start gap-3 py-2 border-b border-zinc-100 last:border-0">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-zinc-700">{item.nombre}</p>
-                          {item.sku && <p className="text-xs text-zinc-400">{item.sku}</p>}
-                          <p className="text-xs text-zinc-400">
-                            {item.cantidad} × ${item.precio_unitario.toLocaleString('es-MX')}
-                            {item.descuento > 0 ? ` · ${item.descuento}% desc.` : ''}
-                          </p>
+                          {item.sku && !item.incluido && <p className="text-xs text-zinc-400">{item.sku}</p>}
+                          {!item.incluido && (
+                            <p className="text-xs text-zinc-400">
+                              {item.cantidad} × ${item.precio_unitario.toLocaleString('es-MX')}
+                              {item.descuento > 0 ? ` · ${item.descuento}% desc.` : ''}
+                            </p>
+                          )}
+                          {item.original && <p className="text-[10px] text-zinc-400 italic">En OptikSoft: {item.original}</p>}
                         </div>
-                        <span className="text-sm font-semibold text-zinc-700 flex-shrink-0">
-                          ${item.subtotal.toLocaleString('es-MX')}
+                        <span className={`flex-shrink-0 ${item.incluido ? 'text-xs text-zinc-400' : 'text-sm font-semibold text-zinc-700'}`}>
+                          {item.incluido ? 'Incluido' : `$${item.subtotal.toLocaleString('es-MX')}`}
                         </span>
                       </div>
                     ))}
@@ -1643,6 +1693,12 @@ function ExpedientesContent() {
                 <span className="text-sm font-semibold text-zinc-500">Total</span>
                 <span className="text-xl font-bold text-zinc-800">${ventaAbierta.total.toLocaleString('es-MX')}</span>
               </div>
+              {ventaAbierta.origen === 'optiksoft' && (
+                <div className="text-xs text-zinc-500 space-y-0.5 -mt-3">
+                  <div className="flex justify-between"><span>Pagó{ventaAbierta.metodo_pago ? ` (${ventaAbierta.metodo_pago})` : ''}</span><span>${(ventaAbierta.pagado ?? 0).toLocaleString('es-MX')}</span></div>
+                  {(ventaAbierta.saldo ?? 0) > 0 && <div className="flex justify-between text-amber-600"><span>Quedó debiendo en OptikSoft</span><span>${(ventaAbierta.saldo ?? 0).toLocaleString('es-MX')}</span></div>}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal, rangoDiaLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
+import { ventasAnteriores } from '@/lib/compras-anteriores'
 import {
   TrendingUp, TrendingDown, DollarSign, FlaskConical,
   Plus, X, Save, ChevronDown, Trash2, Pencil, FileDown, Loader2,
@@ -219,8 +220,10 @@ function FinanzasPage() {
       .order('created_at', { ascending: false })
     if (sucursal !== 'Todas') qVentas = qVentas.eq('sucursal', sucursal)
     const { data: ventasData } = await qVentas
+    // + ventas de OptikSoft (sistema anterior) si el periodo las incluye. Solo facturado, no cobrado.
+    const vAnt = await ventasAnteriores(supabase, inicio, fin, sucursal)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ventasRows = (ventasData || []) as any[]
+    const ventasRows = [...(ventasData || []), ...vAnt] as any[]
     setTotalVentas(ventasRows.reduce((s: number, v) => s + (parseFloat(v.total) || 0), 0))
 
     // ── COBRADO: dinero realmente recibido en el periodo (pagos_venta por fecha de pago) ──
