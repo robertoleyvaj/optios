@@ -447,10 +447,10 @@ function FinanzasPage() {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           {/* Período */}
-          <div className="flex bg-zinc-100 rounded-lg p-1 gap-0.5 max-w-full overflow-x-auto">
+          <div className="grid grid-cols-3 sm:flex bg-zinc-100 rounded-lg p-1 gap-0.5 w-full sm:w-auto">
             {PERIODOS.map(p => (
               <button key={p.key} onClick={() => setPeriodo(p.key)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                className={`px-1.5 sm:px-2.5 py-2 sm:py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${p.key === 'personalizado' ? 'col-span-2' : ''} ${
                   periodo === p.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
                 }`}>
                 {p.label}
@@ -459,17 +459,17 @@ function FinanzasPage() {
           </div>
           {/* Sucursal */}
           <select value={sucursal} onChange={e => setSucursal(e.target.value)}
-            className="border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white text-zinc-700 focus:outline-none">
+            className="flex-1 sm:flex-none border border-zinc-200 rounded-lg px-3 py-2 sm:py-1.5 text-xs bg-white text-zinc-700 focus:outline-none">
             {['Todas', 'Baja Visión', '5 de Mayo', 'Plaza Laureles'].map(s => <option key={s}>{s}</option>)}
           </select>
           {/* Rango personalizado */}
           {periodo === 'personalizado' && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto order-last sm:order-none">
               <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
-                className="border border-zinc-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none" />
+                className="flex-1 sm:flex-none min-w-0 border border-zinc-200 rounded-lg px-2 py-2 sm:py-1.5 text-xs bg-white focus:outline-none" />
               <span className="text-zinc-400 text-xs">→</span>
               <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
-                className="border border-zinc-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none" />
+                className="flex-1 sm:flex-none min-w-0 border border-zinc-200 rounded-lg px-2 py-2 sm:py-1.5 text-xs bg-white focus:outline-none" />
             </div>
           )}
           {/* Generar análisis mensual (Excel para IA) */}
@@ -855,7 +855,7 @@ function FinanzasPage() {
 
           {/* ── Tira resumen compacta siempre visible ── */}
           <div className="bg-white rounded-lg border border-zinc-200/80 px-5 py-3">
-            <div className="flex items-center gap-0 divide-x divide-zinc-100 text-center overflow-x-auto">
+            <div className="grid grid-cols-2 gap-y-3 sm:flex sm:items-center sm:gap-0 sm:divide-x divide-zinc-100 text-center">
               {[
                 { label: 'Facturado',      value: totalVentas,   color: 'text-blue-600'    },
                 { label: 'Cobrado',        value: ingresos,      color: 'text-teal-600'    },
@@ -864,12 +864,12 @@ function FinanzasPage() {
                 { label: '− Gastos',       value: -totalGastos,  color: 'text-red-500'     },
                 { label: 'Util. neta',     value: utilidadNeta,  color: utilidadNeta   >= 0 ? 'text-emerald-600' : 'text-red-600' },
               ].map((item, i) => (
-                <div key={i} className="flex-1 min-w-[100px] px-4 py-1">
+                <div key={i} className="flex-1 sm:min-w-[100px] px-2 sm:px-4 py-1">
                   <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wide">{item.label}</p>
                   <p className={`text-sm font-bold mt-0.5 ${item.color}`}>{$$(item.value)}</p>
                 </div>
               ))}
-              <div className="flex-1 min-w-[80px] px-4 py-1">
+              <div className="flex-1 sm:min-w-[80px] px-2 sm:px-4 py-1">
                 <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wide">Margen</p>
                 <p className={`text-sm font-bold mt-0.5 ${margen >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{margen}%</p>
               </div>

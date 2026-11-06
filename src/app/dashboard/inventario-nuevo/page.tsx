@@ -152,10 +152,11 @@ function InventarioNuevo() {
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-zinc-200 overflow-x-auto">
+      {/* Celular: pestañas como botones en dos renglones (nada queda escondido a la derecha) */}
+      <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-1 sm:border-b border-zinc-200 sm:overflow-x-auto">
         {([['armazones', 'Armazones'], ['micas', 'Micas y tratamientos'], ['lc', 'Lentes de contacto'], ['consumibles', 'Consumibles'], ['servicios', 'Servicios']] as const).filter(([k]) => esGestion || k === 'armazones').map(([k, l]) => (
           <button key={k} onClick={() => { setTab(k); setArmVista('lista') }}
-            className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap ${tab === k ? 'border-teal-600 text-teal-700' : 'border-transparent text-zinc-500 hover:text-zinc-800'}`}>{l}</button>
+            className={`px-3 sm:px-4 py-2 text-[13px] sm:text-sm font-semibold whitespace-nowrap rounded-full sm:rounded-none border sm:border-0 sm:border-b-2 sm:-mb-px ${tab === k ? 'bg-teal-600 text-white border-teal-600 sm:bg-transparent sm:border-teal-600 sm:text-teal-700' : 'bg-white border-zinc-200 text-zinc-600 sm:bg-transparent sm:border-transparent sm:text-zinc-500 hover:text-zinc-800'}`}>{l}</button>
         ))}
       </div>
 

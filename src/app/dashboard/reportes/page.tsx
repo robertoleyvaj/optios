@@ -517,12 +517,12 @@ function ReportesPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2 items-center">
-          {/* Período (gerente: hasta mensual · admin: todo) */}
-          <div className="flex flex-nowrap overflow-x-auto bg-zinc-100 rounded-lg p-1 gap-0.5 max-w-full">
+        <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+          {/* Período (gerente: hasta mensual · admin: todo). Celular: en cuadrícula, que nada quede escondido */}
+          <div className="grid grid-cols-4 sm:flex sm:flex-nowrap bg-zinc-100 rounded-lg p-1 gap-0.5 w-full sm:w-auto">
             {periodosDisponibles.map(p => (
               <button key={p.key} onClick={() => setPeriodo(p.key)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-1.5 sm:px-2.5 py-2 sm:py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${p.key === 'personalizado' ? 'col-span-2' : ''} ${
                   periodo === p.key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
                 }`}>{p.label}</button>
             ))}
@@ -530,18 +530,18 @@ function ReportesPage() {
 
           {esAdmin && (
             <select value={sucursal} onChange={e => setSucursal(e.target.value)}
-              className="border border-zinc-200 rounded-lg px-3 py-1.5 text-xs bg-white text-zinc-700 focus:outline-none">
+              className="w-full sm:w-auto border border-zinc-200 rounded-lg px-3 py-2 sm:py-1.5 text-xs bg-white text-zinc-700 focus:outline-none">
               {SUCURSALES.map(s => <option key={s}>{s}</option>)}
             </select>
           )}
 
           {periodo === 'personalizado' && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
               <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
-                className="border border-zinc-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none" />
+                className="flex-1 sm:flex-none min-w-0 border border-zinc-200 rounded-lg px-2 py-2 sm:py-1.5 text-xs bg-white focus:outline-none" />
               <span className="text-zinc-400 text-xs">→</span>
               <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
-                className="border border-zinc-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none" />
+                className="flex-1 sm:flex-none min-w-0 border border-zinc-200 rounded-lg px-2 py-2 sm:py-1.5 text-xs bg-white focus:outline-none" />
             </div>
           )}
         </div>
@@ -739,7 +739,7 @@ function ReportesPage() {
                     </div>
                   )}
 
-                  <div className="relative" style={{ height: 120 }} onMouseLeave={() => setHoverIdx(null)}>
+                  <div className="relative overflow-x-clip" style={{ height: 120 }} onMouseLeave={() => setHoverIdx(null)}>
                     <svg viewBox="0 0 400 120" className="w-full h-full" preserveAspectRatio="none">
                       <defs><linearGradient id="ritmoG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0D9488" stopOpacity="0.18"/><stop offset="1" stopColor="#0D9488" stopOpacity="0"/></linearGradient></defs>
                       {metaP > 0 && <line x1="0" y1={ritmoYMeta} x2="400" y2={ritmoYMeta} stroke="#F59E0B" strokeDasharray="4 3" strokeWidth="1.5" />}
@@ -753,6 +753,7 @@ function ReportesPage() {
                       <div key={i}>
                         <div
                           onMouseEnter={() => setHoverIdx(i)}
+                          onClick={() => setHoverIdx(i)}
                           className="absolute top-0 bottom-0 -translate-x-1/2 cursor-pointer"
                           style={{ left: `${pt.xPct}%`, width: `${Math.max(100 / ritmoPuntos.length, 6)}%` }}
                         />

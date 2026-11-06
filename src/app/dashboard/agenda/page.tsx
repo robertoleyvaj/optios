@@ -408,7 +408,7 @@ export default function AgendaPage() {
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex -mx-4 -mb-4 md:-mx-6 md:-mb-6 bg-zinc-50" style={{ height: 'calc(100vh - 80px)' }}>
+    <div className="flex -mx-4 -mb-6 md:-mx-6 md:-mb-6 bg-zinc-50 h-[calc(100dvh-8.5rem-env(safe-area-inset-bottom))] md:h-[calc(100vh-80px)]">
 
       {/* ── SIDEBAR IZQUIERDO ─────────────────────────────────────────────── */}
       <aside className="w-56 flex-shrink-0 bg-white border-r border-zinc-200 hidden md:flex flex-col overflow-hidden">
@@ -478,7 +478,7 @@ export default function AgendaPage() {
           <button onClick={() => { setFecha(new Date()); setVista('dia') }}
             className="px-3 py-1.5 text-xs font-semibold border border-zinc-200 rounded-lg hover:bg-zinc-100 text-zinc-600">Hoy</button>
 
-          <div className="relative flex-1 max-w-xs">
+          <div className="relative flex-1 min-w-[140px] max-w-none md:max-w-xs order-last md:order-none basis-full md:basis-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400"/>
             <input value={search} onChange={e => setSearch(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs border border-zinc-200 rounded-lg bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-teal-500/50"
@@ -657,7 +657,7 @@ export default function AgendaPage() {
         )}
 
         {/* Legend */}
-        <div className="bg-white border-t border-zinc-200 px-5 py-2 flex items-center gap-4 flex-shrink-0 overflow-x-auto">
+        <div className="bg-white border-t border-zinc-200 px-3 md:px-5 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 flex-shrink-0">
           {(Object.entries(EC) as [EstadoCita, typeof EC[EstadoCita]][]).map(([, ec]) => (
             <div key={ec.label} className="flex items-center gap-1.5 flex-shrink-0">
               <span className="w-2 h-2 rounded-full" style={{ background: ec.dot }}/>

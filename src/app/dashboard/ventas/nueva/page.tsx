@@ -2351,7 +2351,26 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
             )}
           </div>
         </div>
-        <div className="grid grid-cols-2 md:flex md:items-center gap-2 md:gap-3">
+        {/* Celular: barra fija con total y botones (arriba de la navegación) */}
+        <div className="md:hidden fixed inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-zinc-200 px-4 pt-2.5 pb-2.5"
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 mr-auto">
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400 leading-none">Total</p>
+              <p className="text-lg font-bold text-zinc-900 tabular-nums leading-tight">${total.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</p>
+            </div>
+            <button onClick={() => { setEsCotizacion(true); setShowModal(true) }} disabled={carrito.length === 0} aria-label="Generar cotización"
+              className="h-11 w-11 flex items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-600 active:scale-95 transition-transform disabled:opacity-40">
+              <FileText className="w-4 h-4" />
+            </button>
+            <button onClick={() => { setEsCotizacion(false); setShowModal(true) }} disabled={carrito.length === 0 || !clienteNombre || !fechaEntrega}
+              className="h-11 px-5 flex items-center justify-center gap-1.5 rounded-xl bg-[#0B0E14] text-white text-sm font-bold active:scale-95 transition-transform disabled:opacity-40">
+              <CheckCircle2 className="w-4 h-4" /> Generar venta
+            </button>
+          </div>
+        </div>
+        <div className="md:hidden h-16" />
+        <div className="hidden md:flex md:items-center gap-2 md:gap-3">
           <button
             onClick={() => { setEsCotizacion(true); setShowModal(true) }}
             disabled={carrito.length === 0}

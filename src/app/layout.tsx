@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "OptiOS — Sistema de Gestión",
   description: "Sistema de gestión para ópticas GON · Verly — inventario, ventas, agenda, laboratorio y finanzas en un solo lugar.",
+};
+
+// Celular: ocupar toda la pantalla (zona segura del iPhone) y color de la barra del sistema
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#ffffff',
 };
 
 export default function RootLayout({

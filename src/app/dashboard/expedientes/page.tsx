@@ -682,9 +682,11 @@ function ExpedientesContent() {
           })
           setPacientes(mapped)
           const idParam = searchParams.get('id')
+          // En celular se empieza en la lista (solo se abre uno si viene en la URL)
+          const esCelular = typeof window !== 'undefined' && !window.matchMedia('(min-width: 768px)').matches
           const inicial = idParam
-            ? (mapped.find(p => String(p.id) === idParam) ?? mapped[0] ?? null)
-            : (mapped[0] ?? null)
+            ? (mapped.find(p => String(p.id) === idParam) ?? (esCelular ? null : mapped[0]) ?? null)
+            : (esCelular ? null : (mapped[0] ?? null))
           setSeleccionado(inicial)
         }
       } catch (e) {
@@ -693,6 +695,12 @@ function ExpedientesContent() {
     }
     fetchPacientes()
   }, [])
+
+  // Celular: al abrir o cerrar un paciente, empezar arriba (la lista y la ficha comparten el scroll)
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches) return
+    document.querySelector('main')?.scrollTo({ top: 0 })
+  }, [seleccionado?.id])
 
   // ── Cargar recetas + ventas al seleccionar paciente ────────
   useEffect(() => {
@@ -1117,49 +1125,56 @@ function ExpedientesContent() {
   const rv = recetaVigente(seleccionado ?? { recetas: [] } as unknown as Paciente)
 
   return (
-    <div className="flex gap-3 h-[calc(100vh-140px)]">
+    <div className="flex gap-3 md:h-[calc(100vh-140px)]">
 
       {/* ── PANEL IZQUIERDO: lista de pacientes (colapsable) ── */}
-      <div className={`bg-white rounded-lg border border-zinc-200/80 flex-col overflow-hidden transition-all duration-200 w-full md:flex-shrink-0 ${seleccionado ? 'hidden md:flex' : 'flex'} ${panelAbierto ? 'md:w-60' : 'md:w-12'}`}>
+      <div className={`bg-white md:rounded-lg md:border border-zinc-200/80 flex-col md:overflow-hidden transition-all duration-200 w-full md:flex-shrink-0 -mx-4 md:mx-0 -mt-4 md:mt-0 ${seleccionado ? 'hidden md:flex' : 'flex'} ${panelAbierto ? 'md:w-60' : 'md:w-12'}`}>
         {panelAbierto ? (
           <>
-            <div className="p-3 border-b border-zinc-200 flex-shrink-0">
+            <div className="px-4 pt-4 pb-3 md:p-3 border-b border-zinc-200 flex-shrink-0 sticky top-0 md:static z-10 bg-white/95 backdrop-blur md:bg-white">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest">Expedientes</span>
+                {/* Celular: título grande tipo app */}
+                <span className="md:hidden text-xl font-bold text-zinc-900">Expedientes <span className="text-sm font-medium text-zinc-400">{pacientes.length}</span></span>
+                <span className="hidden md:inline text-xs font-bold text-zinc-600 uppercase tracking-widest">Expedientes</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-zinc-400">{pacientes.length}</span>
+                  <span className="hidden md:inline text-xs text-zinc-400">{pacientes.length}</span>
+                  <button onClick={() => router.push('/dashboard/expedientes/nuevo')}
+                    className="md:hidden flex items-center gap-1 px-3 h-9 rounded-full bg-[#0B0E14] text-white text-sm font-semibold active:scale-95 transition-transform">
+                    <Plus className="w-4 h-4" /> Nuevo
+                  </button>
                   <button onClick={() => setPanelAbierto(false)}
-                    className="w-5 h-5 flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded transition-colors">
+                    className="hidden md:flex w-5 h-5 items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded transition-colors">
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
               <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-400" />
-                <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
-                  className="w-full pl-6 pr-2 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
-                  placeholder="Buscar paciente..." />
+                <Search className="absolute left-3 md:left-2 top-1/2 -translate-y-1/2 w-4 h-4 md:w-3 md:h-3 text-zinc-400" />
+                <input value={busqueda} onChange={e => setBusqueda(e.target.value)} type="search" enterKeyHint="search"
+                  className="w-full pl-9 md:pl-6 pr-2 py-2.5 md:py-1.5 text-xs bg-zinc-100 md:bg-zinc-50 border border-transparent md:border-zinc-200 rounded-xl md:rounded focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30"
+                  placeholder="Buscar por nombre o teléfono..." />
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 md:overflow-y-auto">
               {filtrados.map(p => {
                 const esSeleccionado = seleccionado?.id === p.id
                 return (
                   <button key={p.id} onClick={() => { setSeleccionado(p); setVerTodoHistorial(false); router.replace(`/dashboard/expedientes?id=${p.id}`, { scroll: false }) }}
-                    className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 border-b border-zinc-100 ${esSeleccionado ? 'bg-[#0B0E14]' : 'hover:bg-zinc-100'}`}>
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${esSeleccionado ? 'bg-[#0D9488]/20 text-[#0D9488]' : 'bg-zinc-100 text-zinc-500'}`}>
+                    className={`w-full text-left px-4 md:px-3 py-3 md:py-2.5 transition-colors flex items-center gap-3 md:gap-2.5 border-b border-zinc-100 active:bg-zinc-100 ${esSeleccionado ? 'md:bg-[#0B0E14]' : 'hover:bg-zinc-100'}`}>
+                    <div className={`w-10 h-10 md:w-7 md:h-7 rounded-full flex items-center justify-center text-sm md:text-xs font-bold flex-shrink-0 ${esSeleccionado ? 'md:bg-[#0D9488]/20 md:text-[#0D9488] bg-zinc-100 text-zinc-500' : 'bg-zinc-100 text-zinc-500'}`}>
                       {p.nombre[0]}{p.apellido[0]}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-semibold truncate leading-tight ${esSeleccionado ? 'text-white' : 'text-zinc-700'}`}>
+                      <p className={`text-[15px] md:text-xs font-semibold truncate leading-tight ${esSeleccionado ? 'md:text-white text-zinc-800' : 'text-zinc-800 md:text-zinc-700'}`}>
                         {p.nombre} {p.apellido}
                       </p>
-                      <p className={`text-[10px] truncate ${esSeleccionado ? 'text-white/50' : 'text-zinc-400'}`}>
+                      <p className={`text-xs md:text-[10px] truncate mt-0.5 md:mt-0 ${esSeleccionado ? 'md:text-white/50 text-zinc-400' : 'text-zinc-400'}`}>
                         {p._ultimaRecetaFecha ? `Última receta: ${p._ultimaRecetaFecha}` : 'Sin receta'}
                       </p>
                     </div>
-                    {esSeleccionado && <div className="w-1.5 h-1.5 rounded-full bg-[#0D9488] flex-shrink-0" />}
+                    {esSeleccionado && <div className="hidden md:block w-1.5 h-1.5 rounded-full bg-[#0D9488] flex-shrink-0" />}
+                    <ChevronRight className="md:hidden w-4 h-4 text-zinc-300 flex-shrink-0" />
                   </button>
                 )
               })}
@@ -1187,7 +1202,7 @@ function ExpedientesContent() {
               )}
             </div>
 
-            <div className="p-3 border-t border-zinc-200 flex-shrink-0">
+            <div className="hidden md:block p-3 border-t border-zinc-200 flex-shrink-0">
               <button onClick={() => router.push('/dashboard/expedientes/nuevo')}
                 className="w-full flex items-center justify-center gap-1.5 py-2 bg-[#0B0E14] text-white rounded text-xs font-semibold hover:bg-[#1A1D27] transition-colors">
                 <Plus className="w-3.5 h-3.5" /> Nuevo paciente
@@ -1222,10 +1237,24 @@ function ExpedientesContent() {
         <div className="flex-1 min-w-0 w-full flex flex-col gap-3 min-h-0">
 
           {/* Volver a la lista (solo móvil) */}
-          <button onClick={() => { setSeleccionado(null); router.replace('/dashboard/expedientes', { scroll: false }) }}
-            className="md:hidden flex items-center gap-1 text-sm text-teal-600 font-semibold">
-            <ChevronLeft className="w-4 h-4" /> Expedientes
-          </button>
+          <div className="md:hidden flex items-center justify-between -mt-1">
+            <button onClick={() => { setSeleccionado(null); router.replace('/dashboard/expedientes', { scroll: false }) }}
+              className="flex items-center gap-0.5 -ml-1.5 h-9 pr-2 text-[15px] text-[#0D9488] font-semibold active:opacity-60">
+              <ChevronLeft className="w-5 h-5" /> Expedientes
+            </button>
+            {seleccionado.telefono && (
+              <div className="flex items-center gap-2">
+                <a href={`tel:${seleccionado.telefono.replace(/\D/g, '').slice(-10)}`} aria-label="Llamar"
+                  className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center active:scale-95 transition-transform">
+                  <Phone className="w-4 h-4 text-zinc-600" />
+                </a>
+                <a href={`https://wa.me/52${seleccionado.telefono.replace(/\D/g, '').slice(-10)}`} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"
+                  className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center active:scale-95 transition-transform">
+                  <MessageCircle className="w-4 h-4 text-emerald-600" />
+                </a>
+              </div>
+            )}
+          </div>
 
           {/* ─── CARD DE ENCABEZADO ─── */}
           <div className="bg-white rounded-lg border border-zinc-200/80 p-4 flex-shrink-0">
@@ -1261,14 +1290,14 @@ function ExpedientesContent() {
               </div>
 
               {/* Acciones */}
-              <div className="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto justify-end">
+              <div className="flex items-center gap-1.5 flex-shrink-0 md:w-auto justify-end">
                 <button onClick={abrirEditar}
-                  className="flex items-center gap-1 px-2.5 py-1.5 border border-zinc-200 rounded text-xs text-zinc-500 hover:bg-zinc-100 transition-colors">
+                  className="flex items-center gap-1 px-2.5 py-2 md:py-1.5 border border-zinc-200 rounded-lg md:rounded text-xs text-zinc-500 hover:bg-zinc-100 transition-colors">
                   <Edit2 className="w-3 h-3" /> Editar
                 </button>
                 <div className="relative">
                   <button onClick={() => setMenuAbierto(o => !o)}
-                    className="w-7 h-7 border border-zinc-200 rounded flex items-center justify-center text-zinc-400 hover:bg-zinc-100 transition-colors">
+                    className="w-9 h-9 md:w-7 md:h-7 border border-zinc-200 rounded-lg md:rounded flex items-center justify-center text-zinc-400 hover:bg-zinc-100 transition-colors">
                     <MoreHorizontal className="w-3.5 h-3.5" />
                   </button>
                   {menuAbierto && (
@@ -1297,7 +1326,7 @@ function ExpedientesContent() {
                   )}
                 </div>
                 <button onClick={() => router.push(`/dashboard/expedientes/nuevo?pacienteId=${seleccionado.id}`)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors">
+                  className="hidden md:flex items-center gap-1.5 px-3 py-2 bg-[#0D9488] text-white rounded text-xs font-semibold hover:bg-teal-500 transition-colors">
                   <Plus className="w-3.5 h-3.5" /> Nueva consulta
                 </button>
               </div>
@@ -1310,7 +1339,7 @@ function ExpedientesContent() {
                 <p className="text-xs text-zinc-400">Recetas</p>
                 {seleccionado.recetas[0] && <p className="text-[10px] text-zinc-400">Última {seleccionado.recetas[0].fecha.slice(0,7)}</p>}
               </div>
-              <div className="text-center px-2">
+              <div className="hidden md:block text-center px-2">
                 <p className="text-base font-bold text-zinc-800">{consultasCount || seleccionado.recetas.length}</p>
                 <p className="text-xs text-zinc-400">Consultas</p>
               </div>
@@ -1325,7 +1354,7 @@ function ExpedientesContent() {
                 </p>
                 <p className="text-xs text-zinc-400">Total gastado</p>
               </div>
-              <div className="text-center px-2">
+              <div className="hidden md:block text-center px-2">
                 <p className="text-base font-bold text-zinc-800">{calcFrecuencia(seleccionado)}</p>
                 <p className="text-xs text-zinc-400">Frecuencia</p>
                 <p className="text-[10px] text-zinc-400">Promedio visitas</p>
@@ -1345,7 +1374,7 @@ function ExpedientesContent() {
           </div>
 
           {/* CONTENIDO PRINCIPAL: receta primero, historial segundo */}
-          <div className="flex-1 flex flex-col md:flex-row gap-3 min-h-0 overflow-y-auto md:overflow-visible">
+          <div className="flex-1 flex flex-col md:flex-row gap-3 md:min-h-0">
 
             {/* Centro: receta vigente (PRIMERO) → historial */}
             <div className="flex-1 md:overflow-y-auto space-y-3 pr-0.5">
@@ -1606,10 +1635,29 @@ function ExpedientesContent() {
               )}
             </div>
           </div>
+          {/* Celular: espacio para la barra fija de acciones */}
+          <div className="md:hidden h-14 flex-shrink-0" />
         </div>
       ) : (
         <div className="flex-1 hidden md:flex items-center justify-center text-zinc-400 text-sm">
           Selecciona un paciente para ver su expediente
+        </div>
+      )}
+
+      {/* Celular: acciones principales siempre a la mano */}
+      {seleccionado && (
+        <div className="md:hidden fixed inset-x-0 z-30 px-4 pb-2 pt-2 bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA]/95 to-transparent"
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+          <div className="flex gap-2">
+            <button onClick={() => router.push(`/dashboard/ventas/nueva?pacienteId=${seleccionado.id}`)}
+              className="flex-1 h-12 rounded-xl bg-white border border-zinc-200 text-zinc-800 text-sm font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-transform">
+              <ShoppingBag className="w-4 h-4" /> Nueva venta
+            </button>
+            <button onClick={() => router.push(`/dashboard/expedientes/nuevo?pacienteId=${seleccionado.id}`)}
+              className="flex-1 h-12 rounded-xl bg-[#0D9488] text-white text-sm font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-transform">
+              <Plus className="w-4 h-4" /> Nueva consulta
+            </button>
+          </div>
         </div>
       )}
 

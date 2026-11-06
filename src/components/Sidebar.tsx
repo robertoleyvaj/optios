@@ -191,7 +191,7 @@ export default function Sidebar({
 
   return (
     <aside className={`
-      w-64 bg-[#fafaf9] border-r border-zinc-200 flex flex-col h-screen
+      w-72 lg:w-64 bg-[#fafaf9] border-r border-zinc-200 flex flex-col h-[100dvh]
       fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out
       lg:relative lg:flex-shrink-0 lg:translate-x-0
       ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -240,7 +240,7 @@ export default function Sidebar({
               <Link
                 href={pronto ? '#' : item.href}
                 onClick={pronto ? (e) => e.preventDefault() : onClose}
-                className={`flex items-center gap-2.5 px-3 py-[7px] rounded-lg text-[14px] tracking-[-0.01em] transition-colors duration-100 ${
+                className={`flex items-center gap-2.5 px-3 py-3 lg:py-[7px] rounded-lg text-[15px] lg:text-[14px] tracking-[-0.01em] transition-colors duration-100 ${
                   pronto
                     ? 'text-zinc-300 cursor-default'
                     : isParentActive
@@ -270,7 +270,8 @@ export default function Sidebar({
                     const isSubActive = pathname === sub.href
                     return (
                       <Link key={sub.href} href={sub.href}
-                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] tracking-[-0.01em] transition-colors ${
+                        onClick={onClose}
+                        className={`flex items-center gap-2 px-2.5 py-2.5 lg:py-1.5 rounded-md text-[14px] lg:text-[13px] tracking-[-0.01em] transition-colors ${
                           isSubActive ? 'text-[#0D9488] font-medium' : 'text-zinc-500 font-light hover:text-zinc-800 hover:bg-zinc-100'
                         }`}>
                         <SubIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isSubActive ? 'text-[#0D9488]' : 'text-zinc-400'}`} />
@@ -286,7 +287,7 @@ export default function Sidebar({
       </nav>
 
       {/* Usuario activo */}
-      <div className="px-3 py-3 border-t border-zinc-200">
+      <div className="px-3 py-3 border-t border-zinc-200" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg mb-0.5">
           <div className="w-7 h-7 rounded-full bg-[#e8f5f0] flex items-center justify-center flex-shrink-0">
             <span className="text-[#0D9488] text-[10px] font-semibold">{usuario.iniciales}</span>

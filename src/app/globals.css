@@ -83,6 +83,21 @@ h1, h2 {
 *::-webkit-scrollbar-thumb { background: #D4D4D8; border-radius: 999px; }
 *::-webkit-scrollbar-thumb:hover { background: #A1A1AA; }
 
+/* ─────────────────────────────────────────────────────────────
+   Celular: que se sienta como app
+   ───────────────────────────────────────────────────────────── */
+html { -webkit-tap-highlight-color: transparent; }
+button, a, [role="button"] { touch-action: manipulation; }
+
+@media (max-width: 1023px) {
+  /* Sin barras de scroll visibles (se desliza con el dedo, como en las apps) */
+  * { scrollbar-width: none; }
+  *::-webkit-scrollbar { display: none; }
+  /* iPhone hace zoom si el texto del campo es menor a 16px: lo evitamos */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px !important; }
+  body { overscroll-behavior-y: none; }
+}
+
 @layer components {
   /* Tarjeta base — borde nítido + sombra casi imperceptible, sin azul */
   .surface {
