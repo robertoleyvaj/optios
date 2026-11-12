@@ -161,7 +161,7 @@ export default function DashboardPage() {
         setUsuario(u)
         if (u.rol === 'web') { router.replace('/dashboard/inventario-nuevo'); return }
         if (u.rol === 'repartidor') {
-          router.replace('/dashboard/laboratorio')
+          router.replace('/dashboard/ruta')
           return
         }
         if (u.sucursal && u.sucursal !== 'Todas') {

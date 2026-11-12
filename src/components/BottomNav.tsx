@@ -4,7 +4,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { LayoutDashboard, FolderOpen, Plus, FlaskConical, Menu, Clock, Package } from 'lucide-react'
+import { LayoutDashboard, FolderOpen, Plus, FlaskConical, Menu, Package, Home, ClipboardList, ListChecks } from 'lucide-react'
 
 type Rol = 'administrador' | 'gerente' | 'vendedor' | 'repartidor' | 'web'
 type Item = { href: string; label: string; icon: React.ElementType; principal?: boolean; exacto?: boolean }
@@ -18,9 +18,12 @@ const ITEMS: Record<Rol, Item[]> = {
   ],
   gerente: [],
   vendedor: [],
+  // Sergio: Inicio es el botón principal (centro); Registrar casi no se usa
   repartidor: [
-    { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical },
-    { href: '/dashboard/checador',    label: 'Checador',    icon: Clock },
+    { href: '/dashboard/ruta/registrar', label: 'Registrar', icon: Plus },
+    { href: '/dashboard/laboratorio',    label: 'Trabajos',  icon: ListChecks },
+    { href: '/dashboard/ruta',           label: 'Inicio',    icon: Home, principal: true, exacto: true },
+    { href: '/dashboard/ruta/encargos',  label: 'Encargos',  icon: ClipboardList },
   ],
   web: [
     { href: '/dashboard/inventario-nuevo', label: 'Inventario', icon: Package },

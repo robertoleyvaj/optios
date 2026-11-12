@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { hoyLocal, rangoDiaLocal } from '@/lib/fecha'
 import RequireRol from '@/components/RequireRol'
 import { ventasAnteriores } from '@/lib/compras-anteriores'
+import EncargosAdmin from '@/components/EncargosAdmin'
 import {
   TrendingUp, TrendingDown, DollarSign, FlaskConical,
   Plus, X, Save, ChevronDown, Trash2, Pencil, FileDown, Loader2,
@@ -42,7 +43,9 @@ const PERIODOS: { key: Periodo; label: string }[] = [
 const CATEGORIAS_MANUAL = ['renta', 'nomina', 'bonos_comisiones', 'proveedores', 'servicios', 'mantenimiento', 'marketing', 'papeleria', 'limpieza', 'otros']
 // Todas las que pueden aparecer como egreso operativo (para el desglose):
 // las manuales + la automática (comisión de terminal) + claves antiguas por compatibilidad
-const CATEGORIAS_GASTO = [...CATEGORIAS_MANUAL, 'comision_terminal', 'bono_diario', 'adelanto', 'comisiones', 'compras']
+const CATEGORIAS_GASTO = [...CATEGORIAS_MANUAL, 'comision_terminal', 'bono_diario', 'adelanto', 'comisiones', 'compras',
+  // Las que registra Sergio desde su app (gastos extra)
+  'material', 'lente_extra', 'armazones', 'estuches', 'sprays']
 // Movimientos del dueño (no son costos del negocio, se muestran aparte)
 const CATEGORIAS_RETIRO = ['retiro_admin']
 
@@ -64,6 +67,12 @@ const CATEGORIAS_LABEL: Record<string, string> = {
   limpieza:           'Artículos de limpieza',
   comision_terminal:  'Comisión terminal (banco)',
   otros:              'Otros',
+  // Gastos extra que registra Sergio
+  material:           'Material',
+  lente_extra:        'Lente extra',
+  armazones:          'Armazones',
+  estuches:           'Estuches',
+  sprays:             'Sprays',
   // Claves antiguas (datos previos)
   bono_diario:        'Bono diario',
   adelanto:           'Adelanto sueldo',
@@ -484,6 +493,9 @@ function FinanzasPage() {
           </button>
         </div>
       </div>
+
+      {/* Encargos para Sergio (lo que compra se agrega solo a egresos) */}
+      <EncargosAdmin />
 
       {/* ── Modal: Generar análisis mensual ── */}
       {modalAnalisis && (

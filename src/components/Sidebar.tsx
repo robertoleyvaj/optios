@@ -39,7 +39,7 @@ const PERMISOS: Record<Rol, string[]> = {
   administrador: [...CORE_ADMIN, ...GESTION_ADMIN],
   gerente:       [...CORE, ...GESTION_GERENTE],
   vendedor:      [...CORE],
-  repartidor:    ['laboratorio'],
+  repartidor:    ['laboratorio', 'ruta'],
   web:           ['inventario'],
 }
 
@@ -102,7 +102,10 @@ const MENU_GESTION: MenuItem[] = [
 ]
 
 const MENU_REPARTIDOR: MenuItem[] = [
-  { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical, key: 'laboratorio' },
+  { href: '/dashboard/ruta',             label: 'Inicio',          icon: LayoutDashboard, key: 'ruta' },
+  { href: '/dashboard/laboratorio',      label: 'Trabajos',        icon: FlaskConical,    key: 'laboratorio' },
+  { href: '/dashboard/ruta/encargos',    label: 'Encargos',        icon: Ticket,          key: 'ruta' },
+  { href: '/dashboard/ruta/registrar',   label: 'Registrar gasto', icon: Plus,            key: 'ruta' },
   { href: '/dashboard/checador',    label: 'Checador',    icon: Clock,        key: 'checador' },
   { href: '/dashboard/vacaciones',  label: 'Vacaciones',  icon: Palmtree,     key: 'vacaciones' },
 ]

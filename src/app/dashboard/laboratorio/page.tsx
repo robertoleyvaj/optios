@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useSession } from '@/hooks/useSession'
 import {
-  Plus, Search, X, Save, ChevronLeft, Filter,
+  Plus, Search, X, Save, Filter,
   Clock, CheckCircle2, AlertTriangle, Truck,
   Package, Eye, Phone, Calendar, FileText,
-  ArrowRight, Printer, Link2, User, DollarSign,
+  Printer, Link2, User,
 } from 'lucide-react'
 import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { getSucursalActual, getSucursalFiltro, normalizarSucursal } from '@/lib/session'
@@ -76,6 +76,7 @@ type OrdenLab = {
   esGarantia: boolean         // true = orden de reposición por garantía
   motivoProblema: string      // motivo del problema al verificar
   archivado: boolean          // true = repartidor ya recogió la orden problema
+  recogidoAt?: string         // Sergio ya lo recogió en la óptica (todavía no lo deja en el lab)
 }
 
 type HistorialItem = {
@@ -609,495 +610,275 @@ function VistaRepartidor({ ordenes, onUpdate }: {
   ordenes: OrdenLab[]
   onUpdate: (id: number, changes: Partial<OrdenLab>) => void
 }) {
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [llevandoDraft, setLlevandoDraft] = useState<{
-    laboratorio: string
-    fechaPromesa: string
-    notas: string
-  }>({ laboratorio: '', fechaPromesa: '', notas: '' })
-  const [recogendoDraft, setRecogendoDraft] = useState<{
-    costoLab: string
-    metodoPagoLab: 'transferencia' | 'efectivo' | ''
-  }>({ costoLab: '', metodoPagoLab: '' })
-  // Sergio solo ve las órdenes que todavía requieren su acción
-  const lista = ordenes
-    .filter(o => !['entregado', 'problema', 'en_sucursal', 'listo'].includes(o.estado) && !o.archivado)
-    .sort((a, b) => (a.fechaIngreso ?? '').localeCompare(b.fechaIngreso ?? '') || a.folio.localeCompare(b.folio))
+  // Trabajos de Sergio: tarjetas individuales, agrupadas por lugar.
+  // Cada tarjeta tiene UN botón con el siguiente paso y una hoja de confirmación.
+  // Dónde está el lente y si está pagado son independientes: el pago nunca detiene el avance.
+  type Paso = 'recoger' | 'dejar' | 'recogerLab' | 'entregar' | 'regresar'
+  type Filtro = 'todos' | 'recoger' | 'lab' | 'entregar' | 'regresar'
 
-  // Órdenes problema: el vendedor marcó un defecto, Sergio debe recogerlas y llevarlas de vuelta al lab
-  const problemaList = ordenes
-    .filter(o => o.estado === 'problema' && !o.archivado)
-    .sort((a, b) => a.folio.localeCompare(b.folio))
+  const [filtro, setFiltro] = useState<Filtro>('todos')
+  useEffect(() => {
+    const f = new URLSearchParams(window.location.search).get('f') as Filtro | null
+    if (f && ['recoger', 'lab', 'entregar', 'regresar'].includes(f)) setFiltro(f)
+  }, [])
+  const [hoja, setHoja] = useState<{ o: OrdenLab; tipo: Paso | 'pagar' } | null>(null)
+  const [d, setD] = useState({ laboratorio: '', fechaPromesa: '', monto: '', metodo: '' as '' | 'efectivo' | 'transferencia' })
+  const [avisoHoja, setAvisoHoja] = useState('')
+  const hoy = hoyLocal()
 
-  const BADGE: Record<string, { bg: string; text: string; label: string }> = {
-    recibido:       { bg: 'bg-zinc-100',   text: 'text-zinc-600',   label: 'Pendiente'      },
-    en_laboratorio: { bg: 'bg-violet-50',  text: 'text-violet-700', label: 'En laboratorio' },
-    en_camino:      { bg: 'bg-teal-50',    text: 'text-teal-700',   label: 'En camino'      },
-    en_sucursal:    { bg: 'bg-amber-50',   text: 'text-amber-700',  label: 'Por verificar'  },
+  const pasoDe = (o: OrdenLab): Paso | null =>
+    o.estado === 'problema' ? (o.archivado ? null : 'regresar')
+    : o.estado === 'recibido' ? (o.recogidoAt ? 'dejar' : 'recoger')
+    : o.estado === 'en_laboratorio' ? 'recogerLab'
+    : o.estado === 'en_camino' ? 'entregar'
+    : null
+
+  const activas = ordenes.filter(o => pasoDe(o) !== null)
+  const enFiltro = (o: OrdenLab) => {
+    const p = pasoDe(o)
+    if (filtro === 'todos') return true
+    if (filtro === 'recoger') return p === 'recoger' || p === 'dejar'
+    if (filtro === 'lab') return p === 'recogerLab'
+    if (filtro === 'entregar') return p === 'entregar'
+    return p === 'regresar'
   }
+  const cuenta = (f: Filtro) => activas.filter(o => {
+    const p = pasoDe(o)
+    return f === 'todos' ? true : f === 'recoger' ? (p === 'recoger' || p === 'dejar') : f === 'lab' ? p === 'recogerLab' : f === 'entregar' ? p === 'entregar' : p === 'regresar'
+  }).length
 
-  const DOT: Record<string, string> = {
-    recibido: 'bg-zinc-400', en_laboratorio: 'bg-violet-500',
-    en_camino: 'bg-teal-500', en_sucursal: 'bg-amber-500',
+  // Grupos por lugar: ópticas (recoger, regresar, entregar), "Contigo" (para dejar en el lab) y cada laboratorio
+  const lugarDe = (o: OrdenLab) => {
+    const p = pasoDe(o)
+    if (p === 'dejar') return 'Contigo · para dejar en el lab'
+    if (p === 'recogerLab') return `Laboratorio${o.laboratorio ? ` · ${o.laboratorio}` : ''}`
+    return o.sucursal
   }
+  const ORDEN_LUGAR = ['Baja Visión', '5 de Mayo', 'Plaza Laureles', 'Contigo · para dejar en el lab']
+  const visibles = activas.filter(enFiltro).sort((a, b) => (a.fechaIngreso ?? '').localeCompare(b.fechaIngreso ?? '') || a.folio.localeCompare(b.folio))
+  const grupos = new Map<string, OrdenLab[]>()
+  for (const o of visibles) { const l = lugarDe(o); if (!grupos.has(l)) grupos.set(l, []); grupos.get(l)!.push(o) }
+  const lugares = [...grupos.keys()].sort((a, b) => {
+    const ia = ORDEN_LUGAR.indexOf(a), ib = ORDEN_LUGAR.indexOf(b)
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b)
+  })
 
-  const openOrder = (id: number) => {
-    const o = lista.find(x => x.id === id)
-    setSelectedId(id)
-    setLlevandoDraft({
-      laboratorio: o?.laboratorio ?? '',
-      fechaPromesa: o?.fechaPromesa ?? '',
-      notas: o?.notas ?? '',
+  const abrir = (o: OrdenLab, tipo: Paso | 'pagar') => {
+    setAvisoHoja('')
+    setD({
+      laboratorio: o.laboratorio || '', fechaPromesa: o.fechaPromesa || '',
+      monto: o.costoLab > 0 ? String(o.costoLab) : '', metodo: (o.metodoPagoLab || '') as '' | 'efectivo' | 'transferencia',
     })
-    setRecogendoDraft({
-      costoLab: o && o.costoLab > 0 ? String(o.costoLab) : '',
-      metodoPagoLab: o?.metodoPagoLab ?? '',
-    })
+    setHoja({ o, tipo })
   }
 
-  const selected = lista.find(o => o.id === selectedId) ?? null
-
-  // ── Vista "Regresar al lab" — órdenes problema ────────────
-  if (selected && selected.estado === 'problema') {
-    const o = selected
-    return (
-      <div className="max-w-sm mx-auto space-y-3">
-        <div className="flex items-center justify-between">
-          <button onClick={() => setSelectedId(null)}
-            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
-            <ChevronLeft className="w-4 h-4" /> Órdenes
-          </button>
-          <span className="text-sm font-bold text-zinc-500">{o.folio}</span>
-          <div className="w-20" />
-        </div>
-
-        <div className="bg-white rounded-xl border border-red-200 overflow-hidden">
-          <div className="h-1 bg-red-400" />
-          <div className="px-4 pt-4 pb-3 border-b border-zinc-200">
-            <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
-            <p className="text-sm text-zinc-400 mt-0.5">
-              {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
-            </p>
-            <p className="text-xs text-zinc-400 mt-1">{o.sucursal} · {o.laboratorio}</p>
-          </div>
-          <div className="px-4 py-4">
-            <div className="flex items-center gap-2 bg-red-50 text-red-700 rounded-lg px-3 py-2.5 text-sm font-medium">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              Lente llegó con problema
-            </div>
-            {o.motivoProblema && (
-              <p className="text-xs text-zinc-500 mt-2 px-1"><b>Motivo:</b> {o.motivoProblema}</p>
-            )}
-            <p className="text-xs text-zinc-400 mt-3">Recoge el lente de la óptica y regresa al laboratorio para reposición.</p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => {
-            onUpdate(o.id, { archivado: true })
-            setSelectedId(null)
-          }}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors"
-        >
-          <ArrowRight className="w-4 h-4" /> Ya lo recogí y lo llevé al lab
-        </button>
-      </div>
-    )
+  // Pago opcional: si escribió monto y método, se marca pagado
+  const pagoDraft = (): Partial<OrdenLab> => {
+    const m = Number(d.monto)
+    if (!(m > 0) || !d.metodo) return {}
+    return { costoLab: m, metodoPagoLab: d.metodo, pagadoLab: true, fechaPagoLab: hoy }
   }
 
-  // ── Vista "Llevar al lab" — órdenes recibido ──────────────
-  if (selected && selected.estado === 'recibido') {
-    const o = selected
-    return (
-      <div className="max-w-sm mx-auto space-y-3">
-        <div className="flex items-center justify-between">
-          <button onClick={() => setSelectedId(null)}
-            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
-            <ChevronLeft className="w-4 h-4" /> Órdenes
-          </button>
-          <span className="text-sm font-bold text-zinc-500">{o.folio}</span>
-          <div className="w-20" />
-        </div>
-
-        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-          <div className="px-4 pt-4 pb-3 border-b border-zinc-200">
-            <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
-            <p className="text-sm text-zinc-400 mt-0.5">
-              {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
-            </p>
-            <p className="text-xs text-zinc-400 mt-1">{o.sucursal}</p>
-          </div>
-
-          <div className="px-4 py-4 space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Laboratorio</label>
-              <select value={llevandoDraft.laboratorio}
-                onChange={e => setLlevandoDraft(d => ({ ...d, laboratorio: e.target.value }))}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488]">
-                <option value="">Sin asignar</option>
-                {LABORATORIOS.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">¿Cuándo estará listo?</label>
-              <input type="date" value={llevandoDraft.fechaPromesa}
-                onChange={e => setLlevandoDraft(d => ({ ...d, fechaPromesa: e.target.value }))}
-                className="border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] w-48" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">Observaciones</label>
-              <textarea value={llevandoDraft.notas} rows={2} placeholder="—"
-                onChange={e => setLlevandoDraft(d => ({ ...d, notas: e.target.value.toUpperCase() }))}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] resize-none uppercase placeholder:normal-case" />
-            </div>
-          </div>
-        </div>
-
-        {!llevandoDraft.laboratorio && (
-          <p className="text-xs text-center text-red-500 font-medium -mb-1">Selecciona el laboratorio antes de continuar</p>
-        )}
-        <button
-          disabled={!llevandoDraft.laboratorio}
-          onClick={() => {
-            onUpdate(o.id, {
-              estado: 'en_laboratorio',
-              laboratorio: llevandoDraft.laboratorio,
-              fechaPromesa: llevandoDraft.fechaPromesa,
-              notas: llevandoDraft.notas,
-              fechaEnvioLab: hoyLocal(),
-            })
-            setSelectedId(null)
-          }}
-          className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold rounded-xl transition-colors ${
-            llevandoDraft.laboratorio
-              ? 'bg-violet-600 text-white hover:bg-violet-700'
-              : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
-          }`}
-        >
-          <ArrowRight className="w-4 h-4" /> Ya lo dejé en el laboratorio
-        </button>
-      </div>
-    )
+  const confirmar = () => {
+    if (!hoja) return
+    const { o, tipo } = hoja
+    if (tipo === 'recoger') onUpdate(o.id, { recogidoAt: new Date().toISOString() })
+    if (tipo === 'dejar') {
+      if (!d.laboratorio) { setAvisoHoja('Escoge con qué laboratorio lo dejaste'); return }
+      onUpdate(o.id, { estado: 'en_laboratorio', laboratorio: d.laboratorio, fechaPromesa: d.fechaPromesa, fechaEnvioLab: hoy, ...(o.pagadoLab ? {} : pagoDraft()) })
+    }
+    if (tipo === 'recogerLab') onUpdate(o.id, { estado: 'en_camino', fechaRecogidaLab: hoy, ...(o.pagadoLab ? {} : pagoDraft()) })
+    if (tipo === 'entregar') onUpdate(o.id, { estado: 'en_sucursal' })
+    if (tipo === 'regresar') onUpdate(o.id, { archivado: true })
+    if (tipo === 'pagar') {
+      const p = pagoDraft()
+      if (!p.pagadoLab) { setAvisoHoja('Escribe cuánto pagaste y cómo'); return }
+      onUpdate(o.id, p)
+    }
+    setHoja(null)
   }
 
-  // ── Vista "Recoger del lab" — órdenes en_laboratorio ──────
-  if (selected && selected.estado === 'en_laboratorio') {
-    const o = selected
-    const hoy = hoyLocal()
-    const listaHoy = o.fechaPromesa === hoy
-    return (
-      <div className="max-w-sm mx-auto space-y-3">
-        <div className="flex items-center justify-between">
-          <button onClick={() => { setSelectedId(null) }}
-            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
-            <ChevronLeft className="w-4 h-4" /> Órdenes
-          </button>
-          <span className="text-sm font-bold text-zinc-500">{o.folio}</span>
-          <div className="w-20" />
-        </div>
-
-        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-          <div className="px-4 pt-4 pb-3 border-b border-zinc-200">
-            <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
-            <p className="text-sm text-zinc-400 mt-0.5">
-              {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
-            </p>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-xs text-zinc-400">{o.sucursal}</span>
-              {o.laboratorio && <span className="text-xs text-indigo-600 font-semibold">· {o.laboratorio}</span>}
-              {o.fechaPromesa && (
-                <span className={`text-xs font-semibold ${listaHoy ? 'text-emerald-600' : 'text-zinc-400'}`}>
-                  · {listaHoy ? 'Listo hoy' : `Listo el ${o.fechaPromesa.replace(/^\d{4}-/, '').replace('-', '/')}`}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {o.notas && (
-            <div className="px-4 py-3 border-b border-zinc-200">
-              <p className="text-xs text-zinc-400 font-semibold mb-1">Observaciones</p>
-              <p className="text-sm text-zinc-600">{o.notas}</p>
-            </div>
-          )}
-
-          <div className="px-4 py-4 space-y-4">
-            <p className="text-xs text-zinc-400">Registra lo que cobró el laboratorio:</p>
-
-            {/* Monto + botón Pagado en la misma fila */}
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">¿Cuánto cobró el lab?</label>
-              <div className="flex gap-2 items-center">
-                <input type="number" placeholder="$0" value={recogendoDraft.costoLab}
-                  onChange={e => setRecogendoDraft(d => ({ ...d, costoLab: e.target.value }))}
-                  className="border border-zinc-200 rounded-lg px-3 py-2 text-sm bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-[#0D9488] w-36" />
-                {/* Botón Pagado — guarda sin cambiar estado */}
-                {o.pagadoLab ? (
-                  <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-lg">
-                    <svg viewBox="0 0 10 10" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="1.5,5 4,7.5 8.5,2.5"/></svg>
-                    Pagado
-                  </span>
-                ) : (
-                  <button
-                    disabled={!recogendoDraft.costoLab || !recogendoDraft.metodoPagoLab}
-                    onClick={() => {
-                      onUpdate(o.id, {
-                        costoLab:      Number(recogendoDraft.costoLab),
-                        metodoPagoLab: recogendoDraft.metodoPagoLab,
-                        pagadoLab:     true,
-                        fechaPagoLab:  hoyLocal(),
-                      })
-                    }}
-                    className="px-3 py-2 rounded-lg text-xs font-bold border transition-colors bg-emerald-600 text-white disabled:opacity-30 disabled:cursor-not-allowed">
-                    Pagado
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-zinc-500 mb-1.5">¿Cómo pagaste?</label>
-              <div className="flex gap-2">
-                {([
-                  { v: '' as const,              label: 'Sin pagar'     },
-                  { v: 'efectivo' as const,      label: 'Efectivo'      },
-                  { v: 'transferencia' as const, label: 'Transferencia' },
-                ]).map(m => (
-                  <button key={m.v}
-                    onClick={() => setRecogendoDraft(d => ({ ...d, metodoPagoLab: m.v }))}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                      recogendoDraft.metodoPagoLab === m.v
-                        ? 'bg-[#0B0E14] text-white border-[#0B0E14]'
-                        : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-100'
-                    }`}>
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {!o.pagadoLab && (
-          <p className="text-xs text-center text-red-500 font-medium -mb-1">
-            Primero marca como Pagado antes de continuar
-          </p>
-        )}
-        <button
-          disabled={!o.pagadoLab}
-          onClick={() => {
-            onUpdate(o.id, {
-              estado: 'en_camino',
-              costoLab:      Number(recogendoDraft.costoLab) || 0,
-              metodoPagoLab: recogendoDraft.metodoPagoLab,
-              pagadoLab:     true,
-              fechaRecogidaLab: hoyLocal(),
-            })
-            setSelectedId(null)
-          }}
-          className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold rounded-xl transition-colors ${
-            o.pagadoLab
-              ? 'bg-teal-600 text-white hover:bg-teal-700'
-              : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
-          }`}
-        >
-          <Truck className="w-4 h-4" /> Ya lo recogí, voy en camino a la óptica
-        </button>
-      </div>
-    )
+  const FILTROS: { k: Filtro; l: string }[] = [
+    { k: 'todos', l: 'Todos' }, { k: 'recoger', l: 'Recoger' }, { k: 'lab', l: 'En lab' }, { k: 'entregar', l: 'Entregar' }, { k: 'regresar', l: 'Regresar' },
+  ]
+  const BOTON: Record<Paso, string> = {
+    recoger: 'Ya lo recogí', dejar: 'Lo dejé en el lab', recogerLab: 'Lo recogí del lab', entregar: 'Lo entregué', regresar: 'Lo recogí para regresarlo',
   }
+  const PASO_N: Record<Paso, number> = { recoger: 0, dejar: 0, recogerLab: 1, entregar: 2, regresar: 0 }
 
-  // ── Vista "Entregar en sucursal" — órdenes en_camino ─────
-  if (selected && selected.estado === 'en_camino') {
-    const o = selected
-    return (
-      <div className="max-w-sm mx-auto space-y-3">
-        <div className="flex items-center justify-between">
-          <button onClick={() => { setSelectedId(null) }}
-            className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600">
-            <ChevronLeft className="w-4 h-4" /> Órdenes
-          </button>
-          <span className="text-sm font-bold text-zinc-500">{o.folio}</span>
-          <div className="w-20" />
-        </div>
+  const ubicacion = (o: OrdenLab, p: Paso) =>
+    p === 'recoger' ? `En ${o.sucursal}` :
+    p === 'dejar' ? 'Contigo' :
+    p === 'recogerLab' ? `Con ${o.laboratorio || 'el laboratorio'}` :
+    p === 'entregar' ? `Contigo · va a ${o.sucursal}` :
+    `En ${o.sucursal} · regresar al lab`
 
-        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
-          <div className="px-4 pt-4 pb-3 border-b border-zinc-200">
-            <p className="text-lg font-bold text-zinc-800">{o.paciente}</p>
-            <p className="text-sm text-zinc-400 mt-0.5">
-              {o.tipoMica}{o.descripcionArmazon ? ` · ${o.descripcionArmazon}` : ''}
-            </p>
-            <p className="text-xs text-zinc-400 mt-1">{o.sucursal} · {o.laboratorio}</p>
-          </div>
-          <div className="px-4 py-4">
-            <div className="flex items-center gap-2 bg-blue-50 text-blue-700 rounded-lg px-3 py-2.5 text-sm font-medium">
-              <Truck className="w-4 h-4 flex-shrink-0" />
-              En camino a la óptica
-            </div>
-            <p className="text-xs text-zinc-400 mt-3">Cuando llegues a la sucursal y entregues el lente, marca la entrega:</p>
-          </div>
-        </div>
+  const muestraPago = (p: Paso) => p === 'dejar' || p === 'recogerLab' || p === 'entregar'
+  const fmt$ = (n: number) => `$${Math.round(n).toLocaleString('es-MX')}`
 
-        <button
-          onClick={() => {
-            onUpdate(o.id, { estado: 'en_sucursal' })
-            setSelectedId(null)
-          }}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors"
-        >
-          <Package className="w-4 h-4" /> Ya lo entregué en la óptica
-        </button>
-      </div>
-    )
-  }
-
-  // ── Lista por secciones ────────────────────────────────────
-  const porLlevarList = lista.filter(o => o.estado === 'recibido')
-  const enLabList     = lista.filter(o => o.estado === 'en_laboratorio')
-  const enCaminoList  = lista.filter(o => o.estado === 'en_camino')
-  const hoy           = hoyLocal()
-  const sinPagarCount = lista.filter(o => o.costoLab > 0 && !o.pagadoLab).length
-
-  const OrdenRow = ({ o }: { o: OrdenLab }) => {
-    const sinPagar  = o.costoLab > 0 && !o.pagadoLab
-    const listaHoy  = o.fechaPromesa === hoy
-    const accionLabel =
-      o.estado === 'recibido'       ? 'Llevar al lab →' :
-      o.estado === 'en_laboratorio' ? 'Recoger →' :
-      o.estado === 'en_camino'      ? 'Entregar →' : ''
-
-    return (
-      <button onClick={() => openOrder(o.id)}
-        className="w-full flex items-stretch hover:bg-zinc-100 transition-colors text-left">
-        <div className="flex items-center pl-4 pr-3">
-          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT[o.estado]}`} />
-        </div>
-        <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-200">
-          <div className="flex items-center justify-between mb-0.5">
-            <span className="text-xs font-bold text-zinc-400">{o.folio}</span>
-            <span className="text-xs font-semibold text-zinc-400">
-              {accionLabel}
-            </span>
-          </div>
-          <p className="text-sm font-semibold text-zinc-800 leading-tight">
-            {o.paciente}
-            {esUrgente(o) && <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 bg-red-600 text-white rounded uppercase tracking-wide">Urgente</span>}
-          </p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-zinc-400">{o.sucursal}</span>
-            {o.laboratorio && <span className="text-xs text-violet-600">· {o.laboratorio}</span>}
-            {o.fechaPromesa && (
-              <span className={`text-xs font-semibold ${listaHoy ? 'text-emerald-600' : 'text-zinc-400'}`}>
-                · {listaHoy ? 'Hoy' : o.fechaPromesa.replace(/^\d{4}-/, '').replace('-', '/')}
-              </span>
-            )}
-            {sinPagar && (
-              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 ml-auto">Sin pagar</span>
-            )}
-          </div>
-        </div>
-      </button>
-    )
+  const titulo: Record<Paso | 'pagar', (o: OrdenLab) => string> = {
+    recoger: o => `¿Recogiste el lente de ${o.paciente}?`,
+    dejar: o => `¿Dejaste el lente de ${o.paciente} en el laboratorio?`,
+    recogerLab: o => `¿Recogiste el lente de ${o.paciente} del laboratorio?`,
+    entregar: o => `¿Entregaste el lente de ${o.paciente} en ${o.sucursal}?`,
+    regresar: o => `¿Recogiste el lente de ${o.paciente} para regresarlo al lab?`,
+    pagar: o => `Pago del lente de ${o.paciente}`,
   }
 
   return (
-    <div className="max-w-sm mx-auto space-y-4">
+    <div className="max-w-md mx-auto">
+      <h1 className="text-2xl font-semibold text-zinc-900 tracking-tight">Trabajos</h1>
+      <p className="text-sm text-zinc-400 mt-0.5">{activas.length} {activas.length === 1 ? 'pendiente' : 'pendientes'}</p>
 
-      {lista.length === 0 && (
-        <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center">
-          <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
-          <p className="text-sm font-medium text-zinc-500">Todo al día</p>
-          <p className="text-xs text-zinc-400 mt-1">Sin órdenes pendientes</p>
+      <div className="flex flex-wrap gap-2 mt-4">
+        {FILTROS.map(f => {
+          const n = cuenta(f.k)
+          if (f.k !== 'todos' && n === 0) return null
+          return (
+            <button key={f.k} onClick={() => setFiltro(f.k)}
+              className={`h-9 px-3.5 rounded-full text-sm border ${filtro === f.k ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : f.k === 'regresar' ? 'bg-white text-red-600 border-red-200' : 'bg-white text-zinc-600 border-zinc-200'}`}>
+              {f.l} <span className="opacity-60">{n}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {visibles.length === 0 && (
+        <div className="py-14 text-center">
+          <CheckCircle2 className="w-9 h-9 text-emerald-400 mx-auto mb-2" />
+          <p className="text-sm font-medium text-zinc-600">Todo al día</p>
+          <p className="text-xs text-zinc-400 mt-0.5">No hay trabajos pendientes aquí</p>
         </div>
       )}
 
-      {/* Por llevar */}
-      {porLlevarList.length > 0 && (
-        <div>
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-zinc-400 inline-block" />
-            Por llevar · {porLlevarList.length}
-          </p>
-          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
-            {porLlevarList.map(o => <OrdenRow key={o.id} o={o} />)}
-          </div>
-        </div>
-      )}
-
-      {/* En laboratorio */}
-      {enLabList.length > 0 && (
-        <div>
-          <p className="text-xs font-bold text-violet-600 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />
-            En laboratorio · {enLabList.length}
-          </p>
-          <div className="bg-white rounded-xl border border-violet-100 overflow-hidden divide-y divide-zinc-100">
-            {enLabList.map(o => <OrdenRow key={o.id} o={o} />)}
-          </div>
-        </div>
-      )}
-
-      {/* En camino */}
-      {enCaminoList.length > 0 && (
-        <div>
-          <p className="text-xs font-bold text-teal-600 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-teal-500 inline-block" />
-            En camino · {enCaminoList.length}
-          </p>
-          <div className="bg-white rounded-xl border border-teal-100 overflow-hidden divide-y divide-zinc-100">
-            {enCaminoList.map(o => <OrdenRow key={o.id} o={o} />)}
-          </div>
-        </div>
-      )}
-
-      {/* Regresar al lab (problema) */}
-      {problemaList.length > 0 && (
-        <div>
-          <p className="text-xs font-bold text-red-500 uppercase tracking-wide mb-2 px-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
-            Regresar al lab · {problemaList.length}
-          </p>
-          <div className="bg-white rounded-xl border border-red-100 overflow-hidden divide-y divide-zinc-100">
-            {problemaList.map(o => (
-              <button key={o.id} onClick={() => openOrder(o.id)}
-                className="w-full flex items-stretch hover:bg-red-50 transition-colors text-left">
-                <div className="flex items-center pl-4 pr-3">
-                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-red-400" />
-                </div>
-                <div className="flex-1 py-3.5 pr-4 min-w-0 border-l border-zinc-200">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-xs font-bold text-zinc-400">{o.folio}</span>
-                    <span className="text-xs font-semibold text-red-500">Regresar al lab →</span>
+      {lugares.map(lugar => (
+        <div key={lugar} className="mt-6">
+          <p className="text-sm font-medium text-zinc-500 mb-2">{lugar}</p>
+          <div className="space-y-3">
+            {grupos.get(lugar)!.map(o => {
+              const p = pasoDe(o)!
+              const rojo = p === 'regresar'
+              const n = PASO_N[p]
+              return (
+                <div key={o.id} className={`bg-white rounded-2xl border p-4 ${rojo ? 'border-red-200' : 'border-zinc-200'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold text-zinc-900 leading-tight">
+                        {o.paciente}
+                        {esUrgente(o) && <span className="ml-1.5 align-middle text-[10px] font-bold px-1.5 py-0.5 bg-red-600 text-white rounded uppercase tracking-wide">Urgente</span>}
+                      </p>
+                      <p className="text-xs text-zinc-400 mt-0.5 truncate">{o.folio} · {o.tipoMica || 'Lente'} · de {o.sucursal}</p>
+                    </div>
                   </div>
-                  <p className="text-sm font-semibold text-zinc-800 leading-tight">{o.paciente}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-zinc-400">{o.sucursal}</span>
-                    {o.laboratorio && <span className="text-xs text-violet-600">· {o.laboratorio}</span>}
-                    {o.motivoProblema && (
-                      <span className="text-xs text-red-400 truncate">· {o.motivoProblema}</span>
+
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    <span className={`text-[11px] px-2 py-1 rounded-full ${rojo ? 'bg-red-50 text-red-700' : p === 'recogerLab' ? 'bg-violet-50 text-violet-700' : 'bg-zinc-100 text-zinc-600'}`}>
+                      {ubicacion(o, p)}
+                    </span>
+                    {muestraPago(p) && (o.pagadoLab
+                      ? <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">Pagado{o.costoLab > 0 ? ` ${fmt$(o.costoLab)}` : ''}</span>
+                      : <span className="text-[11px] px-2 py-1 rounded-full bg-amber-50 text-amber-700">Sin pagar</span>)}
+                    {p === 'recogerLab' && o.fechaPromesa && (
+                      <span className={`text-[11px] px-2 py-1 rounded-full ${o.fechaPromesa <= hoy ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                        {o.fechaPromesa <= hoy ? 'Ya debe estar listo' : `Listo el ${o.fechaPromesa.slice(8, 10)}/${o.fechaPromesa.slice(5, 7)}`}
+                      </span>
+                    )}
+                  </div>
+                  {rojo && o.motivoProblema && <p className="text-xs text-red-600 mt-2">{o.motivoProblema}</p>}
+
+                  {!rojo && (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-1">
+                        {[0, 1, 2, 3].map(i => (
+                          <React.Fragment key={i}>
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${i < n ? 'bg-emerald-500' : i === n ? 'bg-[#0D9488] ring-4 ring-[#0D9488]/15' : 'bg-zinc-200'}`} />
+                            {i < 3 && <span className={`flex-1 h-0.5 ${i < n ? 'bg-emerald-500' : 'bg-zinc-200'}`} />}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-zinc-400 mt-1"><span>Óptica</span><span>Lab</span><span>En camino</span><span>Entregado</span></div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => abrir(o, p)}
+                      className={`flex-1 h-11 rounded-xl text-sm font-semibold active:scale-[0.98] transition-transform ${rojo ? 'bg-white text-red-600 border border-red-300' : 'bg-[#0B0E14] text-white'}`}>
+                      {BOTON[p]}
+                    </button>
+                    {muestraPago(p) && !o.pagadoLab && (
+                      <button onClick={() => abrir(o, 'pagar')}
+                        className="h-11 px-4 rounded-xl text-sm font-medium border border-zinc-200 text-zinc-700 bg-white active:scale-[0.98] transition-transform">
+                        Pagar
+                      </button>
                     )}
                   </div>
                 </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* ── Hoja de confirmación (sube desde abajo) ── */}
+      {hoja && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setHoja(null)}>
+          <div className="w-full max-w-md bg-white rounded-t-3xl px-5 pt-3 shadow-2xl" onClick={e => e.stopPropagation()}
+            style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
+            <div className="w-10 h-1 rounded-full bg-zinc-300 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-zinc-900 leading-snug">{titulo[hoja.tipo](hoja.o)}</p>
+            <p className="text-sm text-zinc-400 mt-0.5">{hoja.o.folio} · {hoja.o.tipoMica || 'Lente'} · de {hoja.o.sucursal}</p>
+
+            {hoja.tipo === 'dejar' && (
+              <>
+                <p className="text-sm text-zinc-500 mt-5 mb-2">¿Con quién lo dejaste?</p>
+                <div className="flex flex-wrap gap-2">
+                  {LABORATORIOS.map(l => (
+                    <button key={l} onClick={() => setD(x => ({ ...x, laboratorio: l }))}
+                      className={`h-10 px-3.5 rounded-full text-sm border ${d.laboratorio === l ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'bg-white text-zinc-600 border-zinc-200'}`}>{l}</button>
+                  ))}
+                </div>
+                <p className="text-sm text-zinc-500 mt-4 mb-2">¿Cuándo estará listo? <span className="text-zinc-300">(opcional)</span></p>
+                <input type="date" value={d.fechaPromesa} onChange={e => setD(x => ({ ...x, fechaPromesa: e.target.value }))}
+                  className="w-full h-12 px-3.5 rounded-xl border border-zinc-200 bg-white" />
+              </>
+            )}
+
+            {(hoja.tipo === 'pagar' || ((hoja.tipo === 'dejar' || hoja.tipo === 'recogerLab') && !hoja.o.pagadoLab)) && (
+              <div className={`mt-5 ${hoja.tipo === 'pagar' ? '' : 'rounded-2xl border border-zinc-200 p-4'}`}>
+                {hoja.tipo !== 'pagar' && (
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-zinc-700">¿Pagaste ahorita?</span>
+                    <span className="text-xs text-zinc-400">Opcional</span>
+                  </div>
+                )}
+                <input value={d.monto} onChange={e => setD(x => ({ ...x, monto: e.target.value.replace(/[^\d.]/g, '') }))}
+                  inputMode="decimal" placeholder="$0" className="w-full h-12 px-3.5 rounded-xl border border-zinc-200 bg-white" />
+                <div className="grid grid-cols-2 h-12 mt-2 rounded-xl border border-zinc-200 overflow-hidden text-sm">
+                  {(['efectivo', 'transferencia'] as const).map(m => (
+                    <button key={m} onClick={() => setD(x => ({ ...x, metodo: x.metodo === m ? '' : m }))}
+                      className={d.metodo === m ? 'bg-[#0B0E14] text-white font-medium' : 'bg-white text-zinc-600'}>
+                      {m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
+                    </button>
+                  ))}
+                </div>
+                {hoja.tipo !== 'pagar' && <p className="text-xs text-zinc-400 text-center mt-2">Si no pagaste, déjalo vacío y queda como &ldquo;Sin pagar&rdquo;</p>}
+              </div>
+            )}
+
+            {avisoHoja && <p className="text-sm text-red-600 mt-3">{avisoHoja}</p>}
+            <div className="flex gap-2 mt-6">
+              <button onClick={() => setHoja(null)} className="flex-1 h-12 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700">Cancelar</button>
+              <button onClick={confirmar} className="flex-[1.4] h-12 rounded-xl bg-[#0B0E14] text-white text-sm font-semibold active:scale-[0.98] transition-transform">
+                {hoja.tipo === 'pagar' ? 'Guardar pago' : hoja.tipo === 'entregar' ? 'Sí, lo entregué' : hoja.tipo === 'dejar' ? 'Sí, lo dejé' : 'Sí, lo recogí'}
               </button>
-            ))}
+            </div>
           </div>
         </div>
       )}
-
-      {/* Sin pagar */}
-      {sinPagarCount > 0 && (
-        <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-          <DollarSign className="w-4 h-4 text-amber-500 flex-shrink-0" />
-          <p className="text-xs text-amber-700 font-semibold">
-            {sinPagarCount} {sinPagarCount === 1 ? 'orden pendiente' : 'órdenes pendientes'} de pago al laboratorio
-          </p>
-        </div>
-      )}
-
     </div>
   )
 }
+
 
 // ─────────────────────────────────────────
 // Vista simplificada para vendedor
@@ -1175,6 +956,9 @@ function VistaVendedor({ ordenes, sucursal, rol, onPrint, onUpdate, onProblema, 
                 <p className="text-sm font-bold text-zinc-800">{o.paciente}</p>
                 {o.esGarantia && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded uppercase tracking-wide">Garantía</span>
+                )}
+                {o.estado === 'recibido' && o.recogidoAt && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-teal-50 text-teal-700 rounded">Sergio ya lo recogió</span>
                 )}
               </div>
               <p className="text-xs text-zinc-400 mt-0.5">{o.telefono} · {o.folio}</p>
@@ -1580,6 +1364,7 @@ function rowToOrden(r: Record<string, unknown>, idx: number): OrdenLab {
     esGarantia:     (r.es_garantia as boolean) ?? false,
     motivoProblema: (r.motivo_problema as string) ?? '',
     archivado:      (r.archivado as boolean) ?? false,
+    recogidoAt:     (r.recogido_at as string) ?? '',
   }
 }
 
@@ -1664,6 +1449,7 @@ export default function LaboratorioPage() {
     if (changes.motivoRetraso      !== undefined) dbChanges.motivo_retraso       = changes.motivoRetraso
     if (changes.archivado          !== undefined) dbChanges.archivado            = changes.archivado
     if (changes.motivoProblema     !== undefined) dbChanges.motivo_problema      = changes.motivoProblema
+    if (changes.recogidoAt         !== undefined) dbChanges.recogido_at          = changes.recogidoAt || null
     await supabase.from('ordenes_lab').update(dbChanges).eq('id', supabaseId)
   }, [])
 
