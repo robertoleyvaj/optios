@@ -900,6 +900,17 @@ function ExpedientesContent() {
     }
   }
 
+  // Garantía por cambio de graduación: la receta nueva arranca con el tipo de lente que
+  // ya usa el paciente (progresivo/bifocal según la mica vendida o su última receta),
+  // para que aparezca la Adición y no se pierda en la orden de laboratorio.
+  const recetaParaGarantia = () => {
+    const prev = seleccionado?.recetas.length
+      ? [...seleccionado.recetas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] : null
+    const mica = (garantiaProductos.tipoMica || '').toUpperCase()
+    const tipo = (/PROGRESIV/.test(mica) ? 'Progresivo' : /BIFOCAL/.test(mica) ? 'Bifocal' : (prev?.tipo || 'Lejos')) as Receta['tipo']
+    return { ...formVacioReceta(), tipo, dp: prev?.dp || '', od_add: prev?.od_add || '', oi_add: prev?.oi_add || '' }
+  }
+
   // ── Garantía: abrir modal ──
   const abrirGarantia = () => {
     if (!seleccionado) return
@@ -1801,7 +1812,7 @@ function ExpedientesContent() {
                       <th className="text-center text-xs text-zinc-400 font-medium px-2 py-2.5">Esfera</th>
                       <th className="text-center text-xs text-zinc-400 font-medium px-2 py-2.5">Cilindro</th>
                       <th className="text-center text-xs text-zinc-400 font-medium px-2 py-2.5">Eje</th>
-                      {(formReceta.tipo === 'Progresivo' || formReceta.tipo === 'Bifocal') && (
+                      {(formReceta.tipo === 'Progresivo' || formReceta.tipo === 'Bifocal' || !!formReceta.od_add || !!formReceta.oi_add) && (
                         <th className="text-center text-xs text-zinc-400 font-medium px-2 py-2.5">Adición</th>
                       )}
                     </tr>
@@ -1815,7 +1826,7 @@ function ExpedientesContent() {
                         <td className="px-4 py-3">
                           <span className="text-xs font-bold text-zinc-600 bg-zinc-100 px-2 py-1 rounded">{row.label}</span>
                         </td>
-                        {row.fields.slice(0, (formReceta.tipo === 'Progresivo' || formReceta.tipo === 'Bifocal') ? 4 : 3).map(field => {
+                        {row.fields.slice(0, (formReceta.tipo === 'Progresivo' || formReceta.tipo === 'Bifocal' || !!formReceta.od_add || !!formReceta.oi_add) ? 4 : 3).map(field => {
                           const isEje = field.includes('eje')
                           const isAdd = field.includes('add')
                           const hasError = !!erroresReceta[field]
@@ -1947,8 +1958,8 @@ function ExpedientesContent() {
                     </button>
                     <button onClick={() => {
                       setGarantiaTipo('graduacion')
-                      // Abrir modal de receta para nuevo examen
-                      setFormReceta(formVacioReceta())
+                      // Abrir modal de receta para nuevo examen (con el tipo de lente y la adición que ya tenía)
+                      setFormReceta(recetaParaGarantia())
                       setErroresReceta({})
                       setModalReceta(true)
                     }}
@@ -2035,7 +2046,7 @@ function ExpedientesContent() {
                       <Eye className="w-8 h-8 text-violet-400 mx-auto mb-2" />
                       <p className="text-sm text-zinc-600 font-semibold">Primero registra la nueva receta</p>
                       <p className="text-xs text-zinc-400 mt-1">El modal de nueva receta está abierto. Guarda el examen visual y regresa aquí.</p>
-                      <button onClick={() => { setFormReceta(formVacioReceta()); setErroresReceta({}); setModalReceta(true) }}
+                      <button onClick={() => { setFormReceta(recetaParaGarantia()); setErroresReceta({}); setModalReceta(true) }}
                         className="mt-3 text-xs text-sky-600 font-semibold hover:underline">
                         Abrir formulario de receta
                       </button>
