@@ -220,7 +220,7 @@ function imprimirCotizacion(v: Venta, logo = '', atendioReceta = '') {
 
 <div class="footer">
   ${SUCURSAL_CONFIG[v.sucursal]?.direccion ? `<div class="faddr">${SUCURSAL_CONFIG[v.sucursal].direccion}</div>` : ''}
-  <div>Tel. ${SUCURSAL_CONFIG[v.sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[v.sucursal]?.whatsapp ?? '664 834 3018'}</div>
+  <div>Tel. ${SUCURSAL_CONFIG[v.sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[v.sucursal]?.whatsapp ?? '661 117 8828'}</div>
   <div>${SUCURSAL_CONFIG[v.sucursal]?.horario ?? 'Lun-Sab 10:00-18:00'}</div>
   ${vendedorCorto ? `<div class="fatendio">Atendio: ${vendedorCorto}</div>` : ''}
   <div>${SUCURSAL_CONFIG[v.sucursal]?.web ?? 'gonmx.com'}</div>
@@ -306,7 +306,7 @@ function descargarPDFDoc(v: Venta, logo = '', atendioReceta = '') {
   ${esCot ? '<div class="vig"><b>Cotización válida por 15 días.</b> Precios sujetos a cambio sin previo aviso. No es un comprobante de pago.</div>' : ''}
   <div class="foot">
     ${cfg?.direccion ? `<div>${cfg.direccion}</div>` : ''}
-    <div>Tel. ${cfg?.telefono ?? '661 612 0316'} · WhatsApp ${cfg?.whatsapp ?? '664 834 3018'} · ${cfg?.horario ?? 'Lun-Sáb 10:00-18:00'}</div>
+    <div>Tel. ${cfg?.telefono ?? '661 612 0316'} · WhatsApp ${cfg?.whatsapp ?? '661 117 8828'} · ${cfg?.horario ?? 'Lun-Sáb 10:00-18:00'}</div>
     <div>${cfg?.web ?? 'gonmx.com'}</div>
   </div>
 </div>

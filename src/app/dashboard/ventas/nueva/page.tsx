@@ -34,7 +34,7 @@ import { SUCURSAL_CONFIG } from '@/lib/sucursales'
 import { cuponTicketHtml } from '@/lib/cupones'
 import { ticketVentaHtml } from '@/lib/ticket-venta'
 import { descuentoWebRenglon } from '@/lib/precio-web'
-import { textoOjo } from '@/lib/graduacion'
+import { textoOjo, graduacionLab, esParMonofocal, tieneAdicion, type UsoMonofocal } from '@/lib/graduacion'
 
 // --- Catálogo GON ---
 type CatItem = {
@@ -803,6 +803,24 @@ export default function NuevaVentaPage() {
   const descuentoCupon = cuponAplicado ? Math.min(cuponAplicado.monto, subtotal) : 0
   const total = subtotal - descuentoCupon
 
+  // ── Monofocal con receta que trae adición: ¿para qué visión es cada par? ──
+  // Al laboratorio solo le llega la graduación final (sin adición), nunca el "para qué".
+  const [usoMono, setUsoMono] = useState<Record<number, { uso: UsoMonofocal | null; valor: string }>>({})
+  const esMicaNombre = (n: string) => ['mica', 'monofocal', 'progres', 'bifocal', 'transitions'].some(k => n.toLowerCase().includes(k))
+  const paresMonoConAdd: number[] = tieneAdicion(recetaPaciente)
+    ? [...new Set(carrito.map(i => i.par))].sort((a, b) => a - b)
+        .filter(par => esParMonofocal(carrito.filter(i => i.par === par && esMicaNombre(i.nombre)).map(i => i.nombre)))
+    : []
+  const valorPersonal = (v: string) => parseFloat(v.replace(',', '.'))
+  const usoListo = paresMonoConAdd.every(p => {
+    const u = usoMono[p]
+    return !!u?.uso && (u.uso !== 'personalizada' || (valorPersonal(u.valor) > 0 && valorPersonal(u.valor) <= 4))
+  })
+  const gradPar = (par: number) => {
+    const u = paresMonoConAdd.includes(par) ? usoMono[par] : undefined
+    return graduacionLab(recetaPaciente, u?.uso ?? null, u?.uso === 'personalizada' ? valorPersonal(u.valor) : null)
+  }
+
   // ── Líneas de pago (pago dividido: método + moneda por línea) ──
   // El anticipo/recibido SALE de las líneas — no hay campo aparte.
   const lineaEnPesos = (l: LineaPago) =>
@@ -1185,9 +1203,10 @@ export default function NuevaVentaPage() {
             fecha_promesa:    fechaEntrega || '',
             precio_cliente:   subtotalPar,
             anticipo:         parsConMicas.length === 1 ? anticoNum : 0,
-            od:               odTexto,
-            oi:               oiTexto,
-            add_graduacion:   recetaPaciente?.od_add || recetaPaciente?.oi_add || '',
+            // Graduación final para el lab (monofocal de cerca/personalizado ya trae la adición sumada)
+            od:               recetaPaciente ? textoOjo(gradPar(par).od.esf, gradPar(par).od.cil, gradPar(par).od.eje) : odTexto,
+            oi:               recetaPaciente ? textoOjo(gradPar(par).oi.esf, gradPar(par).oi.cil, gradPar(par).oi.eje) : oiTexto,
+            add_graduacion:   gradPar(par).add,
             dp:               recetaPaciente ? `${recetaPaciente.dp_od}/${recetaPaciente.dp_oi}` : '',
             tipo_mica:        micasPar,
             tratamiento:      filtrosPar,
@@ -1410,7 +1429,7 @@ export default function NuevaVentaPage() {
 
 <div class="footer">
   ${SUCURSAL_CONFIG[sucursal]?.direccion ? `<div class="faddr">${SUCURSAL_CONFIG[sucursal].direccion}</div>` : ''}
-  <div>Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '664 834 3018'}</div>
+  <div>Tel. ${SUCURSAL_CONFIG[sucursal]?.telefono ?? '661 612 0316'} | WA ${SUCURSAL_CONFIG[sucursal]?.whatsapp ?? '661 117 8828'}</div>
   <div>${SUCURSAL_CONFIG[sucursal]?.horario ?? 'Lun-Sab 10:00-18:00'}</div>
   ${atendioPor ? `<div class="fatendio">Atendio: ${atendioPor}</div>` : ''}
   <div>${SUCURSAL_CONFIG[sucursal]?.web ?? 'gonmx.com'}</div>
@@ -1496,7 +1515,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
   ${esCotizacion ? '<div class="vig"><b>Cotización válida por 15 días.</b> Precios sujetos a cambio sin previo aviso. No es un comprobante de pago.</div>' : ''}
   <div class="foot">
     ${cfg?.direccion ? `<div>${cfg.direccion}</div>` : ''}
-    <div>Tel. ${cfg?.telefono ?? '661 612 0316'} · WhatsApp ${cfg?.whatsapp ?? '664 834 3018'} · ${cfg?.horario ?? 'Lun-Sáb 10:00-18:00'}</div>
+    <div>Tel. ${cfg?.telefono ?? '661 612 0316'} · WhatsApp ${cfg?.whatsapp ?? '661 117 8828'} · ${cfg?.horario ?? 'Lun-Sáb 10:00-18:00'}</div>
     <div>${cfg?.web ?? 'gonmx.com'}</div>
   </div>
 </div>
@@ -1529,6 +1548,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
         const filtrosPar = itemsPar.filter(i => isFiltroFn(i.nombre)).map(i => i.nombre).join(' + ')
         const folioLab = folioLabGuardado[idx] ?? '—'
         const parLabel = parsConMicasGuardado.length > 1 ? ` — Par ${par}` : ''
+        const g = gradPar(par)
         return `
 <div class="page">
 <div class="hdr">
@@ -1550,17 +1570,17 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
   <tbody>
     <tr>
       <td class="lbl">OD</td>
-      <td class="val">${recetaPaciente?.od_esfera || '—'}</td>
-      <td class="val">${recetaPaciente?.od_cilindro || '—'}</td>
-      <td class="val">${recetaPaciente?.od_eje ? recetaPaciente.od_eje + '°' : '—'}</td>
-      <td class="val">${recetaPaciente?.od_add || '—'}</td>
+      <td class="val">${g.od.esf || '—'}</td>
+      <td class="val">${g.od.cil || '—'}</td>
+      <td class="val">${g.od.eje ? g.od.eje + '°' : '—'}</td>
+      <td class="val">${g.add ? (recetaPaciente?.od_add || g.add) : '—'}</td>
     </tr>
     <tr>
       <td class="lbl">OI</td>
-      <td class="val">${recetaPaciente?.oi_esfera || '—'}</td>
-      <td class="val">${recetaPaciente?.oi_cilindro || '—'}</td>
-      <td class="val">${recetaPaciente?.oi_eje ? recetaPaciente.oi_eje + '°' : '—'}</td>
-      <td class="val">${recetaPaciente?.oi_add || '—'}</td>
+      <td class="val">${g.oi.esf || '—'}</td>
+      <td class="val">${g.oi.cil || '—'}</td>
+      <td class="val">${g.oi.eje ? g.oi.eje + '°' : '—'}</td>
+      <td class="val">${g.add ? (recetaPaciente?.oi_add || g.add) : '—'}</td>
     </tr>
     <tr><td class="lbl">D.P.</td><td class="val" colspan="4">${recetaPaciente?.dp_od ? recetaPaciente.dp_od + ' / ' + recetaPaciente.dp_oi + ' mm' : '—'}</td></tr>
   </tbody>
@@ -2494,6 +2514,39 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
             </div>
 
             <div className="px-6 py-5 space-y-5">
+              {/* Monofocal con adición: ¿para qué visión? (solo para calcular la graduación del lab) */}
+              {!esCotizacion && paresMonoConAdd.map(par => {
+                const u = usoMono[par] ?? { uso: null, valor: '' }
+                const setU = (x: Partial<typeof u>) => setUsoMono(prev => ({ ...prev, [par]: { ...u, ...x } }))
+                const g = u.uso && (u.uso !== 'personalizada' || valorPersonal(u.valor) > 0) ? gradPar(par) : null
+                return (
+                  <div key={par} className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                    <p className="text-xs font-bold text-amber-800">
+                      {paresMonoConAdd.length > 1 || numPares > 1 ? `Par ${par} · ` : ''}Monofocal: ¿para qué visión es?
+                    </p>
+                    <p className="text-[11px] text-amber-700/80 mt-0.5">La receta trae adición. Escoge para calcular la graduación que va al laboratorio.</p>
+                    <div className="grid grid-cols-3 gap-1.5 mt-2.5">
+                      {([['lejos', 'Visión lejana'], ['cerca', 'Visión cercana'], ['personalizada', 'Personalizada']] as const).map(([k, l]) => (
+                        <button key={k} type="button" onClick={() => setU({ uso: k })}
+                          className={`py-2 rounded-md text-xs font-semibold border transition-colors ${u.uso === k ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'}`}>{l}</button>
+                      ))}
+                    </div>
+                    {u.uso === 'personalizada' && (
+                      <div className="mt-2.5">
+                        <label className="block text-[11px] font-semibold text-zinc-600 mb-1">¿Cuánto se le suma a la esfera?</label>
+                        <input value={u.valor} onChange={e => setU({ valor: e.target.value.replace(/[^\d.,]/g, '') })} inputMode="decimal" placeholder="1.00"
+                          className="w-28 border border-zinc-200 rounded-md px-2.5 py-1.5 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+                        <span className="text-[11px] text-zinc-500 ml-2">ADD de la receta: {recetaPaciente?.od_add || recetaPaciente?.oi_add}</span>
+                      </div>
+                    )}
+                    {g && (
+                      <p className="text-[11px] font-mono text-zinc-600 mt-2.5 leading-relaxed">
+                        Va al lab · OD {textoOjo(g.od.esf, g.od.cil, g.od.eje) || '—'} · OI {textoOjo(g.oi.esf, g.oi.cil, g.oi.eje) || '—'}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
               {!esCotizacion && (
                 <>
                   {/* Modo de pago */}
@@ -2726,7 +2779,7 @@ ${ticketLogo ? `<img src="${ticketLogo}" class="logo" alt="" />` : ''}
                       handleFinalizar(esCotizacion)
                     }
                   }}
-                  disabled={guardando || (!esCotizacion && (modoPago === 'liquidar' ? !pagoValido : (recibido > 0 && !pagoValido)))}
+                  disabled={guardando || (!esCotizacion && !usoListo) || (!esCotizacion && (modoPago === 'liquidar' ? !pagoValido : (recibido > 0 && !pagoValido)))}
                   className="flex-1 py-3 bg-[#0D9488] text-white rounded-md text-sm font-bold hover:bg-teal-500 active:scale-[0.99] transition-all disabled:opacity-50"
                 >
                   {guardando ? 'Guardando...' : esCotizacion ? 'Generar cotización' : 'Finalizar venta'}

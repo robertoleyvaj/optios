@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { hoyLocal } from '@/lib/fecha'
-import { textoOjo } from '@/lib/graduacion'
+import { textoOjo, graduacionLab, esParMonofocal, tieneAdicion, type UsoMonofocal } from '@/lib/graduacion'
 import { getSucursalActual } from '@/lib/session'
 import React from 'react'
 import {
@@ -928,6 +928,46 @@ function ExpedientesContent() {
     }
   }
 
+  // Monofocal + receta con adición: ¿para qué visión? (solo para calcular la graduación del lab)
+  const [garantiaUso, setGarantiaUso] = useState<{ uso: UsoMonofocal | null; valor: string }>({ uso: null, valor: '' })
+  const recetaReciente = () => seleccionado?.recetas.length
+    ? [...seleccionado.recetas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] : null
+  const garantiaPideUso = () => esParMonofocal([garantiaProductos.tipoMica]) && tieneAdicion(recetaReciente())
+  const valorUso = (v: string) => parseFloat(v.replace(',', '.'))
+  const garantiaUsoListo = () => !garantiaPideUso() || (!!garantiaUso.uso && (garantiaUso.uso !== 'personalizada' || (valorUso(garantiaUso.valor) > 0 && valorUso(garantiaUso.valor) <= 4)))
+  const bloqueUsoGarantia = () => {
+    if (!garantiaPideUso()) return null
+    const rv = recetaReciente()
+    const u = garantiaUso
+    const g = u.uso && (u.uso !== 'personalizada' || valorUso(u.valor) > 0)
+      ? graduacionLab(rv, u.uso, u.uso === 'personalizada' ? valorUso(u.valor) : null) : null
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+        <p className="text-xs font-bold text-amber-800">Monofocal: ¿para qué visión es?</p>
+        <p className="text-[11px] text-amber-700/80 mt-0.5">La receta trae adición. Escoge para calcular la graduación que va al laboratorio.</p>
+        <div className="grid grid-cols-3 gap-1.5 mt-2.5">
+          {([['lejos', 'Visión lejana'], ['cerca', 'Visión cercana'], ['personalizada', 'Personalizada']] as const).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setGarantiaUso(p => ({ ...p, uso: k }))}
+              className={`py-2 rounded-md text-xs font-semibold border transition-colors ${u.uso === k ? 'bg-[#0B0E14] text-white border-[#0B0E14]' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'}`}>{l}</button>
+          ))}
+        </div>
+        {u.uso === 'personalizada' && (
+          <div className="mt-2.5">
+            <label className="block text-[11px] font-semibold text-zinc-600 mb-1">¿Cuánto se le suma a la esfera?</label>
+            <input value={u.valor} onChange={e => setGarantiaUso(p => ({ ...p, valor: e.target.value.replace(/[^\d.,]/g, '') }))} inputMode="decimal" placeholder="1.00"
+              className="w-28 border border-zinc-200 rounded-md px-2.5 py-1.5 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-[#0D9488]/30" />
+            <span className="text-[11px] text-zinc-500 ml-2">ADD de la receta: {rv?.od_add || rv?.oi_add}</span>
+          </div>
+        )}
+        {g && (
+          <p className="text-[11px] font-mono text-zinc-600 mt-2.5 leading-relaxed">
+            Va al lab · OD {textoOjo(g.od.esf, g.od.cil, g.od.eje) || '—'} · OI {textoOjo(g.oi.esf, g.oi.cil, g.oi.eje) || '—'}
+          </p>
+        )}
+      </div>
+    )
+  }
+
   const iniciarGarantia = (venta: HistorialVenta) => {
     // Clasificar productos de la venta
     const esMica = (n: string) => ['mica', 'monofocal', 'progres', 'bifocal', 'transitions', 'rebisel'].some(k => n.toLowerCase().includes(k))
@@ -938,6 +978,7 @@ function ExpedientesContent() {
     const armazon = nombres.find(n => !esMica(n) && !esFiltro(n)) ?? ''
     setGarantiaVenta(venta)
     setGarantiaTipo(null)
+    setGarantiaUso({ uso: null, valor: '' })
     setGarantiaMotivo('')
     setGarantiaAltura('')
     setGarantiaNotas('')
@@ -955,6 +996,7 @@ function ExpedientesContent() {
   const crearOrdenGarantia = async () => {
     if (!seleccionado || !garantiaVenta || !garantiaTipo) return
     if (!garantiaMotivo.trim()) { alert('Indica el motivo de la garantía.'); return }
+    if (!garantiaUsoListo()) { alert('Escoge para qué visión es el monofocal (lejana, cercana o personalizada).'); return }
     setGarantiaGuardando(true)
     try {
       const supabase = createClient()
@@ -970,9 +1012,12 @@ function ExpedientesContent() {
         ? [...seleccionado.recetas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
         : null
 
-      const od = rv ? textoOjo(rv.od_esfera, rv.od_cilindro, rv.od_eje) : ''
-      const oi = rv ? textoOjo(rv.oi_esfera, rv.oi_cilindro, rv.oi_eje) : ''
-      const add = rv?.od_add || rv?.oi_add || ''
+      // Graduación final para el lab (monofocal de cerca/personalizado ya trae la adición sumada)
+      const g = graduacionLab(rv, garantiaPideUso() ? garantiaUso.uso : null,
+        garantiaUso.uso === 'personalizada' ? valorUso(garantiaUso.valor) : null)
+      const od = rv ? textoOjo(g.od.esf, g.od.cil, g.od.eje) : ''
+      const oi = rv ? textoOjo(g.oi.esf, g.oi.cil, g.oi.eje) : ''
+      const add = g.add
 
       let legacyU: { nombre?: string } = {}
       try { legacyU = JSON.parse(localStorage.getItem('optios_demo_user') || '{}') } catch { /* noop */ }
@@ -2017,6 +2062,7 @@ function ExpedientesContent() {
                       placeholder="Ej: 18mm"
                       className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
                   </div>
+                  {bloqueUsoGarantia()}
                   <div>
                     <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
                       Motivo de la garantía <span className="text-red-400">*</span>
@@ -2096,6 +2142,7 @@ function ExpedientesContent() {
                           placeholder="Ej: 18mm"
                           className="w-full border border-zinc-200 rounded px-3 py-2.5 text-sm bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-300/30" />
                       </div>
+                      {bloqueUsoGarantia()}
                       <div>
                         <label className="block text-xs font-semibold text-zinc-500 mb-1.5">
                           Motivo de la garantía <span className="text-red-400">*</span>

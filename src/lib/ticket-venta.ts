@@ -107,7 +107,7 @@ export function ticketVentaHtml(d: DatosTicketVenta): string {
 
 <div class="pie">
   ${cfg?.direccion ? `<div>${cfg.direccion}</div>` : ''}
-  <div>Tel ${cfg?.telefono ?? '661 612 0316'} · WA ${cfg?.whatsapp ?? '664 834 3018'}</div>
+  <div>Tel ${cfg?.telefono ?? '661 612 0316'} · WA ${cfg?.whatsapp ?? '661 117 8828'}</div>
   <div class="gracias">¡Gracias por su compra!</div>
 </div>
 
