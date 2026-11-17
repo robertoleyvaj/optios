@@ -837,9 +837,10 @@ export default function VentasPage() {
     // ── Cotizaciones: no son fiscales, se borran de verdad ──────────────
     if (esCotizacion) {
       if (!confirm(`¿Borrar la cotización ${detalle.id} de ${detalle.cliente}?`)) return
-      await supabase.from('ventas_items').delete().eq('venta_id', detalle.uuid)
-      const rc = await supabase.from('ventas').delete().eq('id', detalle.uuid)
-      if (rc.error) { alert(`Error al borrar la cotización: ${rc.error.message}`); return }
+      // Se borra desde el servidor y se confirma que sí se fue (antes la base podía negarse sin avisar)
+      const jc = await fetch('/api/ventas/borrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: detalle.uuid, cotizacion: true }) })
+        .then(r => r.json()).catch(() => ({ ok: false, error: 'Sin conexión' }))
+      if (!jc.ok) { alert(`No se pudo borrar la cotización: ${jc.error}`); return }
       setVentas(prev => prev.filter(v => v.id !== detalle.id))
       setDetalle(null)
       return
@@ -945,30 +946,12 @@ export default function VentasPage() {
       alert(`El folio no coincide (escribiste "${confirmacion.trim()}", se esperaba "${detalle.id}"). No se borró nada.`); return
     }
 
-    // 1. Órdenes de laboratorio ligadas (y su historial) --------------------
-    try {
-      const { data: ords } = await supabase.from('ordenes_lab').select('id').eq('venta_id', detalle.uuid)
-      const ordIds = (ords ?? []).map((o: { id: string }) => o.id).filter(Boolean)
-      if (ordIds.length > 0) {
-        await supabase.from('ordenes_lab_historial').delete().in('orden_id', ordIds)
-      }
-      await supabase.from('ordenes_lab').delete().eq('venta_id', detalle.uuid)
-    } catch { /* si no existe historial, seguir */ }
-
-    // 2. Comisiones de terminal generadas por esta venta --------------------
-    await supabase.from('gastos').delete()
-      .eq('categoria', 'comision_terminal').ilike('concepto', `%${detalle.id}%`)
-
-    // 3. Pagos / abonos de la venta -----------------------------------------
-    const rp = await supabase.from('pagos_venta').delete().eq('venta_id', detalle.uuid)
-    if (rp.error) { alert(`Error al borrar los pagos: ${rp.error.message}`); return }
-
-    // 4. Líneas de la venta --------------------------------------------------
-    await supabase.from('ventas_items').delete().eq('venta_id', detalle.uuid)
-
-    // 5. La venta -----------------------------------------------------------
-    const rv = await supabase.from('ventas').delete().eq('id', detalle.uuid)
-    if (rv.error) { alert(`Error al borrar la venta: ${rv.error.message}`); return }
+    // 1-5. Órdenes de lab, comisiones, movimientos de caja, pagos, productos y la venta.
+    //      Se hace en el servidor: desde el navegador la base borraba los productos pero
+    //      NO la venta ni avisaba (quedaba la nota vacía con su total). Ahora se confirma.
+    const jb = await fetch('/api/ventas/borrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: detalle.uuid }) })
+      .then(r => r.json()).catch(() => ({ ok: false, error: 'Sin conexión' }))
+    if (!jb.ok) { alert(`No se pudo borrar la venta: ${jb.error}`); return }
 
     // 6. Devolver stock (armazones + consumibles), como si no se hubiera vendido
     const armzItems = (detalle.items || [])

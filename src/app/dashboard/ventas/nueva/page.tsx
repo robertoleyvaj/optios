@@ -1220,8 +1220,8 @@ export default function NuevaVentaPage() {
 
       // Si esta venta viene de convertir una cotización, borrar la cotización de origen
       if (!cotizacion && cotizacionOrigen) {
-        await supabase.from('ventas_items').delete().eq('venta_id', cotizacionOrigen)
-        await supabase.from('ventas').delete().eq('id', cotizacionOrigen)
+        // Desde el servidor: desde el navegador la base no dejaba borrar la cotización y no avisaba
+        await fetch('/api/ventas/borrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: cotizacionOrigen, cotizacion: true }) }).catch(() => {})
       }
 
       // ── 5b. Marcar cupón como canjeado si se usó uno ──
