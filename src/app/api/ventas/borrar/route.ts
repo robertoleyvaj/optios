@@ -34,6 +34,13 @@ export async function POST(req: NextRequest) {
       borrados[tabla] = r.data?.length ?? 0
     }
 
+    // Cupones: el que se canjeó en esta venta vuelve a quedar disponible para el cliente,
+    // y el que esta venta generó se elimina (si no, la base no deja borrar la venta).
+    chk('cupones_liberados', await sb.from('cupones_ticket')
+      .update({ estado: 'activo', canjeado_en: null, venta_canje_id: null, folio_canje: null })
+      .eq('venta_canje_id', id).select('codigo'))
+    chk('cupones_ticket', await sb.from('cupones_ticket').delete().eq('venta_id', id).select('codigo'))
+
     // Órdenes de laboratorio y su historial
     const { data: ords } = await sb.from('ordenes_lab').select('id').eq('venta_id', id)
     const ordIds = (ords ?? []).map((o: { id: string }) => o.id)
